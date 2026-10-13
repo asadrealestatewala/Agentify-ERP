@@ -1,0 +1,133 @@
+/* =====================================================================
+   ERP-Factory design tokens — extracted from Agentify ERP (reference app).
+   Source of truth for every new ERP. Values are the EFFECTIVE result of the
+   reference cascade:  styles.css  ->  styles2.css (dark)  ->  styles3.css (calm layer).
+   Do not hand-edit values to "improve" them; change the reference first, re-audit,
+   then run `node erp-factory/tools/check-token-drift.mjs`.
+
+   How to use in a new ERP:
+     1. Copy this file into client/src/tokens.css and import it BEFORE component CSS.
+     2. Copy theme.js (see design/03-accent-and-theming.md) so the accent, theme and
+        density are applied to <html> before React renders.
+     3. Write components against variables only — never hard-code a hex in a component.
+   ===================================================================== */
+
+/* ---------- Light theme (default) ---------- */
+:root {
+  /* Accent (runtime-overridden by theme.js; teal is the factory default) */
+  --primary: #0e7c6b; --primary-d: #0b5f52; --primary-l: #e2f4f0;
+
+  /* Surfaces */
+  --bg: #f4f9f7;            /* page background (also a 360px mint gradient at top, see 02-color-system) */
+  --card: #ffffff; --surface: #ffffff;
+  --surface-2: #f6faf9;     /* table headers, footers, inset boxes */
+  --hover: #f1f8f6;         /* row / item hover */
+  --input-bg: #ffffff;
+  --grey-bg: #edf3f1;       /* neutral fills: tags, icon buttons, skeleton base */
+
+  /* Lines */
+  --border: #dbe6e3; --border-2: #bccbc6;   /* border-2 = input & button borders */
+
+  /* Text */
+  --text: #0f2420; --muted: #435e57; --faint: #5d7a73;
+
+  /* Status (text colour / tinted background pair) */
+  --green: #11692f; --green-bg: #e3f6ec;
+  --amber: #8c4806; --amber-bg: #fdf1dc;
+  --red:   #a51919; --red-bg:   #fde8e7;
+  --blue-bg: #e4f0fe;       /* info background; info text is #1e40af (alert) / #1a47b8 (pill) */
+
+  /* Shape & elevation */
+  --radius: 16px;
+  --shadow:    0 1px 2px rgba(18,64,54,.04), 0 6px 20px rgba(18,64,54,.05);
+  --shadow-lg: 0 18px 48px rgba(18,64,54,.18);
+
+  /* Light sidebar (the "calm" sidebar) */
+  --side-bg: #ffffff; --side-fg: #33504a; --side-hover: #eef7f4;
+  --side-active-bg: var(--primary-l); --side-active-fg: var(--primary-d);
+  --side-border: #e1ebe8; --side-muted: #5d7a73;
+
+  /* Legacy navy (still used by portal top bar, assistant header, print rule, toasts) */
+  --navy: #0f1b33; --navy-2: #172544; --navy-text: #b6c2d9; --navy-active: #1f3159;
+
+  /* Pastel icon tiles: background / foreground pairs */
+  --tile-violet: #ece7fd; --tile-violet-fg: #6d4bd8;
+  --tile-blue:   #e1effd; --tile-blue-fg:   #1d6fd6;
+  --tile-orange: #feeedc; --tile-orange-fg: #d9730a;
+  --tile-rose:   #fde4ee; --tile-rose-fg:   #d6336c;
+  --tile-green:  #dff5e8; --tile-green-fg:  #15803d;
+  --tile-teal:   #dcf3ef; --tile-teal-fg:   #0e7c6b;
+  --tile-red:    #fde6e4; --tile-red-fg:    #cc2f2f;
+  --tile-slate:  #e9eef0; --tile-slate-fg:  #51656f;
+
+  /* Typography */
+  --font-ui: 'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-ui);
+  font-size: 14px;          /* comfortable density; compact = 13px */
+}
+
+/* ---------- Dark theme ---------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0a1513; --card: #101f1c; --surface: #101f1c; --surface-2: #142724; --hover: #162a27; --input-bg: #0c1917;
+  --grey-bg: #182c28;
+  --border: #1f3631; --border-2: #2b4741;
+  --text: #eef7f5; --muted: #b9d0ca; --faint: #93b1a9;
+  --green: #4ade80; --green-bg: #12301f;
+  --amber: #fbbf24; --amber-bg: #33270e;
+  --red:   #f87171; --red-bg:   #3a1618;
+  --blue-bg: #14274d;
+  --shadow: 0 1px 2px rgba(0,0,0,.4); --shadow-lg: 0 14px 36px rgba(0,0,0,.55);
+  --side-bg: #0c1917; --side-fg: #c3d8d2; --side-hover: #152825;
+  --side-active-bg: color-mix(in srgb, var(--primary) 24%, #0c1917); --side-active-fg: #e4f1ee;
+  --side-border: #1f3631; --side-muted: #93b1a9;
+  --tile-violet: #261f45; --tile-violet-fg: #b9a6ff;
+  --tile-blue:   #15294a; --tile-blue-fg:   #8dbcff;
+  --tile-orange: #3a2814; --tile-orange-fg: #ffb55e;
+  --tile-rose:   #3a1a28; --tile-rose-fg:   #ff9fc2;
+  --tile-green:  #123022; --tile-green-fg:  #6fe0a0;
+  --tile-teal:   #11302b; --tile-teal-fg:   #62d6c3;
+  --tile-red:    #3a1a1a; --tile-red-fg:    #ff9a9a;
+  --tile-slate:  #1b2b2e; --tile-slate-fg:  #9fb8bd;
+}
+
+/* ---------- Density (set on <html data-density>) ---------- */
+:root[data-density="compact"]  { font-size: 13px; }
+:root[data-density="spacious"] { /* same font-size; roomier table cells (13px 14px) and card padding (20px) */ }
+
+/* ---------- Accent palette (applied from JS; listed here for reference only) ----------
+   key     primary    primary-d   primary-l(light)
+   blue    #2563eb    #1d4ed8     #eff4ff
+   teal    #0e7c6b    #0b5f52     #e2f4f0   <- factory default
+   violet  #7c3aed    #6d28d9     #f3edff
+   rose    #e11d48    #be123c     #ffeef2
+   amber   #d97706    #b45309     #fff5e1   (white text = 3.19:1 — fails AA; use dark text or avoid as default)
+   green   #16a34a    #15803d     #e8f6ee   (white text = 3.30:1 — fails AA; same caveat)
+   Dark mode: --primary-l = color-mix(in srgb, <primary> 22%, #101826)
+   ------------------------------------------------------------------------------ */
+
+/* ---------- Fixed (non-token) semantic hues used across the app ---------- */
+/* Positive actions / success buttons / "done" dots: #16a34a (hover #15803d)
+   Unread / alert badge:                              #f43f5e
+   Toast:                                             #111827 (dark: #25324f)  err #b91c1c  ok #15803d
+   Offline bar:                                       #92400e (syncing #1d4ed8)
+   Demo ribbon:                                       #fff7e0 bg / #8a5a00 text
+   Attendance: present #16a34a, late #d97706, half-day #0ea5e9, absent #dc2626, leave #6366f1
+   Plot map:   available #dcf5e4/#16a34a, reserved #fdeccd/#d97706, sold #e6dcfb/#7c3aed, defaulted #fcdcdc/#dc2626
+   Chart palette (Charts.jsx): #14b8a6 #fb7185 #f59e0b #8b5cf6 #38bdf8 #34d399 #94a3b8 #f472b6 */
+
+/* ---------- Radius / motion scale actually used ----------
+   FACTORY-ADDED ALIASES: the reference hard-codes these numbers inline; it has no --r-* / --dur-* /
+   --font-ui variables. They name the values the reference really uses so new ERPs stop re-typing
+   them. The drift checker ignores names that do not exist in the reference. */
+:root {
+  --r-xs: 5px;   /* menu items, tl-change */
+  --r-sm: 9px;   /* .btn.sm */
+  --r-md: 11px;  /* .btn, .input, .select, .alert(12) */
+  --r-lg: 16px;  /* .card (= --radius) */
+  --r-xl: 20px;  /* .modal, .drawer(left corners) */
+  --r-2xl: 22px; /* .hero */
+  --r-pill: 999px; /* chips, tags, search, quick actions, notification filters */
+  --ease-out: ease-out;
+  --dur-fast: .12s; --dur: .15s; --dur-slow: .25s;
+}
