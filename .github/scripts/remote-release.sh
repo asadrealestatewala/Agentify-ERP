@@ -28,17 +28,20 @@ start_service() {
   # The pm2 daemon keeps whatever environment it was first started with, and the app lets real environment
   # variables win over server/.env (see server/src/env.js). Exporting the file here means a changed
   # ERP_BASE_DOMAIN reaches the new process instead of being shadowed by a stale one.
-  set -a
-  # shellcheck disable=SC1091
-  . "$APP_DIR/server/.env" 2>/dev/null || true
-  set +a
-  # The pm2 daemon also carries an environment of its own and hands it to every app it spawns, so a plain
-  # restart keeps re-injecting the old ERP_BASE_DOMAIN. Stop the daemon so the next start is born from the
-  # values exported above.
+  # process.loadEnvFile() lets a real environment variable win over server/.env, and the pm2 daemon keeps
+  # handing its own (possibly stale) environment to every app it spawns. Take the value this deployment
+  # decided on, put it in this shell's environment, and restart the daemon from it.
+  if [ -z "${ERP_BASE_DOMAIN:-}" ] && [ -f "$APP_DIR/server/.env" ]; then
+    ERP_BASE_DOMAIN="$(sed -n 's/^ERP_BASE_DOMAIN=//p' "$APP_DIR/server/.env" | head -n1 | tr -d '\r')"
+  fi
+  if [ -n "${ERP_BASE_DOMAIN:-}" ]; then export ERP_BASE_DOMAIN; fi
+
+  # stopping the daemon matters: otherwise the next start is born from the environment it was created with
   "$PM2" kill >/dev/null 2>&1 || true
   "$PM2" start src/index.js --name "$SERVICE" \
     --interpreter "$NODE" --node-args "--disable-warning=ExperimentalWarning"
   "$PM2" save
+  if [ -n "${ERP_BASE_DOMAIN:-}" ]; then echo "release env: ERP_BASE_DOMAIN=${ERP_BASE_DOMAIN}"; fi
 }
 
 healthy() {
