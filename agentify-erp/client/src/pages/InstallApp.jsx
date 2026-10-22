@@ -3,7 +3,8 @@
 // only when real published listings are configured (see marketing/home/config.js).
 import { useEffect, useState } from 'react';
 import { Card, PageHead } from '../components/ui.jsx';
-import { STORE_LINKS } from '../marketing/home/config.js';
+// Native store listings, once published, set at build time (only https links on play.google.com / apps.apple.com are shown).
+const STORE_LINKS = { android: import.meta.env.VITE_ANDROID_STORE_URL || '', ios: import.meta.env.VITE_IOS_STORE_URL || '' };
 
 const validStore = (url, host) => { try { const u = new URL(url); return u.protocol === 'https:' && u.hostname === host ? u.toString() : null; } catch { return null; } };
 const standalone = () => window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
