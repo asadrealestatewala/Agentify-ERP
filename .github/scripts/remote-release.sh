@@ -24,6 +24,13 @@ fi
 start_service() {
   cd "$APP_DIR/server"
   "$NPM" install --omit=dev --no-audit --no-fund
+  # The pm2 daemon keeps whatever environment it was first started with, and the app lets real environment
+  # variables win over server/.env (see server/src/env.js). Exporting the file here means a changed
+  # ERP_BASE_DOMAIN reaches the new process instead of being shadowed by a stale one.
+  set -a
+  # shellcheck disable=SC1091
+  . "$APP_DIR/server/.env" 2>/dev/null || true
+  set +a
   "$PM2" delete "$SERVICE" >/dev/null 2>&1 || true
   "$PM2" start src/index.js --name "$SERVICE" \
     --interpreter "$NODE" --node-args "--disable-warning=ExperimentalWarning"
