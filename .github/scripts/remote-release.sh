@@ -56,6 +56,18 @@ start_service() {
   "$PM2" start "$APP_DIR/server/src/index.js" --name "$SERVICE" --interpreter "$NODE" --update-env
   "$PM2" save
 
+  # The God daemon inherits this ssh session's cgroup, and sshd tears that cgroup down when the session
+  # closes - so anything we start here would be killed the moment the deploy finishes. Install pm2's unit
+  # and restart it so systemd owns the daemon, then re-adopt what we just saved.
+  "$PM2" startup systemd -u "$(id -un)" --hp "$HOME" >/dev/null 2>&1 || true
+  systemctl daemon-reload >/dev/null 2>&1 || true
+  if systemctl restart "pm2-$(id -un)" >/dev/null 2>&1; then
+    echo "diag: pm2 now runs under systemd, so it outlives this ssh session"
+  else
+    echo "diag: pm2-$(id -un) could not be restarted; the daemon may not survive this session"
+  fi
+  sleep 5
+
   echo "diag: node processes:"
   ps -eo pid,etimes,cmd 2>/dev/null | grep -E '[n]ode|[p]m2' | sed 's/^/    /' || true
   echo "diag: listeners on 4000:"
@@ -66,7 +78,8 @@ start_service() {
 }
 
 healthy() {
-  for _ in 1 2 3 4 5 6; do
+  # bootstrapping every workspace (schema upgrades, site defaults, demo rows) takes about 40s on this box
+  for _ in $(seq 1 36); do
     sleep 5
     if curl -fsS http://127.0.0.1:4000/health >/dev/null; then return 0; fi
   done
