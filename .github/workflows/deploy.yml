@@ -192,6 +192,10 @@ jobs:
 
           BASE_DOMAIN="$(trim "${ENV_ERP_BASE_DOMAIN:-}")"
           if [ -z "$BASE_DOMAIN" ]; then BASE_DOMAIN="$(trim "${VAR_ERP_BASE_DOMAIN:-}")"; fi
+          # Without a secret the running install would keep its previous domain for ever: the app derives every
+          # workspace address from ERP_BASE_DOMAIN, so fall back to the domain this deploy actually serves.
+          if [ -z "$BASE_DOMAIN" ]; then BASE_DOMAIN="$DOMAIN"; fi
+          echo "==> base domain: $BASE_DOMAIN"
 
           JWT_SECRET="${ENV_JWT_SECRET:-$(openssl rand -hex 32)}"
           ERP_SECRETS_KEY="${ENV_ERP_SECRETS_KEY:-$(openssl rand -hex 32)}"

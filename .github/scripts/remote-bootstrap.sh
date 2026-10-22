@@ -53,7 +53,16 @@ if [ ! -f "$APP_DIR/server/.env" ]; then
   chmod 600 "$APP_DIR/server/.env"
   echo "created $APP_DIR/server/.env"
 else
-  echo "keeping existing $APP_DIR/server/.env"
+  # An existing file is kept, except that ERP_BASE_DOMAIN must follow this deployment: the app builds every
+  # workspace address from it, so a domain change that never reaches server/.env silently keeps the old one.
+  if [ -n "${ERP_BASE_DOMAIN:-}" ] && grep -q '^ERP_BASE_DOMAIN=' "$APP_DIR/server/.env"; then
+    if ! grep -qx "ERP_BASE_DOMAIN=${ERP_BASE_DOMAIN}" "$APP_DIR/server/.env"; then
+      sed -i "s|^ERP_BASE_DOMAIN=.*|ERP_BASE_DOMAIN=${ERP_BASE_DOMAIN}|" "$APP_DIR/server/.env"
+      echo "server/.env ERP_BASE_DOMAIN=${ERP_BASE_DOMAIN} (updated)"
+    fi
+  else
+    echo "keeping existing server/.env"
+  fi
 fi
 
 if ! have nginx; then
