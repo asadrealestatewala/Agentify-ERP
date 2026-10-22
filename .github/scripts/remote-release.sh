@@ -94,6 +94,27 @@ if ! healthy; then
   "$PM2" describe "$SERVICE" 2>/dev/null | grep -Ei 'cwd|status|restart|interpreter|script' | sed 's/^/  pm2| /' || true
   "$PM2" logs "$SERVICE" --lines 40 --nostream 2>&1 | sed 's/^/  log| /' || true
 
+  # where is the pm2-managed process actually parked? state/wchan/syscall say it without guessing
+  pid="$("$PM2" pid "$SERVICE" 2>/dev/null | head -n1 | tr -d '[:space:]')"
+  if [ -n "$pid" ] && [ -r "/proc/$pid/status" ]; then
+    echo "== pid $pid is parked =="
+    grep -E '^(State|Threads|VmRSS)' "/proc/$pid/status" | sed 's/^/  st| /' || true
+    echo "  wchan:   $(cat "/proc/$pid/wchan" 2>/dev/null)"
+    echo "  syscall: $(cat "/proc/$pid/syscall" 2>/dev/null)"
+    echo "== its environment, compared with this shell =="
+    tr '\0' '\n' < "/proc/$pid/environ" 2>/dev/null | sort > /tmp/pm2app.env
+    env | sort > /tmp/shell.env
+    diff /tmp/shell.env /tmp/pm2app.env | sed 's/^/  env| /' || true
+    echo "== its threads =="
+    for t in $(ls "/proc/$pid/task" 2>/dev/null); do
+      echo "  thread $t: $(cat "/proc/$pid/task/$t/wchan" 2>/dev/null)"
+    done
+    echo "== files it holds =="
+    ls -l "/proc/$pid/fd" 2>/dev/null | awk '{print "  " $NF}' | grep -E 'data|\.db|\.env|socket|pipe' | sed 's/^/  /' || true
+  else
+    echo "== could not read pid $pid =="
+  fi
+
   # run the same entry point in this session so its exact stop point lands in the log
   echo "== foreground boot, 45s =="
   ( cd "$APP_DIR/server" && timeout 45 "$NODE" src/index.js 2>&1 | sed 's/^/  boot| /' ) || true
