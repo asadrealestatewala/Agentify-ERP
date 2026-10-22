@@ -3,6 +3,7 @@ set -euo pipefail
 
 APP_DIR="${1:-/opt/agentify-erp}"
 SERVICE="${2:-agentify-erp}"
+DOMAIN="${3:-}"
 NODE_DIR=/opt/node22
 NODE="$NODE_DIR/bin/node"
 NPM="$NODE_DIR/bin/npm"
@@ -31,7 +32,10 @@ start_service() {
   # shellcheck disable=SC1091
   . "$APP_DIR/server/.env" 2>/dev/null || true
   set +a
-  "$PM2" delete "$SERVICE" >/dev/null 2>&1 || true
+  # The pm2 daemon also carries an environment of its own and hands it to every app it spawns, so a plain
+  # restart keeps re-injecting the old ERP_BASE_DOMAIN. Stop the daemon so the next start is born from the
+  # values exported above.
+  "$PM2" kill >/dev/null 2>&1 || true
   "$PM2" start src/index.js --name "$SERVICE" \
     --interpreter "$NODE" --node-args "--disable-warning=ExperimentalWarning"
   "$PM2" save
@@ -65,4 +69,18 @@ fi
 
 curl -fsS http://127.0.0.1:4000/health
 echo
+
+# A stale ERP_BASE_DOMAIN anywhere above would let the app start healthy while building every workspace
+# address on the wrong host, so check what the running process actually reports for this deployment's domain.
+if [ -n "$DOMAIN" ] && command -v curl >/dev/null 2>&1; then
+  got="$(curl -fsS -m 10 -H "Host: $DOMAIN" http://127.0.0.1:4000/api/platform/site 2>/dev/null \
+    | tr -d '\n' | sed -n 's/.*"base_domain"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+  if [ "$got" != "$DOMAIN" ]; then
+    echo "WARNING: the running app reports base_domain='${got:-none}' but this deployment serves '$DOMAIN'"
+    echo "WARNING: workspace addresses would be built on the wrong host - check ERP_BASE_DOMAIN in server/.env"
+  else
+    echo "release domain ok: $got"
+  fi
+fi
+
 echo "release ok: $SERVICE healthy on port 4000"

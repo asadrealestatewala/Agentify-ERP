@@ -314,7 +314,7 @@ jobs:
             agentify-erp/client/dist/ "$REMOTE:$APP_DIR/client/dist/"
 
           echo "==> Installing and restarting"
-          remote "bash -s" -- "$APP_DIR" "$SERVICE" < .github/scripts/remote-release.sh
+          remote "bash -s" -- "$APP_DIR" "$SERVICE" "$DOMAIN" < .github/scripts/remote-release.sh
 
           echo "==> Checking workspace addresses and certificates"
           remote "ERP_BASE_DOMAIN=$(q "$BASE_DOMAIN") TLS_PROXY=$(q "$(trim "${ENV_TLS_PROXY:-}")") bash -s" -- "$DOMAIN" < .github/scripts/remote-tls.sh || echo "::warning::the certificate check did not finish; the site itself is deployed"
