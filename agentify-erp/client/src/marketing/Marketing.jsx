@@ -4,6 +4,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { api } from '../api.js';
+import { CountryCtx, useCountry } from './countryCtx.js';
 import { Loading } from '../components/ui.jsx';
 import Flag from '../components/Flag.jsx';
 import { BRANDS } from './brandIcons.js';
@@ -13,6 +14,7 @@ import { MortgageCalculator, PurchaseCostCalculator, UnitConverter } from '../si
 import '../site/site.css';
 import '../pages/landing.css';
 import './marketing.css';
+import Glow from './glow/Glow.jsx';
 
 const PRODUCT_PATH = { real_estate: '/real-estate', construction: '/construction' };
 const METHOD = { raast: 'Raast', easypaisa: 'Easypaisa', jazzcash: 'JazzCash', sadapay: 'SadaPay', nayapay: 'NayaPay', bank: 'Bank transfer' };
@@ -44,8 +46,7 @@ function useTitle(title, description) {
 // One site for every country. The visitor's country decides the currency, the wording and the calculators; it is saved in
 // localStorage and a cookie and kept in the URL (?country=uk) so a link keeps it. A first visit only suggests a country
 // from the browser's language and time zone, never from the IP address.
-const CountryCtx = createContext(null);
-export const useCountry = () => useContext(CountryCtx);
+export { useCountry };
 const PATH_COUNTRY = { us: 'US', uk: 'UK', ae: 'AE', pk: 'PK', ca: 'CA' };
 function guessCountry(countries) {
   const langs = (navigator.languages || [navigator.language || '']).map((l) => String(l).toLowerCase());
@@ -837,6 +838,15 @@ export default function MarketingSite() {
   useEffect(() => { window.scrollTo(0, 0); track('page_view'); }, [loc.pathname]);
   if (err) return <div className="lp"><div className="lwrap" style={{ padding: 40 }}><div className="lerr">{err}</div><button className="lbtn" onClick={() => nav(0)}>Try again</button></div></div>;
   if (!info) return <Loading />;
+  // The glow-dark interactive home page ('/', also kept at /preview). It brings its own header and footer.
+  if (loc.pathname === '/' || loc.pathname === '/preview') {
+    return (
+      <CountryProvider info={info}>
+        <Glow info={info} />
+        <div className="lp"><ConsentBanner show={banner && !browserOptOut()} onClose={() => setBanner(false)} /></div>
+      </CountryProvider>
+    );
+  }
   return (
     <CountryProvider info={info}>
     <div className="lp">

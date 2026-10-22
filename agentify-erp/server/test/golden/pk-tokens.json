@@ -2,6 +2,7 @@
   "client/src/components/Assistant.jsx": 1,
   "client/src/components/ui.jsx": 1,
   "client/src/components/VoucherPreview.jsx": 1,
+  "client/src/marketing/glow/sample.js": 1,
   "client/src/marketing/Marketing.jsx": 5,
   "client/src/pages/AuthPages.jsx": 2,
   "client/src/pages/Billing.jsx": 14,
