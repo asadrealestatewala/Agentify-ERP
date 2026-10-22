@@ -36,21 +36,13 @@ start_service() {
   fi
   if [ -n "${ERP_BASE_DOMAIN:-}" ]; then export ERP_BASE_DOMAIN; fi
 
-  # Apps inherit the environment of the pm2 *daemon*, not of whoever starts them, and systemd keeps bringing
-  # that daemon back with whatever it was born with - so server/.env (which loses to a real variable) never
-  # wins. Name the value in an ecosystem file instead: pm2 writes it straight into the child's environment,
-  # which then takes priority over anything inherited.
-  printf '%s\n' \
-    "module.exports = { apps: [{ name: '$SERVICE', script: 'src/index.js', interpreter: '$NODE', node_args: '--disable-warning=ExperimentalWarning', env: { ERP_BASE_DOMAIN: '${ERP_BASE_DOMAIN:-}' } }] };" \
-    > "$APP_DIR/server/ecosystem.config.cjs"
-
   "$PM2" kill >/dev/null 2>&1 || true
   sleep 3
   "$PM2" delete "$SERVICE" >/dev/null 2>&1 || true
 
   # whatever is still holding the port belongs to an older start (another manager, or a process systemd
   # brought back); if it stays the new app cannot bind, and every check keeps talking to the stale one
-  stale="$(ss -ltnp 'sport = :4000' 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u | tr '\n' ' ')"
+  stale="$(ss -ltnp 'sport = :4000' 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u | tr '\n' ' ' || true)"
   if [ -n "$stale" ]; then
     echo "diag: port 4000 still held by pid(s): $stale - stopping them"
     for p in $stale; do kill "$p" 2>/dev/null || true; done
@@ -59,7 +51,9 @@ start_service() {
     echo "diag: port 4000 was free"
   fi
 
-  "$PM2" start "$APP_DIR/server/ecosystem.config.cjs"
+  # no ecosystem file here: pm2's env block replaces the child's whole environment, which leaves the app
+  # unable to boot. The daemon above was restarted from this shell, so it already carries the domain.
+  "$PM2" start "$APP_DIR/server/src/index.js" --name "$SERVICE" --interpreter "$NODE" --update-env
   "$PM2" save
 
   echo "diag: node processes:"
