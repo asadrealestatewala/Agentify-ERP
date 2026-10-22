@@ -64,8 +64,10 @@ import pub from './routes/public.js';
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 export function createApp() {
+  console.log('[boot] createApp: bootstrapping tenants');
   bootstrapTenants();
   ensureFirstAdmin();
+  console.log('[boot] createApp: tenants ready, wiring routes');
   const app = express();
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
@@ -187,10 +189,19 @@ export function createApp() {
     sendAlert(`Server error on ${req.method} ${req.path}: ${err.message}`);
     res.status(500).json({ error: 'Internal server error' });
   });
+  console.log('[boot] createApp: routes ready');
   return app;
 }
 
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+// pm2 passes the entry file in a form that does not always string-compare equal to this module's own
+// URL (symlinks, resolved paths), and when that check fails the server quietly loads and then does
+// nothing at all - no port, no error, just an idle process. Compare real paths instead.
+const thisFile = fileURLToPath(import.meta.url);
+const entryFile = process.argv[1] ? path.resolve(process.argv[1]) : '';
+const real = (p) => { try { return fs.realpathSync(p); } catch { return p; } };
+const isMain = !!entryFile && real(entryFile) === real(thisFile);
+console.log(`[boot] argv1=${entryFile || '<none>'} this=${thisFile} isMain=${isMain}`);
+
 if (isMain) {
   const port = Number(process.env.PORT) || 4000;
   createApp().listen(port, () => console.log(`Expert ERP API listening on http://localhost:${port}`));
