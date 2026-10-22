@@ -77,7 +77,17 @@ start_service
 
 if ! healthy; then
   echo "health check failed"
-  "$PM2" logs "$SERVICE" --lines 60 --nostream || true
+  "$PM2" list || true
+  "$PM2" describe "$SERVICE" 2>/dev/null | grep -Ei 'cwd|status|restart|interpreter|script' | sed 's/^/  pm2| /' || true
+  "$PM2" logs "$SERVICE" --lines 40 --nostream 2>&1 | sed 's/^/  log| /' || true
+
+  # run the same entry point in this session so its exact stop point lands in the log
+  echo "== foreground boot, 45s =="
+  ( cd "$APP_DIR/server" && timeout 45 "$NODE" src/index.js 2>&1 | sed 's/^/  boot| /' ) || true
+  echo "== foreground boot finished =="
+  echo "== listeners now =="
+  ss -ltnp 2>/dev/null | sed 's/^/  /' || true
+
   if [ -d "$APP_DIR/server.prev/src" ]; then
     echo "restoring the previous release"
     rsync -a --delete --exclude node_modules --exclude data --exclude uploads --exclude .env "$APP_DIR/server.prev/" "$APP_DIR/server/"
