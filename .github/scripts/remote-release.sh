@@ -47,8 +47,25 @@ start_service() {
   "$PM2" kill >/dev/null 2>&1 || true
   sleep 3
   "$PM2" delete "$SERVICE" >/dev/null 2>&1 || true
+
+  # whatever is still holding the port belongs to an older start (another manager, or a process systemd
+  # brought back); if it stays the new app cannot bind, and every check keeps talking to the stale one
+  stale="$(ss -ltnp 'sport = :4000' 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u | tr '\n' ' ')"
+  if [ -n "$stale" ]; then
+    echo "diag: port 4000 still held by pid(s): $stale - stopping them"
+    for p in $stale; do kill "$p" 2>/dev/null || true; done
+    sleep 3
+  else
+    echo "diag: port 4000 was free"
+  fi
+
   "$PM2" start "$APP_DIR/server/ecosystem.config.cjs"
   "$PM2" save
+
+  echo "diag: node processes:"
+  ps -eo pid,etimes,cmd 2>/dev/null | grep -E '[n]ode|[p]m2' | sed 's/^/    /' || true
+  echo "diag: listeners on 4000:"
+  ss -ltnp 'sport = :4000' 2>/dev/null | sed 's/^/    /' || true
   echo "diag: server/.env ERP_BASE_DOMAIN=$(sed -n 's/^ERP_BASE_DOMAIN=//p' "$APP_DIR/server/.env" 2>/dev/null | head -n1 | tr -d '\r')"
   echo "diag: shell     ERP_BASE_DOMAIN=${ERP_BASE_DOMAIN:-<unset>}"
   echo "release env: ERP_BASE_DOMAIN=${ERP_BASE_DOMAIN:-<unset>}"
