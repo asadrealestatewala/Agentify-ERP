@@ -18,7 +18,7 @@ import { t } from '../i18n.js';
 // [label, path, perm module (view)]
 const NAV = [
   { label: 'Dashboard', icon: 'dashboard', to: '/', module: 'dashboard' },
-  { label: 'My Space', icon: 'user', always: true, children: [['My Profile', '/my/profile'], ['My Attendance', '/my/attendance'], ['My Leave', '/my/leave'], ['My Payroll', '/my/payroll'], ['My Tasks', '/my/tasks'], ['Security', '/my/security']] },
+  { label: 'My Space', icon: 'user', always: true, children: [['My Profile', '/my/profile'], ['My Attendance', '/my/attendance'], ['My Leave', '/my/leave'], ['My Payroll', '/my/payroll'], ['My Tasks', '/my/tasks'], ['Security', '/my/security'], ['Install the app', '/my/install-app']] },
   { label: 'Content Calendar', icon: 'calendar', to: '/content', module: 'content' },
   { label: 'CRM', icon: 'users', module: 'crm', children: [
     ['Contacts', '/contacts'], ['Leads', '/leads'], ['Smart Lists', '/smart-lists'], ['Sales Pipeline', '/pipeline'], ['Tasks', '/tasks'], ['Notes', '/notes'],
@@ -183,7 +183,7 @@ function GlobalSearch() {
 function MobileTabs() {
   const { can } = useAuth();
   const [evt, setEvt] = useState(null);
-  useEffect(() => { const h = (e) => { e.preventDefault(); setEvt(e); }; window.addEventListener('beforeinstallprompt', h); return () => window.removeEventListener('beforeinstallprompt', h); }, []);
+  useEffect(() => { const h = (e) => { e.preventDefault(); window.__erpInstallEvt = e; setEvt(e); }; window.addEventListener('beforeinstallprompt', h); return () => window.removeEventListener('beforeinstallprompt', h); }, []);
   const tabs = [['Home', '/', 'home', 'dashboard'], ['Goals', '/goals', 'bolt', 'crm'], ['Leads', '/leads', 'users', 'crm'], ['Tasks', '/tasks', 'check', 'crm'], ['Alerts', '/notifications', 'bell']].filter((t) => !t[3] || can(t[3], 'view'));
   return (
     <>

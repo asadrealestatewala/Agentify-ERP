@@ -20,7 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_an_ts ON analytics_events(ts);
 CREATE INDEX IF NOT EXISTS idx_an_name_ts ON analytics_events(name, ts);
 CREATE INDEX IF NOT EXISTS idx_an_session ON analytics_events(session_id, ts);
 `;
-export const WEB_EVENTS = ['page_view', 'product_page_view', 'pricing_view', 'signup_started', 'demo_form_view', 'cta_start_trial', 'cta_book_demo', 'cta_founding_customer'];
+export const WEB_EVENTS = ['page_view', 'product_page_view', 'pricing_view', 'signup_started', 'demo_form_view', 'cta_start_trial', 'cta_book_demo', 'cta_founding_customer', 'cta_explore_crm', 'tour_tab', 'market_select'];
 export const SERVER_EVENTS = ['signup_completed', 'demo_requested', 'checkout_started', 'subscription_activated'];
 const ID_RE = /^[A-Za-z0-9_-]{8,40}$/;
 const SEARCH = /(^|\.)(google|bing|yahoo|duckduckgo|baidu|yandex|ecosia)\./i;

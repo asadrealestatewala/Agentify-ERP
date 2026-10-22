@@ -149,7 +149,7 @@ export const CONTENT_DEFAULTS = {
   social: { facebook: '', linkedin: '', instagram: '', youtube: '' },
   announcement_bar: '',
   seo: {
-    home: { title: 'Agentify ERP: real estate and construction management software', description: 'Real Estate Brokerage Management and Construction Management on one secure SaaS platform. Private workspace per company. Start a free trial.' },
+    home: { title: 'Agentify ERP: real estate CRM for brokerages, with the ERP behind it', description: 'Capture every enquiry, assign it to an agent, follow up on time and move deals through your pipeline. Properties, sales, instalments and accounts in the same workspace. Free trial.' },
     real_estate: { title: 'Real Estate Brokerage Management software | Agentify ERP', description: 'CRM, property inventory, sales, installments, commissions, receipts and a customer portal connected to accounting.' },
     construction: { title: 'Construction Management software | Agentify ERP', description: 'Projects, BOQs, budgets, procurement, materials, labour, subcontractors, progress reports and client billing.' },
     pricing: { title: 'Pricing | Agentify ERP', description: 'Plans for Real Estate Brokerage and Construction Management, monthly or yearly, with a free trial.' },
@@ -206,7 +206,7 @@ export function saveMarketing(b, by) {
   if (b.testimonials !== undefined) {
     if (!Array.isArray(b.testimonials)) throw bad('Testimonials must be a list');
     // only genuine testimonials: each needs a named person, company and confirmation that permission was given
-    next.testimonials = b.testimonials.slice(0, 20).map((t) => ({ quote: str(t.quote, 600, 'Quote'), name: str(t.name, 80, 'Name'), company: str(t.company, 120, 'Company'), role: str(t.role, 80, 'Role'), permission: !!t.permission }))
+    next.testimonials = b.testimonials.slice(0, 20).map((t) => ({ quote: str(t.quote, 600, 'Quote'), name: str(t.name, 80, 'Name'), company: str(t.company, 120, 'Company'), role: str(t.role, 80, 'Role'), country: /^[A-Za-z]{2}$/.test(String(t.country || '').trim()) ? String(t.country).trim().toUpperCase() : null, permission: !!t.permission }))
       .filter((t) => t.quote);
     if (next.testimonials.some((t) => !t.name || !t.company || !t.permission)) throw bad('Each testimonial needs the person\'s name, company and confirmation that they gave permission to publish it');
   }
