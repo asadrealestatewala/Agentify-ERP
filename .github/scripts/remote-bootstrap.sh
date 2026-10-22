@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_DIR="${1:-/opt/agentify-erp}"
 SERVICE="${2:-agentify-erp}"
-DOMAIN="${3:-agentifyerp.biztrack.uk}"
+DOMAIN="${3:-agentifyerp.co}"
 NODE_DIR=/opt/node22
 NODE_VERSION=v22.23.3
 

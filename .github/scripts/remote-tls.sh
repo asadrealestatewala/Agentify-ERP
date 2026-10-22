@@ -7,7 +7,7 @@
 # healthy, nginx is started again and the site is left as it was.
 set -uo pipefail
 
-DOMAIN="${1:-agentifyerp.biztrack.uk}"
+DOMAIN="${1:-agentifyerp.co}"
 export DEBIAN_FRONTEND=noninteractive
 have() { command -v "$1" >/dev/null 2>&1; }
 

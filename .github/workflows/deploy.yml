@@ -188,7 +188,7 @@ jobs:
 
           DOMAIN="$(trim "${SEC_SERVER_DOMAIN:-}")"
           if [ -z "$DOMAIN" ]; then DOMAIN="$(trim "${VAR_SERVER_DOMAIN:-}")"; fi
-          if [ -z "$DOMAIN" ]; then DOMAIN="agentifyerp.biztrack.uk"; fi
+          if [ -z "$DOMAIN" ]; then DOMAIN="agentifyerp.co"; fi
 
           BASE_DOMAIN="$(trim "${ENV_ERP_BASE_DOMAIN:-}")"
           if [ -z "$BASE_DOMAIN" ]; then BASE_DOMAIN="$(trim "${VAR_ERP_BASE_DOMAIN:-}")"; fi
