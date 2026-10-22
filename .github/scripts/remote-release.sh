@@ -36,12 +36,18 @@ start_service() {
   fi
   if [ -n "${ERP_BASE_DOMAIN:-}" ]; then export ERP_BASE_DOMAIN; fi
 
-  # stopping the daemon matters: otherwise the next start is born from the environment it was created with
+  # stopping the daemon matters: otherwise the next start is born from the environment it was created with.
+  # pm2-startup installed a systemd unit that resurrects the daemon (and its saved processes, with the
+  # environment recorded in the dump) the moment it dies, so clear the copy it brings back before starting.
   "$PM2" kill >/dev/null 2>&1 || true
-  "$PM2" start src/index.js --name "$SERVICE" \
+  sleep 3
+  "$PM2" delete "$SERVICE" >/dev/null 2>&1 || true
+  "$PM2" start src/index.js --name "$SERVICE" --update-env \
     --interpreter "$NODE" --node-args "--disable-warning=ExperimentalWarning"
   "$PM2" save
-  if [ -n "${ERP_BASE_DOMAIN:-}" ]; then echo "release env: ERP_BASE_DOMAIN=${ERP_BASE_DOMAIN}"; fi
+  echo "diag: server/.env ERP_BASE_DOMAIN=$(sed -n 's/^ERP_BASE_DOMAIN=//p' "$APP_DIR/server/.env" 2>/dev/null | head -n1 | tr -d '\r')"
+  echo "diag: shell     ERP_BASE_DOMAIN=${ERP_BASE_DOMAIN:-<unset>}"
+  echo "release env: ERP_BASE_DOMAIN=${ERP_BASE_DOMAIN:-<unset>}"
 }
 
 healthy() {
