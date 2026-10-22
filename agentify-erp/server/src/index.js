@@ -193,14 +193,15 @@ export function createApp() {
   return app;
 }
 
-// pm2 passes the entry file in a form that does not always string-compare equal to this module's own
-// URL (symlinks, resolved paths), and when that check fails the server quietly loads and then does
-// nothing at all - no port, no error, just an idle process. Compare real paths instead.
+// pm2 never passes this file as argv[1] - it launches its own ProcessContainerFork.js wrapper and names
+// the real entry in pm_exec_path - so an argv-only check is false under pm2, the module loads, and the
+// process then idles forever without ever binding a port. Accept either name, compared by real path.
 const thisFile = fileURLToPath(import.meta.url);
-const entryFile = process.argv[1] ? path.resolve(process.argv[1]) : '';
 const real = (p) => { try { return fs.realpathSync(p); } catch { return p; } };
-const isMain = !!entryFile && real(entryFile) === real(thisFile);
-console.log(`[boot] argv1=${entryFile || '<none>'} this=${thisFile} isMain=${isMain}`);
+const entries = [process.argv[1], process.env.pm_exec_path].filter(Boolean);
+const entryFile = entries.find((e) => real(path.resolve(e)) === real(thisFile)) || '';
+const isMain = !!entryFile;
+console.log(`[boot] entry=${entryFile || '<none>'} argv1=${process.argv[1] || '<none>'} pm_exec_path=${process.env.pm_exec_path || '<none>'} isMain=${isMain}`);
 
 if (isMain) {
   const port = Number(process.env.PORT) || 4000;
