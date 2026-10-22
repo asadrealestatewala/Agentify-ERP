@@ -36,14 +36,18 @@ start_service() {
   fi
   if [ -n "${ERP_BASE_DOMAIN:-}" ]; then export ERP_BASE_DOMAIN; fi
 
-  # stopping the daemon matters: otherwise the next start is born from the environment it was created with.
-  # pm2-startup installed a systemd unit that resurrects the daemon (and its saved processes, with the
-  # environment recorded in the dump) the moment it dies, so clear the copy it brings back before starting.
+  # Apps inherit the environment of the pm2 *daemon*, not of whoever starts them, and systemd keeps bringing
+  # that daemon back with whatever it was born with - so server/.env (which loses to a real variable) never
+  # wins. Name the value in an ecosystem file instead: pm2 writes it straight into the child's environment,
+  # which then takes priority over anything inherited.
+  printf '%s\n' \
+    "module.exports = { apps: [{ name: '$SERVICE', script: 'src/index.js', interpreter: '$NODE', node_args: '--disable-warning=ExperimentalWarning', env: { ERP_BASE_DOMAIN: '${ERP_BASE_DOMAIN:-}' } }] };" \
+    > "$APP_DIR/server/ecosystem.config.cjs"
+
   "$PM2" kill >/dev/null 2>&1 || true
   sleep 3
   "$PM2" delete "$SERVICE" >/dev/null 2>&1 || true
-  "$PM2" start src/index.js --name "$SERVICE" --update-env \
-    --interpreter "$NODE" --node-args "--disable-warning=ExperimentalWarning"
+  "$PM2" start "$APP_DIR/server/ecosystem.config.cjs"
   "$PM2" save
   echo "diag: server/.env ERP_BASE_DOMAIN=$(sed -n 's/^ERP_BASE_DOMAIN=//p' "$APP_DIR/server/.env" 2>/dev/null | head -n1 | tr -d '\r')"
   echo "diag: shell     ERP_BASE_DOMAIN=${ERP_BASE_DOMAIN:-<unset>}"
