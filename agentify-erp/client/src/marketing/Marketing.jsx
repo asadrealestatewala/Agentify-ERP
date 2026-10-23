@@ -887,17 +887,26 @@ export default function MarketingSite() {
   const [banner, setBanner] = useState(false);
   const loc = useLocation();
   const nav = useNavigate();
+  // inside the console's landing editor (an iframe with ?editor=1) the draft arrives by message and the page's text becomes editable
+  const editor = typeof window !== 'undefined' && window.parent !== window && new URLSearchParams(loc.search).get('editor') === '1';
+  const [draft, setDraft] = useState(null);
+  useEffect(() => {
+    if (!editor) return undefined;
+    const h = (e) => { if (e.origin === window.location.origin && e.data?.t === 'landing-state') setDraft(e.data.patch || {}); };
+    window.addEventListener('message', h); window.parent.postMessage({ t: 'landing-ready' }, window.location.origin);
+    return () => window.removeEventListener('message', h);
+  }, [editor]);
   useEffect(() => { api.get('/api/platform/marketing').then((d) => { setInfo(d); configureGa4(d.ga4_id); }).catch((e) => setErr(e.message)); }, []);
   useEffect(() => { if (!browserOptOut() && !consent()) setBanner(true); return onConsentChange(() => {}); }, []);
-  useEffect(() => { window.scrollTo(0, 0); track('page_view'); }, [loc.pathname]);
+  useEffect(() => { if (editor) return; window.scrollTo(0, 0); track('page_view'); }, [loc.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   if (err) return <div className="lp"><div className="lwrap" style={{ padding: 40 }}><div className="lerr">{err}</div><button className="lbtn" onClick={() => nav(0)}>Try again</button></div></div>;
   if (!info) return <Loading />;
   // The glow-dark interactive home page ('/', also kept at /preview). It brings its own header and footer.
   if (loc.pathname === '/' || loc.pathname === '/preview') {
     return (
       <CountryProvider info={info}>
-        <Glow info={info} />
-        <div className="lp" style={{ minHeight: 0, background: "none" }}><ConsentBanner show={banner && !browserOptOut()} onClose={() => setBanner(false)} /></div>
+        <Glow info={editor && draft ? { ...info, content: { ...info.content, ...draft } } : info} editor={editor} />
+        {!editor && <div className="lp" style={{ minHeight: 0, background: "none" }}><ConsentBanner show={banner && !browserOptOut()} onClose={() => setBanner(false)} /></div>}
       </CountryProvider>
     );
   }

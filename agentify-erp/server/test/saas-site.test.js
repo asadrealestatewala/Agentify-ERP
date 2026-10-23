@@ -166,3 +166,26 @@ test('customer reviews: anyone can submit, nothing shows until approved, photos 
   assert.equal((await adm('DELETE', `/reviews/${id}`)).status, 404);
   assert.equal((await call('acme.erp.test', 'POST', '/api/platform/reviews', good)).status, 404, 'main domain only');
 });
+
+test('landing page wording and sections: only known texts, per-country overrides, sections switched off; all public', async () => {
+  const put = (b) => adm('PUT', '/marketing', b);
+  const pub = async () => (await call(P, 'GET', '/api/platform/marketing')).data.content;
+  assert.deepEqual((await pub()).copy, {}, 'built-in wording until someone changes it');
+  assert.deepEqual((await pub()).sections_off, []);
+  assert.equal((await put({ copy: { 'made.up': 'x' } })).status, 400, 'unknown text key');
+  assert.equal((await put({ copy: { 'hero.cta1@XX9': 'x' } })).status, 400, 'bad country code');
+  assert.equal((await put({ copy: { 'hero.cta1': 42 } })).status, 400, 'text only');
+  assert.equal((await put({ copy: { 'hero.cta1': 'x'.repeat(700) } })).status, 400, 'too long');
+  assert.equal((await put({ copy: [] })).status, 400);
+  assert.equal((await put({ sections_off: ['pricing', 'nope'] })).status, 400, 'unknown section');
+  const ok = await put({ copy: { 'hero.cta1': 'Explore it', 'hero.cta1@US': 'Explore it for US teams', 'hero.h1b': 'One workspace.' }, sections_off: ['pricing', 'pricing', 'kinetic'] });
+  assert.equal(ok.status, 200, JSON.stringify(ok.data));
+  const c = await pub();
+  assert.equal(c.copy['hero.cta1@US'], 'Explore it for US teams'); assert.equal(c.copy['hero.h1b'], 'One workspace.');
+  assert.deepEqual(c.sections_off, ['pricing', 'kinetic'], 'duplicates removed');
+  // editing something else keeps them; clearing removes them
+  assert.equal((await put({ hero_title: 'Manage property and construction' })).status, 200);
+  assert.equal((await pub()).copy['hero.cta1'], 'Explore it');
+  assert.equal((await put({ copy: {}, sections_off: [] })).status, 200);
+  assert.deepEqual((await pub()).copy, {}); assert.deepEqual((await pub()).sections_off, []);
+});

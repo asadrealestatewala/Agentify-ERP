@@ -2,6 +2,7 @@
 // demo requests and SEO metadata. Content lives in platform_settings ('marketing_content') and legal_documents, edited in
 // the console (permission content.manage). Defaults describe only what the software actually does: no invented
 // customers, counts, testimonials, integrations or performance claims.
+import { cleanCopy, SECTION_IDS } from '../../../shared/landingCopy.js';
 import { platformDb, BASE_DOMAIN } from '../platform.js';
 import { bad, HttpError } from '../util.js';
 
@@ -144,6 +145,8 @@ export const CONTENT_DEFAULTS = {
   ],
   testimonials: [],
   partners: [],
+  copy: {},
+  sections_off: [],
   contact_email: '',
   contact_phone: '',
   address: '',
@@ -210,6 +213,11 @@ export function saveMarketing(b, by) {
     next.testimonials = b.testimonials.slice(0, 20).map((t) => ({ quote: str(t.quote, 600, 'Quote'), name: str(t.name, 80, 'Name'), company: str(t.company, 120, 'Company'), role: str(t.role, 80, 'Role'), country: /^[A-Za-z]{2}$/.test(String(t.country || '').trim()) ? String(t.country).trim().toUpperCase() : null, permission: !!t.permission }))
       .filter((t) => t.quote);
     if (next.testimonials.some((t) => !t.name || !t.company || !t.permission)) throw bad('Each testimonial needs the person\'s name, company and confirmation that they gave permission to publish it');
+  }
+  if (b.copy !== undefined) { try { next.copy = cleanCopy(b.copy); } catch (e) { throw bad(e.message); } }
+  if (b.sections_off !== undefined) {
+    if (!Array.isArray(b.sections_off) || b.sections_off.some((x) => !SECTION_IDS.includes(x))) throw bad('Unknown landing page section');
+    next.sections_off = [...new Set(b.sections_off)];
   }
   if (b.partners !== undefined) {
     if (!Array.isArray(b.partners)) throw bad('Partners must be a list');

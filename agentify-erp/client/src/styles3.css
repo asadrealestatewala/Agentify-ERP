@@ -424,3 +424,11 @@ html[dir="rtl"] .input-group .addon { border-radius: 0 var(--radius, 8px) var(--
 .sb-imgbtn button { background: #111827; color: #fff; border: 0; border-radius: 8px; padding: 6px 10px; font: 600 12px system-ui; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
 .sb-linkbtn { margin-left: 6px; border: 0; background: #111827; color: #fff; border-radius: 6px; padding: 3px 7px; font-size: 12px; cursor: pointer; opacity: 0; transition: opacity .15s; vertical-align: middle; }
 .sb-edwrap:hover .sb-imgbtn, .sb-edwrap:hover .sb-linkbtn, .sb-imgbtn:focus-within, .sb-linkbtn:focus-visible { opacity: 1; }
+
+/* console: landing page editor */
+.lde .wed-top { gap: 10px; }
+.lde-scope { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); } .lde-scope .select { height: 32px; }
+.lde-group { border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; background: var(--surface); } .lde-group[open] { padding-bottom: 10px; }
+.lde-group > summary { cursor: pointer; padding: 9px 0; font-weight: 600; font-size: 13.5px; }
+.lde-field { display: grid; gap: 4px; margin-top: 8px; font-size: 12.5px; color: var(--muted); } .lde-field > span { display: flex; align-items: center; gap: 8px; }
+.lde-field .input, .lde-field textarea { width: 100%; height: auto; min-height: 34px; padding: 7px 10px; }

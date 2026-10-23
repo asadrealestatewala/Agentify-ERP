@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import Flag from '../../components/Flag.jsx';
 import { useCountry } from '../countryCtx.js';
 import { Ico, spot } from './parts.jsx';
+import { T } from './copy.jsx';
 import { api } from '../../api.js';
 
 const ERP = [
@@ -21,9 +22,9 @@ export function Beyond() {
     <section className="gx-sec" id="erp" aria-labelledby="gx-erp-h">
       <span id="properties" className="h-anchor" aria-hidden="true" />
       <div className="gx-wrap">
-        <p className="gx-eyebrow gx-rv"><i>+</i> Beyond the CRM</p>
-        <h2 id="gx-erp-h" className="gx-h2 gx-rv">The ERP behind it, <span className="gx-grad">when you are ready</span></h2>
-        <p className="gx-lead gx-rv">Start with leads and follow-ups. The same workspace also runs the rest of a property business, so a won deal does not have to be typed in twice.</p>
+        <p className="gx-eyebrow gx-rv"><i>+</i> <T k="beyond.eyebrow" /></p>
+        <h2 id="gx-erp-h" className="gx-h2 gx-rv"><T k="beyond.h2a" />{' '}<span className="gx-grad"><T k="beyond.h2b" /></span></h2>
+        <p className="gx-lead gx-rv"><T k="beyond.lead" /></p>
         <ul className="gx-fgrid">{ERP.map(([n, t, d], k) => <li key={t} className="gx-card gx-rv" style={{ '--s': `${k * 50}ms` }} onPointerMove={spot}><span className="gx-tile"><Ico n={n} size={22} /></span><h3>{t}</h3><p>{d}</p></li>)}</ul>
         <p className="gx-more gx-rv"><Link to="/real-estate">Real estate in detail</Link> · <Link to="/construction">Construction</Link></p>
       </div>
@@ -122,7 +123,7 @@ export function Partners({ list }) {
   return (
     <section className="gx-sec gx-partners" aria-labelledby="gx-pt-h">
       <div className="gx-wrap">
-        <h2 id="gx-pt-h" className="gx-pt-h gx-rv">Our real estate partners</h2>
+        <h2 id="gx-pt-h" className="gx-pt-h gx-rv"><T k="partners.h" /></h2>
         <div className={`gx-marq gx-logos ${drift ? '' : 'still'}`} tabIndex={drift ? 0 : undefined} aria-label={drift ? 'Partner logos. Hover or focus to pause.' : undefined}>
           <ul className="gx-track">{items}</ul>
           {drift && <ul className="gx-track" aria-hidden="true">{list.map((p) => <li key={p.name + p.logo.length}><img src={p.logo} alt="" loading="lazy" decoding="async" /></li>)}</ul>}
@@ -220,7 +221,7 @@ export function Reviews({ list }) {
   return (
     <section className="gx-sec gx-reviews" id="reviews" aria-labelledby="gx-rv-h">
       <div className="gx-wrap">
-        <p className="gx-eyebrow gx-rv"><i>★</i> Customer reviews</p>
+        <p className="gx-eyebrow gx-rv"><i>★</i> <T k="reviews.eyebrow" /></p>
         <h2 id="gx-rv-h" className="gx-h2 gx-rv">{n ? <>What customers <span className="gx-grad">are saying</span></> : <>Using Agentify ERP? <span className="gx-grad">Tell us how it goes</span></>}</h2>
         {!!n && (
           <div className={`gx-marq gx-revs ${drift ? '' : 'still'}`} tabIndex={drift ? 0 : undefined} aria-label={drift ? 'Customer reviews. Hover or focus to pause.' : undefined}>

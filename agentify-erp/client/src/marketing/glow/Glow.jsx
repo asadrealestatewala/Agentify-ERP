@@ -13,6 +13,7 @@ import { Ico, CountUp, DotField, reducedMotion, spot, useInstall, useReveal, use
 import { sampleMoney } from './sample.js';
 import { TunnelCards, useTunnel } from './Tunnel.jsx';
 import { Beyond, CountryMenu, Partners, Reviews, Stories } from './Extra.jsx';
+import { CopyCtx, T } from './copy.jsx';
 import './previews.css';
 import './glow.css';
 
@@ -54,8 +55,8 @@ function Nav({ info, theme, toggleTheme }) {
           <button type="button" className="gx-icon-btn gx-theme-top" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}><Ico n={theme === 'dark' ? 'sun' : 'moon'} size={18} /></button>
           <span className="gx-hide-m"><CountryMenu /></span>
           <span className="gx-hide-s">{installBtn}</span>
-          <Link to="/login" className="gx-link-quiet gx-hide-s">Sign in</Link>
-          <Link to="/signup" className="gx-btn cream sm" onClick={() => track('cta_start_trial', { where: 'nav' })}>Start free <Ico n="arrow" size={15} /></Link>
+          <Link to="/login" className="gx-link-quiet gx-hide-s"><T k="nav.signin" /></Link>
+          <Link to="/signup" className="gx-btn cream sm" onClick={() => track('cta_start_trial', { where: 'nav' })}><T k="nav.cta" /> <Ico n="arrow" size={15} /></Link>
           <button ref={btn} type="button" className="gx-icon-btn gx-menu" aria-expanded={open} aria-controls="gx-drawer" aria-label={open ? 'Close menu' : 'Open menu'} onClick={() => setOpen(!open)}><Ico n={open ? 'close' : 'menu'} size={20} /></button>
         </div>
       </div>
@@ -111,19 +112,19 @@ function Hero({ info, onFilm }) {
           {tunnel && <TunnelCards country={country} onPick={pick} />}
           {tunnel && <div className="gx-tun-scrim" aria-hidden="true" />}
           <div className="gx-wrap gx-hero-in">
-            <a className="gx-chip" href="#tour"><b className="gx-new">NEW</b> Video meetings, call recording and AI Studio are live <Ico n="arrow" size={14} /></a>
-            <h1 id="gx-h1">Every real estate lead. Every follow-up. <span className="gx-grad">One CRM.</span></h1>
+            <a className="gx-chip" href="#tour"><b className="gx-new">NEW</b> <T k="hero.chip" /> <Ico n="arrow" size={14} /></a>
+            <h1 id="gx-h1"><T k="hero.h1a" />{' '}<span className="gx-grad"><T k="hero.h1b" /></span></h1>
             {hook && hook !== global.hook && <p className="gx-hook" aria-live="polite">{hook}</p>}
-            <p className="gx-sub">{sub}</p>
+            <p className="gx-sub"><T k="hero.sub" fallback={sub} /></p>
             <div className="gx-cta">
-              <a href="#tour" className="gx-btn cream" onClick={() => track('cta_explore_crm', { where: 'hero' })}><Ico n="bolt" size={16} /> Explore the CRM <Ico n="arrow" size={17} /></a>
+              <a href="#tour" className="gx-btn cream" onClick={() => track('cta_explore_crm', { where: 'hero' })}><Ico n="bolt" size={16} /> <T k="hero.cta1" /> <Ico n="arrow" size={17} /></a>
               <Link to="/signup" className="gx-btn ring" onClick={() => track('cta_start_trial', { where: 'hero' })}>Start free for {days} days</Link>
               <button type="button" className="gx-btn ghost" onClick={onFilm}><Ico n="play" size={14} /> Watch the {FILM.length * 3.6 | 0}-second tour</button>
             </div>
             <div className="gx-hot" role="group" aria-label="Open a screen of the live demo">
               {HOT.map(([k, l]) => <button key={k} type="button" className="gx-hotbtn" onClick={() => pick(k)}>{l}</button>)}
             </div>
-            <ul className="gx-ticks"><li>No card needed to start</li><li>Phone, tablet and desktop</li><li>Your data stays yours: read-only, never deleted</li></ul>
+            <ul className="gx-ticks"><li><T k="hero.tick1" /></li><li><T k="hero.tick2" /></li><li><T k="hero.tick3" /></li></ul>
             {detected && (manual && detected.country !== country.code
               ? <p className="gx-loc">Showing wording for {country.name}. <button type="button" className="gx-linkbtn" onClick={resetLocation}>Use detected location ({city ? `${city}, ` : ''}{nameOf(detected.country)})</button></p>
               : !manual && <p className="gx-loc">Wording for {city ? `${city}, ` : ''}{country.name}, from your approximate location. Change it any time in the country menu.</p>)}
@@ -154,7 +155,7 @@ function Segments() {
   const cards = SEGMENTS.map(([n, t, s]) => <li key={t}><span className="gx-tile"><Ico n={n} size={22} /></span><span><b>{t}</b><small>{s}</small></span></li>);
   return (
     <section className="gx-seg" aria-label="Who it is built for">
-      <p className="gx-eyebrow center"><i>00</i> Built for every kind of property business</p>
+      <p className="gx-eyebrow center"><i>00</i> <T k="segments.eyebrow" /></p>
       <div className="gx-marq" tabIndex={0} aria-label="Who Agentify is built for. Hover or focus to pause."><ul className="gx-track">{cards}</ul><ul className="gx-track" aria-hidden="true">{cards}</ul></div>
     </section>
   );
@@ -186,8 +187,8 @@ function Features() {
   return (
     <section className="gx-sec" id="features" aria-labelledby="gx-feat-h">
       <div className="gx-wrap">
-        <p className="gx-eyebrow gx-rv"><i>02</i> What is inside</p>
-        <h2 id="gx-feat-h" className="gx-h2 gx-rv">Everything the CRM does <span className="gx-grad">for a brokerage</span></h2>
+        <p className="gx-eyebrow gx-rv"><i>02</i> <T k="features.eyebrow" /></p>
+        <h2 id="gx-feat-h" className="gx-h2 gx-rv"><T k="features.h2a" />{' '}<span className="gx-grad"><T k="features.h2b" /></span></h2>
         <ul className="gx-fgrid">{FEATURES.map(([n, t, d], k) => <li key={t} className="gx-card gx-rv" style={{ '--s': `${k * 50}ms` }} onPointerMove={spot}><span className="gx-tile"><Ico n={n} size={22} /></span><h3>{t}</h3><p>{d}</p></li>)}</ul>
       </div>
     </section>
@@ -218,9 +219,9 @@ function Dashboard() {
   return (
     <section className="gx-sec" id="dashboard" aria-labelledby="gx-dash-h">
       <div className="gx-wrap">
-        <p className="gx-eyebrow gx-rv"><i>03</i> Know where you stand</p>
-        <h2 id="gx-dash-h" className="gx-h2 gx-rv">Revenue and follow-ups <span className="gx-grad">at a glance</span></h2>
-        <p className="gx-lead gx-rv">A manager’s view of the week: leads in, follow-ups done, viewings booked and what the pipeline is worth. Switch the period and open the screen behind each number.</p>
+        <p className="gx-eyebrow gx-rv"><i>03</i> <T k="dash.eyebrow" /></p>
+        <h2 id="gx-dash-h" className="gx-h2 gx-rv"><T k="dash.h2a" />{' '}<span className="gx-grad"><T k="dash.h2b" /></span></h2>
+        <p className="gx-lead gx-rv"><T k="dash.lead" /></p>
         <div className="gx-dash gx-rv">
           <Floaters />
           <div className="gx-window">
@@ -261,8 +262,8 @@ function How() {
   return (
     <section className="gx-sec" id="how" aria-labelledby="gx-how-h">
       <div className="gx-wrap">
-        <p className="gx-eyebrow gx-rv"><i>04</i> How it works</p>
-        <h2 id="gx-how-h" className="gx-h2 gx-rv">From first enquiry to <span className="gx-grad">signed sale</span></h2>
+        <p className="gx-eyebrow gx-rv"><i>04</i> <T k="how.eyebrow" /></p>
+        <h2 id="gx-how-h" className="gx-h2 gx-rv"><T k="how.h2a" />{' '}<span className="gx-grad"><T k="how.h2b" /></span></h2>
         <ol className="gx-steps">{STEPS.map(([n, t, d], k) => <li key={t} className="gx-rv" style={{ '--s': `${k * 120}ms` }}><span className="gx-glowtile"><Ico n={n} size={26} /></span><small>STEP 0{k + 1}</small><h3>{t}</h3><p>{d}</p></li>)}</ol>
       </div>
     </section>
@@ -286,9 +287,9 @@ function Mobile() {
           <div className="gx-pop m2" aria-hidden="true"><b>✓ Viewing booked, Thursday</b><small>sample</small></div>
         </div>
         <div className="gx-rv">
-          <p className="gx-eyebrow"><i>05</i> The CRM in your pocket</p>
-          <h2 id="gx-mob-h" className="gx-h2">Between viewings, <span className="gx-grad">it is all in your hand</span></h2>
-          <p className="gx-lead">Check new leads, open a client, see what they are looking for and complete the follow-up. These are the phone screens of the app itself: switch between Leads, Client and Tasks under the phone.</p>
+          <p className="gx-eyebrow"><i>05</i> <T k="mobile.eyebrow" /></p>
+          <h2 id="gx-mob-h" className="gx-h2"><T k="mobile.h2a" />{' '}<span className="gx-grad"><T k="mobile.h2b" /></span></h2>
+          <p className="gx-lead"><T k="mobile.lead" /></p>
           <ul className="gx-ticks col"><li>Installs on Android and iPhone from the browser</li><li>Bottom tabs for leads, tasks and alerts</li><li>Push reminders for your daily goals once installed</li></ul>
           <div className="gx-install">
             {inst.installed ? <p>The app is installed on this device.</p> : inst.apk
@@ -319,8 +320,8 @@ function Pricing({ info }) {
   return (
     <section className="gx-sec" id="pricing" aria-labelledby="gx-pr-h">
       <div className="gx-wrap">
-        <p className="gx-eyebrow gx-rv"><i>06</i> Pricing</p>
-        <h2 id="gx-pr-h" className="gx-h2 gx-rv">Plans for <span className="gx-grad">real estate teams</span></h2>
+        <p className="gx-eyebrow gx-rv"><i>06</i> <T k="pricing.eyebrow" /></p>
+        <h2 id="gx-pr-h" className="gx-h2 gx-rv"><T k="pricing.h2a" />{' '}<span className="gx-grad"><T k="pricing.h2b" /></span></h2>
         <p className="gx-lead gx-rv">Every eligible new workspace starts with a {info.trial_days}-day free trial, no card needed. Prices in {cur}{cur !== country.currency ? ` (${country.name} prices are not set yet)` : ''}.</p>
         <div className="gx-toggle gx-rv" role="group" aria-label="Billing period">{[['month', 'Monthly'], ['year', 'Yearly']].map(([k, l]) => <button key={k} type="button" aria-pressed={int === k} className={int === k ? 'on' : ''} onClick={() => setInt(k)}>{l}</button>)}</div>
         <ul className="gx-plans">{plans.map((p, k) => {
@@ -360,8 +361,8 @@ function FAQ({ extra }) {
   return (
     <section className="gx-sec" id="faq" aria-labelledby="gx-faq-h">
       <div className="gx-wrap narrow">
-        <p className="gx-eyebrow gx-rv"><i>07</i> Questions</p>
-        <h2 id="gx-faq-h" className="gx-h2 gx-rv">Answers <span className="gx-grad">before you ask</span></h2>
+        <p className="gx-eyebrow gx-rv"><i>07</i> <T k="faq.eyebrow" /></p>
+        <h2 id="gx-faq-h" className="gx-h2 gx-rv"><T k="faq.h2a" />{' '}<span className="gx-grad"><T k="faq.h2b" /></span></h2>
         <div className="gx-faq">{all.map(([q, a], k) => (
           <div key={q} className={`gx-qa gx-rv ${open === k ? 'open' : ''}`}>
             <h3><button type="button" aria-expanded={open === k} aria-controls={`gx-a${k}`} id={`gx-q${k}`} onClick={() => setOpen(open === k ? -1 : k)}>{q}<span aria-hidden="true">+</span></button></h3>
@@ -382,12 +383,12 @@ function Final({ info }) {
       <div className="gx-wrap">
         <div className="gx-final gx-rv">
           <div className="gx-final-l">
-            <p className="gx-eyebrow"><i>08</i> Start today</p>
-            <h2 id="gx-fin-h" className="gx-h2">Put every lead and follow-up in <em className="gx-grad">one place</em>.</h2>
+            <p className="gx-eyebrow"><i>08</i> <T k="final.eyebrow" /></p>
+            <h2 id="gx-fin-h" className="gx-h2"><T k="final.h2a" />{' '}<em className="gx-grad"><T k="final.h2b" /></em>.</h2>
             <p className="gx-lead">Free for {info.trial_days} days, no card needed. If you stop, your data becomes read-only and is never deleted.</p>
             <div className="gx-cta">
-              <Link to="/signup" className="gx-btn cream" onClick={() => track('cta_start_trial', { where: 'final' })}>Start free <Ico n="arrow" size={17} /></Link>
-              <Link to="/contact" className="gx-btn ring" onClick={() => track('cta_book_demo', { where: 'final' })}>Book a demo</Link>
+              <Link to="/signup" className="gx-btn cream" onClick={() => track('cta_start_trial', { where: 'final' })}><T k="final.cta1" /> <Ico n="arrow" size={17} /></Link>
+              <Link to="/contact" className="gx-btn ring" onClick={() => track('cta_book_demo', { where: 'final' })}><T k="final.cta2" /></Link>
               {wa.length >= 7 && <a className="gx-btn ghost" href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer"><Ico n="whatsapp" size={17} /> WhatsApp us</a>}
               {c.contact_email && <a className="gx-btn ghost" href={`mailto:${c.contact_email}`}><Ico n="mail" size={17} /> Email</a>}
             </div>
@@ -415,7 +416,7 @@ function Footer({ info }) {
       <div className="gx-wrap">
         <div className="gx-foot-big" aria-hidden="true">{(c.brand || "Agentify ERP").replace(/ ERP$/, "")}</div>
         <div className="gx-foot-g">
-          <div><p>{c.brand}: real estate CRM with the ERP behind it.</p>{(c.contact_email || c.contact_phone || c.address) && <p className="gx-fine">{[c.contact_email, c.contact_phone, c.address].filter(Boolean).join(' · ')}</p>}{!!social.length && <p>{social.map(([k, v]) => <a key={k} href={v} target="_blank" rel="noreferrer noopener" className="gx-cap">{k}</a>)}</p>}</div>
+          <div><p>{c.brand}: <T k="footer.tagline" /></p>{(c.contact_email || c.contact_phone || c.address) && <p className="gx-fine">{[c.contact_email, c.contact_phone, c.address].filter(Boolean).join(' · ')}</p>}{!!social.length && <p>{social.map(([k, v]) => <a key={k} href={v} target="_blank" rel="noreferrer noopener" className="gx-cap">{k}</a>)}</p>}</div>
           <div><h4>Product</h4><a href="#features">Features</a><a href="#tour">Live demo</a><a href="#pricing">Pricing</a><Link to="/real-estate">Real estate</Link><Link to="/construction">Construction</Link></div>
           <div><h4>Company</h4><Link to="/contact">Book a demo</Link><Link to="/signup">Start free</Link><Link to="/login">Sign in</Link>{!inst.installed && inst.apk && <a className="gx-linkbtn" href={inst.apk} download="agentify-erp.apk">Download the app</a>}{!inst.installed && !inst.apk && <button type="button" className="gx-linkbtn" onClick={() => (inst.canPrompt ? inst.install() : document.getElementById('mobile')?.scrollIntoView({ behavior: 'smooth' }))}>Download the app</button>}</div>
           <div><h4>Legal</h4>{(c.legal || []).map((d) => <Link key={d.slug} to={`/legal/${d.slug}`}>{d.title}</Link>)}
@@ -451,7 +452,7 @@ function Film({ onClose }) {
   );
 }
 
-export default function Glow({ info }) {
+export default function Glow({ info, editor }) {
   const root = useRef(null);
   const [theme, toggleTheme] = useTheme();
   const [film, setFilm] = useState(false);
@@ -459,29 +460,36 @@ export default function Glow({ info }) {
   useReveal(root);
   useEffect(() => { document.title = 'Agentify ERP: real estate CRM with the ERP behind it'; }, []);
   const extra = [...(info.content.faqs || []), ...((country.copy || {}).faqs || [])];
+  const off = info.content.sections_off || [];
+  const show = (id) => !off.includes(id);
+  const post = (m) => window.parent.postMessage(m, window.location.origin);
+  const ed = useMemo(() => (editor ? { post } : null), [editor]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (editor) post({ t: 'landing-country', cc: country.code }); }, [editor, country.code]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className="lp glow" data-theme={theme} ref={root}>
+    <CopyCtx.Provider value={{ copy: info.content.copy || {}, cc: country.code, editor: ed }}>
+    <div className="lp glow" data-theme={theme} ref={root} onClickCapture={editor ? (e) => { const a = e.target.closest('a[href]'); if (a && !String(a.getAttribute('href')).startsWith('#')) e.preventDefault(); } : undefined}>
       <a href="#main" className="gx-skip">Skip to content</a>
       <Nav info={info} theme={theme} toggleTheme={toggleTheme} />
       <main id="main">
         <Hero info={info} onFilm={() => setFilm(true)} />
-        <Partners list={(info.content.partners || []).filter((p) => !p.country || p.country === country.code)} />
-        <Segments />
-        <Kinetic />
-        <Features />
-        <Tour />
-        <Dashboard />
-        <How />
-        <Beyond />
-        <Mobile />
-        <Stories list={(info.content.testimonials || []).filter((t) => !t.country || t.country === country.code)} />
-        <Reviews list={(info.content.reviews || []).filter((r) => !r.country || r.country === country.code)} />
-        <Pricing info={info} />
-        <FAQ extra={extra} />
+        {show('partners') && <Partners list={(info.content.partners || []).filter((p) => !p.country || p.country === country.code)} />}
+        {show('segments') && <Segments />}
+        {show('kinetic') && <Kinetic />}
+        {show('features') && <Features />}
+        {show('tour') && <Tour />}
+        {show('dashboard') && <Dashboard />}
+        {show('how') && <How />}
+        {show('beyond') && <Beyond />}
+        {show('mobile') && <Mobile />}
+        {show('stories') && <Stories list={(info.content.testimonials || []).filter((t) => !t.country || t.country === country.code)} />}
+        {show('reviews') && <Reviews list={(info.content.reviews || []).filter((r) => !r.country || r.country === country.code)} />}
+        {show('pricing') && <Pricing info={info} />}
+        {show('faq') && <FAQ extra={extra} />}
         <Final info={info} />
       </main>
       <Footer info={info} />
       {film && <Film onClose={() => setFilm(false)} />}
     </div>
+    </CopyCtx.Provider>
   );
 }
