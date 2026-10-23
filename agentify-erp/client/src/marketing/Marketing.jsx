@@ -1,7 +1,7 @@
 // Public website on the main domain: home, the two product pages, pricing, contact/demo, legal documents, sign-up and
 // "find my workspace". Texts, plans, prices, trial terms and legal documents come from /api/platform/marketing and are
 // edited by platform staff in the console. Nothing here invents customers, counts, testimonials or integrations.
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { CountryCtx, useCountry } from './countryCtx.js';
@@ -45,7 +45,7 @@ function useTitle(title, description) {
 // ---------------------------------------------------------------- country
 // One site for every country. The visitor's country decides the currency, the wording and the calculators; it is saved in
 // localStorage and a cookie and kept in the URL (?country=uk) so a link keeps it. A first visit only suggests a country
-// from the browser's language and time zone, never from the IP address.
+// from the server's approximate IP location (home page only) or, failing that, the browser language and time zone; a choice the visitor makes is remembered and always wins.
 export { useCountry };
 const PATH_COUNTRY = { us: 'US', uk: 'UK', ae: 'AE', pk: 'PK', ca: 'CA' };
 function guessCountry(countries) {
@@ -60,12 +60,33 @@ function CountryProvider({ info, children }) {
   const nav = useNavigate();
   const countries = info.countries?.length ? info.countries : [{ code: 'PK', name: 'Pakistan', currency: 'PKR', open: true, config: {}, copy: {}, timezones: ['Asia/Karachi'] }];
   const byCode = (c) => countries.find((x) => x.code === String(c || '').toUpperCase());
-  const [code, setCode] = useState(() => {
+  const initial = (() => {
     const q = new URLSearchParams(loc.search).get('country');
     const slug = loc.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
     let saved = null; try { saved = localStorage.getItem('agentify_country'); } catch { /* storage blocked */ }
-    return (byCode(q) || byCode(PATH_COUNTRY[slug]) || byCode(saved))?.code || guessCountry(countries);
-  });
+    const pick = byCode(q) || byCode(PATH_COUNTRY[slug]) || byCode(saved);
+    return { code: (pick || { code: guessCountry(countries) }).code, manual: !!pick };
+  })();
+  const [code, setCode] = useState(initial.code);
+  // manual = the visitor chose a country (menu, link or an earlier visit); only then is the choice remembered
+  const [manual, setManual] = useState(initial.manual);
+  // detected = approximate country and city of the visitor from the server (GET /api/platform/geo); null until known or when unavailable
+  const [detected, setDetected] = useState(null);
+  const home = loc.pathname === '/' || loc.pathname === '/preview';
+  useEffect(() => {
+    if (!home) return undefined;
+    let off = false;
+    api.get('/api/platform/geo').then((g) => { if (!off && g?.country && g.supported) setDetected({ country: String(g.country).toUpperCase(), city: g.city || null }); }).catch(() => { /* the page works without it */ });
+    return () => { off = true; };
+  }, [home]);
+  // once, and only while the visitor has not chosen: follow the detected country
+  const applied = useRef(false);
+  useEffect(() => {
+    if (applied.current || manual || !detected) return;
+    applied.current = true;
+    const c = byCode(detected.country);
+    if (c && c.open !== false) setCode(c.code);
+  }, [detected]); // eslint-disable-line react-hooks/exhaustive-deps
   const country = byCode(code) || countries[0];
   // applied during render so the calculators below read this country's formats on their first paint
   if (country.config?.region) setRegion(country.config);
@@ -74,21 +95,34 @@ function CountryProvider({ info, children }) {
     if (PATH_COUNTRY[slug] && byCode(PATH_COUNTRY[slug])) setCode(PATH_COUNTRY[slug]);
   }, [loc.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    try { localStorage.setItem('agentify_country', country.code); } catch { /* ignore */ }
-    document.cookie = `agentify_country=${country.code}; path=/; max-age=31536000; samesite=lax`;
+    if (manual) {
+      try { localStorage.setItem('agentify_country', country.code); } catch { /* ignore */ }
+      document.cookie = `agentify_country=${country.code}; path=/; max-age=31536000; samesite=lax`;
+    }
     // alternate-language/country links for search engines
     document.head.querySelectorAll('link[data-hreflang]').forEach((n) => n.remove());
     for (const c of countries) {
       const l = document.createElement('link'); l.rel = 'alternate'; l.hreflang = `${String(c.locale || 'en').split('-')[0]}-${c.code === 'UK' ? 'GB' : c.code}`; l.href = `${window.location.origin}/${c.slug}`; l.setAttribute('data-hreflang', '1'); document.head.appendChild(l);
     }
-  }, [country.code]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [country.code, manual]); // eslint-disable-line react-hooks/exhaustive-deps
   const choose = (c) => {
+    setManual(true);
     setCode(c);
     const q = new URLSearchParams(loc.search); q.set('country', String(c).toLowerCase() === 'uk' ? 'uk' : String(c).toLowerCase());
     nav({ pathname: PATH_COUNTRY[loc.pathname.replace(/^\/+|\/+$/g, '').toLowerCase()] ? '/' : loc.pathname, search: `?${q}` }, { replace: true });
     track('country_selected', { country: c });
   };
-  return <CountryCtx.Provider value={{ country, countries, setCountry: choose }}>{children}</CountryCtx.Provider>;
+  const resetLocation = () => {
+    try { localStorage.removeItem('agentify_country'); } catch { /* ignore */ }
+    document.cookie = 'agentify_country=; path=/; max-age=0; samesite=lax';
+    setManual(false);
+    const c = detected && byCode(detected.country);
+    setCode(c && c.open !== false ? c.code : guessCountry(countries));
+    const q = new URLSearchParams(loc.search); q.delete('country');
+    nav({ pathname: loc.pathname, search: q.toString() ? `?${q}` : '' }, { replace: true });
+    track('country_selected', { country: 'detected' });
+  };
+  return <CountryCtx.Provider value={{ country, countries, setCountry: choose, manual, detected, resetLocation }}>{children}</CountryCtx.Provider>;
 }
 function CountrySwitch({ compact }) {
   const { country, countries, setCountry } = useCountry();

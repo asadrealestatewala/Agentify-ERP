@@ -61,3 +61,10 @@ All previews are React components with fixed sample data from `sample.js`, label
 - **Customer stories:** add in the console (Content › Testimonials) with name, role, company, optional two-letter country code and confirmation of permission. Until then a founding-customer invitation is shown.
 - **App store links:** set `VITE_ANDROID_STORE_URL` / `VITE_IOS_STORE_URL` at build time once the apps are published. Until then the page says store versions are not published.
 - **Prices:** the plan prices in `server/src/services/plans.js` are still marked as placeholders in the README. Confirm them before launch.
+
+## Home page layout (current)
+
+- **Hero:** the headline is fixed ("Every real estate lead. Every follow-up. One CRM."). Under it, the visitor's market adds one line (`crm.hook`, or `crm.city_hook` when the detected city is on that country's `cities` list) and its own sub-headline. The market wording is used only when the visitor chose the country or the server detected it; otherwise the global wording shows. A country the visitor picks is remembered; "Use detected location" clears it.
+- **Perspective tunnel:** on wide, tall windows with motion allowed, six decorative product cards fly towards the visitor as the page scrolls (`glow/Tunnel.jsx`). Progress comes from the scroll position only; no wheel or touch event is intercepted and no animation library is used. It switches off on phones and narrow windows (< 900 px), short windows (< 640 px), reduced motion and low-memory or two-core devices. The six buttons under the hero buttons open the same screens of the live demo and are the keyboard route.
+- **Beyond the CRM** (`glow/Extra.jsx`): the ERP capabilities behind the CRM. **Customer stories** (same file) render only when permitted testimonials exist in the console; with none, the section is absent.
+- **Android app:** `client/public/downloads/agentify-erp.apk` is served at `/downloads/agentify-erp.apk`; see `mobile/README.md` to rebuild it. The Download app buttons link to it on Android and use the browser's one-click install elsewhere.

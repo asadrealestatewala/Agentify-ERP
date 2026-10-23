@@ -249,7 +249,7 @@ export default function Tour() {
   const ref = useRef(null);
   const tabRefs = useRef({});
   // the "Pipeline" link in the menu opens this tour on the pipeline tab
-  useEffect(() => { if (loc.hash === '#pipeline') setTab('pipeline'); else if (loc.hash === '#tour') setTab('inbox'); }, [loc.hash]);
+  useEffect(() => { const m = /^#tour-([a-z0-9]+)$/.exec(loc.hash); if (m && TABS.some((x) => x.key === m[1])) setTab(m[1]); else if (loc.hash === '#pipeline') setTab('pipeline'); else if (loc.hash === '#tour') setTab('inbox'); }, [loc.hash]);
   const t = useMemo(() => TABS.find((x) => x.key === tab), [tab]);
   const choose = (k) => { setTab(k); track('tour_tab', { where: k }); };
   const onKey = (e) => {

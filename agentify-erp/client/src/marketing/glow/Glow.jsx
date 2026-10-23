@@ -3,18 +3,20 @@
 // product tour, an interactive dashboard, a product film, a phone with install button, plans from the plan settings.
 // Every number and name in a mockup is sample data and says so. Real copy about features is limited to what the product does.
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCountry } from '../countryCtx.js';
 import { track } from '../analytics.js';
 import { BRANDS } from '../brandIcons.js';
 import Tour, { PhoneCRM } from './Tour.jsx';
 import { Ico, CountUp, DotField, reducedMotion, spot, useInstall, useReveal, useTheme } from './parts.jsx';
 import { sampleMoney } from './sample.js';
+import { TunnelCards, useTunnel } from './Tunnel.jsx';
+import { Beyond, Stories } from './Extra.jsx';
 import './previews.css';
 import './glow.css';
 
-const NAV = [['#features', 'Features'], ['#tour', 'Live demo', true], ['#dashboard', 'Dashboard'], ['#mobile', 'Mobile app'], ['#pricing', 'Pricing'], ['#faq', 'FAQ']];
-const PHRASES = ['captures every enquiry.', 'chases every follow-up.', 'moves every deal forward.', 'keeps your team accountable.'];
+const NAV = [['#crm', 'CRM'], ['#pipeline', 'Pipeline'], ['#erp', 'Property management'], ['#mobile', 'Mobile app'], ['#pricing', 'Pricing'], ['#faq', 'FAQ']];
+const HOT = [['inbox', 'Lead inbox'], ['c360', 'Customer 360'], ['pipeline', 'Sales pipeline'], ['tasks', 'Follow-ups'], ['properties', 'Properties and interests'], ['mobile', 'Mobile CRM']];
 const shot = (kind, code) => `/marketing/m-${kind}-${String(code).toLowerCase()}.webp`;
 
 // ---------------------------------------------------------------- navigation
@@ -27,6 +29,17 @@ function Nav({ info, theme, toggleTheme }) {
   useEffect(() => { const h = () => setScrolled(window.scrollY > 8); h(); window.addEventListener('scroll', h, { passive: true }); return () => window.removeEventListener('scroll', h); }, []);
   useEffect(() => { if (!open) return undefined; const k = (e) => { if (e.key === 'Escape') { setOpen(false); btn.current?.focus(); } }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [open]);
   const brand = info.content.brand || 'Agentify ERP';
+  const nav = useNavigate();
+  const loc = useLocation();
+  // "CRM" and "Pipeline" open the live demo on that screen; the other links are plain anchors
+  const jump = (e, h) => {
+    setOpen(false);
+    const tab = h === '#pipeline' ? 'pipeline' : h === '#crm' ? 'inbox' : null;
+    if (!tab) return;
+    e.preventDefault();
+    nav({ pathname: '/', search: loc.search, hash: `#tour-${tab}` });
+    setTimeout(() => document.getElementById('tour')?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth' }), 60);
+  };
   const getApp = async () => { if (inst.canPrompt) { await inst.install(); return; } setOpen(false); document.getElementById('mobile')?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth' }); };
   const installBtn = inst.installed ? null : inst.apk
     ? <a className="gx-btn ghost sm" href={inst.apk} download="agentify-erp.apk"><Ico n="download" size={16} /> Download app</a>
@@ -35,7 +48,7 @@ function Nav({ info, theme, toggleTheme }) {
     <header className={`gx-nav ${scrolled ? 'scrolled' : ''}`}>
       <div className="gx-nav-in">
         <Link to="/" className="gx-logo" aria-label={`${brand} home`}><span className="gx-mark"><Ico n="home" size={18} stroke={2.2} /></span><span className="gx-word">{brand}</span></Link>
-        <nav className="gx-links" aria-label="Main">{NAV.map(([h, l, isNew]) => <a key={h} href={h}>{l}{isNew && <b className="gx-new">NEW</b>}</a>)}</nav>
+        <nav className="gx-links" aria-label="Main">{NAV.map(([h, l]) => <a key={h} href={h} onClick={(e) => jump(e, h)}>{l}</a>)}</nav>
         <div className="gx-nav-r">
           <button type="button" className="gx-icon-btn gx-theme-top" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}><Ico n={theme === 'dark' ? 'sun' : 'moon'} size={18} /></button>
           <label className="gx-sel gx-hide-m"><span className="gx-sr">Country</span>
@@ -48,7 +61,7 @@ function Nav({ info, theme, toggleTheme }) {
       </div>
       {open && (
         <div id="gx-drawer" className="gx-drawer">
-          {NAV.map(([h, l]) => <a key={h} href={h} onClick={() => setOpen(false)}>{l}</a>)}
+          {NAV.map(([h, l]) => <a key={h} href={h} onClick={(e) => jump(e, h)}>{l}</a>)}
           <Link to="/login">Sign in</Link>
           <button type="button" onClick={toggleTheme}>{theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}</button>
           <label className="gx-sel drawer"><span className="gx-sr">Country</span><select value={country.code} onChange={(e) => setCountry(e.target.value)} aria-label="Country">{countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
@@ -68,35 +81,67 @@ function Floaters() {
   return <>{FLOATERS.map((f, i) => <span key={f.n} className="gx-float" style={{ left: f.x, top: f.y, '--d': f.d, '--c': f.c, '--i': i }} aria-hidden="true"><span><Ico n={f.n} size={22} /></span></span>)}</>;
 }
 function Hero({ info, onFilm }) {
-  const { country } = useCountry();
-  const [i, setI] = useState(0);
-  const stage = useRef(null);
-  useEffect(() => { if (reducedMotion()) return undefined; const t = setInterval(() => setI((x) => (x + 1) % PHRASES.length), 2800); return () => clearInterval(t); }, []);
-  const parallax = (e) => { if (reducedMotion()) return; const b = e.currentTarget.getBoundingClientRect(); stage.current?.style.setProperty('--px', ((e.clientX - b.left) / b.width - 0.5).toFixed(3)); stage.current?.style.setProperty('--py', ((e.clientY - b.top) / b.height - 0.5).toFixed(3)); };
+  const { country, countries, detected, manual, resetLocation } = useCountry();
+  const nav = useNavigate();
+  const loc = useLocation();
+  const tun = useRef(null);
+  const tunnel = useTunnel(tun);
   const days = info.trial_days;
+  // market wording from the country's copy map; a city is used only when it is on that country's list (no local office is implied)
+  // wording of the market only when the visitor chose it or the server detected it; otherwise the neutral global wording
+  const localised = manual || (detected && detected.country === country.code);
+  const crm = localised ? (country.copy || {}).crm || null : null;
+  const global = info.crm_global || {};
+  const city = detected && detected.country === country.code && detected.city && (crm?.cities || []).includes(detected.city) ? detected.city : null;
+  const hook = crm ? (city && crm.city_hook ? crm.city_hook.replace('{city}', city) : crm.hook) : null;
+  const sub = (crm && crm.sub) || global.sub || 'Manage enquiries, client relationships, property interests and deals from one workspace, so your team knows who to contact, what happens next and where every opportunity stands.';
+  const nameOf = (code) => (countries.find((c) => c.code === code) || {}).name || code;
+  const parallax = (e) => { if (reducedMotion()) return; const b = e.currentTarget.getBoundingClientRect(); e.currentTarget.style.setProperty('--px', ((e.clientX - b.left) / b.width - 0.5).toFixed(3)); e.currentTarget.style.setProperty('--py', ((e.clientY - b.top) / b.height - 0.5).toFixed(3)); };
+  // opens the live demo on one screen (also what the flying cards do)
+  const pick = (tab) => {
+    track('tour_tab', { where: `hero_${tab}` });
+    nav({ pathname: '/', search: loc.search, hash: `#tour-${tab}` });
+    setTimeout(() => document.getElementById('tour')?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth' }), 60);
+  };
   return (
     <section className="gx-hero" onPointerMove={parallax} aria-labelledby="gx-h1">
       <DotField /><div className="gx-hero-glow" aria-hidden="true" />
-      <div className="gx-wrap gx-hero-in">
-        <a className="gx-chip" href="#tour"><b className="gx-new">NEW</b> Video meetings, call recording and AI Studio are live <Ico n="arrow" size={14} /></a>
-        <h1 id="gx-h1">The real estate CRM that <span className="gx-rot" aria-live="polite"><span key={i} className="gx-grad">{PHRASES[i]}</span></span></h1>
-        <p className="gx-sub">Manage enquiries, client relationships, property interests and deals from one workspace, so your team knows who to contact, what happens next and where every opportunity stands.</p>
-        <div className="gx-cta">
-          <Link to="/signup" className="gx-btn cream" onClick={() => track('cta_start_trial', { where: 'hero' })}>Start free for {days} days <Ico n="arrow" size={17} /></Link>
-          <a href="#tour" className="gx-btn ring" onClick={() => track('tour_tab', { where: 'hero' })}><Ico n="bolt" size={16} /> Explore the live demo <b className="gx-gold">NEW</b></a>
-          <button type="button" className="gx-btn ghost" onClick={onFilm}><Ico n="play" size={14} /> Watch the {FILM.length * 3.6 | 0}-second tour</button>
+      <div className={`gx-tunnel ${tunnel ? 'on' : ''}`} ref={tun}>
+        <div className="gx-tun-stick">
+          {tunnel && <TunnelCards country={country} onPick={pick} />}
+          {tunnel && <div className="gx-tun-scrim" aria-hidden="true" />}
+          <div className="gx-wrap gx-hero-in">
+            <a className="gx-chip" href="#tour"><b className="gx-new">NEW</b> Video meetings, call recording and AI Studio are live <Ico n="arrow" size={14} /></a>
+            <h1 id="gx-h1">Every real estate lead. Every follow-up. <span className="gx-grad">One CRM.</span></h1>
+            {hook && hook !== global.hook && <p className="gx-hook" aria-live="polite">{hook}</p>}
+            <p className="gx-sub">{sub}</p>
+            <div className="gx-cta">
+              <a href="#tour" className="gx-btn cream" onClick={() => track('cta_explore_crm', { where: 'hero' })}><Ico n="bolt" size={16} /> Explore the CRM <Ico n="arrow" size={17} /></a>
+              <Link to="/signup" className="gx-btn ring" onClick={() => track('cta_start_trial', { where: 'hero' })}>Start free for {days} days</Link>
+              <button type="button" className="gx-btn ghost" onClick={onFilm}><Ico n="play" size={14} /> Watch the {FILM.length * 3.6 | 0}-second tour</button>
+            </div>
+            <div className="gx-hot" role="group" aria-label="Open a screen of the live demo">
+              {HOT.map(([k, l]) => <button key={k} type="button" className="gx-hotbtn" onClick={() => pick(k)}>{l}</button>)}
+            </div>
+            <ul className="gx-ticks"><li>No card needed to start</li><li>Phone, tablet and desktop</li><li>Your data stays yours: read-only, never deleted</li></ul>
+            {detected && (manual && detected.country !== country.code
+              ? <p className="gx-loc">Showing wording for {country.name}. <button type="button" className="gx-linkbtn" onClick={resetLocation}>Use detected location ({city ? `${city}, ` : ''}{nameOf(detected.country)})</button></p>
+              : !manual && <p className="gx-loc">Wording for {city ? `${city}, ` : ''}{country.name}, from your approximate location. Change it any time in the country menu.</p>)}
+          </div>
         </div>
-        <ul className="gx-ticks"><li>No card needed to start</li><li>Phone, tablet and desktop</li><li>Your data stays yours: read-only, never deleted</li></ul>
-        <div className="gx-stage" ref={stage}>
+      </div>
+      <div className="gx-wrap">
+        <div className="gx-stage">
           <Floaters />
           <div className="gx-laptop">
             <div className="gx-lap-top"><i /><i /><i /><span>sample data</span></div>
             <div className="gx-lap-screen"><img src={shot('re-dash', country.code)} width="2200" height="1480" alt={`The Agentify dashboard, from a ${country.name} demo workspace with sample data`} fetchPriority="high" onError={(e) => { e.currentTarget.style.display = 'none'; }} /><span className="gx-scan" aria-hidden="true" /></div>
           </div>
           <div className="gx-hero-phone"><PhoneCRM currency={country.currency} compact /></div>
-          <div className="gx-pop p1" aria-hidden="true"><b>New enquiry</b><small>Website · 9 min ago · sample</small></div>
-          <div className="gx-pop p2" aria-hidden="true"><b>✓ Assigned to Sara Malik</b><small>The listing’s agent · sample</small></div>
-          <div className="gx-pop p3" aria-hidden="true"><b>Follow-up today, 4:00 pm</b><small>Call back · sample</small></div>
+          <div className="gx-pop p1" aria-hidden="true"><b>New lead assigned</b><small>Sample lead · website · 9 min ago</small></div>
+          <div className="gx-pop p2" aria-hidden="true"><b>✓ Viewing booked</b><small>Sample · Thursday, 11:00</small></div>
+          <div className="gx-pop p3" aria-hidden="true"><b>Follow-up due today, 4:00 pm</b><small>Call back · sample</small></div>
+          <div className="gx-pop p4" aria-hidden="true"><b>Deal moved to Offer</b><small>Sample deal</small></div>
         </div>
       </div>
     </section>
@@ -144,7 +189,6 @@ function Features() {
         <p className="gx-eyebrow gx-rv"><i>02</i> What is inside</p>
         <h2 id="gx-feat-h" className="gx-h2 gx-rv">Everything the CRM does <span className="gx-grad">for a brokerage</span></h2>
         <ul className="gx-fgrid">{FEATURES.map(([n, t, d], k) => <li key={t} className="gx-card gx-rv" style={{ '--s': `${k * 50}ms` }} onPointerMove={spot}><span className="gx-tile"><Ico n={n} size={22} /></span><h3>{t}</h3><p>{d}</p></li>)}</ul>
-        <p className="gx-more gx-rv">And the ERP behind it: property and project inventory, sales and payment plans, receipts, commissions, accounting and construction. <Link to="/real-estate">See real estate in detail</Link> · <Link to="/construction">Construction</Link></p>
       </div>
     </section>
   );
@@ -377,6 +421,7 @@ function Footer({ info }) {
           <div><h4>Legal</h4>{(c.legal || []).map((d) => <Link key={d.slug} to={`/legal/${d.slug}`}>{d.title}</Link>)}
             <label className="gx-sel foot"><span className="gx-sr">Country</span><select value={country.code} onChange={(e) => setCountry(e.target.value)} aria-label="Country">{countries.map((x) => <option key={x.code} value={x.code}>{x.name}</option>)}</select></label></div>
         </div>
+        <p className="gx-fine center">To pick the wording of this page we use your approximate location (country and, where possible, city) from your connection. The address itself is not stored by this page. Choose another country in the menu at any time.</p>
         <p className="gx-fine center">© {new Date().getFullYear()} {c.brand}. Logos of other products belong to their owners and show compatibility only.</p>
       </div>
     </footer>
@@ -412,7 +457,7 @@ export default function Glow({ info }) {
   const [film, setFilm] = useState(false);
   const { country } = useCountry();
   useReveal(root);
-  useEffect(() => { document.title = 'Agentify ERP: real estate CRM with the ERP behind it (preview)'; }, []);
+  useEffect(() => { document.title = 'Agentify ERP: real estate CRM with the ERP behind it'; }, []);
   const extra = [...(info.content.faqs || []), ...((country.copy || {}).faqs || [])];
   return (
     <div className="lp glow" data-theme={theme} ref={root}>
@@ -426,7 +471,9 @@ export default function Glow({ info }) {
         <Tour />
         <Dashboard />
         <How />
+        <Beyond />
         <Mobile />
+        <Stories list={(info.content.testimonials || []).filter((t) => !t.country || t.country === country.code)} />
         <Pricing info={info} />
         <FAQ extra={extra} />
         <Final info={info} />
