@@ -9,6 +9,7 @@ import { requireOperator, onPlatformHost } from '../services/platformAuth.js';
 import { need, auditContext } from '../services/platformAccess.js';
 import { audit } from '../services/platformConfig.js';
 import { planCatalog, PLAN_SETTINGS, PRODUCTS, PLANS } from '../services/plans.js';
+import { submitReview, publicReviews, reviewPhoto } from '../services/reviews.js';
 import { publicContent, publicLegal, createDemoRequest, marketingContent, termsVersion } from '../services/marketing.js';
 import { recordServerEvent, collect } from '../services/analytics.js';
 import { publicAnnouncements } from '../services/announcements.js';
@@ -193,7 +194,7 @@ r.get('/marketing', asyncH((req, res) => {
   mainOnly(req);
   const methods = [...new Set(platformDb().prepare('SELECT method FROM payment_accounts WHERE active=1 ORDER BY sort_order, id').all().map((a) => a.method))];
   const regions = [...selectableRegions(platformDb()).values()].map((p) => ({ code: p.code, name: p.name, currency: p.currency, sub_region_label: p.sub_region_label, sub_regions: p.sub_regions, languages: p.languages }));
-  res.json({ content: publicContent(), base_domain: BASE_DOMAIN, regions, countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, trial_days: PLAN_SETTINGS.default_trial_days, one_trial_per_email: PLAN_SETTINGS.one_trial_per_email, products: PRODUCTS,
+  res.json({ content: { ...publicContent(), reviews: publicReviews() }, base_domain: BASE_DOMAIN, regions, countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, trial_days: PLAN_SETTINGS.default_trial_days, one_trial_per_email: PLAN_SETTINGS.one_trial_per_email, products: PRODUCTS,
     plans: planCatalog().filter((p) => PLANS[p.id]?.visible), addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })),
     google_signup: !!appCreds('google'), local_methods: methods, cards: stripe.stripeConfigured(), terms_version: termsVersion(), ga4_id: getSetting('ga4_measurement_id') || null });
 }));
@@ -209,6 +210,19 @@ r.post('/demo-request', publicLimiter, asyncH(async (req, res) => {
   if (to) await sendMail({ type: 'demo_request', to, subject: `Demo request: ${out.name}`, ...layout({ heading: 'New demo request', lines: [`${out.name} <${out.email}>`, `Company: ${b.company || '—'} · Product: ${out.product || 'not chosen'} · Team: ${b.team_size || '—'}`, String(b.message || '').slice(0, 1000)] }) });
   recordServerEvent('demo_requested', { product: out.product, source: b.source, landing_page: b.landing_page, visitor_id: b.visitor_id, session_id: b.session_id, consent: b.consent });
   res.status(201).json({ ok: true });
+}));
+/** Customer review from the website: kept as pending until a console user approves it. Photos are served from here, only for approved reviews. */
+r.post('/reviews', publicLimiter, asyncH((req, res) => {
+  mainOnly(req);
+  const b = req.body || {};
+  if (b.website) return res.status(201).json({ ok: true }); // honeypot
+  submitReview(b);
+  res.status(201).json({ ok: true });
+}));
+r.get('/reviews/:id/photo', asyncH((req, res) => {
+  mainOnly(req);
+  const p = reviewPhoto(req.params.id);
+  res.set({ 'Content-Type': p.type, 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' }).send(p.buffer);
 }));
 /** First-party website analytics (consent required; Do Not Track / GPC honoured). */
 const analyticsLimiter = rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many events' } });

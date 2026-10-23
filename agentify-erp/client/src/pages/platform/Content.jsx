@@ -387,3 +387,41 @@ export function IntegrationsPage() {
     </>
   );
 }
+
+// ---------------------------------------------------------------- customer reviews (moderation)
+export function ReviewsPage() {
+  const toast = useToast();
+  const [tab, setTab] = useState('pending');
+  const { d, err, load } = useLoad(`${A}/reviews?status=${tab}`);
+  const [del, setDel] = useState(null);
+  const act = async (r, what) => { try { await api.post(`${A}/reviews/${r.id}/${what}`, {}); toast(what === 'approve' ? 'Approved: it is now on the website' : what === 'reject' ? 'Rejected' : 'Moved back to waiting'); load(); } catch (e) { toast(e.message, 'err'); } };
+  const remove = async () => { try { await api.del(`${A}/reviews/${del.id}`); toast('Deleted'); setDel(null); load(); } catch (e) { toast(e.message, 'err'); } };
+  const TABS = [['pending', 'Waiting'], ['approved', 'On the website'], ['rejected', 'Rejected']];
+  return (
+    <>
+      <PageTitle title="Customer reviews" sub="Reviews sent from the landing page. Nothing appears on the website until you approve it. Check that the person is a real customer first." />
+      <div className="row wrap" style={{ gap: 8, marginBottom: 12 }}>
+        {TABS.map(([k, l]) => <button key={k} className={`btn sm ${tab === k ? 'primary' : ''}`} onClick={() => setTab(k)}>{l}{d ? ` (${d.counts[k]})` : ''}</button>)}
+      </div>
+      <ErrorBox error={err} />
+      {!d ? (!err && <Loading />) : !d.rows.length ? <Empty icon="mail" title={tab === 'pending' ? 'No reviews waiting' : 'Nothing here'} hint="Visitors send reviews with the Share your experience button on the landing page." /> : d.rows.map((r) => (
+        <Card key={r.id} title={`${r.name}${r.company ? ` · ${r.company}` : ''}`} actions={<span className="muted">{when(r.created_at)}</span>}>
+          <div className="row wrap" style={{ gap: 14, alignItems: 'flex-start' }}>
+            {r.has_photo && <img src={`${A}/reviews/${r.id}/photo`} alt="" width="64" height="64" style={{ borderRadius: '50%', objectFit: 'cover' }} />}
+            <div style={{ flex: 1, minWidth: 220 }}>
+              <p style={{ marginTop: 0 }}>{r.rating ? <b style={{ color: '#d97706' }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)} </b> : null}“{r.quote}”</p>
+              <p className="muted">{[r.role, r.country].filter(Boolean).join(' · ') || 'No role given'} · <span className="mono">{r.email}</span> (not shown on the website){r.decided_by ? ` · decided by ${r.decided_by}` : ''}</p>
+            </div>
+          </div>
+          <div className="row wrap" style={{ gap: 8 }}>
+            {r.status !== 'approved' && <button className="btn sm primary" onClick={() => act(r, 'approve')}>Approve</button>}
+            {r.status !== 'rejected' && <button className="btn sm" onClick={() => act(r, 'reject')}>Reject</button>}
+            {r.status !== 'pending' && <button className="btn sm" onClick={() => act(r, 'reset')}>Back to waiting</button>}
+            <button className="btn sm danger" onClick={() => setDel(r)}>Delete</button>
+          </div>
+        </Card>
+      ))}
+      {del && <ConfirmDialog title="Delete this review?" message={`${del.name}'s review and photo will be removed for good.`} confirmLabel="Delete" danger onConfirm={remove} onCancel={() => setDel(null)} />}
+    </>
+  );
+}

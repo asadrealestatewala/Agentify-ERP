@@ -11,7 +11,7 @@ import { ReportsPage, ReconciliationPage } from './platform/Reports.jsx';
 import { Dashboard, HealthPage, NotificationsPage, SetupPage } from './platform/Dashboard.jsx';
 import { PlansPage, TransactionsPage, SubscriptionHistoryPage } from './platform/Billing.jsx';
 import { FinancePage } from './platform/Finance.jsx';
-import { AnalyticsPage, WebsitePage, DemoRequestsPage, AnnouncementsPage, IntegrationsPage } from './platform/Content.jsx';
+import { AnalyticsPage, WebsitePage, DemoRequestsPage, AnnouncementsPage, IntegrationsPage, ReviewsPage } from './platform/Content.jsx';
 import { MailboxPage, SentLogPage, MailboxSettingsPage } from './platform/Mailbox.jsx';
 import { RegionsPage } from "./platform/Regions.jsx";
 
@@ -295,6 +295,7 @@ function ConsoleRoutes() {
         <Route path="plans" element={<Allowed perm="billing.view"><PlansPage /></Allowed>} />
         <Route path="analytics" element={<Allowed perm="analytics.view"><AnalyticsPage /></Allowed>} />
         <Route path="website" element={<Allowed perm="content.manage"><WebsitePage /></Allowed>} />
+        <Route path="reviews" element={<Allowed perm="content.manage"><ReviewsPage /></Allowed>} />
         <Route path="demo-requests" element={<Allowed perm="workspaces.view"><DemoRequestsPage /></Allowed>} />
         <Route path="announcements" element={<Allowed perm="dashboard.view"><AnnouncementsPage /></Allowed>} />
         <Route path="mailbox" element={<Allowed perm="mailbox.manage"><MailboxPage /></Allowed>} />

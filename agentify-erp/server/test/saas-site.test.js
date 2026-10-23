@@ -134,3 +134,35 @@ test('partner logos: none by default; each needs a name, a real image and writte
   assert.equal((await put([])).status, 200);
   assert.deepEqual((await call(P, 'GET', '/api/platform/marketing')).data.content.partners, []);
 });
+
+test('customer reviews: anyone can submit, nothing shows until approved, photos are checked, only the console decides', async () => {
+  const post = (b) => call(P, 'POST', '/api/platform/reviews', b);
+  const good = { name: 'Dana Ruiz', role: 'Broker', company: 'Ruiz Realty', country: 'us', rating: 5, quote: 'Follow-ups and receipts are finally in one place for our whole team.', email: 'dana@ruiz.test', consent: true };
+  assert.equal((await post({ ...good, consent: false })).status, 400, 'consent needed');
+  assert.equal((await post({ ...good, quote: 'too short' })).status, 400);
+  assert.equal((await post({ ...good, quote: 'Great, see https://spam.test for more details please' })).status, 400, 'no links');
+  assert.equal((await post({ ...good, rating: 9 })).status, 400);
+  assert.equal((await post({ ...good, email: 'nope' })).status, 400);
+  assert.equal((await post({ ...good, photo: 'data:image/png;base64,AAAA' })).status, 400, 'not a real image');
+  assert.equal((await post({ ...good, photo: `data:image/png;base64,${Buffer.alloc(70000, 1).toString('base64')}` })).status, 400, 'too large');
+  assert.equal((await post({ ...good, website: 'http://bot.test' })).status, 201, 'honeypot answers ok but stores nothing');
+  assert.equal((await adm('GET', '/reviews')).data.counts.pending, 0);
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(40, 3)]);
+  assert.equal((await post({ ...good, photo: `data:image/png;base64,${png.toString('base64')}` })).status, 201);
+  assert.deepEqual((await call(P, 'GET', '/api/platform/marketing')).data.content.reviews, [], 'pending reviews are not public');
+  const list = (await adm('GET', '/reviews?status=pending')).data;
+  assert.equal(list.rows.length, 1); assert.equal(list.rows[0].has_photo, true); assert.equal(list.rows[0].email, 'dana@ruiz.test');
+  const id = list.rows[0].id;
+  assert.equal((await call(P, 'GET', `/api/platform/reviews/${id}/photo`)).status, 404, 'photo of a pending review is not public');
+  assert.equal((await call(P, 'GET', `/api/platform/admin/reviews/${id}/photo`, null, { cookie: root })).status, 200, 'console can preview it');
+  assert.equal((await call(P, 'POST', `/api/platform/admin/reviews/${id}/approve`)).status, 401, 'sign-in required');
+  assert.equal((await adm('POST', `/reviews/${id}/approve`)).data.status, 'approved');
+  const pub = (await call(P, 'GET', '/api/platform/marketing')).data.content.reviews;
+  assert.equal(pub.length, 1); assert.equal(pub[0].name, 'Dana Ruiz'); assert.equal(pub[0].country, 'US'); assert.ok(!('email' in pub[0]), 'e-mail is never public');
+  assert.equal((await call(P, 'GET', pub[0].photo)).status, 200);
+  assert.equal((await adm('POST', `/reviews/${id}/reject`)).data.status, 'rejected');
+  assert.deepEqual((await call(P, 'GET', '/api/platform/marketing')).data.content.reviews, []);
+  assert.equal((await adm('DELETE', `/reviews/${id}`)).status, 200);
+  assert.equal((await adm('DELETE', `/reviews/${id}`)).status, 404);
+  assert.equal((await call('acme.erp.test', 'POST', '/api/platform/reviews', good)).status, 404, 'main domain only');
+});

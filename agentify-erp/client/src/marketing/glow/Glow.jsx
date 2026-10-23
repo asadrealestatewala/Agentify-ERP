@@ -12,7 +12,7 @@ import { PhoneShot } from './RealShots.jsx';
 import { Ico, CountUp, DotField, reducedMotion, spot, useInstall, useReveal, useTheme } from './parts.jsx';
 import { sampleMoney } from './sample.js';
 import { TunnelCards, useTunnel } from './Tunnel.jsx';
-import { Beyond, CountryMenu, Partners, Stories } from './Extra.jsx';
+import { Beyond, CountryMenu, Partners, Reviews, Stories } from './Extra.jsx';
 import './previews.css';
 import './glow.css';
 
@@ -475,6 +475,7 @@ export default function Glow({ info }) {
         <Beyond />
         <Mobile />
         <Stories list={(info.content.testimonials || []).filter((t) => !t.country || t.country === country.code)} />
+        <Reviews list={(info.content.reviews || []).filter((r) => !r.country || r.country === country.code)} />
         <Pricing info={info} />
         <FAQ extra={extra} />
         <Final info={info} />

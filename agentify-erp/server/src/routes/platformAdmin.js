@@ -32,6 +32,7 @@ import { caps as meetingCaps } from '../integrations/meetings.js';
 import { listRegions, setRegionStatus, setRegionFlag, saveRule, reviewRule, listRules, ruleAudit, saveFx, listFx } from '../regions/admin.js';
 import { subscriptionHistory } from '../services/subscriptions.js';
 import mailboxRoutes from './platformMailbox.js';
+import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite } from '../services/platformStaff.js';
 
 const r = Router();
@@ -289,6 +290,23 @@ r.post('/legal/:slug/publish', requireOperator, need('content.manage'), asyncH((
   const out = publishLegal(req.params.slug, req.body || {}, req.operator.email);
   audit(req.operator.email, 'legal-published', { doc: out.slug, version: out.version, reviewed_by: out.reviewed_by });
   res.json(out);
+}));
+// ---- Customer reviews sent from the website: approve before they appear, reject, or delete
+r.get('/reviews', requireOperator, need('content.manage'), (req, res) => res.json(listReviews({ status: req.query.status })));
+r.get('/reviews/:id/photo', requireOperator, need('content.manage'), asyncH((req, res) => {
+  const p = reviewPhoto(req.params.id, { any: true });
+  res.set({ 'Content-Type': p.type, 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' }).send(p.buffer);
+}));
+r.post('/reviews/:id/:decision(approve|reject|reset)', requireOperator, need('content.manage'), asyncH((req, res) => {
+  const status = { approve: 'approved', reject: 'rejected', reset: 'pending' }[req.params.decision];
+  const out = decideReview(req.params.id, status, req.operator.email);
+  audit(req.operator.email, `review-${status}`, { id: out.id, name: out.name });
+  res.json(out);
+}));
+r.delete('/reviews/:id', requireOperator, need('content.manage'), asyncH((req, res) => {
+  deleteReview(req.params.id);
+  audit(req.operator.email, 'review-deleted', { id: Number(req.params.id) });
+  res.json({ ok: true });
 }));
 r.get('/demo-requests', requireOperator, need('workspaces.view'), (req, res) => res.json(listDemoRequests({ status: req.query.status })));
 r.patch('/demo-requests/:id', requireOperator, need('workspaces.edit'), asyncH((req, res) => {
