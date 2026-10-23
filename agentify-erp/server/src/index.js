@@ -1,5 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import path from 'node:path';
@@ -77,6 +78,8 @@ export function createApp() {
     scriptSrc: ["'self'", "'wasm-unsafe-eval'", 'https://www.googletagmanager.com'], frameSrc: ["'self'", 'https://www.youtube.com', 'https://www.google.com', 'https://www.openstreetmap.org'], connectSrc: ["'self'", ...(BASE_DOMAIN ? [`https://*.${BASE_DOMAIN}`, `http://*.${BASE_DOMAIN}:*`] : []),'https://www.google-analytics.com', 'https://*.google-analytics.com', 'https://*.analytics.google.com', 'https://www.googletagmanager.com'], workerSrc: ["'self'", 'blob:'], manifestSrc: ["'self'"],
     // Only force https in production; on plain http://localhost it can break service-worker and asset fetches.
     upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null } }, hsts: process.env.NODE_ENV === 'production', crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  // gzip text responses (the app script alone is 2.3 MB raw); live streams are left alone so they are not buffered
+  app.use(compression({ filter: (req, res) => !/event-stream/.test(String(res.getHeader('Content-Type') || '')) && compression.filter(req, res) }));
   // the billing webhook is signed over the exact bytes, so keep them for that one route
   app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { if (req.originalUrl.startsWith('/api/platform/billing/webhook') || req.originalUrl.startsWith('/api/platform/webhooks/')) req.rawBody = buf; } }));
   app.use(cookieParser());
@@ -168,6 +171,8 @@ export function createApp() {
   // Serve the built SPA when present
   const dist = path.join(here, '..', '..', 'client', 'dist');
   if (fs.existsSync(dist)) {
+    // built files have a content hash in their name, so browsers may keep them for good; the page itself is always re-checked
+    app.use('/assets', express.static(path.join(dist, 'assets'), { maxAge: '365d', immutable: true }));
     app.use(express.static(dist));
     // marketing pages on the main domain get their title, description, canonical and sharing tags on the server (crawlers)
     let shell = null;
