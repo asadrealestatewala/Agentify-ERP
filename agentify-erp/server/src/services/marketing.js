@@ -143,6 +143,7 @@ export const CONTENT_DEFAULTS = {
     ['Can my team have different access?', 'Yes. Invite people by email and give each a role with view, create, edit, delete, approve, export and print rights per module.'],
   ],
   testimonials: [],
+  partners: [],
   contact_email: '',
   contact_phone: '',
   address: '',
@@ -210,6 +211,18 @@ export function saveMarketing(b, by) {
       .filter((t) => t.quote);
     if (next.testimonials.some((t) => !t.name || !t.company || !t.permission)) throw bad('Each testimonial needs the person\'s name, company and confirmation that they gave permission to publish it');
   }
+  if (b.partners !== undefined) {
+    if (!Array.isArray(b.partners)) throw bad('Partners must be a list');
+    // only companies that agreed to be listed; the logo is a small image saved with the content (data address) or an https link
+    next.partners = b.partners.slice(0, 40).map((p) => ({ name: str(p.name, 80, 'Partner name'), country: /^[A-Za-z]{2}$/.test(String(p.country || '').trim()) ? String(p.country).trim().toUpperCase() : null, logo: String(p.logo || '').trim(), url: String(p.url || '').trim(), permission: !!p.permission })).filter((p) => p.name || p.logo);
+    for (const p of next.partners) {
+      if (!p.name) throw bad('Each partner needs a name');
+      if (!p.permission) throw bad(`${p.name}: confirm that they agreed to be listed as a partner`);
+      if (!/^data:image\/(png|jpeg|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(p.logo) && !/^https:\/\/[^\s"'<>]+$/.test(p.logo)) throw bad(`${p.name}: add the logo as a PNG, JPG, WebP or SVG image`);
+      if (p.logo.length > 50_000) throw bad(`${p.name}: the logo is too large (keep it under about 35 KB; large images are shrunk automatically)`);
+      if (p.url && !/^https:\/\/[^\s"'<>]+$/.test(p.url)) throw bad(`${p.name}: the website link must start with https://`);
+    }
+  }
   if (b.social !== undefined) next.social = Object.fromEntries(Object.entries({ ...cur.social, ...b.social }).map(([k, v]) => {
     const s = str(v, 200, k);
     if (s && !/^https:\/\//.test(s)) throw bad(`${k} link must start with https://`);
@@ -226,7 +239,7 @@ export function saveMarketing(b, by) {
 /** What the public site may show (published legal docs are listed; drafts are shown with a clear notice). */
 export function publicContent() {
   const c = marketingContent();
-  return { ...c, testimonials: c.testimonials.filter((t) => t.permission), legal: listLegal().map(({ slug, title, status, version, published_at }) => ({ slug, title, status, version, published_at })) };
+  return { ...c, testimonials: c.testimonials.filter((t) => t.permission), partners: (c.partners || []).filter((p) => p.permission && p.logo), legal: listLegal().map(({ slug, title, status, version, published_at }) => ({ slug, title, status, version, published_at })) };
 }
 
 // ---------------------------------------------------------------- legal documents

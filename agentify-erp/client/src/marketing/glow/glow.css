@@ -410,3 +410,13 @@
 @media(max-width:1400px){.glow .gx-nav-r .gx-cm-name{max-width:120px}}
 /* between 1241 and 1400 px the bar is tight: the download button shows its icon only (name in its tooltip and label) */
 @media(max-width:1400px){.glow .gx-nav-r .gx-dl{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.glow .gx-nav-r .gx-btn.ghost.sm{padding:0;width:42px;height:42px;justify-content:center}.glow .gx-nav-r .gx-btn.ghost.sm .gx-ico{margin:0}}
+
+/* partner logos (only rendered when the console has permitted partners for the visitor's country) */
+.glow .gx-partners{padding:clamp(28px,4vw,56px) 0}
+.glow .gx-pt-h{font:600 13px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;text-transform:uppercase;letter-spacing:.14em;color:var(--mu);text-align:center;margin:0 0 24px}
+.glow .gx-logos .gx-track{align-items:center;gap:clamp(28px,5vw,64px);animation-duration:40s}
+.glow .gx-logos .gx-track li{min-width:0;padding:0;border:0;background:none;border-radius:0}
+.glow .gx-logos img{display:block;height:34px;max-width:150px;width:auto;object-fit:contain;filter:grayscale(1) brightness(1.6) contrast(.9);opacity:.75;transition:opacity .2s,filter .2s}
+.glow .gx-logos a:hover img,.glow .gx-logos a:focus-visible img,.glow .gx-logos img:hover{filter:none;opacity:1}
+.glow .gx-logos.still{-webkit-mask-image:none;mask-image:none}.glow .gx-logos.still .gx-track{animation:none;flex-wrap:wrap;justify-content:center}
+@media (prefers-reduced-motion:reduce){.glow .gx-logos .gx-track{animation:none}.glow .gx-logos{overflow-x:auto}}

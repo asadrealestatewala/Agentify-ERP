@@ -12,7 +12,7 @@ import { PhoneShot } from './RealShots.jsx';
 import { Ico, CountUp, DotField, reducedMotion, spot, useInstall, useReveal, useTheme } from './parts.jsx';
 import { sampleMoney } from './sample.js';
 import { TunnelCards, useTunnel } from './Tunnel.jsx';
-import { Beyond, CountryMenu, Stories } from './Extra.jsx';
+import { Beyond, CountryMenu, Partners, Stories } from './Extra.jsx';
 import './previews.css';
 import './glow.css';
 
@@ -465,6 +465,7 @@ export default function Glow({ info }) {
       <Nav info={info} theme={theme} toggleTheme={toggleTheme} />
       <main id="main">
         <Hero info={info} onFilm={() => setFilm(true)} />
+        <Partners list={(info.content.partners || []).filter((p) => !p.country || p.country === country.code)} />
         <Segments />
         <Kinetic />
         <Features />

@@ -117,3 +117,20 @@ test('analytics: nothing stored without consent or with Do Not Track; consented 
   assert.equal(a.data.visitors, 1); assert.equal(a.data.sessions, 1); assert.ok(a.data.funnel.signup_completed >= 1, 'server-side signups counted');
   assert.match(a.data.note, /accepted analytics/);
 });
+
+test('partner logos: none by default; each needs a name, a real image and written permission; only permitted ones are public', async () => {
+  assert.deepEqual((await call(P, 'GET', '/api/platform/marketing')).data.content.partners, [], 'no invented partners');
+  const logo = `data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>').toString('base64')}`;
+  const put = (partners) => adm('PUT', '/marketing', { partners });
+  assert.equal((await put([{ name: 'Acme Realty', country: 'US', logo, permission: false }])).status, 400, 'permission required');
+  assert.equal((await put([{ name: 'Acme Realty', country: 'US', logo: 'http://x.test/a.png', permission: true }])).status, 400, 'https or an uploaded image only');
+  assert.equal((await put([{ name: 'Acme Realty', country: 'US', logo: 'javascript:alert(1)', permission: true }])).status, 400);
+  assert.equal((await put([{ name: '', country: 'US', logo, permission: true }])).status, 400, 'a name is required');
+  assert.equal((await put([{ name: 'Acme Realty', country: 'US', logo: `data:image/png;base64,${'A'.repeat(60000)}`, permission: true }])).status, 400, 'too large');
+  const ok = await put([{ name: 'Acme Realty', country: 'us', logo, url: 'https://acme.test', permission: true }]);
+  assert.equal(ok.status, 200, JSON.stringify(ok.data));
+  const pub = (await call(P, 'GET', '/api/platform/marketing')).data.content.partners;
+  assert.equal(pub.length, 1); assert.equal(pub[0].country, 'US'); assert.equal(pub[0].name, 'Acme Realty');
+  assert.equal((await put([])).status, 200);
+  assert.deepEqual((await call(P, 'GET', '/api/platform/marketing')).data.content.partners, []);
+});

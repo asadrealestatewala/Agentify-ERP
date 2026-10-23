@@ -108,3 +108,25 @@ export function CountryMenu({ variant = 'bar' }) {
     </div>
   );
 }
+
+/** Partner logos: only companies entered in the console with written permission, shown for the visitor's country. Not rendered when there are none. */
+export function Partners({ list }) {
+  if (!list || !list.length) return null;
+  const items = list.map((p) => {
+    const img = <img src={p.logo} alt={p.name} loading="lazy" decoding="async" referrerPolicy="no-referrer" />;
+    return <li key={p.name + p.logo.length}>{p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer nofollow" aria-label={p.name}>{img}</a> : img}</li>;
+  });
+  // short lists sit still and centred; long ones drift (hover or focus pauses them)
+  const drift = list.length > 5;
+  return (
+    <section className="gx-sec gx-partners" aria-labelledby="gx-pt-h">
+      <div className="gx-wrap">
+        <h2 id="gx-pt-h" className="gx-pt-h gx-rv">Our real estate partners</h2>
+        <div className={`gx-marq gx-logos ${drift ? '' : 'still'}`} tabIndex={drift ? 0 : undefined} aria-label={drift ? 'Partner logos. Hover or focus to pause.' : undefined}>
+          <ul className="gx-track">{items}</ul>
+          {drift && <ul className="gx-track" aria-hidden="true">{list.map((p) => <li key={p.name + p.logo.length}><img src={p.logo} alt="" loading="lazy" decoding="async" /></li>)}</ul>}
+        </div>
+      </div>
+    </section>
+  );
+}

@@ -9,6 +9,29 @@ import { A, PageTitle, useCan } from './AdminShell.jsx';
 
 const n0 = (v) => (v == null ? '—' : Number(v).toLocaleString());
 const pct = (v) => (v == null ? '—' : `${v}%`);
+/** A small logo for saving with the website content: SVG as it is (if small), other images shrunk to 360 px wide as WebP. */
+function logoData(file) {
+  return new Promise((resolve, reject) => {
+    if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(file.type)) return reject(new Error('Use a PNG, JPG, WebP or SVG image'));
+    const r = new FileReader();
+    r.onerror = () => reject(new Error('The file could not be read'));
+    r.onload = () => {
+      if (file.type === 'image/svg+xml') return r.result.length <= 50000 ? resolve(r.result) : reject(new Error('This SVG is too large (about 35 KB at most). Export a simpler one or use PNG.'));
+      const img = new Image();
+      img.onerror = () => reject(new Error('That image could not be opened'));
+      img.onload = () => {
+        const w = Math.min(360, img.width), h = Math.round(img.height * (w / img.width));
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d').drawImage(img, 0, 0, w, h);
+        let out = c.toDataURL('image/webp', 0.9);
+        if (!out.startsWith('data:image/webp')) out = c.toDataURL('image/png');
+        out.length <= 50000 ? resolve(out) : reject(new Error('The logo is still too large after shrinking. Use a simpler image.'));
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
 const when = (ts) => (ts ? new Date(String(ts).includes('T') ? ts : `${String(ts).replace(' ', 'T')}Z`).toLocaleString() : '—');
 function useLoad(url) {
   const [d, setD] = useState(null);
@@ -50,7 +73,29 @@ export function AnalyticsPage() {
               {[['Product page views', d.funnel.product_page_views], ['Pricing page views', d.funnel.pricing_views], ['Sessions that started sign-up', d.funnel.signup_started], ['Sign-ups completed', d.funnel.signup_completed], ['Checkouts started', d.funnel.checkout_started], ['Subscriptions activated', d.funnel.subscription_activated]].map(([l, v]) => <tr key={l}><td>{l}</td><td className="right mono">{n0(v)}</td></tr>)}
             </tbody></table></div>
           </Card>
-          <div className="pa-grid2">
+          <Card title="Partner logos" actions={<button className="btn sm" onClick={() => set('partners')([...f.partners, { name: '', country: 'US', logo: '', url: '', permission: false }])}>Add partner</button>}>
+        <p className="muted">Companies that agreed in writing to be listed as partners. The strip appears on the landing page for the visitor's country; with none entered it is not shown. Add the official logo file from the company (PNG, JPG, WebP or SVG).</p>
+        {!f.partners.length && <Empty title="No partners (no logo strip is shown on the website)" />}
+        {f.partners.map((p, i) => {
+          const up = (k, v) => set('partners')(f.partners.map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+          const pick = async (file) => { if (!file) return; try { up('logo', await logoData(file)); } catch (e) { toast(e.message, 'err'); } };
+          return (
+            <div key={i} className="card" style={{ padding: 12, marginBottom: 8 }}>
+              <div className="pa-grid3" style={{ marginBottom: 8 }}>
+                <Field label="Company"><TextInput value={p.name} onChange={(v) => up('name', v)} /></Field>
+                <Field label="Show in country"><select className="select" value={p.country || ''} onChange={(e) => up('country', e.target.value)}><option value="">All countries</option>{['US', 'UK', 'CA', 'AE', 'PK'].map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
+                <Field label="Website (optional)"><TextInput value={p.url} onChange={(v) => up('url', v)} placeholder="https://" /></Field>
+              </div>
+              <div className="row wrap" style={{ gap: 12, alignItems: 'center', marginBottom: 8 }}>
+                {p.logo ? <img src={p.logo} alt={p.name} style={{ height: 40, maxWidth: 160, objectFit: 'contain', background: '#fff', border: '1px solid var(--border)', borderRadius: 6, padding: 4 }} /> : <span className="muted">No logo yet</span>}
+                <label className="btn sm">Choose logo file<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden onChange={(e) => { pick(e.target.files[0]); e.target.value = ''; }} /></label>
+              </div>
+              <div className="row between"><Toggle value={p.permission} onChange={(v) => up('permission', v)} label="This company agreed in writing to be listed as a partner" /><button className="btn sm danger" onClick={() => set('partners')(f.partners.filter((_, j) => j !== i))}>Remove</button></div>
+            </div>
+          );
+        })}
+      </Card>
+      <div className="pa-grid2">
             <Card title="Acquisition channels" flush>{table(d.channels, 'Channel')}</Card>
             <Card title="Landing pages" flush>{table(d.landing_pages, 'Landing page')}</Card>
           </div>
@@ -79,7 +124,7 @@ export function WebsitePage() {
     setF({ brand: c.brand, hero_title: c.hero_title, hero_subtitle: c.hero_subtitle, announcement_bar: c.announcement_bar, contact_email: c.contact_email, contact_phone: c.contact_phone, address: c.address, social: { ...c.social },
       re_title: c.real_estate.title, re_subtitle: c.real_estate.subtitle, re_features: pairsToText(c.real_estate.features), re_use: (c.real_estate.use_cases || []).join('\n'),
       con_title: c.construction.title, con_subtitle: c.construction.subtitle, con_features: pairsToText(c.construction.features), con_use: (c.construction.use_cases || []).join('\n'),
-      faqs: pairsToText(c.faqs), testimonials: c.testimonials, seo: JSON.parse(JSON.stringify(c.seo)) });
+      faqs: pairsToText(c.faqs), testimonials: c.testimonials, partners: c.partners || [], seo: JSON.parse(JSON.stringify(c.seo)) });
   }, [d]);
   if (!d || !f) return <>{<PageTitle title="Website & legal" />}<ErrorBox error={err} />{!err && <Loading />}</>;
   const set = (k) => (v) => setF({ ...f, [k]: v });
@@ -88,7 +133,7 @@ export function WebsitePage() {
       await api.put(`${A}/marketing`, { brand: f.brand, hero_title: f.hero_title, hero_subtitle: f.hero_subtitle, announcement_bar: f.announcement_bar, contact_email: f.contact_email, contact_phone: f.contact_phone, address: f.address, social: f.social,
         real_estate: { title: f.re_title, subtitle: f.re_subtitle, features: textToPairs(f.re_features), use_cases: f.re_use.split('\n').filter((x) => x.trim()) },
         construction: { title: f.con_title, subtitle: f.con_subtitle, features: textToPairs(f.con_features), use_cases: f.con_use.split('\n').filter((x) => x.trim()) },
-        faqs: textToPairs(f.faqs), testimonials: f.testimonials, seo: f.seo });
+        faqs: textToPairs(f.faqs), testimonials: f.testimonials, partners: f.partners, seo: f.seo });
       toast('Website content saved'); load();
     } catch (e) { toast(e.message, 'err'); }
   };
