@@ -405,3 +405,9 @@ html[dir="rtl"] .input-group .addon { border-radius: 0 var(--radius, 8px) var(--
   .wed-fs .wed-panel { height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
   .wed-fs .wed-frame.bc { height: 80vh; flex: none; }
 }
+
+/* inline editing on the editor canvas */
+.sb-inl { outline: none; cursor: text; border-radius: 4px; transition: box-shadow .12s; }
+.sb-inl:hover { box-shadow: 0 0 0 2px rgba(59,130,246,.45); }
+.sb-inl:focus { box-shadow: 0 0 0 2px #2563eb; background: rgba(255,255,255,.12); }
+.sb-inl:empty::before { content: attr(data-ph); opacity: .5; }

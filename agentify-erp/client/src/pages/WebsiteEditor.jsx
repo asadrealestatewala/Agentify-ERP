@@ -367,7 +367,13 @@ export default function WebsiteEditor() {
   const dupId = (id) => setPage((p) => { const i = p.sections.findIndex((x) => x.id === id); if (i < 0) return p; const a = [...p.sections]; const c = { ...clone(p.sections[i]), id: uid() }; a.splice(i + 1, 0, c); return { ...p, sections: a }; });
   const askDelete = (id) => setDelId(id);
   const doDelete = () => { const id = delId; setDelId(null); remove(id); setSelected((x) => (x === id ? null : x)); toast.undoable('Block deleted', { seconds: 8, commit: () => {}, onUndo: () => hist.undo() }); };
+  // text typed straight onto the canvas: only a known text field of a known block may change, and only to a short string
+  const setAt = (obj, path, value) => { const [k, ...rest] = path.split('.'); const key = /^\d+$/.test(k) ? Number(k) : k; const copy = Array.isArray(obj) ? [...obj] : { ...obj }; copy[key] = rest.length ? setAt(copy[key] ?? {}, rest.join('.'), value) : value; return copy; };
   const canvasActions = {
+    edit: ({ id, path, value }) => {
+      if (typeof value !== 'string' || value.length > 1000 || !/^[A-Za-z_]+(\.\d{1,2}\.[A-Za-z_]+)?$/.test(String(path))) return;
+      setPage((p) => ({ ...p, sections: p.sections.map((x) => (x.id === id ? { ...x, props: setAt(x.props || {}, path, value) } : x)) }));
+    },
     select: (m) => { setSelected(m.id); if (m.id) { setTab('sections'); setTimeout(() => document.getElementById(`row-${m.id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 60); } },
     move: (m) => moveTo(m.id, m.beforeId), add: (m) => addAt(m.type, m.beforeId), up: (m) => bump(m.id, -1), down: (m) => bump(m.id, 1), dup: (m) => dupId(m.id), del: (m) => askDelete(m.id),
     hide: (m) => { const sec = pageRef.current.sections.find((x) => x.id === m.id); if (sec) toggleHide(sec, device); },
@@ -502,7 +508,7 @@ export default function WebsiteEditor() {
           <div className="row between wrap" style={{ marginBottom: 8, gap: 8 }}>
             <b>Visual canvas</b>
             <div className="row" style={{ gap: 8 }}>
-              <span className="muted" style={{ fontSize: 12 }}>Click a block to edit · drag ⠿ to move · drop from “Add blocks”</span>
+              <span className="muted" style={{ fontSize: 12 }}>Click any text to type on the page · click a block for its settings · drag ⠿ to move</span>
               <div className="seg2s">{[['desktop', '🖥 Desktop'], ['tablet', '📱 Tablet'], ['mobile', '📲 Mobile']].map(([d, i]) => <button key={d} className={device === d ? 'on' : ''} onClick={() => setDevice(d)} aria-label={`${d} preview`}>{i}</button>)}</div>
             </div>
           </div>
@@ -514,7 +520,7 @@ export default function WebsiteEditor() {
               <button className="btn primary" onClick={applyPrev}>Use this template</button>
             </div>
           )}
-          <div className="wed-frame bc"><BuilderCanvas config={prev ? prev.config : cfg} sections={prev ? prev.sections : sections} selected={prev ? null : selected} device={device} actions={prev ? {} : canvasActions} /></div>
+          <div className="wed-frame bc"><BuilderCanvas config={prev ? prev.config : cfg} sections={prev ? prev.sections : sections} selected={prev ? null : selected} device={device} readonly={!!prev} actions={prev ? {} : canvasActions} /></div>
         </div>
       </div>
       {delId && <ConfirmDialog danger title="Delete this block?" message="The block is removed from the page. You can undo for a few seconds, or with Ctrl+Z." confirmLabel="Delete" onCancel={() => setDelId(null)} onConfirm={doDelete} />}

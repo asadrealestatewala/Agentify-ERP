@@ -1,10 +1,35 @@
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { CalculatorTabs } from './ConstructionTools.jsx';
 import { useMemo } from 'react';
 import { Markdown, imgUrl, isInternal, priceText, useSite, waLink, MoneyBox, curCode, siteCopy, isPK, exampleAmount } from './siteCore.jsx';
 import { safeId, sectionCss } from '../../../shared/sectionStyle.js';
+
+/**
+ * Inline editing. On the editor canvas each section is wrapped in this context; <Ed> then renders its text as an editable element
+ * (click, type, press Enter or click away) and reports the change to the editor. On the public website there is no context and
+ * <Ed> is plain text, so visitors get nothing extra.
+ */
+export const EditCtx = createContext(null);
+export const useEditing = () => !!useContext(EditCtx);
+export const postToEditor = (m) => window.parent.postMessage(m, window.location.origin);
+export function Ed({ as: Tag = 'span', value, path, className, children, ...rest }) {
+  const ctx = useContext(EditCtx);
+  const text = value ?? '';
+  if (!ctx) return <Tag className={className} {...rest}>{children ?? text}</Tag>;
+  const commit = (el) => {
+    const v = el.innerText.replace(/\u00a0/g, ' ').replace(/\s*\n+\s*/g, ' ').trim();
+    if (v !== String(text)) ctx.post({ t: 'edit', id: ctx.sid, path, value: v });
+    else el.innerText = text; // normalise stray markup after typing
+  };
+  return (
+    <Tag {...rest} className={`${className || ''} sb-inl`} contentEditable suppressContentEditableWarning spellCheck data-ph="Click to write" data-path={path}
+      onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } else if (e.key === 'Escape') { e.currentTarget.innerText = text; e.currentTarget.blur(); } }}
+      onPaste={(e) => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain').replace(/\s*\n+\s*/g, ' ')); }}
+      onDrop={(e) => e.preventDefault()} onBlur={(e) => commit(e.currentTarget)}>{text}</Tag>
+  );
+}
 
 /** Internal links use the router; external/tel/mailto use a normal anchor. */
 const SAFE = /^(https?:\/\/|\/|#|mailto:|tel:)/i;
@@ -147,17 +172,21 @@ export function InquiryForm({ propertyId, title = 'Send an enquiry', kind = 'inq
 }
 
 // ---------------------------------------------------------------- page sections
-const Head = ({ title, subtitle, href, hrefLabel = 'View all →' }) => (title || subtitle) ? (
-  <div className="sec-head"><div>{title && <h2>{title}</h2>}{subtitle && <p>{subtitle}</p>}</div>{href && <A href={href} className="more">{hrefLabel}</A>}</div>
-) : null;
+const Head = ({ title, subtitle, href, hrefLabel = 'View all →' }) => {
+  const ctx = useContext(EditCtx);
+  const mine = (k, v) => !!ctx && ctx.props?.[k] === v;
+  return (title || subtitle) ? (
+    <div className="sec-head"><div>{title && (mine('title', title) ? <Ed as="h2" value={title} path="title" /> : <h2>{title}</h2>)}{subtitle && (mine('subtitle', subtitle) ? <Ed as="p" value={subtitle} path="subtitle" /> : <p>{subtitle}</p>)}</div>{href && <A href={href} className="more">{hrefLabel}</A>}</div>
+  ) : null;
+};
 
 function Hero({ p }) {
   const bg = imgUrl(p.image);
   return (
     <section className={`hero ${p.height || 'tall'}`} style={bg ? { backgroundImage: `linear-gradient(rgba(4,36,34,${(p.overlay ?? 55) / 100}), rgba(4,36,34,${(p.overlay ?? 55) / 100})), url(${bg})` } : undefined}>
       <div className="wrap">
-        <h1>{p.headline}</h1>{p.subheadline && <p>{p.subheadline}</p>}
-        {p.cta_label && <A href={p.cta_href} className="btn-p lg">{p.cta_label}</A>}
+        <Ed as="h1" value={p.headline} path="headline" />{p.subheadline && <Ed as="p" value={p.subheadline} path="subheadline" />}
+        {p.cta_label && <A href={p.cta_href} className="btn-p lg"><Ed value={p.cta_label} path="cta_label" /></A>}
         {p.show_search && <SearchBox />}
       </div>
     </section>
@@ -184,11 +213,11 @@ function Projects({ p }) {
   return <section className="sec soft"><div className="wrap"><Head title={p.title} subtitle={p.subtitle} href="/site/projects" />{!d ? null : <div className="jgrid">{d.data.slice(0, p.limit || 3).map((x) => <ProjectCard key={x.id} p={x} />)}</div>}</div></section>;
 }
 
-const Stats = ({ p }) => <section className="stats"><div className="wrap">{(p.items || []).map((s, i) => <div key={i}><b>{s.value}</b><span>{s.label}</span></div>)}</div></section>;
+const Stats = ({ p }) => <section className="stats"><div className="wrap">{(p.items || []).map((s, i) => <div key={i}><Ed as="b" value={s.value} path={`items.${i}.value`} /><Ed value={s.label} path={`items.${i}.label`} /></div>)}</div></section>;
 
 const Services = ({ p }) => (
   <section className="sec"><div className="wrap"><Head title={p.title} />
-    <div className="svc">{(p.items || []).map((s, i) => <A key={i} href={s.href} className="svc-card"><span className="svc-ic">{s.icon}</span><h4>{s.title}</h4><p>{s.text}</p></A>)}</div></div></section>
+    <div className="svc">{(p.items || []).map((s, i) => <A key={i} href={s.href} className="svc-card"><span className="svc-ic">{s.icon}</span><Ed as="h4" value={s.title} path={`items.${i}.title`} /><Ed as="p" value={s.text} path={`items.${i}.text`} /></A>)}</div></div></section>
 );
 
 const Calculators = ({ p }) => <section className="sec soft"><div className="wrap"><Head title={p.title} subtitle={p.subtitle} href="/site/calculators" hrefLabel="Open full calculators →" /><CalculatorTabs /></div></section>;
@@ -201,7 +230,7 @@ function Agents({ p }) {
 
 const Testimonials = ({ p }) => (
   <section className="sec soft"><div className="wrap"><Head title={p.title} />
-    <div className="tgrid">{(p.items || []).filter((t) => t.quote).map((t, i) => <figure key={i} className="tcard"><blockquote>“{t.quote}”</blockquote><figcaption><span className="av">{(t.name || '?')[0]}</span><div><b>{t.name}</b><small>{t.role}</small></div></figcaption></figure>)}</div></div></section>
+    <div className="tgrid">{(p.items || []).map((t, i) => ({ ...t, _i: i })).filter((t) => t.quote).map((t) => <figure key={t._i} className="tcard"><blockquote>“<Ed value={t.quote} path={`items.${t._i}.quote`} />”</blockquote><figcaption><span className="av">{(t.name || '?')[0]}</span><div><Ed as="b" value={t.name} path={`items.${t._i}.name`} /><Ed as="small" value={t.role} path={`items.${t._i}.role`} /></div></figcaption></figure>)}</div></div></section>
 );
 
 const Partners = ({ p }) => {
@@ -300,16 +329,16 @@ function Cta({ p }) {
   const bg = imgUrl(p.image);
   return (
     <section className={`cta ${p.tone || 'dark'}`} style={bg ? { backgroundImage: `linear-gradient(rgba(4,36,34,.6), rgba(4,36,34,.6)), url(${bg})` } : undefined}>
-      <div className="wrap"><h2>{p.headline}</h2>{p.text && <p>{p.text}</p>}{p.button_label && <A href={p.button_href} className="btn-p lg alt">{p.button_label}</A>}</div>
+      <div className="wrap"><Ed as="h2" value={p.headline} path="headline" />{p.text && <Ed as="p" value={p.text} path="text" />}{p.button_label && <A href={p.button_href} className="btn-p lg alt"><Ed value={p.button_label} path="button_label" /></A>}</div>
     </section>
   );
 }
 
-const TextBlock = ({ p }) => <section className="sec"><div className="wrap narrow" style={{ textAlign: p.align || 'left' }}>{p.title && <h2>{p.title}</h2>}<Markdown text={p.html} /></div></section>;
+const TextBlock = ({ p }) => <section className="sec"><div className="wrap narrow" style={{ textAlign: p.align || 'left' }}>{p.title && <Ed as="h2" value={p.title} path="title" />}<Markdown text={p.html} /></div></section>;
 
 const ImageText = ({ p }) => (
   <section className="sec"><div className={`wrap split ${p.image_side === 'left' ? 'rev' : ''}`}>
-    <div className="split-text">{p.title && <h2>{p.title}</h2>}<Markdown text={p.text} />{p.button_label && <A href={p.button_href} className="btn-p">{p.button_label}</A>}</div>
+    <div className="split-text">{p.title && <Ed as="h2" value={p.title} path="title" />}<Markdown text={p.text} />{p.button_label && <A href={p.button_href} className="btn-p"><Ed value={p.button_label} path="button_label" /></A>}</div>
     <div className="split-img">{p.image ? <img src={imgUrl(p.image)} alt={p.title || ''} loading="lazy" /> : <Placeholder icon="🏡" />}</div>
   </div></section>
 );
@@ -325,7 +354,7 @@ function Contact({ p }) {
   const c = config.contact;
   return (
     <section className="sec"><div className="wrap split">
-      <div className="split-text"><h2>{p.title}</h2>{p.text && <p>{p.text}</p>}
+      <div className="split-text"><Ed as="h2" value={p.title} path="title" />{p.text && <Ed as="p" value={p.text} path="text" />}
         {p.show_details && <ul className="cdetails">{c.phone && <li>📞 <a href={`tel:${c.phone}`}>{c.phone}</a></li>}{c.landline && <li>☎️ <a href={`tel:${c.landline}`}>{c.landline}</a></li>}{c.whatsapp && <li>💬 <a href={waLink(c.whatsapp)} target="_blank" rel="noreferrer">WhatsApp {c.whatsapp}</a></li>}{c.email && <li>✉️ <a href={`mailto:${c.email}`}>{c.email}</a></li>}{c.address && <li>📍 {c.address}</li>}{c.hours && <li>🕘 {c.hours}</li>}</ul>}</div>
       {p.show_form && <InquiryForm title="Send us a message" kind="contact" />}
     </div></section>
@@ -371,7 +400,7 @@ function ProjectInfo({ p }) {
 
 /** Free-form columns (1–4) with image, heading, text and button — the general-purpose layout block. */
 function Columns({ p }) {
-  const items = (p.items || []).filter((x) => x.title || x.text || x.image);
+  const items = (p.items || []).map((x, idx) => ({ ...x, _i: idx })).filter((x) => x.title || x.text || x.image);
   const n = Math.min(4, Math.max(1, Number(p.cols) || items.length || 1));
   return (
     <section className="sec"><div className="wrap">
@@ -380,7 +409,7 @@ function Columns({ p }) {
         {items.map((x, i) => (
           <div key={i} className="cols-item" style={{ '--i': i + 1 }}>
             {x.image && <img src={imgUrl(x.image)} alt={x.title || ''} loading="lazy" decoding="async" />}
-            {x.title && <h3>{x.title}</h3>}
+            {x.title && <Ed as="h3" value={x.title} path={`items.${x._i}.title`} />}
             {x.text && <Markdown text={x.text} />}
             {x.button_label && <A href={x.button_href} className="btn-p">{x.button_label}</A>}
           </div>
@@ -448,7 +477,7 @@ const Portal = ({ p }) => (
   </div></section>
 );
 
-const Banner = ({ p }) => { const inner = <div className="wrap">{p.text}</div>; return p.href ? <A href={p.href} className={`banner ${p.tone || 'primary'}`}>{inner}</A> : <div className={`banner ${p.tone || 'primary'}`}>{inner}</div>; };
+const Banner = ({ p }) => { const inner = <div className="wrap"><Ed value={p.text} path="text" /></div>; return p.href ? <A href={p.href} className={`banner ${p.tone || 'primary'}`}>{inner}</A> : <div className={`banner ${p.tone || 'primary'}`}>{inner}</div>; };
 
 const MAP = { hero: Hero, listings: Listings, projects: Projects, stats: Stats, services: Services, calculators: Calculators, agents: Agents, testimonials: Testimonials, partners: Partners, reviews: Reviews, embed: Embed, blog: Blog, cta: Cta, text: TextBlock, imagetext: ImageText, faq: Faq, contact: Contact, gallery: Gallery, banner: Banner, leadership: Leadership, projectinfo: ProjectInfo, columns: Columns, spacer: Spacer, livestats: LiveStats, booking: Booking, portal: Portal };
 
@@ -457,7 +486,7 @@ const MAP = { hero: Hero, listings: Listings, projects: Projects, stats: Stats, 
  * into one small stylesheet: desktop rules, then @media (max-width:768px) for tablet and (max-width:480px) for mobile.
  * `wrap` lets the visual editor add its selection / drag handles around every block.
  */
-export function SectionRenderer({ sections, wrap, editor }) {
+export function SectionRenderer({ sections, wrap, editor, readonly }) {
   const list = sections || [];
   const css = useMemo(() => sectionCss(list, { keepHidden: !!editor }), [list, editor]);
   return (
@@ -465,7 +494,7 @@ export function SectionRenderer({ sections, wrap, editor }) {
       {css && <style>{css}</style>}
       {list.map((s, i) => {
         const C = MAP[s.type]; if (!C) return null;
-        const node = <div key={s.id} id={`sb-${safeId(s.id)}`} className={`sb ${editor ? 'sb-ed' : ''}`} data-sid={s.id} data-type={s.type}><C p={s.props || {}} />{s.style?.anchor && <span id={s.style.anchor} className="sb-anchor" />}</div>;
+        const node = <div key={s.id} id={`sb-${safeId(s.id)}`} className={`sb ${editor ? 'sb-ed' : ''}`} data-sid={s.id} data-type={s.type}>{editor && !readonly ? <EditCtx.Provider value={{ sid: s.id, props: s.props || {}, post: postToEditor }}><C p={s.props || {}} /></EditCtx.Provider> : <C p={s.props || {}} />}{s.style?.anchor && <span id={s.style.anchor} className="sb-anchor" />}</div>;
         return wrap ? wrap(node, s, i) : node;
       })}
     </>

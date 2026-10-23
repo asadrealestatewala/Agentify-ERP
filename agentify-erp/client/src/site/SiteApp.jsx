@@ -450,7 +450,7 @@ export function EditorCanvas() {
     <SiteProvider override={{ config: st.config }}>
       <div ref={ref} className={`sb-canvas ${device}`} onClickCapture={(e) => { if (e.target.closest('a,button[type=submit]') && !e.target.closest('.sb-chip')) e.preventDefault(); }} onClick={() => post({ t: 'select', id: null })}>
         <Header />
-        <SectionRenderer sections={sections} editor wrap={wrap} />
+        <SectionRenderer sections={sections} editor readonly={!!st.readonly} wrap={wrap} />
         <div className={`sb-endzone ${drag?.overId === '__end' ? 'drop' : ''}`} onDragOver={(e) => { if ([...e.dataTransfer.types].some((t) => t.startsWith('application/x-sb'))) { e.preventDefault(); setDrag({ overId: '__end', before: null }); } }} onDragLeave={() => setDrag(null)} onDrop={(e) => drop(e, null)}>
           {sections.length ? 'Drop a block here to add it at the end' : 'This page is empty — drag a block here or use “Add block” in the panel'}
         </div>
