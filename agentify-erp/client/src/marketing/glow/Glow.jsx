@@ -12,7 +12,7 @@ import { PhoneShot } from './RealShots.jsx';
 import { Ico, CountUp, DotField, reducedMotion, spot, useInstall, useReveal, useTheme } from './parts.jsx';
 import { sampleMoney } from './sample.js';
 import { TunnelCards, useTunnel } from './Tunnel.jsx';
-import { Beyond, Stories } from './Extra.jsx';
+import { Beyond, CountryMenu, Stories } from './Extra.jsx';
 import './previews.css';
 import './glow.css';
 
@@ -52,8 +52,7 @@ function Nav({ info, theme, toggleTheme }) {
         <nav className="gx-links" aria-label="Main">{NAV.map(([h, l]) => <a key={h} href={h} onClick={(e) => jump(e, h)}>{l}</a>)}</nav>
         <div className="gx-nav-r">
           <button type="button" className="gx-icon-btn gx-theme-top" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}><Ico n={theme === 'dark' ? 'sun' : 'moon'} size={18} /></button>
-          <label className="gx-sel gx-hide-m"><span className="gx-sr">Country</span>
-            <select value={country.code} onChange={(e) => setCountry(e.target.value)} aria-label="Country">{countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
+          <span className="gx-hide-m"><CountryMenu /></span>
           <span className="gx-hide-s">{installBtn}</span>
           <Link to="/login" className="gx-link-quiet gx-hide-s">Sign in</Link>
           <Link to="/signup" className="gx-btn cream sm" onClick={() => track('cta_start_trial', { where: 'nav' })}>Start free <Ico n="arrow" size={15} /></Link>
@@ -65,7 +64,7 @@ function Nav({ info, theme, toggleTheme }) {
           {NAV.map(([h, l]) => <a key={h} href={h} onClick={(e) => jump(e, h)}>{l}</a>)}
           <Link to="/login">Sign in</Link>
           <button type="button" onClick={toggleTheme}>{theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}</button>
-          <label className="gx-sel drawer"><span className="gx-sr">Country</span><select value={country.code} onChange={(e) => setCountry(e.target.value)} aria-label="Country">{countries.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}</select></label>
+          <CountryMenu variant="drawer" />
           {installBtn}
         </div>)}
     </header>
@@ -420,7 +419,7 @@ function Footer({ info }) {
           <div><h4>Product</h4><a href="#features">Features</a><a href="#tour">Live demo</a><a href="#pricing">Pricing</a><Link to="/real-estate">Real estate</Link><Link to="/construction">Construction</Link></div>
           <div><h4>Company</h4><Link to="/contact">Book a demo</Link><Link to="/signup">Start free</Link><Link to="/login">Sign in</Link>{!inst.installed && inst.apk && <a className="gx-linkbtn" href={inst.apk} download="agentify-erp.apk">Download the app</a>}{!inst.installed && !inst.apk && <button type="button" className="gx-linkbtn" onClick={() => (inst.canPrompt ? inst.install() : document.getElementById('mobile')?.scrollIntoView({ behavior: 'smooth' }))}>Download the app</button>}</div>
           <div><h4>Legal</h4>{(c.legal || []).map((d) => <Link key={d.slug} to={`/legal/${d.slug}`}>{d.title}</Link>)}
-            <label className="gx-sel foot"><span className="gx-sr">Country</span><select value={country.code} onChange={(e) => setCountry(e.target.value)} aria-label="Country">{countries.map((x) => <option key={x.code} value={x.code}>{x.name}</option>)}</select></label></div>
+            <CountryMenu variant="foot" /></div>
         </div>
         <p className="gx-fine center">To pick the wording of this page we use your approximate location (country and, where possible, city) from your connection. The address itself is not stored by this page. Choose another country in the menu at any time.</p>
         <p className="gx-fine center">© {new Date().getFullYear()} {c.brand}. Logos of other products belong to their owners and show compatibility only.</p>
