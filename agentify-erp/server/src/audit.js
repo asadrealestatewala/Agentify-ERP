@@ -45,7 +45,7 @@ function emailNotification(userId, title, body, link) {
     const tenant = currentTenant(), base = process.env.ERP_BASE_DOMAIN;
     const origin = tenant && base ? `https://${tenant.custom_domain || `${tenant.slug}.${base}`}` : '';
     const url = link && origin ? `${origin}${String(link).startsWith('/') ? '' : '/'}${link}` : origin || null;
-    sendMail({ to: u.email, subject: title, ...layout({ heading: title, lines: [body || ''].filter(Boolean), button: url ? { label: 'Open in Agentify ERP', url } : undefined, footer: 'You receive this because e-mail notifications are switched on for your workspace (Settings, Notifications).' }) }).catch(() => {});
+    sendMail({ type: 'notification', to: u.email, subject: title, ...layout({ heading: title, lines: [body || ''].filter(Boolean), button: url ? { label: 'Open in Agentify ERP', url } : undefined, footer: 'You receive this because e-mail notifications are switched on for your workspace (Settings, Notifications).' }) }).catch(() => {});
   } catch { /* a notification must never fail because of its e-mail */ }
 }
 

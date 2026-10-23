@@ -8,7 +8,8 @@ import { platformDb } from '../platform.js';
 import { getSetting, setSetting, mask } from './platformConfig.js';
 import { stripeView, stripeConfig } from './platformConfig.js';
 import { testConnection } from './stripe.js';
-import { setMailConfig, sendMail, layout } from './mailer.js';
+import { setMailConfig, setMailLogger, sendMail, layout } from './mailer.js';
+import { logSent } from './emailLog.js';
 import { listBackups } from './backup.js';
 import { bad, HttpError } from '../util.js';
 import { PROVIDERS as OAUTH, appCreds, saveAppCreds, clearAppCreds, testAppCreds } from './oauthApps.js';
@@ -29,7 +30,13 @@ const lastTest = (id) => { ensure(); return pdb().prepare("SELECT outcome, detai
 const lastConfigAt = (id) => { ensure(); return pdb().prepare("SELECT created_at FROM integration_events WHERE integration=? AND action='configure' ORDER BY id DESC LIMIT 1").get(id)?.created_at || null; };
 
 // ---------------------------------------------------------------- email delivery uses the console settings first, then env
-setMailConfig(() => ({ key: getSetting('resend_api_key') || process.env.RESEND_API_KEY || null, from: getSetting('mail_from') || process.env.MAIL_FROM || null }));
+setMailConfig(() => {
+  const from = getSetting('mail_from') || process.env.MAIL_FROM || null;
+  // automated mail is sent from no-reply@; replies go to the monitored inbox (hello@ on our own domain unless the console says otherwise)
+  const replyTo = getSetting('mail_reply_to') || (from && /@agentifyerp\.co>?\s*$/i.test(from) ? 'hello@agentifyerp.co' : null);
+  return { key: getSetting('resend_api_key') || process.env.RESEND_API_KEY || null, from, replyTo };
+});
+setMailLogger(logSent);
 
 /** Only https URLs whose host resolves to public addresses. */
 export async function assertPublicHttps(url) {
@@ -55,7 +62,7 @@ export function registry() {
   const backups = listBackups();
   const items = [
     { id: 'email', name: 'Transactional email (Resend)', category: 'Messaging', purpose: 'Verification, invitations, password resets, receipts, trial and renewal reminders.',
-      configured: !!resendKey, settings: { api_key: mask(getSetting('resend_api_key')), from: getSetting('mail_from') || process.env.MAIL_FROM || '', env_key: !!process.env.RESEND_API_KEY && !getSetting('resend_api_key') }, test: lastTest('email'),
+      configured: !!resendKey, settings: { api_key: mask(getSetting('resend_api_key')), from: getSetting('mail_from') || process.env.MAIL_FROM || '', reply_to: getSetting('mail_reply_to') || '', webhook_secret: mask(getSetting('resend_webhook_secret')), env_key: !!process.env.RESEND_API_KEY && !getSetting('resend_api_key') }, test: lastTest('email'),
       note: resendKey ? null : 'Without a key, emails are only written to the server log. Invitation and reset links are shown to the admin instead.' },
     { id: 'stripe', name: 'Card payments (Stripe)', category: 'Payments', purpose: 'Hosted checkout, recurring card billing, customer portal and signed webhooks.',
       configured: !!stripe.ready, settings: { mode: stripe.mode }, test: lastTest('stripe'), manage: '/platform/billing/stripe' },
@@ -79,6 +86,8 @@ export async function configure(id, b, actor) {
   if (id === 'email') {
     if (b.api_key) { if (b.api_key && !/^re_[A-Za-z0-9_]{10,}$/.test(b.api_key)) throw bad('A Resend API key starts with re_'); setSetting('resend_api_key', b.api_key || null, { secret: true, by: actor }); }
     if (b.from !== undefined) { if (b.from && !/^[^<>]{0,60}<?[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>?$/.test(b.from)) throw bad('From must look like: Agentify ERP <no-reply@yourdomain.com>'); setSetting('mail_from', b.from || null, { by: actor }); }
+    if (b.webhook_secret) { if (!/^whsec_[A-Za-z0-9+/=_-]{16,}$/.test(String(b.webhook_secret).trim())) throw bad('A Resend webhook signing secret starts with whsec_'); setSetting('resend_webhook_secret', String(b.webhook_secret).trim(), { secret: true, by: actor }); }
+    if (b.reply_to !== undefined) { const r = String(b.reply_to || '').trim(); if (r && !/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[A-Za-z]{2,}$/.test(r)) throw bad('Reply-To must be one e-mail address'); setSetting('mail_reply_to', r || null, { by: actor }); }
   } else if (id === 'ga4') {
     const v = String(b.measurement_id || '').trim().toUpperCase();
     if (v && !/^G-[A-Z0-9]{4,16}$/.test(v)) throw bad('A GA4 measurement ID looks like G-XXXXXXXXXX');
@@ -94,7 +103,7 @@ export async function configure(id, b, actor) {
 }
 
 export async function disconnect(id, actor) {
-  if (id === 'email') { setSetting('resend_api_key', null); setSetting('mail_from', null); }
+  if (id === 'email') { setSetting('resend_api_key', null); setSetting('mail_from', null); setSetting('resend_webhook_secret', null); setSetting('mail_reply_to', null); }
   else if (id === 'ga4') setSetting('ga4_measurement_id', null);
   else if (id === 'alerts') setSetting('alerts_webhook_url', null);
   else if (id.startsWith('oauth_') && OAUTH[id.slice(6)]) clearAppCreds(id.slice(6));
@@ -109,7 +118,7 @@ export async function test(id, actor, { to } = {}) {
   try {
     if (id === 'email') {
       if (!(getSetting('resend_api_key') || process.env.RESEND_API_KEY)) throw new Error('No API key saved');
-      const ok = await sendMail({ to, subject: 'Agentify ERP: email test', ...layout({ heading: 'Email delivery works', lines: ['This test was sent from the platform console.'] }) });
+      const ok = await sendMail({ to, subject: 'Agentify ERP: email test', ...layout({ heading: 'Email delivery works', lines: ['This test was sent from the platform console.'] }), type: 'test' });
       if (!ok) throw new Error('The provider did not accept the message (check the key and the From domain)');
       outcome = 'success'; detail = `Test email accepted by the provider for ${to}`;
     } else if (id === 'stripe') {

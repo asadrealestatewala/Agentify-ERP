@@ -30,6 +30,7 @@ export const NAV = [
   { key: 'billing', label: 'Billing & Payments', icon: 'wallet', items: [['Transactions & invoices', '/platform/transactions', 'billing.view'], ['Payment approvals', '/platform/payments', 'billing.view'], ['Stripe configuration', '/platform/billing/stripe', 'billing.configure'], ['Local payment accounts', '/platform/billing/accounts', 'billing.view'], ['Reconciliation', '/platform/reconciliation', 'billing.view']] },
   { key: 'reports', label: 'Reports & Analytics', icon: 'chart', items: [['Revenue & subscriptions', '/platform/finance', 'finance.view'], ['Website analytics', '/platform/analytics', 'analytics.view'], ['Reports & exports', '/platform/reports', 'dashboard.view']] },
   { key: 'growth', label: 'Website & Communication', icon: 'globe', items: [['Website & legal', '/platform/website', 'content.manage'], ['Demo requests', '/platform/demo-requests', 'workspaces.view'], ['Announcements & releases', '/platform/announcements', 'dashboard.view']] },
+  { key: 'mailbox', label: 'Mailbox', icon: 'mail', items: [['Inbox', '/platform/mailbox', 'mailbox.manage'], ['Sent log', '/platform/mailbox/sent', 'mailbox.manage'], ['Settings', '/platform/mailbox/settings', 'mailbox.manage']] },
   { key: 'security', label: 'Security & Access', icon: 'shield', items: [['Console users & roles', '/platform/admins', 'admins.manage'], ['Active sessions', '/platform/security/sessions', 'self'], ['Sign-in history', '/platform/security/logins', 'audit.view'], ['Two-factor sign-in', '/platform/security', 'self']] },
   { key: 'system', label: 'System', icon: 'settings', items: [['Platform setup', '/platform/setup', 'system.view'], ['Integrations', '/platform/integrations', 'system.view'], ['Regions', '/platform/regions', 'regions.support'], ['Maintenance & errors', '/platform/maintenance', 'system.view'], ['Backups', '/platform/backups', 'system.view']] },
   { key: 'audit', label: 'Audit', icon: 'history', items: [['Audit log', '/platform/audit', 'audit.view']] },
@@ -39,7 +40,7 @@ const isActive = (loc, to) => {
   const [p, q] = to.split('?');
   if (q) return loc.pathname === p && loc.search === `?${q}`;
   if (p === '/platform') return loc.pathname === '/platform' || loc.pathname === '/platform/';
-  if (p === '/platform/security') return loc.pathname === p;
+  if (p === '/platform/security' || p === '/platform/mailbox') return loc.pathname === p || loc.pathname === `${p}/`;
   return p === '/platform/workspaces' ? loc.pathname.startsWith(p) && !loc.search.includes('status=') : loc.pathname.startsWith(p);
 };
 

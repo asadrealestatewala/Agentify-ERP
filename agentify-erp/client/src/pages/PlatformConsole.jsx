@@ -12,6 +12,7 @@ import { Dashboard, HealthPage, NotificationsPage, SetupPage } from './platform/
 import { PlansPage, TransactionsPage, SubscriptionHistoryPage } from './platform/Billing.jsx';
 import { FinancePage } from './platform/Finance.jsx';
 import { AnalyticsPage, WebsitePage, DemoRequestsPage, AnnouncementsPage, IntegrationsPage } from './platform/Content.jsx';
+import { MailboxPage, SentLogPage, MailboxSettingsPage } from './platform/Mailbox.jsx';
 import { RegionsPage } from "./platform/Regions.jsx";
 
 const A = '/api/platform/admin';
@@ -296,6 +297,9 @@ function ConsoleRoutes() {
         <Route path="website" element={<Allowed perm="content.manage"><WebsitePage /></Allowed>} />
         <Route path="demo-requests" element={<Allowed perm="workspaces.view"><DemoRequestsPage /></Allowed>} />
         <Route path="announcements" element={<Allowed perm="dashboard.view"><AnnouncementsPage /></Allowed>} />
+        <Route path="mailbox" element={<Allowed perm="mailbox.manage"><MailboxPage /></Allowed>} />
+        <Route path="mailbox/sent" element={<Allowed perm="mailbox.manage"><SentLogPage /></Allowed>} />
+        <Route path="mailbox/settings" element={<Allowed perm="mailbox.manage"><MailboxSettingsPage /></Allowed>} />
         <Route path="regions" element={<Allowed perm="regions.support"><RegionsPage /></Allowed>} />
         <Route path="integrations" element={<Allowed perm="system.view"><IntegrationsPage /></Allowed>} />
         <Route path="finance" element={<Allowed perm="finance.view"><FinancePage /></Allowed>} />

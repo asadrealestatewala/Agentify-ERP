@@ -26,6 +26,7 @@ export const PERMISSIONS = {
   'regions.manage': 'Turn regions on or off, edit region packs, flags, rules and exchange rates',
   'regions.support': 'See regions, rules and exchange rates (read-only)',
   'admins.manage': 'Invite, change and remove console users and security rules',
+  'mailbox.manage': 'Read, send and delete company e-mail (Mailbox) and see the sent log',
 };
 const ALL = Object.keys(PERMISSIONS);
 const VIEW = ['dashboard.view', 'finance.view', 'workspaces.view', 'billing.view', 'system.view', 'regions.support'];
@@ -36,7 +37,7 @@ const VIEW = ['dashboard.view', 'finance.view', 'workspaces.view', 'billing.view
 export const ROLES = {
   platform_owner: { label: 'Platform Owner', perms: ALL },
   super_admin: { label: 'Super Admin', perms: ALL },
-  platform_admin: { label: 'Platform Administrator', perms: ALL.filter((p) => p !== 'admins.manage') },
+  platform_admin: { label: 'Platform Administrator', perms: ALL.filter((p) => p !== 'admins.manage' && p !== 'mailbox.manage') },
   billing_manager: { label: 'Billing Manager', perms: [...VIEW, 'billing.manage', 'trials.manage', 'workspaces.export'] },
   finance_admin: { label: 'Finance Administrator', perms: [...VIEW, 'billing.manage', 'billing.configure', 'trials.manage', 'workspaces.export'] },
   support_manager: { label: 'Support Manager', perms: ['dashboard.view', 'workspaces.view', 'billing.view', 'system.view', 'workspaces.create', 'workspaces.edit', 'trials.manage', 'workspaces.support'] },

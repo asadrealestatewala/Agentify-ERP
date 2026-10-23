@@ -78,7 +78,7 @@ export function createApp() {
     // Only force https in production; on plain http://localhost it can break service-worker and asset fetches.
     upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null } }, hsts: process.env.NODE_ENV === 'production', crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   // the billing webhook is signed over the exact bytes, so keep them for that one route
-  app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { if (req.originalUrl.startsWith('/api/platform/billing/webhook')) req.rawBody = buf; } }));
+  app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { if (req.originalUrl.startsWith('/api/platform/billing/webhook') || req.originalUrl.startsWith('/api/platform/webhooks/')) req.rawBody = buf; } }));
   app.use(cookieParser());
 
   // Platform (control plane) API: signup, tenant admin. Never tenant-scoped.

@@ -98,3 +98,15 @@ Each company opens at `https://<name>.<your domain>`. That needs two things: a w
 **Resend.** Console, Integrations, "Transactional email (Resend)": paste the API key (starts with `re_`) and the sender (for example `Agentify ERP <noreply@your-verified-domain>`; the domain must be verified in Resend, with its SPF and DKIM records) and press Test. Welcome and confirmation mails, invitations, password resets, trial and billing notices, and demo-request alerts all use it. Without a key mail is only written to the server log.
 
 **Notification e-mails.** A workspace administrator switches on *E-mail* in Settings, Notifications. Every in-app notification is then also e-mailed to the person it is for (confirmed staff addresses only, at most five per person every ten minutes). It does nothing until the Resend key is saved.
+
+## Mailbox (Super Admin console, Platform Owner and Super Admin only)
+
+Console menu: Mailbox, with Inbox, Sent log and Settings. It reads and sends company mail through Resend Inboxes (hello@ and admin@; noreply@ has no inbox and is never offered as a sender), using the Resend key already saved under Integrations. The browser never calls Resend.
+
+After the first deploy, once:
+
+1. In Resend, Webhooks, add `https://<your console domain>/api/platform/webhooks/resend` and select the e-mail events (sent, delivered, delivery delayed, bounced, complained, failed, suppressed, received).
+2. Copy the webhook's signing secret (starts with `whsec_`) and paste it into Console, Integrations, Transactional email (Resend), field "Webhook signing secret".
+3. Optional: Mailbox, Settings, "Reply-To for automated e-mails" (default `hello@agentifyerp.co`). Use Sent log, "Import from Resend" once to bring in mail sent before the log existed.
+
+Notes: the permission is `mailbox.manage` (not given to Platform Administrator or any other role); the webhook is Svix-signed (5 minute tolerance) and idempotent by event id; the sent log keeps subject, type and delivery events only, never a code or link; inbound HTML is sanitised and remote images stay blocked until "Show images".

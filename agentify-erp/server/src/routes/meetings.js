@@ -50,7 +50,7 @@ async function sendInvites(req, m, inviteIds, via) {
     const sent = [];
     if (via.includes('email') && i.email) {
       const mail = layout({ heading: m.title, lines: [`${hostName} invited you to a video meeting.`, `When: ${M.whenText(m)}`, m.description || ''].filter(Boolean), button: { label: 'Join the meeting', url: link }, footer: 'You can join from a computer or a phone. No account is needed.' });
-      if (await sendMail({ to: i.email, subject: `Meeting: ${m.title}`, ...mail })) sent.push('email');
+      if (await sendMail({ type: 'meeting', to: i.email, subject: `Meeting: ${m.title}`, ...mail })) sent.push('email');
     }
     if (via.includes('sms') && i.phone && twilio) { try { const to = i.phone.startsWith('+') ? i.phone.replace(/[^\d+]/g, '') : null; if (to) { await sendSms(twilio, { to, body: invitationText(m, hostName, link).slice(0, 600) }); sent.push('sms'); } } catch { /* shown as not sent */ } }
     if (via.includes('whatsapp')) sent.push('whatsapp');
@@ -137,7 +137,7 @@ export async function runMeetingReminders() {
         if (col === 'remind_24h_at' && startMs - t < 3600_000) { run(`UPDATE meeting_invites SET ${col}=? WHERE id=?`, now(), i.id); continue; } // too close for a "tomorrow" message
         const link = M.joinUrl(org, m.code, i.token);
         if (i.kind === 'user' && i.user_id) notify(i.user_id, 'meeting', `Meeting ${label}: ${m.title}`, M.whenText(m), `/meet/${m.code}`, { dedupe: `meet-${col}-${m.id}-${i.user_id}` });
-        else if (i.email) await sendMail({ to: i.email, subject: `Reminder: ${m.title} ${label}`, ...layout({ heading: `${m.title} starts ${label}`, lines: [M.whenText(m)], button: { label: 'Join the meeting', url: link } }) });
+        else if (i.email) await sendMail({ type: 'meeting', to: i.email, subject: `Reminder: ${m.title} ${label}`, ...layout({ heading: `${m.title} starts ${label}`, lines: [M.whenText(m)], button: { label: 'Join the meeting', url: link } }) });
         run(`UPDATE meeting_invites SET ${col}=? WHERE id=?`, now(), i.id);
       }
     }

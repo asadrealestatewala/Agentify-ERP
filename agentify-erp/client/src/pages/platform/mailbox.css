@@ -1,0 +1,83 @@
+/* Super admin console: Mailbox. Uses the console tokens; scoped with the mb- prefix. */
+.mb { display: grid; grid-template-columns: 210px 340px minmax(0, 1fr); gap: 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); height: calc(100vh - 190px); min-height: 480px; overflow: hidden; }
+.mb-side { border-right: 1px solid var(--border); padding: 10px 8px; overflow: auto; background: var(--surface-2, var(--surface)); }
+.mb-sec { display: flex; align-items: center; justify-content: space-between; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; padding: 12px 8px 4px; }
+.mb-add { border: 0; background: none; color: var(--primary); font-size: 16px; cursor: pointer; line-height: 1; }
+.mb-item { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; text-align: left; padding: 7px 8px; border: 0; background: none; border-radius: 7px; cursor: pointer; color: var(--text); font: inherit; font-size: 13px; overflow-wrap: anywhere; }
+.mb-item:hover { background: var(--hover); } .mb-item.on { background: var(--pa-accent-l, var(--primary-l)); font-weight: 600; }
+.mb-item em { font-style: normal; background: var(--pa-accent, var(--primary)); color: #fff; border-radius: 999px; font-size: 10.5px; padding: 0 7px; font-weight: 700; }
+.mb-pad { display: block; padding: 4px 8px; }
+.mb-list { border-right: 1px solid var(--border); overflow: auto; display: flex; flex-direction: column; min-width: 0; }
+.mb-search { position: sticky; top: 0; z-index: 2; background: var(--surface); padding: 10px; border-bottom: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+.mb-sbox { position: relative; flex: 1 1 100%; } .mb-sbox svg { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--muted); }
+.mb-sbox input { width: 100%; height: 34px; padding: 0 10px 0 30px; border: 1px solid var(--border-2); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
+.mb-flt { font-size: 12.5px; display: inline-flex; align-items: center; gap: 5px; color: var(--muted); cursor: pointer; }
+.mb-row-t { display: block; width: 100%; text-align: left; padding: 10px 12px; border: 0; border-bottom: 1px solid var(--border); background: none; cursor: pointer; font: inherit; color: var(--text); }
+.mb-row-t:hover { background: var(--hover); } .mb-row-t.on { background: var(--pa-accent-l, var(--primary-l)); }
+.mb-row-t:focus-visible, .mb-item:focus-visible { outline: 2px solid var(--pa-accent, var(--primary)); outline-offset: -2px; }
+.mb-row-top { display: flex; justify-content: space-between; gap: 8px; } .mb-row-top b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; } .mb-row-top small { color: var(--muted); flex: none; }
+.mb-row-t.unread .mb-row-top b, .mb-row-t.unread .mb-subj { font-weight: 700; } .mb-row-t.unread::before { content: ''; float: left; width: 8px; height: 8px; border-radius: 50%; background: var(--pa-accent, var(--primary)); margin: 6px 6px 0 -4px; }
+.mb-subj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; margin-top: 2px; }
+.mb-meta { display: flex; gap: 6px; margin-top: 3px; color: var(--muted); align-items: center; }
+.mb-tag { font-size: 10.5px; border: 1px solid var(--border-2); border-radius: 999px; padding: 0 6px; } .mb-tag.warn { color: var(--pa-warn, #b45309); border-color: currentColor; }
+.mb-more { margin: 10px auto; display: flex; }
+.mb-view { overflow: auto; min-width: 0; }
+.mb-none { height: 100%; display: grid; place-content: center; justify-items: center; color: var(--muted); gap: 6px; }
+.mb-pane-pad { padding: 14px; }
+.mb-back { display: none; margin-bottom: 8px; }
+.mb-thread-h { padding: 14px 18px 10px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); z-index: 2; }
+.mb-thread-h h2 { margin: 0 0 8px; font-size: 18px; overflow-wrap: anywhere; }
+.mb-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.mb-menu { position: relative; } .mb-pop { position: absolute; top: 32px; left: 0; z-index: 10; min-width: 180px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg); padding: 4px; display: grid; }
+.mb-pop button { text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: 6px; cursor: pointer; color: var(--text); font: inherit; } .mb-pop button:hover { background: var(--hover); }
+.mb-labels { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; } .mb-label { font-size: 11.5px; background: var(--pa-accent-l, var(--primary-l)); color: var(--pa-accent-d, var(--primary-d)); border-radius: 999px; padding: 1px 9px; font-weight: 600; }
+.mb-banner { margin: 12px 18px 0; padding: 9px 12px; border-radius: 8px; background: var(--pa-warn-bg, #fdf3e2); color: var(--pa-warn, #b45309); font-size: 13px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mb-emails { padding: 12px 18px 24px; display: grid; gap: 14px; }
+.mb-email { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.mb-email header { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; } .mb-to { display: block; margin: 2px 0 10px; overflow-wrap: anywhere; }
+.mb-body { overflow-wrap: anywhere; line-height: 1.55; max-width: 100%; overflow-x: auto; } .mb-body img { max-width: 100%; height: auto; } .mb-body table { max-width: 100%; border-collapse: collapse; }
+.mb-body blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid var(--border-2); color: var(--muted); } .mb-body a { text-decoration: underline; }
+.mb-plain { white-space: pre-wrap; font: inherit; margin: 0; } .mb-noimg { font-size: 12px; color: var(--muted); border: 1px dashed var(--border-2); padding: 1px 6px; border-radius: 4px; }
+.mb-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; align-items: center; }
+.mb-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-2); border-radius: 999px; padding: 3px 10px; background: var(--surface); font: inherit; font-size: 12.5px; color: var(--text); cursor: pointer; max-width: 100%; overflow-wrap: anywhere; }
+.mb-chip button { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 15px; line-height: 1; }
+
+/* compose window */
+.mb-compose { position: fixed; right: 24px; bottom: 0; width: min(620px, calc(100vw - 32px)); max-height: 88vh; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border-2); border-bottom: 0; border-radius: 12px 12px 0 0; box-shadow: var(--shadow-lg); z-index: 60; }
+.mb-compose-h { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+.mb-compose-b { padding: 10px 14px; overflow: auto; display: grid; gap: 8px; align-content: start; }
+.mb-row { display: grid; grid-template-columns: 58px 1fr; align-items: center; gap: 8px; } .mb-row > span { color: var(--muted); font-size: 12.5px; } .mb-fixed { overflow-wrap: anywhere; }
+.mb-ccbtn { justify-self: start; }
+.mb-rich { border: 1px solid var(--border-2); border-radius: 8px; overflow: hidden; }
+.mb-toolbar { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px; border-bottom: 1px solid var(--border); background: var(--surface-2, var(--surface)); }
+.mb-tb { border: 0; background: none; border-radius: 6px; min-width: 32px; height: 30px; padding: 0 8px; cursor: pointer; color: var(--text); font: inherit; font-size: 12.5px; } .mb-tb:hover { background: var(--hover); }
+.mb-editor { min-height: 180px; max-height: 40vh; overflow: auto; padding: 10px 12px; outline: none; line-height: 1.5; overflow-wrap: anywhere; } .mb-editor:focus { box-shadow: inset 0 0 0 2px var(--pa-accent, var(--primary)); }
+.mb-editor blockquote { margin: 8px 0; padding-left: 12px; border-left: 3px solid var(--border-2); color: var(--muted); }
+.mb-compose-f { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--border); }
+.mb-saved { font-size: 12px; flex: 1; min-width: 0; } .mb-discard { margin-left: auto; }
+
+/* sent log, settings */
+.mb-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
+.mb-log tr.clickable { cursor: pointer; } .mb-log tr.clickable:hover { background: var(--hover); }
+.mb-pager { justify-content: flex-end; gap: 12px; align-items: center; padding-top: 10px; }
+.mb-dl { display: grid; grid-template-columns: 90px 1fr; gap: 6px 12px; margin: 0; } .mb-dl dt { color: var(--muted); } .mb-dl dd { margin: 0; overflow-wrap: anywhere; }
+.mb-events { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; } .mb-events li { display: flex; flex-direction: column; border-left: 3px solid var(--pa-accent, var(--primary)); padding-left: 10px; }
+.mb-copy { display: flex; gap: 8px; } .mb-copy .input { flex: 1; min-width: 0; }
+
+@media (max-width: 1100px) { .mb { grid-template-columns: 170px 300px minmax(0, 1fr); } }
+/* phones and narrow windows: one pane at a time (folders on top, then the list, then the message) */
+@media (max-width: 860px) {
+  .mb { display: block; height: auto; min-height: 0; }
+  .mb-side { display: flex; flex-wrap: wrap; gap: 4px; border-right: 0; border-bottom: 1px solid var(--border); padding: 8px; overflow: visible; }
+  .mb-side .mb-sec { width: 100%; padding: 6px 4px 0; } .mb-side .mb-item { width: auto; border: 1px solid var(--border-2); }
+  .mb-list { border-right: 0; max-height: none; overflow: visible; }
+  .mb-view { display: none; }
+  .mb.has-thread .mb-side, .mb.has-thread .mb-list { display: none; }
+  .mb.has-thread .mb-view { display: block; }
+  .mb-back { display: inline-flex; }
+  .mb-thread-h { position: static; padding: 12px; } .mb-emails { padding: 10px 12px 24px; } .mb-banner { margin: 10px 12px 0; }
+  .mb-compose { right: 0; left: 0; width: 100%; max-height: 100vh; height: 100dvh; border-radius: 0; border: 0; }
+  .mb-row { grid-template-columns: 48px 1fr; }
+  .mb-compose-b { flex: 1; } .mb-editor { max-height: none; min-height: 220px; }
+}
+@media (prefers-reduced-motion: reduce) { .mb * { transition: none !important; } }

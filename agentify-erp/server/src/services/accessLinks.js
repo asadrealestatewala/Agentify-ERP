@@ -42,7 +42,7 @@ export async function createInvite(req, { email, name, roleId }) {
   const link = `${originOf(req)}/invite/${token}`;
   const role = get('SELECT name FROM roles WHERE id=?', roleId)?.name;
   const mail = layout({ heading: `Join ${company()} on the ERP`, lines: [`${req.user.name} invited you to ${company()} as ${role}.`, `This link works once and expires in ${INVITE_DAYS} days.`], button: { label: 'Accept invitation', url: link } });
-  const sent = await sendMail({ to: e, subject: `${req.user.name} invited you to ${company()}`, ...mail });
+  const sent = await sendMail({ type: 'invitation', to: e, subject: `${req.user.name} invited you to ${company()}`, ...mail });
   return { id, link, email_sent: sent, expires_in_days: INVITE_DAYS };
 }
 
@@ -79,7 +79,7 @@ export async function requestPasswordReset(req, email) {
   const { token } = issue('reset', { userId: u.id, email: e }, RESET_HOURS * 3600e3);
   const mail = layout({ heading: 'Reset your password', lines: [`Hi ${u.name}, we received a request to reset your ${company()} password.`, `This link works once and expires in ${RESET_HOURS} hours. If you did not ask for it, ignore this email.`],
     button: { label: 'Choose a new password', url: `${originOf(req)}/reset-password/${token}` } });
-  await sendMail({ to: e, subject: 'Reset your password', ...mail });
+  await sendMail({ type: 'password_reset', to: e, subject: 'Reset your password', ...mail });
 }
 
 /** Reset link created by a platform super admin for a user who is locked out. Earlier reset links stop working. */
@@ -118,7 +118,7 @@ export async function sendVerification(req, userId, origin = originOf(req)) {
   if (!u?.email) return false;
   const token = issueVerification(u.id);
   const mail = layout({ heading: 'Confirm your email address', lines: [`Hi ${u.name}, please confirm this address for ${company()}.`, `This link works once and expires in ${VERIFY_DAYS} days.`], button: { label: 'Confirm email', url: `${origin}/verify-email/${token}` } });
-  return sendMail({ to: u.email, subject: 'Confirm your email address', ...mail });
+  return sendMail({ type: 'verification', to: u.email, subject: 'Confirm your email address', ...mail });
 }
 export function verifyEmail(token) {
   return tx(() => {

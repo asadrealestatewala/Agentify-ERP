@@ -124,7 +124,7 @@ export async function inviteAdmin({ email, name, role = 'read_only' }, operator,
   }
   const link = `${origin}/platform/accept-invite/${token}`;
   const mail = layout({ heading: 'You have been invited to the Agentify ERP console', lines: [`${operator?.name || operator?.email || 'A platform administrator'} invited you as ${ROLES[role].label}.`, `The link works once and expires in ${INVITE_HOURS} hours. You will choose your own password.`], button: { label: 'Accept invitation', url: link } });
-  const sent = await sendMail({ to: e, subject: 'Your Agentify ERP console invitation', ...mail });
+  const sent = await sendMail({ type: 'invitation', to: e, subject: 'Your Agentify ERP console invitation', ...mail });
   // without an email provider the inviting admin is shown the link to pass on securely (it is never written to the audit log)
   return { id, email: e, role, expires_at: expires, emailed: !!sent, link: sent ? undefined : link };
 }
