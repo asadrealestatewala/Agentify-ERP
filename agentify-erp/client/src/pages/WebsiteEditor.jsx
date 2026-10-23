@@ -308,6 +308,7 @@ export default function WebsiteEditor() {
   const [adding, setAdding] = useState(false);
   const [newPage, setNewPage] = useState(null);
   const [tpl, setTpl] = useState(null);
+  const [ai, setAi] = useState(null);
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const canEdit = can('website', 'edit');
@@ -397,6 +398,7 @@ export default function WebsiteEditor() {
             <div className="grow"><Select allowEmpty={false} value={pageId} onChange={switchPage} options={pages.map((p) => ({ value: p.id, label: `${p.title}${p.published ? '' : ' (hidden)'}  —  /site${p.slug === 'home' ? '' : '/p/' + p.slug}` }))} /></div>
             {can('website', 'create') && <button className="btn sm" onClick={() => setNewPage({ title: '' })}><Icon name="plus" size={13} />Page</button>}
             {canEdit && <button className="btn sm" onClick={() => setTpl({ id: null, theme: true })}><Icon name="layers" size={13} />Templates</button>}
+            {canEdit && <button className="btn sm" onClick={() => setAi({ form: { company: cfg?.brand?.name || '', type: 'agency', location: '', what: '', audience: '', style: 'modern', tone: 'professional', language: 'English', notes: '' }, busy: false, draft: null, err: '', seo: true, theme: true })}><Icon name="bolt" size={13} />Create with AI</button>}
           </div>
           <div className="tabs" role="tablist">{[['sections', 'Sections'], ['blocks', 'Add blocks'], ['page', 'Page'], ['site', 'Site design'], ['reviews', 'Reviews'], ['blog', 'Blog']].map(([k, l]) => <button key={k} role="tab" className={`tab ${tab === k ? 'active' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
           <div style={{ paddingTop: 12 }}>
@@ -501,6 +503,62 @@ export default function WebsiteEditor() {
           <div className="grid g3">{Object.entries(SECTION_TYPES).map(([k, t]) => <button key={k} className="card" style={{ padding: 14, textAlign: 'left', cursor: 'pointer' }} onClick={() => addSection(k)}><div style={{ fontSize: 24 }}>{t.icon}</div><b>{t.label}</b><div className="muted" style={{ fontSize: 12 }}>{t.desc}</div></button>)}</div>
         </Modal>
       )}
+      {ai && (() => {
+        const set = (k) => (e) => setAi((a) => ({ ...a, form: { ...a.form, [k]: e.target.value } }));
+        const f = ai.form;
+        const run = async () => {
+          setAi((a) => ({ ...a, busy: true, err: '', draft: null }));
+          try { const d = await api.post('/api/site-admin/ai/generate', f); setAi((a) => ({ ...a, busy: false, draft: d })); }
+          catch (e) { setAi((a) => ({ ...a, busy: false, err: e.message, needsAi: e.status === 409 })); }
+        };
+        const use = () => {
+          const d = ai.draft;
+          setPage((p) => ({ ...p, sections: d.sections.map((x) => ({ ...x, props: { ...JSON.parse(JSON.stringify(SECTION_TYPES[x.type]?.defaults || {})), ...x.props } })) }));
+          setCfg((c) => ({ ...c, ...(ai.theme && Object.keys(d.theme).length ? { theme: { ...(c.theme || {}), ...d.theme } } : {}), ...(ai.seo && (d.seo.title || d.seo.description) ? { seo: { ...(c.seo || {}), ...(d.seo.title ? { title: d.seo.title } : {}), ...(d.seo.description ? { description: d.seo.description } : {}) } } : {}) }));
+          setSelected(null); setAi(null);
+          toast('The AI draft is on this page. Read it, add your own photos and facts, then press Save to publish. Undo brings your old page back.', 'ok');
+        };
+        const d = ai.draft;
+        return (
+          <Modal title="Create your website with AI" size="lg" onClose={() => setAi(null)} footer={d
+            ? <><button className="btn" onClick={() => setAi({ ...ai, draft: null })}>Back</button><button className="btn" onClick={run} disabled={ai.busy}>{ai.busy ? 'Writing…' : 'Write another version'}</button><button className="btn primary" onClick={use}>Use this draft</button></>
+            : <><button className="btn" onClick={() => setAi(null)}>Cancel</button><button className="btn primary" onClick={run} disabled={ai.busy}>{ai.busy ? 'Writing your page…' : 'Write my page'}</button></>}>
+            {!d ? (
+              <div className="stack" style={{ gap: 10 }}>
+                <p className="muted" style={{ margin: 0 }}>Describe your business and the AI writes a draft home page: the blocks, the wording, colours and fonts. It uses your own AI connection and never invents figures, clients, reviews or contact details. Nothing changes until you press Use this draft and then Save.</p>
+                {ai.err && <div className="alert err" role="alert">{ai.err}{ai.needsAi && <> <a href="/integrations">Open Integrations</a></>}</div>}
+                <div className="grid g2" style={{ gap: 10 }}>
+                  <Field label="Company name" required><input className="input" value={f.company} onChange={set('company')} maxLength={80} /></Field>
+                  <Field label="Type of business"><select className="input" value={f.type} onChange={set('type')}><option value="agency">Real estate agency or brokerage</option><option value="developer">Property developer</option><option value="construction">Construction or renovation</option><option value="dual">Sells property and builds</option><option value="other">Something else</option></select></Field>
+                  <Field label="City or area you work in"><input className="input" value={f.location} onChange={set('location')} maxLength={100} placeholder="e.g. Austin, Texas" /></Field>
+                  <Field label="Website language"><input className="input" value={f.language} onChange={set('language')} maxLength={40} placeholder="English" /></Field>
+                </div>
+                <Field label="What does your company do?" required hint="A few sentences: what you sell or build, what makes your service different."><textarea className="input" rows={4} value={f.what} onChange={set('what')} maxLength={800} /></Field>
+                <Field label="Who are your customers?"><input className="input" value={f.audience} onChange={set('audience')} maxLength={300} placeholder="e.g. first-time buyers, overseas investors" /></Field>
+                <div className="grid g2" style={{ gap: 10 }}>
+                  <Field label="Look and feel"><select className="input" value={f.style} onChange={set('style')}><option value="modern">Modern and clean</option><option value="classic">Classic and trustworthy</option><option value="bold">Bold and energetic</option><option value="luxury">Elegant and premium</option><option value="friendly">Warm and friendly</option></select></Field>
+                  <Field label="Tone of voice"><select className="input" value={f.tone} onChange={set('tone')}><option value="professional">Professional</option><option value="friendly">Friendly</option><option value="confident">Confident and direct</option><option value="formal">Formal</option></select></Field>
+                </div>
+                <Field label="Anything else the AI should know?"><textarea className="input" rows={2} value={f.notes} onChange={set('notes')} maxLength={600} /></Field>
+              </div>
+            ) : (
+              <div className="stack" style={{ gap: 10 }}>
+                <p className="muted" style={{ margin: 0 }}>Here is the draft. Nothing is on your website yet. Texts are suggestions to check and edit.</p>
+                <div className="card" style={{ padding: 14 }}>
+                  <b>{d.sections[0]?.props?.headline}</b>
+                  <div className="muted">{d.sections[0]?.props?.subheadline}</div>
+                </div>
+                <div className="row wrap" style={{ gap: 6 }}>{d.sections.map((x) => <span key={x.id} className="tag" style={{ fontSize: 12 }}>{SECTION_TYPES[x.type]?.icon} {SECTION_TYPES[x.type]?.label}{x.props.title ? `: ${x.props.title}` : ''}</span>)}</div>
+                {Object.keys(d.theme).length > 0 && <div className="row" style={{ gap: 6, alignItems: 'center' }}>{['primary', 'accent', 'dark', 'soft'].filter((k) => d.theme[k]).map((k) => <span key={k} title={`${k} ${d.theme[k]}`} style={{ width: 22, height: 22, borderRadius: 5, background: d.theme[k], border: '1px solid var(--border)' }} />)}<small className="muted">{[d.theme.font_heading, d.theme.font_body].filter(Boolean).join(' / ')}</small></div>}
+                {(d.seo.title || d.seo.description) && <div className="muted"><b>Search result:</b> {d.seo.title} — {d.seo.description}</div>}
+                <Toggle value={ai.theme} onChange={(v) => setAi({ ...ai, theme: v })} label="Also apply the colours and fonts" />
+                <Toggle value={ai.seo} onChange={(v) => setAi({ ...ai, seo: v })} label="Also use the search title and description" />
+                {ai.err && <div className="alert err" role="alert">{ai.err}</div>}
+              </div>
+            )}
+          </Modal>
+        );
+      })()}
       {tpl && (() => {
         const t = TEMPLATES.find((x) => x.id === tpl.id);
         const apply = () => {

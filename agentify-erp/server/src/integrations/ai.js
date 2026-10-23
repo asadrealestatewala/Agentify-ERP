@@ -128,15 +128,15 @@ export async function runWithTools(provider, { system, question, history = [], t
 }
 
 /** One plain completion that must return JSON (used for video scripts). */
-export async function completeJson(provider, { system, prompt }) {
+export async function completeJson(provider, { system, prompt, maxTokens = 1800 }) {
   const cfg = aiConfig(provider);
   if (!cfg) throw bad('Connect an AI provider first.');
   let text;
   if (provider === 'anthropic') {
-    const d = await http('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': cfg.api_key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: cfg.model, max_tokens: 1800, system, messages: [{ role: 'user', content: prompt }] }) });
+    const d = await http('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': cfg.api_key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: cfg.model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: prompt }] }) });
     text = (d.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
   } else if (provider === 'gemini') {
-    const d = await http(`${GEMINI}/models/${encodeURIComponent(cfg.model)}:generateContent`, { method: 'POST', headers: gHeaders(cfg.api_key), body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json' } }) });
+    const d = await http(`${GEMINI}/models/${encodeURIComponent(cfg.model)}:generateContent`, { method: 'POST', headers: gHeaders(cfg.api_key), body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: maxTokens } }) });
     text = (d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
   } else {
     const d = await http(`${oaBase(provider, cfg)}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${cfg.api_key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: cfg.model, ...(provider === 'custom' ? {} : { response_format: { type: 'json_object' } }),messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] }) });

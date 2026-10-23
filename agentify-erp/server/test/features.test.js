@@ -325,3 +325,56 @@ test('workspace website: partner, review and embed blocks; visitor reviews wait 
   const agent = await client('finance@expertdevelopers.pk');
   assert.equal((await agent.get('/api/site-admin/reviews')).status, 403);
 });
+
+test('AI website draft: needs a connected AI, checks the brief, and keeps only safe, known blocks from whatever the model answers', async () => {
+  const admin = await client('admin@expertdevelopers.pk');
+  const brief = { company: 'Harbor Homes', type: 'agency', location: 'Austin', what: 'We help families buy and rent homes in Austin, with honest advice.', style: 'modern', tone: 'friendly', language: 'English' };
+  assert.equal((await admin.post('/api/site-admin/ai/generate', { ...brief, what: 'short' })).status, 400, 'a real description is needed');
+  assert.equal((await admin.post('/api/site-admin/ai/generate', { ...brief, company: '' })).status, 400);
+  assert.equal((await admin.post('/api/site-admin/ai/generate', brief)).status, 409, 'no AI connected yet');
+  assert.equal((await (await client('finance@expertdevelopers.pk')).post('/api/site-admin/ai/generate', brief)).status, 403, 'needs website permission');
+
+  const realFetch = globalThis.fetch;
+  const evil = { theme: { primary: '#123456', accent: 'red', dark: 'url(x)', font_heading: 'Playfair Display', font_body: 'Comic Sans', radius: 99 }, seo: { title: 'Harbor Homes | Austin homes', description: 'Buy and rent homes in Austin.' },
+    sections: [
+      { type: 'hero', props: { headline: 'Homes for Austin families', subheadline: 'Honest advice from first viewing to keys.', cta_href: 'javascript:alert(1)', show_search: true, onclick: 'x()' } },
+      { type: 'stats', props: { items: [{ value: '500+', label: 'Homes sold' }] } },
+      { type: 'testimonials', props: { items: [{ name: 'Made Up', quote: 'Invented' }] } },
+      { type: 'script', props: { html: '<script>alert(1)</script>' } },
+      { type: 'text', props: { title: 'About', html: '<img src=x onerror=alert(1)>First paragraph.\n\nSecond <b>paragraph</b>.' } },
+      { type: 'partners', props: { title: 'Partners', items: [{ name: 'Big Brand', logo: 'https://brand.test/logo.png' }] } },
+      { type: 'services', props: { title: 'Services', items: [{ icon: '🏡', title: 'Buy', text: 'Find a home', href: 'https://evil.test/x' }, { icon: '🔑', title: 'Rent', text: 'Rent a home', href: '/site/properties' }] } },
+      { type: 'listings', props: { title: 'Latest', source: 'sold-out', limit: 500, layout: 'grid' } },
+    ] };
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (u.includes('127.0.0.1') || u.includes('localhost')) return realFetch(url, opts);
+    if (u.startsWith('https://api.anthropic.com/v1/models')) return new Response(JSON.stringify({ data: [{ id: 'm' }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    if (u.startsWith('https://api.anthropic.com/v1/messages')) { const body = JSON.parse(opts.body); if (body.max_tokens > 1800) globalThis.__aiTokens = body.max_tokens; return new Response(JSON.stringify({ content: [{ type: 'text', text: `Here you go:\n${JSON.stringify(evil)}` }] }), { status: 200, headers: { 'Content-Type': 'application/json' } }); }
+    return realFetch(url, opts);
+  };
+  try {
+    const conn = await admin.put('/api/integrations/ai/anthropic', { api_key: `sk-ant-${'x'.repeat(30)}` });
+    assert.equal(conn.status, 200, JSON.stringify(conn.data));
+    const out = await admin.post('/api/site-admin/ai/generate', brief);
+    assert.equal(out.status, 200, JSON.stringify(out.data));
+    const d = out.data;
+    assert.ok(globalThis.__aiTokens >= 4000, 'a full page needs a bigger answer budget');
+    assert.deepEqual(d.theme, { primary: '#123456', font_heading: 'Playfair Display', radius: 24 }, 'bad colours and fonts are dropped');
+    const types = d.sections.map((x) => x.type);
+    assert.ok(!types.includes('stats') && !types.includes('testimonials') && !types.includes('script'), 'no invented facts or unknown blocks');
+    assert.equal(types[0], 'hero'); assert.equal(types.at(-1), 'contact', 'contact is always added');
+    const hero = d.sections[0].props;
+    assert.equal(hero.cta_href, '', 'script links are removed'); assert.ok(!('onclick' in hero));
+    const text = d.sections.find((x) => x.type === 'text').props.html;
+    assert.ok(!/<img|onerror|<b>/.test(text) && text.startsWith('<p>First paragraph.</p>'), text);
+    assert.deepEqual(d.sections.find((x) => x.type === 'partners').props.items, [], 'partner logos are never written by the AI');
+    const svc = d.sections.find((x) => x.type === 'services').props.items;
+    assert.equal(svc[0].href, '', 'external links dropped'); assert.equal(svc[1].href, '/site/properties');
+    const ls = d.sections.find((x) => x.type === 'listings').props;
+    assert.equal(ls.limit, 12); assert.ok(!('source' in ls), 'unknown option values are dropped');
+    // the result can be saved as a page as it is
+    const saved = await admin.post('/api/site-admin/pages', { title: 'AI draft page', sections: d.sections });
+    assert.equal(saved.status, 201, JSON.stringify(saved.data));
+  } finally { globalThis.fetch = realFetch; }
+});

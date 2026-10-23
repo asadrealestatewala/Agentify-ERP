@@ -10,6 +10,8 @@ import { siteConfig } from './site.js';
 import { validateSiteConfig, validateSections } from '../services/siteValidate.js';
 import { defaultConfig, defaultPages } from '../services/siteDefaults.js';
 import { buildKnowledge, reply } from '../services/bot.js';
+import rateLimit from 'express-rate-limit';
+import { generateSiteDraft, BUSINESS_TYPES, STYLES, TONES } from '../services/siteAi.js';
 import { isHtml, sanitizeHtml, wordCount } from '../services/richText.js';
 
 /** Website editor backend (permission module: website). */
@@ -32,6 +34,15 @@ r.post('/config/reset', can('website', 'delete'), asyncH((req, res) => {
   setSetting('site_config', JSON.stringify(defaultConfig()));
   audit(req, 'Reset website settings', 'website');
   res.json({ ok: true });
+}));
+
+// ---- "Create with AI": a draft page from a short brief, using the workspace's own AI connection. Nothing is saved here.
+const aiLimit = rateLimit({ windowMs: 60 * 60_000, limit: Number(process.env.SITE_AI_LIMIT) || 12, standardHeaders: true, legacyHeaders: false, message: { error: 'You have used the AI page writer many times this hour. Please try again later.' } });
+r.get('/ai/options', can('website', 'view'), (req, res) => res.json({ types: BUSINESS_TYPES, styles: STYLES, tones: TONES }));
+r.post('/ai/generate', can('website', 'edit'), aiLimit, asyncH(async (req, res) => {
+  const draft = await generateSiteDraft(req.body || {});
+  audit(req, 'Generated a website draft with AI', 'website', null, draft.brief.company);
+  res.json(draft);
 }));
 
 // ---- customer reviews sent from the website: approve before they show
