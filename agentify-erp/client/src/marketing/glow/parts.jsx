@@ -36,13 +36,15 @@ export function Ico({ n, size = 22, stroke = 1.8, className = '' }) {
 }
 
 // ---------------------------------------------------------------- scroll reveal (fade and rise), once
+// Revealed elements are marked with a data attribute, not a class: React rewrites className whenever a component re-renders
+// (the FAQ and pricing do), which used to wipe the marker and make the whole block vanish.
 export function useReveal(rootRef) {
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return undefined;
-    const els = [...root.querySelectorAll('.gx-rv')];
-    if (reducedMotion() || !('IntersectionObserver' in window)) { els.forEach((e) => e.classList.add('in')); return undefined; }
-    const io = new IntersectionObserver((entries) => entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } }), { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    const els = [...root.querySelectorAll('.gx-rv:not([data-in])')];
+    if (reducedMotion() || !('IntersectionObserver' in window)) { els.forEach((e) => e.setAttribute('data-in', '')); return undefined; }
+    const io = new IntersectionObserver((entries) => entries.forEach((en) => { if (en.isIntersecting) { en.target.setAttribute('data-in', ''); io.unobserve(en.target); } }), { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
     els.forEach((e) => io.observe(e));
     return () => io.disconnect();
   });
