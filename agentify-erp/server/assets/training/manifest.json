@@ -1,0 +1,167 @@
+[
+  {
+    "key": "erp-overview",
+    "title": "Agentify ERP overview",
+    "description": "A quick tour of Agentify ERP: the dashboard, leads and the sales pipeline, property inventory, accounting, projects and your people.",
+    "category": "System overview",
+    "seconds": 65,
+    "roles": [
+      "Super Admin",
+      "Admin",
+      "Finance Manager",
+      "Sales Manager",
+      "Sales Agent",
+      "HR Manager",
+      "Accounts Staff",
+      "Project Manager",
+      "Listing Manager",
+      "Website Manager",
+      "SEO Manager",
+      "Inventory Manager"
+    ],
+    "order": 1
+  },
+  {
+    "key": "my-space",
+    "title": "My Space: your daily routine",
+    "description": "For every employee: mark your attendance each day, ask for leave, read your payslip, manage your tasks and keep your account secure.",
+    "category": "System overview",
+    "seconds": 83,
+    "roles": [
+      "Super Admin",
+      "Admin",
+      "Finance Manager",
+      "Sales Manager",
+      "Sales Agent",
+      "HR Manager",
+      "Accounts Staff",
+      "Project Manager",
+      "Listing Manager",
+      "Website Manager",
+      "SEO Manager",
+      "Inventory Manager"
+    ],
+    "order": 5
+  },
+  {
+    "key": "super-admin",
+    "title": "Super Admin portal",
+    "description": "For owners and administrators: the dashboard and reports, users and roles, the audit trail, billing and the main settings.",
+    "category": "Administration",
+    "seconds": 85,
+    "roles": [
+      "Super Admin",
+      "Admin"
+    ],
+    "order": 10
+  },
+  {
+    "key": "sales-manager",
+    "title": "Sales Manager portal",
+    "description": "For sales managers: manage leads and agents, watch the pipeline, set goals, review sales and approve commission.",
+    "category": "Sales & CRM",
+    "seconds": 69,
+    "roles": [
+      "Sales Manager",
+      "Super Admin",
+      "Admin"
+    ],
+    "order": 30
+  },
+  {
+    "key": "sales-agent",
+    "title": "Sales Agent portal",
+    "description": "For sales agents: add and track leads, follow up on time, move leads through the pipeline, find properties, book a sale and track your commission.",
+    "category": "Sales & CRM",
+    "seconds": 85,
+    "roles": [
+      "Sales Agent",
+      "Sales Manager"
+    ],
+    "order": 40
+  },
+  {
+    "key": "properties-listings",
+    "title": "Properties and listings",
+    "description": "For listing and inventory managers: the property inventory, adding a property, listing approvals, featured properties and the map.",
+    "category": "Properties & projects",
+    "seconds": 59,
+    "roles": [
+      "Listing Manager",
+      "Inventory Manager",
+      "Sales Manager",
+      "Super Admin",
+      "Admin"
+    ],
+    "order": 50
+  },
+  {
+    "key": "projects",
+    "title": "Projects",
+    "description": "For project managers: development and construction projects, units, progress updates and project financials.",
+    "category": "Properties & projects",
+    "seconds": 52,
+    "roles": [
+      "Project Manager",
+      "Super Admin",
+      "Admin"
+    ],
+    "order": 60
+  },
+  {
+    "key": "finance",
+    "title": "Finance and accounting",
+    "description": "For finance teams: record receipts and expenses, follow installments and receivables, and read the financial statements.",
+    "category": "Accounting",
+    "seconds": 53,
+    "roles": [
+      "Finance Manager",
+      "Accounts Staff",
+      "Super Admin",
+      "Admin"
+    ],
+    "order": 70
+  },
+  {
+    "key": "hr",
+    "title": "H R and payroll",
+    "description": "For H R managers: employee records, attendance, leave approvals, salary and bonuses.",
+    "category": "HR & payroll",
+    "seconds": 47,
+    "roles": [
+      "HR Manager",
+      "Super Admin",
+      "Admin"
+    ],
+    "order": 80
+  },
+  {
+    "key": "vendors",
+    "title": "Vendors and purchasing",
+    "description": "For purchasing and finance: vendors, tenders and bids, purchases and the vendor ledger.",
+    "category": "Accounting",
+    "seconds": 39,
+    "roles": [
+      "Finance Manager",
+      "Accounts Staff",
+      "Project Manager",
+      "Super Admin",
+      "Admin"
+    ],
+    "order": 85
+  },
+  {
+    "key": "customers",
+    "title": "Customers and the customer portal",
+    "description": "For sales and finance: customer profiles, the customer 360 view, statements and the customer portal.",
+    "category": "Sales & CRM",
+    "seconds": 48,
+    "roles": [
+      "Sales Manager",
+      "Finance Manager",
+      "Super Admin",
+      "Admin"
+    ],
+    "order": 90
+  }
+]
