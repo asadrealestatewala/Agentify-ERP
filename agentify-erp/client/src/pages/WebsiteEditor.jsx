@@ -371,7 +371,7 @@ export default function WebsiteEditor() {
   const setAt = (obj, path, value) => { const [k, ...rest] = path.split('.'); const key = /^\d+$/.test(k) ? Number(k) : k; const copy = Array.isArray(obj) ? [...obj] : { ...obj }; copy[key] = rest.length ? setAt(copy[key] ?? {}, rest.join('.'), value) : value; return copy; };
   const canvasActions = {
     edit: ({ id, path, value }) => {
-      if (typeof value !== 'string' || value.length > 1000 || !/^[A-Za-z_]+(\.\d{1,2}\.[A-Za-z_]+)?$/.test(String(path))) return;
+      if (typeof value !== 'string' || value.length > 20000 || !/^[A-Za-z_]+(\.\d{1,2}\.[A-Za-z_]+)?$/.test(String(path))) return;
       setPage((p) => ({ ...p, sections: p.sections.map((x) => (x.id === id ? { ...x, props: setAt(x.props || {}, path, value) } : x)) }));
     },
     select: (m) => { setSelected(m.id); if (m.id) { setTab('sections'); setTimeout(() => document.getElementById(`row-${m.id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 60); } },

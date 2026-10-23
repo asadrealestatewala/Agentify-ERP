@@ -378,3 +378,19 @@ test('AI website draft: needs a connected AI, checks the brief, and keeps only s
     assert.equal(saved.status, 201, JSON.stringify(saved.data));
   } finally { globalThis.fetch = realFetch; }
 });
+
+test('page text typed on the canvas is cleaned on save: scripts and event handlers never reach visitors, in any rich-text field', async () => {
+  const admin = await client('admin@expertdevelopers.pk');
+  const evil = '<p>Hello</p><script>alert(1)</script><img src="x" onerror="alert(2)"><a href="javascript:alert(3)">click</a>';
+  const made = await admin.post('/api/site-admin/pages', { title: 'Inline text test', sections: [
+    { id: 'i1', type: 'imagetext', props: { title: 'About', text: evil } },
+    { id: 'i2', type: 'faq', props: { title: 'FAQ', items: [{ q: 'Q?', a: evil }] } },
+    { id: 'i3', type: 'columns', props: { items: [{ title: 'One', text: evil }] } },
+    { id: 'i4', type: 'text', props: { title: 'T', html: evil } },
+  ] });
+  assert.equal(made.status, 201, JSON.stringify(made.data));
+  const pub = (await anon('/api/site/pages/inline-text-test')).data;
+  const all = JSON.stringify(pub);
+  assert.ok(!/<script|onerror|javascript:/i.test(all), all.slice(0, 400));
+  assert.ok(all.includes('Hello'), 'the text itself is kept');
+});

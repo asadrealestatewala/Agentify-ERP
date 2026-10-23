@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { CalculatorTabs } from './ConstructionTools.jsx';
@@ -29,6 +29,114 @@ export function Ed({ as: Tag = 'span', value, path, className, children, ...rest
       onPaste={(e) => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain').replace(/\s*\n+\s*/g, ' ')); }}
       onDrop={(e) => e.preventDefault()} onBlur={(e) => commit(e.currentTarget)}>{text}</Tag>
   );
+}
+
+const LINK_OK = /^(https?:\/\/[^\s]+|\/[^\s]*|#[^\s]*|mailto:[^\s]+|tel:[^\s]+)$/i;
+const escH = (v) => String(v).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const mdInline = (v) => escH(v).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\[([^\]]+)\]\(((?:https?:\/\/|\/|mailto:|tel:)[^)\s]+)\)/g, '<a href="$2">$1</a>');
+/** Older text is written in a tiny markdown; turn it into HTML once so it can be edited like any other text. */
+function mdToHtml(text) {
+  return String(text || '').replace(/\r/g, '').split(/\n{2,}/).filter((b) => b.trim()).map((b) => {
+    const lines = b.split('\n');
+    if (lines.every((l) => /^\s*[-•*]\s+/.test(l))) return `<ul>${lines.map((l) => `<li>${mdInline(l.replace(/^\s*[-•*]\s+/, ''))}</li>`).join('')}</ul>`;
+    if (/^#{1,3}\s/.test(b)) { const lvl = Math.min(3, b.match(/^#+/)[0].length + 1); return `<h${lvl}>${mdInline(b.replace(/^#+\s*/, ''))}</h${lvl}>`; }
+    return `<p>${lines.map(mdInline).join('<br>')}</p>`;
+  }).join('');
+}
+const RICH_TAGS = new Set(['P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'UL', 'OL', 'LI', 'A', 'H2', 'H3', 'BLOCKQUOTE']);
+/** What the editor keeps from typed or pasted rich text: a short list of tags, safe links only. The server cleans it again on save. */
+function cleanRich(root) {
+  const out = document.createElement('div');
+  const walk = (src, dst) => {
+    src.childNodes.forEach((n) => {
+      if (n.nodeType === 3) { dst.appendChild(document.createTextNode(n.nodeValue)); return; }
+      if (n.nodeType !== 1) return;
+      const tag = n.tagName;
+      if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'SVG'].includes(tag)) return;
+      if (tag === 'DIV') { const p = document.createElement('p'); dst.appendChild(p); walk(n, p); return; }
+      if (!RICH_TAGS.has(tag)) { walk(n, dst); return; }
+      const el = document.createElement(tag.toLowerCase());
+      if (tag === 'A') { const h = n.getAttribute('href') || ''; if (!LINK_OK.test(h)) { walk(n, dst); return; } el.setAttribute('href', h); if (/^https?:/i.test(h)) { el.setAttribute('target', '_blank'); el.setAttribute('rel', 'noopener noreferrer'); } }
+      dst.appendChild(el); walk(n, el);
+    });
+  };
+  walk(root, out);
+  let html = out.innerHTML.replace(/<p>(\s|<br>)*<\/p>/g, '').trim();
+  if (html && !/<(p|ul|ol|h2|h3|blockquote)\b/i.test(html)) html = `<p>${html}</p>`;
+  return html;
+}
+/** Longer text (paragraphs, lists, links) edited in place, with a small toolbar while it has focus. */
+export function EdRich({ value, path }) {
+  const ctx = useContext(EditCtx);
+  const ref = useRef(null);
+  const [on, setOn] = useState(false);
+  if (!ctx) return <Markdown text={value} />;
+  const isHtml = /<\/?(p|h[2-4]|div|ul|ol|figure|img|blockquote|strong|em|span|br)\b/i.test(String(value || ''));
+  const tmp = document.createElement('div'); tmp.innerHTML = isHtml ? String(value) : mdToHtml(value);
+  const html = cleanRich(tmp);
+  const commit = () => { const v = cleanRich(ref.current); if (v !== html) ctx.post({ t: 'edit', id: ctx.sid, path, value: v }); };
+  const cmd = (c, arg) => { ref.current.focus(); document.execCommand(c, false, arg); };
+  const link = () => {
+    const sel = window.getSelection(); const range = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+    const u = window.prompt('Link address (https://…, /site/…, mailto:…, tel:…)');
+    ref.current.focus(); if (range) { sel.removeAllRanges(); sel.addRange(range); }
+    if (u && LINK_OK.test(u.trim())) document.execCommand('createLink', false, u.trim());
+  };
+  const B = ({ c, arg, t, children, onClick }) => <button type="button" title={t} aria-label={t} onMouseDown={(e) => e.preventDefault()} onClick={onClick || (() => cmd(c, arg))}>{children}</button>;
+  return (
+    <div className="sb-richwrap">
+      {on && (
+        <div className="sb-rtb" role="toolbar" aria-label="Text formatting" onClick={(e) => e.stopPropagation()}>
+          <B c="bold" t="Bold"><b>B</b></B><B c="italic" t="Italic"><i>I</i></B><B c="underline" t="Underline"><u>U</u></B>
+          <B c="formatBlock" arg="h3" t="Heading">H</B><B c="formatBlock" arg="p" t="Paragraph">¶</B>
+          <B c="insertUnorderedList" t="Bulleted list">•</B><B c="insertOrderedList" t="Numbered list">1.</B>
+          <B t="Add link" onClick={link}>🔗</B><B c="unlink" t="Remove link">⛓</B><B c="removeFormat" t="Clear formatting">✕</B>
+        </div>
+      )}
+      <div ref={ref} className="md rich sb-rich" contentEditable suppressContentEditableWarning spellCheck data-ph="Click to write" onFocus={() => setOn(true)}
+        onBlur={() => { setOn(false); commit(); }} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') { ref.current.innerHTML = html; ref.current.blur(); } }}
+        onPaste={(e) => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); }} onDrop={(e) => e.preventDefault()}
+        dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  );
+}
+
+/** "Change image" on the canvas: picks a file, uploads it to the website's image library and swaps it in. */
+export function ImgBtn({ path, label = 'Change image' }) {
+  const ctx = useContext(EditCtx);
+  const input = useRef(null);
+  const [busy, setBusy] = useState(false);
+  if (!ctx) return null;
+  const pick = async (file) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const fd = new FormData(); fd.append('files', file);
+      const r = await api.upload('/api/site-admin/media', fd);
+      const p = Array.isArray(r) ? r[0]?.path : null;
+      if (p) ctx.post({ t: 'edit', id: ctx.sid, path, value: p });
+    } catch (e) { window.alert(e.message || 'The image could not be uploaded'); } finally { setBusy(false); }
+  };
+  return (
+    <span className="sb-imgbtn" onClick={(e) => e.stopPropagation()}>
+      <button type="button" disabled={busy} onClick={() => input.current.click()}>{busy ? 'Uploading…' : `🖼 ${label}`}</button>
+      <input ref={input} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={(e) => { pick(e.target.files[0]); e.target.value = ''; }} />
+    </span>
+  );
+}
+/** "Edit link" next to a button on the canvas. */
+export function LinkBtn({ path, value }) {
+  const ctx = useContext(EditCtx);
+  if (!ctx) return null;
+  const edit = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const v = window.prompt('Where should this go? (/site/properties, https://…, mailto:…, tel:…). Leave empty for no link.', value || '');
+    if (v === null) return;
+    const t = v.trim();
+    if (t && !LINK_OK.test(t)) { window.alert('Use a link that starts with https://, /, #, mailto: or tel:'); return; }
+    ctx.post({ t: 'edit', id: ctx.sid, path, value: t });
+  };
+  return <button type="button" className="sb-linkbtn" title="Edit the link" aria-label="Edit the link" onClick={edit}>🔗</button>;
 }
 
 /** Internal links use the router; external/tel/mailto use a normal anchor. */
@@ -184,9 +292,10 @@ function Hero({ p }) {
   const bg = imgUrl(p.image);
   return (
     <section className={`hero ${p.height || 'tall'}`} style={bg ? { backgroundImage: `linear-gradient(rgba(4,36,34,${(p.overlay ?? 55) / 100}), rgba(4,36,34,${(p.overlay ?? 55) / 100})), url(${bg})` } : undefined}>
+      <ImgBtn path="image" label="Change background" />
       <div className="wrap">
         <Ed as="h1" value={p.headline} path="headline" />{p.subheadline && <Ed as="p" value={p.subheadline} path="subheadline" />}
-        {p.cta_label && <A href={p.cta_href} className="btn-p lg"><Ed value={p.cta_label} path="cta_label" /></A>}
+        {p.cta_label && <A href={p.cta_href} className="btn-p lg"><Ed value={p.cta_label} path="cta_label" /></A>}{p.cta_label && <LinkBtn path="cta_href" value={p.cta_href} />}
         {p.show_search && <SearchBox />}
       </div>
     </section>
@@ -217,7 +326,7 @@ const Stats = ({ p }) => <section className="stats"><div className="wrap">{(p.it
 
 const Services = ({ p }) => (
   <section className="sec"><div className="wrap"><Head title={p.title} />
-    <div className="svc">{(p.items || []).map((s, i) => <A key={i} href={s.href} className="svc-card"><span className="svc-ic">{s.icon}</span><Ed as="h4" value={s.title} path={`items.${i}.title`} /><Ed as="p" value={s.text} path={`items.${i}.text`} /></A>)}</div></div></section>
+    <div className="svc">{(p.items || []).map((s, i) => <A key={i} href={s.href} className="svc-card"><span className="svc-ic">{s.icon}</span><Ed as="h4" value={s.title} path={`items.${i}.title`} /><Ed as="p" value={s.text} path={`items.${i}.text`} /><LinkBtn path={`items.${i}.href`} value={s.href} /></A>)}</div></div></section>
 );
 
 const Calculators = ({ p }) => <section className="sec soft"><div className="wrap"><Head title={p.title} subtitle={p.subtitle} href="/site/calculators" hrefLabel="Open full calculators →" /><CalculatorTabs /></div></section>;
@@ -329,24 +438,24 @@ function Cta({ p }) {
   const bg = imgUrl(p.image);
   return (
     <section className={`cta ${p.tone || 'dark'}`} style={bg ? { backgroundImage: `linear-gradient(rgba(4,36,34,.6), rgba(4,36,34,.6)), url(${bg})` } : undefined}>
-      <div className="wrap"><Ed as="h2" value={p.headline} path="headline" />{p.text && <Ed as="p" value={p.text} path="text" />}{p.button_label && <A href={p.button_href} className="btn-p lg alt"><Ed value={p.button_label} path="button_label" /></A>}</div>
+      <ImgBtn path="image" label="Change background" /><div className="wrap"><Ed as="h2" value={p.headline} path="headline" />{p.text && <Ed as="p" value={p.text} path="text" />}{p.button_label && <A href={p.button_href} className="btn-p lg alt"><Ed value={p.button_label} path="button_label" /></A>}{p.button_label && <LinkBtn path="button_href" value={p.button_href} />}</div>
     </section>
   );
 }
 
-const TextBlock = ({ p }) => <section className="sec"><div className="wrap narrow" style={{ textAlign: p.align || 'left' }}>{p.title && <Ed as="h2" value={p.title} path="title" />}<Markdown text={p.html} /></div></section>;
+const TextBlock = ({ p }) => <section className="sec"><div className="wrap narrow" style={{ textAlign: p.align || 'left' }}>{p.title && <Ed as="h2" value={p.title} path="title" />}<EdRich value={p.html} path="html" /></div></section>;
 
 const ImageText = ({ p }) => (
   <section className="sec"><div className={`wrap split ${p.image_side === 'left' ? 'rev' : ''}`}>
-    <div className="split-text">{p.title && <Ed as="h2" value={p.title} path="title" />}<Markdown text={p.text} />{p.button_label && <A href={p.button_href} className="btn-p"><Ed value={p.button_label} path="button_label" /></A>}</div>
-    <div className="split-img">{p.image ? <img src={imgUrl(p.image)} alt={p.title || ''} loading="lazy" /> : <Placeholder icon="🏡" />}</div>
+    <div className="split-text">{p.title && <Ed as="h2" value={p.title} path="title" />}<EdRich value={p.text} path="text" />{p.button_label && <A href={p.button_href} className="btn-p"><Ed value={p.button_label} path="button_label" /></A>}{p.button_label && <LinkBtn path="button_href" value={p.button_href} />}</div>
+    <div className="split-img"><ImgBtn path="image" />{p.image ? <img src={imgUrl(p.image)} alt={p.title || ''} loading="lazy" /> : <Placeholder icon="🏡" />}</div>
   </div></section>
 );
 
 function Faq({ p }) {
   const [open, setOpen] = useState(0);
-  return <section className="sec"><div className="wrap narrow"><Head title={p.title} />{(p.items || []).filter((i) => i.q).map((i, k) => (
-    <div key={k} className={`faq ${open === k ? 'open' : ''}`}><button type="button" aria-expanded={open === k} onClick={() => setOpen(open === k ? -1 : k)}>{i.q}<span>{open === k ? '−' : '+'}</span></button>{open === k && <div className="faq-a"><Markdown text={i.a} /></div>}</div>))}</div></section>;
+  return <section className="sec"><div className="wrap narrow"><Head title={p.title} />{(p.items || []).map((x, idx) => ({ ...x, _i: idx })).filter((i) => i.q).map((i, k) => (
+    <div key={k} className={`faq ${open === k ? 'open' : ''}`}><button type="button" aria-expanded={open === k} onClick={() => setOpen(open === k ? -1 : k)}>{i.q}<span>{open === k ? '−' : '+'}</span></button>{open === k && <div className="faq-a"><EdRich value={i.a} path={`items.${i._i}.a`} /></div>}</div>))}</div></section>;
 }
 
 function Contact({ p }) {
@@ -361,7 +470,7 @@ function Contact({ p }) {
   );
 }
 
-const Gallery = ({ p }) => <section className="sec"><div className="wrap"><Head title={p.title} /><div className="ggrid">{(p.images || []).filter((i) => i.src).map((i, k) => <figure key={k}><img src={imgUrl(i.src)} alt={i.caption || ''} loading="lazy" />{i.caption && <figcaption>{i.caption}</figcaption>}</figure>)}</div></div></section>;
+const Gallery = ({ p }) => <section className="sec"><div className="wrap"><Head title={p.title} /><div className="ggrid">{(p.images || []).map((x, idx) => ({ ...x, _i: idx })).filter((i) => i.src).map((i) => <figure key={i._i}><ImgBtn path={`images.${i._i}.src`} /><img src={imgUrl(i.src)} alt={i.caption || ''} loading="lazy" />{i.caption && <figcaption>{i.caption}</figcaption>}</figure>)}</div></div></section>;
 
 function Leadership({ p }) {
   const all = (p.members || []).filter((m) => m.name);
@@ -408,10 +517,11 @@ function Columns({ p }) {
       <div className={`cols-grid va-${p.valign || 'top'}`} style={{ '--cols': n, '--n': items.length + 1 }}>
         {items.map((x, i) => (
           <div key={i} className="cols-item" style={{ '--i': i + 1 }}>
+            <ImgBtn path={`items.${x._i}.image`} />
             {x.image && <img src={imgUrl(x.image)} alt={x.title || ''} loading="lazy" decoding="async" />}
             {x.title && <Ed as="h3" value={x.title} path={`items.${x._i}.title`} />}
-            {x.text && <Markdown text={x.text} />}
-            {x.button_label && <A href={x.button_href} className="btn-p">{x.button_label}</A>}
+            {x.text && <EdRich value={x.text} path={`items.${x._i}.text`} />}
+            {x.button_label && <A href={x.button_href} className="btn-p"><Ed value={x.button_label} path={`items.${x._i}.button_label`} /></A>}{x.button_label && <LinkBtn path={`items.${x._i}.button_href`} value={x.button_href} />}
           </div>
         ))}
       </div>
@@ -477,7 +587,7 @@ const Portal = ({ p }) => (
   </div></section>
 );
 
-const Banner = ({ p }) => { const inner = <div className="wrap"><Ed value={p.text} path="text" /></div>; return p.href ? <A href={p.href} className={`banner ${p.tone || 'primary'}`}>{inner}</A> : <div className={`banner ${p.tone || 'primary'}`}>{inner}</div>; };
+const Banner = ({ p }) => { const inner = <div className="wrap"><Ed value={p.text} path="text" /><LinkBtn path="href" value={p.href} /></div>; return p.href ? <A href={p.href} className={`banner ${p.tone || 'primary'}`}>{inner}</A> : <div className={`banner ${p.tone || 'primary'}`}>{inner}</div>; };
 
 const MAP = { hero: Hero, listings: Listings, projects: Projects, stats: Stats, services: Services, calculators: Calculators, agents: Agents, testimonials: Testimonials, partners: Partners, reviews: Reviews, embed: Embed, blog: Blog, cta: Cta, text: TextBlock, imagetext: ImageText, faq: Faq, contact: Contact, gallery: Gallery, banner: Banner, leadership: Leadership, projectinfo: ProjectInfo, columns: Columns, spacer: Spacer, livestats: LiveStats, booking: Booking, portal: Portal };
 

@@ -411,3 +411,16 @@ html[dir="rtl"] .input-group .addon { border-radius: 0 var(--radius, 8px) var(--
 .sb-inl:hover { box-shadow: 0 0 0 2px rgba(59,130,246,.45); }
 .sb-inl:focus { box-shadow: 0 0 0 2px #2563eb; background: rgba(255,255,255,.12); }
 .sb-inl:empty::before { content: attr(data-ph); opacity: .5; }
+
+/* inline editing: longer text, images and links on the editor canvas */
+.sb-richwrap { position: relative; }
+.sb-rich { outline: none; cursor: text; border-radius: 6px; min-height: 1.4em; transition: box-shadow .12s; }
+.sb-rich:hover { box-shadow: 0 0 0 2px rgba(59,130,246,.45); } .sb-rich:focus { box-shadow: 0 0 0 2px #2563eb; }
+.sb-rich:empty::before { content: attr(data-ph); opacity: .5; }
+.sb-rtb { position: absolute; left: 0; top: -46px; z-index: 30; display: flex; gap: 2px; background: #111827; border-radius: 8px; padding: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.sb-rtb button { background: none; border: 0; color: #fff; min-width: 30px; height: 28px; border-radius: 6px; cursor: pointer; font: 600 13px system-ui; } .sb-rtb button:hover { background: #374151; }
+.sb-ed .hero, .sb-ed .cta, .sb-ed .split-img, .sb-ed .cols-item, .sb-ed .ggrid figure { position: relative; }
+.sb-imgbtn { position: absolute; top: 10px; right: 10px; z-index: 6; opacity: 0; transition: opacity .15s; }
+.sb-imgbtn button { background: #111827; color: #fff; border: 0; border-radius: 8px; padding: 6px 10px; font: 600 12px system-ui; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+.sb-linkbtn { margin-left: 6px; border: 0; background: #111827; color: #fff; border-radius: 6px; padding: 3px 7px; font-size: 12px; cursor: pointer; opacity: 0; transition: opacity .15s; vertical-align: middle; }
+.sb-edwrap:hover .sb-imgbtn, .sb-edwrap:hover .sb-linkbtn, .sb-imgbtn:focus-within, .sb-linkbtn:focus-visible { opacity: 1; }

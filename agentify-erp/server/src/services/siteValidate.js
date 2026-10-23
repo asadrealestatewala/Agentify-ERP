@@ -86,7 +86,7 @@ export function validateSections(sections) {
     if (Array.isArray(v)) return v.forEach((x, i) => walk(x, `${path}[${i}]`));
     if (v && typeof v === 'object') {
       for (const [k, val] of Object.entries(v)) {
-        if (k === 'html' && typeof val === 'string' && isHtml(val)) { v[k] = sanitizeHtml(val); continue; }
+        if (/^(html|text|a|body|bio|intro|answer)$/.test(k) && typeof val === 'string' && isHtml(val)) { v[k] = sanitizeHtml(val); continue; }
         if (/(^|_)(href|url|link)$/i.test(k) && typeof val === 'string') checkLink(val, `A link in the page (${k})`);
         else if (/^(image|bg|background|cover|logo|photo)$/i.test(k) && typeof val === 'string') checkImage(val, `The ${k} in the page`);
         else walk(val, `${path}.${k}`);
