@@ -27,7 +27,8 @@ function Nav({ info, theme, toggleTheme }) {
   useEffect(() => { const h = () => setScrolled(window.scrollY > 8); h(); window.addEventListener('scroll', h, { passive: true }); return () => window.removeEventListener('scroll', h); }, []);
   useEffect(() => { if (!open) return undefined; const k = (e) => { if (e.key === 'Escape') { setOpen(false); btn.current?.focus(); } }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [open]);
   const brand = info.content.brand || 'Agentify ERP';
-  const installBtn = inst.canPrompt ? <button type="button" className="gx-btn ghost sm" onClick={inst.install}><Ico n="download" size={16} /> Install app</button> : null;
+  const getApp = async () => { if (inst.canPrompt) { await inst.install(); return; } setOpen(false); document.getElementById('mobile')?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth' }); };
+  const installBtn = inst.installed ? null : <button type="button" className="gx-btn ghost sm" onClick={getApp}><Ico n="download" size={16} /> Download app</button>;
   return (
     <header className={`gx-nav ${scrolled ? 'scrolled' : ''}`}>
       <div className="gx-nav-in">
@@ -227,7 +228,7 @@ function Mobile() {
   const { country } = useCountry();
   const inst = useInstall();
   const [msg, setMsg] = useState('');
-  const onInstall = async () => { const ok = await inst.install(); setMsg(ok ? 'Installed. Open it from your home screen.' : ''); };
+  const onInstall = async () => { if (!inst.canPrompt) { setMsg(inst.ios ? 'Follow the Share steps above to add it to your home screen.' : 'Use the browser menu › Install app. Some browsers only offer it after a few seconds on the page.'); return; } const ok = await inst.install(); setMsg(ok ? 'Installed. Open it from your home screen.' : ''); };
   return (
     <section className="gx-sec gx-mobile" id="mobile" aria-labelledby="gx-mob-h">
       <div className="gx-wrap gx-mob-g">
@@ -244,9 +245,10 @@ function Mobile() {
           <p className="gx-lead">Check new leads, open a client, see what they are looking for and complete the follow-up. Try the phone: tap a lead, tick the follow-up, switch to Tasks.</p>
           <ul className="gx-ticks col"><li>Installs on Android and iPhone from the browser</li><li>Bottom tabs for leads, tasks and alerts</li><li>Push reminders for your daily goals once installed</li></ul>
           <div className="gx-install">
-            {inst.installed ? <p>The app is installed on this device.</p> : inst.canPrompt ? <button type="button" className="gx-btn cream" onClick={onInstall}><Ico n="download" size={17} /> Install the app</button>
-              : inst.ios ? <p><b>On iPhone:</b> open this page in Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>.</p>
-              : <p>In Chrome or Edge, use the browser menu › <b>Install app</b>. Your workspace is where you install it: <Link to="/login">find your workspace</Link>.</p>}
+            {inst.installed ? <p>The app is installed on this device.</p> : <button type="button" className="gx-btn cream" onClick={onInstall}><Ico n="download" size={17} /> Download the app</button>}
+            {!inst.installed && !inst.canPrompt && (inst.ios
+              ? <p><b>On iPhone:</b> open this page in Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>. Apple does not allow a one-click install.</p>
+              : <p>Your browser has not offered the one-click install yet. In Chrome or Edge use the browser menu › <b>Install app</b>, or open your workspace and press <b>Download app</b> there.</p>)}
             {msg && <p role="status">{msg}</p>}
             <small>Native versions for Google Play and the App Store are not published yet.</small>
           </div>
@@ -367,7 +369,7 @@ function Footer({ info }) {
         <div className="gx-foot-g">
           <div><p>{c.brand}: real estate CRM with the ERP behind it.</p>{(c.contact_email || c.contact_phone || c.address) && <p className="gx-fine">{[c.contact_email, c.contact_phone, c.address].filter(Boolean).join(' · ')}</p>}{!!social.length && <p>{social.map(([k, v]) => <a key={k} href={v} target="_blank" rel="noreferrer noopener" className="gx-cap">{k}</a>)}</p>}</div>
           <div><h4>Product</h4><a href="#features">Features</a><a href="#tour">Live demo</a><a href="#pricing">Pricing</a><Link to="/real-estate">Real estate</Link><Link to="/construction">Construction</Link></div>
-          <div><h4>Company</h4><Link to="/contact">Book a demo</Link><Link to="/signup">Start free</Link><Link to="/login">Sign in</Link>{inst.canPrompt && <button type="button" className="gx-linkbtn" onClick={inst.install}>Install the app</button>}</div>
+          <div><h4>Company</h4><Link to="/contact">Book a demo</Link><Link to="/signup">Start free</Link><Link to="/login">Sign in</Link>{!inst.installed && <button type="button" className="gx-linkbtn" onClick={() => (inst.canPrompt ? inst.install() : document.getElementById('mobile')?.scrollIntoView({ behavior: 'smooth' }))}>Download the app</button>}</div>
           <div><h4>Legal</h4>{(c.legal || []).map((d) => <Link key={d.slug} to={`/legal/${d.slug}`}>{d.title}</Link>)}
             <label className="gx-sel foot"><span className="gx-sr">Country</span><select value={country.code} onChange={(e) => setCountry(e.target.value)} aria-label="Country">{countries.map((x) => <option key={x.code} value={x.code}>{x.name}</option>)}</select></label></div>
         </div>

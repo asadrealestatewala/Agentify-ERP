@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import { AppProviders } from './context.jsx';
+import './installApp.js';
 import './theme.js';
 import './supabase.js';
 import { registerSW } from './components/Push.jsx';

@@ -4,6 +4,7 @@ import Icon from './Icon.jsx';
 import { Avatar } from './ui.jsx';
 import Assistant from './Assistant.jsx';
 import Appearance from './Appearance.jsx';
+import GetAppButton from './GetAppButton.jsx';
 import CommandPalette from './CommandPalette.jsx';
 import OfflineBar from './OfflineBar.jsx';
 import { NotificationBell } from './Notifications.jsx';

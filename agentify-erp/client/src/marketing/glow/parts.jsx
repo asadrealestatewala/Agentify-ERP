@@ -123,28 +123,7 @@ export function DotField() {
 }
 
 // ---------------------------------------------------------------- install the app (PWA): the browser's own prompt, or the iPhone steps
-export function useInstall() {
-  const [evt, setEvt] = useState(() => (typeof window !== 'undefined' ? window.__erpInstallEvt || null : null));
-  const standalone = typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true);
-  const [installed, setInstalled] = useState(!!standalone);
-  useEffect(() => {
-    const h = (e) => { e.preventDefault(); window.__erpInstallEvt = e; setEvt(e); };
-    const done = () => { window.__erpInstallEvt = null; setEvt(null); setInstalled(true); };
-    window.addEventListener('beforeinstallprompt', h); window.addEventListener('appinstalled', done);
-    return () => { window.removeEventListener('beforeinstallprompt', h); window.removeEventListener('appinstalled', done); };
-  }, []);
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && typeof document !== 'undefined' && 'ontouchend' in document);
-  const install = async () => {
-    if (!evt) return false;
-    evt.prompt();
-    const choice = await evt.userChoice.catch(() => null);
-    window.__erpInstallEvt = null; setEvt(null);
-    if (choice?.outcome === 'accepted') setInstalled(true);
-    return choice?.outcome === 'accepted';
-  };
-  return { canPrompt: !!evt && !installed, installed, ios: ios && !installed, install };
-}
+export { useInstallApp as useInstall } from '../../installApp.js';
 
 // ---------------------------------------------------------------- theme (the brand's light teal by default, dark on request, remembered on this device)
 export function useTheme() {

@@ -377,3 +377,7 @@ html[dir="rtl"] .t th, html[dir="rtl"] .t td { text-align: right; }
 html[dir="rtl"] .t th.num, html[dir="rtl"] .t td.num, html[dir="rtl"] .t td.right, html[dir="rtl"] .t th.right { text-align: left; }
 html[dir="rtl"] .mono, html[dir="rtl"] .num, html[dir="rtl"] input[type="number"], html[dir="rtl"] input[type="tel"], html[dir="rtl"] input[type="email"] { direction: ltr; unicode-bidi: plaintext; }
 html[dir="rtl"] .input-group .addon { border-radius: 0 var(--radius, 8px) var(--radius, 8px) 0; }
+
+/* Download app button in the top bar: icon only on phones */
+.get-app-btn{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+@media (max-width:640px){.get-app-label{display:none}.get-app-btn{padding-left:10px;padding-right:10px}}
