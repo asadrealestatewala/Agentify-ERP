@@ -79,3 +79,7 @@ node scripts/capture-marketing-screens.mjs client/public/marketing
 ```
 
 The server must be running on http://localhost:4000 with the `shotre-*` workspaces present (Chrome is used through puppeteer-core; install it in a scratch folder, it is not a project dependency). The interactive "dashboard at a glance" section is still an illustration with figures labelled sample.
+
+## Console owner account
+
+The platform console is at `/platform`. Its owner account is created or reset on deploy from the GitHub secrets `PLATFORM_ADMIN_EMAIL`, `PLATFORM_ADMIN_PASSWORD` and, only for that one run, `PLATFORM_ADMIN_RESET=yes` (see `.github/workflows/deploy.yml`). Delete `PLATFORM_ADMIN_RESET` afterwards so later deploys leave the password alone, and change the password after the first sign-in. No credentials are stored in this repository.
