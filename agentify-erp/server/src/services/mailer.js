@@ -22,6 +22,9 @@ ${footer ? `<p style="color:#6b7280;font-size:13px">${escapeHtml(footer)}</p>` :
   return { text, html };
 }
 
+/** True when a Resend key is saved (console or environment), i.e. mail really leaves the server. */
+export const mailReady = () => { try { return !!((mailConfig() || {}).key || process.env.RESEND_API_KEY); } catch { return !!process.env.RESEND_API_KEY; } };
+
 /** Never throws into the caller: a failed email must not undo a signup or an invite. Returns true when handed to the provider. */
 export async function sendMail({ to, subject, text, html }) {
   const msg = { to, subject, text, html, at: new Date().toISOString() };

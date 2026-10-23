@@ -1,4 +1,6 @@
-import { run, all, get } from './db.js';
+import { run, all, get, getSetting } from './db.js';
+import { currentTenant } from './context.js';
+import { sendMail, layout, mailReady } from './services/mailer.js';
 import { now } from './util.js';
 import { pushTo } from './services/push.js';
 
@@ -24,9 +26,29 @@ export function notify(userIds, type, title, body, link, opts = {}) {
   const ids = [...new Set([].concat(userIds).filter(Boolean))];
   for (const id of ids) {
     const r = run('INSERT OR IGNORE INTO notifications(user_id,type,title,body,link,read,dedupe,created_at) VALUES(?,?,?,?,?,0,?,?)', id, type, title, body ?? null, link ?? null, opts.dedupe ?? null, now());
-    if (r.changes) pushTo(id, { title, body: body ?? '', url: link || '/' });
+    if (r.changes) { pushTo(id, { title, body: body ?? '', url: link || '/' }); emailNotification(id, title, body, link); }
   }
 }
+
+// ---- e-mail copy of an in-app notification. Off unless the workspace switched it on; staff with a confirmed address only;
+// at most five per person per ten minutes so an import or a bulk action never floods an inbox. Never throws into the caller.
+const recent = new Map();
+function emailNotification(userId, title, body, link) {
+  try {
+    const on = String(getSetting('notify_email_enabled') ?? '');
+    if (!on || on === '0' || on === 'false' || !mailReady()) return;
+    const u = get('SELECT u.email, u.name FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.active=1 AND u.email_verified=1 AND r.portal=0', userId);
+    if (!u || !u.email) return;
+    const t = Date.now(), list = (recent.get(userId) || []).filter((x) => t - x < 600_000);
+    if (list.length >= 5) return;
+    recent.set(userId, [...list, t]);
+    const tenant = currentTenant(), base = process.env.ERP_BASE_DOMAIN;
+    const origin = tenant && base ? `https://${tenant.custom_domain || `${tenant.slug}.${base}`}` : '';
+    const url = link && origin ? `${origin}${String(link).startsWith('/') ? '' : '/'}${link}` : origin || null;
+    sendMail({ to: u.email, subject: title, ...layout({ heading: title, lines: [body || ''].filter(Boolean), button: url ? { label: 'Open in Agentify ERP', url } : undefined, footer: 'You receive this because e-mail notifications are switched on for your workspace (Settings, Notifications).' }) }).catch(() => {});
+  } catch { /* a notification must never fail because of its e-mail */ }
+}
+
 /** Notify every active user whose role has a permission. */
 export function notifyPerm(module, action, type, title, body, link) {
   const rows = all(`SELECT DISTINCT u.id FROM users u JOIN roles r ON r.id=u.role_id

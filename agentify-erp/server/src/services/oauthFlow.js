@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { platformDb, getTenant, withTenant } from '../platform.js';
 import { get, run } from '../db.js';
 import { saveIntegration } from '../integrations/store.js';
-import { appCreds, exchangeCode, readState, redirectUri, PROVIDERS } from './oauthApps.js';
+import { appCreds, exchangeCode, readState, redirectUri, signState, PROVIDERS } from './oauthApps.js';
 import { onSocialConnected } from '../integrations/social.js';
 
 const CODES = `CREATE TABLE IF NOT EXISTS oauth_login_codes(code TEXT PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, provider TEXT NOT NULL, expires_at INTEGER NOT NULL);`;
@@ -48,6 +48,19 @@ async function googleIdentity(accessToken) {
 export async function handleCallback(provider, params, req) {
   const st = readState(params.state);
   if (!st) return { redirect: null, error: 'This sign-in link expired. Go back and try again.' };
+  // Google sign-up: no workspace exists yet. Hand the verified name and email to the signup page as a signed token (15 minutes).
+  if (st.purpose === 'signup') {
+    const back = (q) => `${st.origin}/signup?${q}`;
+    if (provider !== 'google') return { redirect: back('google_error=unsupported') };
+    if (params.error) return { redirect: back(`google_error=${params.error === 'access_denied' ? 'cancelled' : 'failed'}${st.q ? '&' + st.q : ''}`) };
+    try {
+      const tokens = await exchangeCode('google', params.code, redirectUri('google', req));
+      const who = await googleIdentity(tokens.access_token);
+      if (!who.email || !who.verified) return { redirect: back(`google_error=email_not_verified${st.q ? '&' + st.q : ''}`) };
+      const token = signState({ purpose: 'google-signup', email: String(who.email).toLowerCase(), name: who.name || '' });
+      return { redirect: back(`google=${encodeURIComponent(token)}${st.q ? '&' + st.q : ''}`) };
+    } catch (e) { return { redirect: back(`google_error=failed${st.q ? '&' + st.q : ''}`), detail: e.message }; }
+  }
   const fail = (code) => `${st.origin}${st.purpose === 'login' ? '/login' : '/settings/integrations'}?oauth_error=${encodeURIComponent(code)}`;
   if (params.error) return { redirect: fail(params.error === 'access_denied' ? 'cancelled' : params.error) };
   try {

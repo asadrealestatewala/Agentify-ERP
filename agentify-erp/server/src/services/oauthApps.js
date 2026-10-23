@@ -15,8 +15,8 @@ import { bad } from '../util.js';
 export const PROVIDERS = {
   google: {
     label: 'Google', auth: 'https://accounts.google.com/o/oauth2/v2/auth', token: 'https://oauth2.googleapis.com/token', userinfo: 'https://openidconnect.googleapis.com/v1/userinfo',
-    scopes: { login: ['openid', 'email', 'profile'], calendar: ['https://www.googleapis.com/auth/calendar.events', 'openid', 'email'] },
-    extra: { login: { prompt: 'select_account' }, calendar: { access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true' } },
+    scopes: { login: ['openid', 'email', 'profile'], signup: ['openid', 'email', 'profile'], calendar: ['https://www.googleapis.com/auth/calendar.events', 'openid', 'email'] },
+    extra: { login: { prompt: 'select_account' }, signup: { prompt: 'select_account' }, calendar: { access_type: 'offline', prompt: 'consent', include_granted_scopes: 'true' } },
     fields: [['client_id', 'Client ID'], ['client_secret', 'Client secret']],
     console: 'https://console.cloud.google.com/apis/credentials',
   },

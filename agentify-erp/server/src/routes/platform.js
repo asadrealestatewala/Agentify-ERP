@@ -1,4 +1,5 @@
 // Control-plane API (not tenant-scoped): self-serve signup and the platform operator's tenant administration.
+import crypto from 'node:crypto';
 import { issueLoginCode } from '../services/oauthFlow.js';
 import express, { Router } from 'express';
 import rateLimit from 'express-rate-limit';
@@ -23,7 +24,7 @@ import { GLOBAL_CRM_COPY } from '../regions/marketingCopy.js';
 import { mayIssueCertificate } from '../integrations/domains.js';
 import { locate, geoConfigured } from '../services/geo.js';
 import { handleCallback } from '../services/oauthFlow.js';
-import { PROVIDERS } from '../services/oauthApps.js';
+import { PROVIDERS, appCreds, authorizeUrl, readState, redirectUri, signState, mainOrigin } from '../services/oauthApps.js';
 import { BASE_DOMAIN, platformDb, withTenant, isMultiTenant, createTenant, validateSlug, listTenants, getTenant, setTenantStatus, RESERVED_SLUGS } from '../platform.js';
 
 const r = Router();
@@ -72,6 +73,21 @@ const oauthDone = asyncH(async (req, res) => {
 r.get('/oauth/:provider/callback', oauthDone);
 r.post('/oauth/:provider/callback', express.urlencoded({ extended: false, limit: '100kb' }), oauthDone);
 
+/** "Continue with Google" on the signup page. Only the product and country choices travel with the sign-in (no personal data). */
+r.get('/oauth/google/signup', asyncH((req, res) => {
+  if (!appCreds('google')) throw bad('Google sign-up is not set up on this platform yet.');
+  const q = new URLSearchParams();
+  for (const k of ['product', 'country']) { const v = String(req.query[k] || ''); if (/^[A-Za-z_]{2,20}$/.test(v)) q.set(k, v); }
+  const state = signState({ purpose: 'signup', origin: mainOrigin(req), q: q.toString() });
+  res.redirect(303, authorizeUrl('google', 'signup', { state, redirect: redirectUri('google', req) }));
+}));
+/** What the signup page may show after Google sent the visitor back: the name and email inside the signed token. */
+r.get('/google-identity', asyncH((req, res) => {
+  const t = readState(req.query.token);
+  if (!t || t.purpose !== 'google-signup' || !t.email) throw new HttpError(400, 'This Google sign-in expired. Choose Continue with Google again.');
+  res.json({ email: t.email, name: t.name || '' });
+}));
+
 /** The web server asks this before it issues an HTTPS certificate for a host name (Caddy on-demand TLS "ask"). */
 r.get('/domain-check', (req, res) => res.sendStatus(mayIssueCertificate(req.query.domain) ? 200 : 404));
 
@@ -80,8 +96,15 @@ r.post('/signup', signupLimiter, asyncH(async (req, res) => {
   if (!isMultiTenant()) throw new HttpError(404, 'Workspace signup is switched off: this server is running in single-company mode. Start it with ERP_BASE_DOMAIN=localhost (run-agentify-erp.bat does this).');
   const b = req.body || {};
   if (b.accept_terms !== true) throw bad('Please accept the Terms of Service and Privacy Policy to create a workspace');
+  // With a valid Google token the address is the one Google verified, and the owner signs in with Google (a password can be set later with "Forgot password").
+  let google = null;
+  if (b.google_token) {
+    const t = readState(b.google_token);
+    if (!t || t.purpose !== 'google-signup' || !t.email) throw bad('Your Google sign-in expired. Choose Continue with Google again.');
+    google = t;
+  }
   const tenant = createTenant({
-    slug: b.slug, name: b.company_name, adminName: String(b.admin_name || '').trim() || 'Admin', adminEmail: b.admin_email, adminPassword: b.admin_password,
+    slug: b.slug, name: b.company_name, adminName: String(b.admin_name || (google && google.name) || '').trim() || 'Admin', adminEmail: google ? google.email : b.admin_email, adminPassword: google ? crypto.randomBytes(24).toString('base64url') : b.admin_password,
     timezone: b.timezone || 'Asia/Karachi', currency: b.currency || 'PKR', region: b.region || 'PK', sub_region: b.sub_region || null, language: b.language || null, demo: b.sample_data === true && String(b.region || 'PK').toUpperCase() !== 'PK', product: b.product || 'real_estate', trialPolicy: true,
   });
   // which version of the Terms the owner accepted (0 = the unpublished template) and when
@@ -93,10 +116,10 @@ r.post('/signup', signupLimiter, asyncH(async (req, res) => {
   const token = withTenant(tenant, () => {
     const owner = get('SELECT id FROM users WHERE lower(email)=lower(?)', tenant.owner_email);
     ownerId = owner.id;
-    run('UPDATE users SET email_verified=0 WHERE id=?', owner.id);
-    return issueVerification(owner.id);
+    run('UPDATE users SET email_verified=?, contact_id=NULL WHERE id=?', google ? 1 : 0, owner.id);
+    return google ? null : issueVerification(owner.id);
   });
-  const mail = layout({ heading: `Your ${tenant.name} workspace is ready`, lines: [`Confirm ${tenant.owner_email} with the button below, then sign in to start setting up your company.`, tenant.trial_ends_at ? `Your ${PLAN_SETTINGS.default_trial_days}-day free trial runs until ${tenant.trial_ends_at.slice(0, 10)} (UTC).` : tenant.trial_note ? `${tenant.trial_note}. Choose a plan in Settings > Plan & Billing to start.` : ''].filter(Boolean), button: { label: 'Confirm email and open workspace', url: `${origin}/verify-email/${token}` } });
+  const mail = layout({ heading: `Your ${tenant.name} workspace is ready`, lines: [google ? `You signed up with Google as ${tenant.owner_email}, so there is nothing to confirm. Sign in with Google any time, or use Forgot password to set a password.` : `Confirm ${tenant.owner_email} with the button below, then sign in to start setting up your company.`, tenant.trial_ends_at ? `Your ${PLAN_SETTINGS.default_trial_days}-day free trial runs until ${tenant.trial_ends_at.slice(0, 10)} (UTC).` : tenant.trial_note ? `${tenant.trial_note}. Choose a plan in Settings > Plan & Billing to start.` : ''].filter(Boolean), button: google ? { label: 'Open your workspace', url: origin } : { label: 'Confirm email and open workspace', url: `${origin}/verify-email/${token}` } });
   await sendMail({ to: tenant.owner_email, subject: `Welcome: ${tenant.name} is ready`, ...mail });
   recordServerEvent('signup_completed', { ...(b.analytics || {}), product: tenant.product, tenant_id: tenant.id });
   // the browser is sent into the new workspace already signed in (one-time code, valid two minutes), not to its sign-in page
@@ -160,7 +183,7 @@ r.get('/marketing', asyncH((req, res) => {
   const regions = [...selectableRegions(platformDb()).values()].map((p) => ({ code: p.code, name: p.name, currency: p.currency, sub_region_label: p.sub_region_label, sub_regions: p.sub_regions, languages: p.languages }));
   res.json({ content: publicContent(), base_domain: BASE_DOMAIN, regions, countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, trial_days: PLAN_SETTINGS.default_trial_days, one_trial_per_email: PLAN_SETTINGS.one_trial_per_email, products: PRODUCTS,
     plans: planCatalog().filter((p) => PLANS[p.id]?.visible), addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })),
-    local_methods: methods, cards: stripe.stripeConfigured(), terms_version: termsVersion(), ga4_id: getSetting('ga4_measurement_id') || null });
+    google_signup: !!appCreds('google'), local_methods: methods, cards: stripe.stripeConfigured(), terms_version: termsVersion(), ga4_id: getSetting('ga4_measurement_id') || null });
 }));
 r.get('/announcements', asyncH((req, res) => { mainOnly(req); res.json(publicAnnouncements()); }));
 r.get('/legal/:slug', asyncH((req, res) => { mainOnly(req); res.json(publicLegal(req.params.slug)); }));

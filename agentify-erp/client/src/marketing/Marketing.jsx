@@ -760,6 +760,15 @@ function Signup({ info }) {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
+  // "Continue with Google": the server sends the visitor back here with a signed token holding the name and email Google verified
+  const gToken = q.get('google') || '';
+  const [gWho, setGWho] = useState(null);
+  const GOOGLE_ERR = { cancelled: 'Google sign-in was cancelled.', email_not_verified: 'Google did not confirm that email address, so it cannot be used.', unsupported: 'That sign-in method is not available.' };
+  const [gErr, setGErr] = useState(q.get('google_error') ? (GOOGLE_ERR[q.get('google_error')] || 'Google sign-in did not complete. Please try again.') : '');
+  useEffect(() => {
+    if (!gToken) return;
+    api.get('/api/platform/google-identity', { token: gToken }).then((d) => { setGWho(d); setF((s) => ({ ...s, admin_email: d.email, admin_name: s.admin_name || d.name || '' })); }).catch((e) => setGErr(e.message));
+  }, [gToken]);
   useTitle(`Start your free trial | ${info.content.brand}`, `Create your ${info.content.brand} workspace with a ${info.trial_days}-day free trial.`);
   useEffect(() => { track('signup_started', { product: product || undefined }); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -774,7 +783,7 @@ function Signup({ info }) {
     if (!product) { setErr('Choose a product first'); return; }
     if (!f.accept_terms) { setErr('Please accept the Terms of Service and Privacy Policy'); return; }
     setBusy(true);
-    try { setDone(await api.post('/api/platform/signup', { ...f, region: country.code, currency: country.currency, timezone: (country.timezones || []).includes(f.timezone) ? f.timezone : (country.timezones || [f.timezone])[0], language: f.language || null, sample_data: !!f.sample_data, product, analytics: attributionFields() })); } catch (x) { setErr(x.message); } finally { setBusy(false); }
+    try { setDone(await api.post('/api/platform/signup', { ...f, google_token: gWho ? gToken : undefined, region: country.code, currency: country.currency, timezone: (country.timezones || []).includes(f.timezone) ? f.timezone : (country.timezones || [f.timezone])[0], language: f.language || null, sample_data: !!f.sample_data, product, analytics: attributionFields() })); } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   // straight into the new workspace, already signed in (the one-time code lasts two minutes, so do it now)
   const [unreachable, setUnreachable] = useState(false);
@@ -821,11 +830,22 @@ function Signup({ info }) {
           </div>
         </fieldset>
         <div style={{ fontWeight: 700 }}>2. Your company and account</div>
+        {gErr && <div className="lerr" role="alert">{gErr}</div>}
+        {info.google_signup && !gWho && (
+          <>
+            <a className="lbtn" href={`/api/platform/oauth/google/signup?${new URLSearchParams({ product: product || '', country: country.code })}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#fff', color: '#1f2937', border: '1px solid #d0d5dd' }}>
+              <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z" /><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.2 5.5-4.7 7.2l7.5 5.8c4.4-4.1 7-10.1 7-17.5z" /><path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 010-9.4l-7.9-6.1a24 24 0 000 21.6l7.9-6.1z" /><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z" /></svg>
+              Continue with Google
+            </a>
+            <div className="lmini" style={{ textAlign: 'center' }}>or fill in the form below</div>
+          </>
+        )}
+        {gWho && <div className="lok" role="status" style={{ background: '#e6f5ea', color: '#166534', padding: '10px 14px', borderRadius: 10 }}>Signed in with Google as <b>{gWho.email}</b>. No password needed: you will sign in with Google.</div>}
         <label>Company name<input required value={f.company_name} onChange={(e) => { const v = e.target.value; setF((s) => ({ ...s, company_name: v, slug: slugTouched ? s.slug : slugify(v) })); }} autoComplete="organization" /></label>
         <label>Workspace address<span className="lhint">{avail ? (avail.available ? `Available: ${f.slug}.${info.base_domain}` : avail.reason) : 'Letters, digits and hyphens'}</span>
           <input required value={f.slug} onChange={(e) => { setSlugTouched(true); setF((s) => ({ ...s, slug: slugify(e.target.value) })); }} placeholder="your-company" aria-invalid={avail && !avail.available} /></label>
-        <div className="lrow"><label>Your name<input required value={f.admin_name} onChange={set('admin_name')} autoComplete="name" /></label><label>Work email<input type="email" required value={f.admin_email} onChange={set('admin_email')} autoComplete="email" /></label></div>
-        <label>Password<span className="lhint">At least 8 characters</span><input type="password" minLength={8} required value={f.admin_password} onChange={set('admin_password')} autoComplete="new-password" /></label>
+        <div className="lrow"><label>Your name<input required value={f.admin_name} onChange={set('admin_name')} autoComplete="name" /></label><label>Work email<input type="email" required value={f.admin_email} onChange={set('admin_email')} autoComplete="email" readOnly={!!gWho} /></label></div>
+        {!gWho && <label>Password<span className="lhint">At least 8 characters</span><input type="password" minLength={8} required value={f.admin_password} onChange={set('admin_password')} autoComplete="new-password" /></label>}
         <div style={{ fontWeight: 700 }}>3. Your country</div>
         <div className="lrow">
           <label>Country<span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Flag code={country.code} height={20} /><select style={{ flex: 1 }} value={country.code} onChange={(e) => setCountry(e.target.value)}>{countries.map((c) => <option key={c.code} value={c.code} disabled={!c.open}>{c.name}{c.open ? '' : ' (opening soon)'}</option>)}</select></span></label>

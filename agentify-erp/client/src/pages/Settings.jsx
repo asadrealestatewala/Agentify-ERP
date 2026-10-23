@@ -258,7 +258,7 @@ export function NotificationSettings() {
       <div className="stack">
         <Card title="In-app notifications (always on)"><div className="muted">Installment due/overdue, new lead assigned, follow-up due, property sold, payment received, commission approved, vendor payment due, leave requested, development update published.</div>
           <div style={{ marginTop: 12 }}><Field label="Remind about installments due within (days)"><input className="input" style={{ width: 120 }} type="number" min="1" value={f.installment_reminder_days || 7} onChange={(e) => setF({ ...f, installment_reminder_days: e.target.value })} /></Field></div></Card>
-        <Card title="External channels (optional integration layer)"><div className="alert info" style={{ marginBottom: 12 }}>Email, SMS and WhatsApp delivery plug in through a provider adapter. The switches below record your preference; connect a provider to start sending.</div>
+        <Card title="External channels (optional integration layer)"><div className="alert info" style={{ marginBottom: 12 }}>E-mail: when it is switched on and the platform has its Resend sender connected, each in-app notification is also e-mailed to the person it is for (confirmed staff addresses only, at most five every ten minutes). SMS and WhatsApp plug in through a provider adapter: those switches record your preference until a provider is connected.</div>
           <div className="stack">{[['notify_email_enabled', 'E-mail'], ['notify_sms_enabled', 'SMS'], ['notify_whatsapp_enabled', 'WhatsApp']].map(([k, l]) => <div key={k} className="row between"><span>{l}</span><Toggle value={chk(k)} onChange={(v) => setF({ ...f, [k]: v ? 1 : 0 })} /></div>)}</div></Card>
       </div>
     </div>
