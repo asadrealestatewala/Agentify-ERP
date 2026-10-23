@@ -309,6 +309,11 @@ export default function WebsiteEditor() {
   const [newPage, setNewPage] = useState(null);
   const [tpl, setTpl] = useState(null);
   const [ai, setAi] = useState(null);
+  // the editor opens full screen (like a page builder): panel on the left, the big live page on the right
+  const [full, setFullState] = useState(() => { try { return localStorage.getItem('wed-full') !== '0'; } catch { return true; } });
+  const setFull = (v) => { setFullState(v); try { localStorage.setItem('wed-full', v ? '1' : '0'); } catch { /* private mode */ } };
+  const [panelOpen, setPanelOpen] = useState(true);
+  const [prev, setPrev] = useState(null); // a template shown on the canvas before it is applied
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const canEdit = can('website', 'edit');
@@ -384,18 +389,38 @@ export default function WebsiteEditor() {
   };
 
   if (!pages || !cfg || !page) return <Loading />;
-  return (
-    <div>
-      <PageHead title="Website editor" sub="Edit the public website — header, footer, hero, listings, colours, fonts, images, blog and more. Changes go live when you save.">
+  const applyPrev = () => {
+    const t = TEMPLATES.find((x) => x.id === prev.id);
+    setPage((p) => ({ ...p, sections: prev.sections }));
+    if (t?.theme && prev.theme) setCfg((c) => ({ ...c, theme: { ...(c.theme || {}), ...t.theme } }));
+    setSelected(null); setPrev(null);
+    toast(`${prev.label} applied to this page. Review it, then press Save to publish. Undo brings your old page back.`, 'ok');
+  };
+  const actionBtns = (<>
         <button className="btn" disabled={!hist.canUndo} onClick={hist.undo} title="Undo (Ctrl+Z)">↶ Undo</button><button className="btn" disabled={!hist.canRedo} onClick={hist.redo} title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
         <button className="btn" onClick={openVersions}>🕘 History</button>
         <a className="btn" href="/site" target="_blank" rel="noreferrer">View live site ↗</a>
         <button className="btn primary" disabled={!dirty || busy || !canEdit} onClick={save}>{busy ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}</button>
-      </PageHead>
-      <div className="wed">
+      </>);
+  return (
+    <div className={full ? 'wed-fs' : ''}>
+      {full ? (
+        <div className="wed-top">
+          <button className="btn" onClick={() => setFull(false)} title="Back to the normal page">← Exit full screen</button>
+          <button className="btn" onClick={() => setPanelOpen(!panelOpen)}>{panelOpen ? '◀ Hide panel' : '▶ Show panel'}</button>
+          <b className="wed-title">Website editor</b><span className="grow" />
+          {actionBtns}
+        </div>
+      ) : (
+        <PageHead title="Website editor" sub="Edit the public website — header, footer, hero, listings, colours, fonts, images, blog and more. Changes go live when you save.">
+          <button className="btn" onClick={() => setFull(true)}>⤢ Full screen</button>
+          {actionBtns}
+        </PageHead>
+      )}
+      <div className={`wed ${panelOpen ? '' : 'nopanel'}`}>
         <div className="wed-panel">
-          <div className="row" style={{ marginBottom: 10 }}>
-            <div className="grow"><Select allowEmpty={false} value={pageId} onChange={switchPage} options={pages.map((p) => ({ value: p.id, label: `${p.title}${p.published ? '' : ' (hidden)'}  —  /site${p.slug === 'home' ? '' : '/p/' + p.slug}` }))} /></div>
+          <div className="row" style={{ marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
+            <div className="grow" style={{ flex: "1 1 100%" }}><Select allowEmpty={false} value={pageId} onChange={switchPage} options={pages.map((p) => ({ value: p.id, label: `${p.title}${p.published ? '' : ' (hidden)'}  —  /site${p.slug === 'home' ? '' : '/p/' + p.slug}` }))} /></div>
             {can('website', 'create') && <button className="btn sm" onClick={() => setNewPage({ title: '' })}><Icon name="plus" size={13} />Page</button>}
             {canEdit && <button className="btn sm" onClick={() => setTpl({ id: null, theme: true })}><Icon name="layers" size={13} />Templates</button>}
             {canEdit && <button className="btn sm" onClick={() => setAi({ form: { company: cfg?.brand?.name || '', type: 'agency', location: '', what: '', audience: '', style: 'modern', tone: 'professional', language: 'English', notes: '' }, busy: false, draft: null, err: '', seo: true, theme: true })}><Icon name="bolt" size={13} />Create with AI</button>}
@@ -481,7 +506,15 @@ export default function WebsiteEditor() {
               <div className="seg2s">{[['desktop', '🖥 Desktop'], ['tablet', '📱 Tablet'], ['mobile', '📲 Mobile']].map(([d, i]) => <button key={d} className={device === d ? 'on' : ''} onClick={() => setDevice(d)} aria-label={`${d} preview`}>{i}</button>)}</div>
             </div>
           </div>
-          <div className="wed-frame bc"><BuilderCanvas config={cfg} sections={sections} selected={selected} device={device} actions={canvasActions} /></div>
+          {prev && (
+            <div className="wed-prevbar" role="status">
+              <b>Preview: {prev.label}</b><span className="muted">Not applied yet. This is how your page would look.</span><span className="grow" />
+              <button className="btn" onClick={() => { const id = prev.id, theme = prev.theme; setPrev(null); setTpl({ id, theme }); }}>← All templates</button>
+              <button className="btn" onClick={() => setPrev(null)}>Close preview</button>
+              <button className="btn primary" onClick={applyPrev}>Use this template</button>
+            </div>
+          )}
+          <div className="wed-frame bc"><BuilderCanvas config={prev ? prev.config : cfg} sections={prev ? prev.sections : sections} selected={prev ? null : selected} device={device} actions={prev ? {} : canvasActions} /></div>
         </div>
       </div>
       {delId && <ConfirmDialog danger title="Delete this block?" message="The block is removed from the page. You can undo for a few seconds, or with Ctrl+Z." confirmLabel="Delete" onCancel={() => setDelId(null)} onConfirm={doDelete} />}
@@ -567,9 +600,10 @@ export default function WebsiteEditor() {
           setSelected(null); setTpl(null);
           toast(`${t.name} applied to this page. Review it, then press Save to publish. Undo brings your old page back.`, 'ok');
         };
+        const preview = () => { setPrev({ id: t.id, label: t.name, theme: tpl.theme, sections: buildSections(t), config: { ...cfg, theme: t.theme && tpl.theme ? { ...(cfg.theme || {}), ...t.theme } : cfg.theme } }); setTpl(null); };
         return (
-          <Modal title="Start from a template" size="lg" onClose={() => setTpl(null)} footer={<><button className="btn" onClick={() => setTpl(null)}>Cancel</button><button className="btn primary" disabled={!t} onClick={apply}>Use this template</button></>}>
-            <p className="muted" style={{ marginTop: 0 }}>Pick a starting point for the page you are editing. Its blocks replace the ones on this page (nothing is saved until you press Save, and Undo and earlier versions still work). Every text is a prompt for you to rewrite. For full freedom choose Blank canvas and add blocks yourself.</p>
+          <Modal title="Start from a template" size="lg" onClose={() => setTpl(null)} footer={<><button className="btn" onClick={() => setTpl(null)}>Cancel</button><button className="btn" disabled={!t} onClick={preview}>Preview on the page</button><button className="btn primary" disabled={!t} onClick={apply}>Use this template</button></>}>
+            <p className="muted" style={{ marginTop: 0 }}>Pick a starting point for the page you are editing, then press Preview to see it full size before you decide. Its blocks replace the ones on this page (nothing is saved until you press Save, and Undo and earlier versions still work). Every text is a prompt for you to rewrite. For full freedom choose Blank canvas and add blocks yourself.</p>
             <div className="grid g2" style={{ gap: 10 }}>
               {TEMPLATES.map((x) => (
                 <button type="button" key={x.id} className="card" aria-pressed={tpl.id === x.id} style={{ padding: 14, textAlign: 'left', cursor: 'pointer', outline: tpl.id === x.id ? '2px solid var(--primary)' : 'none' }} onClick={() => setTpl({ ...tpl, id: x.id })}>
