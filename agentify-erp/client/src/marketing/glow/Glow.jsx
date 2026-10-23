@@ -43,8 +43,8 @@ function Nav({ info, theme, toggleTheme }) {
   };
   const getApp = async () => { if (inst.canPrompt) { await inst.install(); return; } setOpen(false); document.getElementById('mobile')?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth' }); };
   const installBtn = inst.installed ? null : inst.apk
-    ? <a className="gx-btn ghost sm" href={inst.apk} download="agentify-erp.apk"><Ico n="download" size={16} /> Download app</a>
-    : <button type="button" className="gx-btn ghost sm" onClick={getApp}><Ico n="download" size={16} /> Download app</button>;
+    ? <a className="gx-btn ghost sm" aria-label="Download app" title="Download app" href={inst.apk} download="agentify-erp.apk"><Ico n="download" size={16} /> <span className="gx-dl">Download app</span></a>
+    : <button type="button" className="gx-btn ghost sm" aria-label="Download app" title="Download app" onClick={getApp}><Ico n="download" size={16} /> <span className="gx-dl">Download app</span></button>;
   return (
     <header className={`gx-nav ${scrolled ? 'scrolled' : ''}`}>
       <div className="gx-nav-in">
