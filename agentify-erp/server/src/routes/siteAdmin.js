@@ -34,6 +34,33 @@ r.post('/config/reset', can('website', 'delete'), asyncH((req, res) => {
   res.json({ ok: true });
 }));
 
+// ---- customer reviews sent from the website: approve before they show
+r.get('/reviews', can('website', 'view'), (req, res) => {
+  const st = ['pending', 'approved', 'rejected'].includes(req.query.status) ? req.query.status : null;
+  const counts = Object.fromEntries(all('SELECT status, COUNT(*) n FROM site_reviews GROUP BY status').map((x) => [x.status, x.n]));
+  res.json({ counts: { pending: 0, approved: 0, rejected: 0, ...counts }, rows: all(`SELECT id,name,role,company,country,rating,quote,email,status,decided_by,decided_at,created_at,(photo IS NOT NULL) has_photo FROM site_reviews ${st ? 'WHERE status=?' : ''} ORDER BY id DESC LIMIT 300`, ...(st ? [st] : [])) });
+});
+r.get('/reviews/:id(\\d+)/photo', can('website', 'view'), (req, res) => {
+  const p = get('SELECT photo, photo_type FROM site_reviews WHERE id=? AND photo IS NOT NULL', req.params.id);
+  if (!p) throw notFound('Not found');
+  res.set({ 'Content-Type': p.photo_type, 'Cache-Control': 'private, max-age=300', 'X-Content-Type-Options': 'nosniff' }).send(Buffer.from(p.photo, 'base64'));
+});
+r.post('/reviews/:id(\\d+)/:decision(approve|reject|reset)', can('website', 'edit'), asyncH((req, res) => {
+  const status = { approve: 'approved', reject: 'rejected', reset: 'pending' }[req.params.decision];
+  const row = get('SELECT id,name FROM site_reviews WHERE id=?', req.params.id);
+  if (!row) throw notFound('Review not found');
+  run("UPDATE site_reviews SET status=?, decided_by=?, decided_at=datetime('now') WHERE id=?", status, req.user.name || req.user.email, row.id);
+  audit(req, `Review ${status}`, 'website', row.id, row.name);
+  res.json({ ok: true, status });
+}));
+r.delete('/reviews/:id(\\d+)', can('website', 'delete'), asyncH((req, res) => {
+  const row = get('SELECT id,name FROM site_reviews WHERE id=?', req.params.id);
+  if (!row) throw notFound('Review not found');
+  run('DELETE FROM site_reviews WHERE id=?', row.id);
+  audit(req, 'Review deleted', 'website', row.id, row.name);
+  res.json({ ok: true });
+}));
+
 // ---- pages
 const parsePage = (p) => (p ? { ...p, sections: jparse(p.sections, []) } : p);
 r.get('/pages', can('website', 'view'), (req, res) => res.json(all('SELECT id,slug,title,published,show_in_menu,sort_order,seo_title,seo_desc,updated_at FROM site_pages ORDER BY sort_order,id')));

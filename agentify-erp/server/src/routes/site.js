@@ -9,6 +9,7 @@ import { defaultConfig } from '../services/siteDefaults.js';
 import { sendPdf } from '../services/pdf.js';
 import { buildPlan } from '../../../shared/installmentPlan.js';
 import { botConfig, logChat, reply } from '../services/bot.js';
+import { cleanReview } from '../services/reviews.js';
 import { isHtml, outline, readingMinutes, sanitizeHtml } from '../services/richText.js';
 
 /**
@@ -155,6 +156,22 @@ r.get('/posts/:slug', asyncH((req, res) => {
 }));
 
 // --- enquiry -> CRM lead -> sales agent -> sales manager (same pipeline as the keyed API)
+// Customer reviews: visitors send them, the company approves each one in the website editor before it shows
+const reviewLimit = rateLimit({ windowMs: 60 * 60_000, limit: 6, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many reviews from this address. Please try again later.' } });
+r.get('/reviews', (req, res) => res.json({ data: all("SELECT id,name,role,company,rating,quote,(photo IS NOT NULL) has_photo FROM site_reviews WHERE status='approved' ORDER BY decided_at DESC, id DESC LIMIT 30").map((x) => ({ id: x.id, name: x.name, role: x.role, company: x.company, rating: x.rating, quote: x.quote, photo: x.has_photo ? `/api/site/reviews/${x.id}/photo` : null })) }));
+r.get('/reviews/:id(\\d+)/photo', (req, res) => {
+  const p = get("SELECT photo, photo_type FROM site_reviews WHERE id=? AND status='approved' AND photo IS NOT NULL", req.params.id);
+  if (!p) throw notFound('Not found');
+  res.set({ 'Content-Type': p.photo_type, 'Cache-Control': 'public, max-age=86400', 'X-Content-Type-Options': 'nosniff' }).send(Buffer.from(p.photo, 'base64'));
+});
+r.post('/reviews', reviewLimit, asyncH((req, res) => {
+  const b = req.body || {};
+  if (b.website) return res.status(201).json({ ok: true }); // honeypot for bots
+  const c = cleanReview(b);
+  if (get("SELECT COUNT(*) n FROM site_reviews WHERE email=? AND status='pending'", c.email).n >= 2) throw bad('You already have reviews waiting for approval. Thank you.');
+  run('INSERT INTO site_reviews(name,role,company,country,rating,quote,email,photo,photo_type,consent) VALUES(?,?,?,?,?,?,?,?,?,1)', c.name, c.role, c.company, c.country, c.rating, c.quote, c.email, c.photo ? c.photo.toString('base64') : null, c.photoType);
+  res.status(201).json({ ok: true });
+}));
 r.post('/inquiry', inquiryLimit, asyncH((req, res) => {
   if (req.body.website) return res.json({ ok: true }); // honeypot for bots
   const id = ingest(req.body || {}, ['contact', 'visit'].includes(req.body.kind) ? req.body.kind : 'inquiry');

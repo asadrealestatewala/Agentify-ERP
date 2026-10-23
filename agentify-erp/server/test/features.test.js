@@ -285,3 +285,43 @@ test('balance sheet reconciles: assets = liabilities + equity + current profit',
   const bs = (await fin.get('/api/accounting/balance-sheet')).data;
   assert.equal(bs.total_assets, bs.total_liabilities + bs.total_equity + bs.current_profit);
 });
+
+test('workspace website: partner, review and embed blocks; visitor reviews wait for approval; embeds only from known hosts', async () => {
+  const admin = await client('admin@expertdevelopers.pk');
+  const sec = (type, props) => ({ id: `t${type}`, type, props });
+  // embeds: video, map and calendar hosts only
+  const mk = (url) => admin.post('/api/site-admin/pages', { title: `Embed ${Math.random().toString(36).slice(2, 7)}`, sections: [sec('embed', { url, height: 400 })] });
+  assert.equal((await mk('https://evil.example.com/page')).status, 400, 'unknown host refused');
+  assert.equal((await mk('https://www.youtube.com/watch?v=dQw4w9WgXcQ')).status, 201);
+  assert.equal((await mk('https://calendly.com/some-team/30min')).status, 201);
+  assert.equal((await mk('javascript:alert(1)')).status, 400);
+  // partner logos need a real image reference
+  const bad = await admin.post('/api/site-admin/pages', { title: 'Partners bad', sections: [sec('partners', { items: [{ name: 'X', logo: 'javascript:alert(1)' }] })] });
+  assert.equal(bad.status, 400);
+  const good = await admin.post('/api/site-admin/pages', { title: 'Partners ok', sections: [sec('partners', { items: [{ name: 'Acme', logo: 'https://acme.test/logo.png', href: 'https://acme.test' }] }), sec('reviews', { title: 'Reviews' })] });
+  assert.equal(good.status, 201, JSON.stringify(good.data));
+  // visitors: validated, held until approved
+  const post = (b) => anon('/api/site/reviews', { method: 'POST', body: JSON.stringify(b) });
+  const rv = { name: 'Lena Fox', role: 'Owner', company: 'Fox Homes', rating: 5, quote: 'The website and the portal made our buyers feel looked after.', email: 'lena@fox.test', consent: true };
+  assert.equal((await post({ ...rv, consent: false })).status, 400);
+  assert.equal((await post({ ...rv, quote: 'see https://spam.test now please friends' })).status, 400);
+  assert.equal((await post({ ...rv, website: 'bot' })).status, 201, 'honeypot looks like success');
+  assert.equal((await admin.get('/api/site-admin/reviews')).data.counts.pending, 0, 'honeypot stored nothing');
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(40, 3)]);
+  assert.equal((await post({ ...rv, photo: 'data:image/png;base64,AAAA' })).status, 400, 'not a real image');
+  assert.equal((await post({ ...rv, photo: `data:image/png;base64,${png.toString('base64')}` })).status, 201);
+  assert.deepEqual((await anon('/api/site/reviews')).data.data, [], 'pending reviews are not public');
+  const pending = (await admin.get('/api/site-admin/reviews?status=pending')).data.rows;
+  assert.equal(pending.length, 1); assert.equal(pending[0].email, 'lena@fox.test');
+  assert.equal((await admin.post(`/api/site-admin/reviews/${pending[0].id}/approve`)).status, 200);
+  const shown = (await anon('/api/site/reviews')).data.data;
+  assert.equal(shown.length, 1); assert.equal(shown[0].name, 'Lena Fox'); assert.ok(!('email' in shown[0]), 'e-mail never public');
+  const ph = await fetch(base + shown[0].photo); assert.equal(ph.status, 200); assert.deepEqual(Buffer.from(await ph.arrayBuffer()), png, 'the photo comes back byte for byte');
+  assert.equal((await admin.post(`/api/site-admin/reviews/${pending[0].id}/reject`)).status, 200);
+  assert.deepEqual((await anon('/api/site/reviews')).data.data, []);
+  assert.equal((await admin.del(`/api/site-admin/reviews/${pending[0].id}`)).status, 200);
+  assert.equal((await admin.del(`/api/site-admin/reviews/${pending[0].id}`)).status, 404);
+  // staff without website permission cannot moderate
+  const agent = await client('finance@expertdevelopers.pk');
+  assert.equal((await agent.get('/api/site-admin/reviews')).status, 403);
+});

@@ -6,11 +6,12 @@ import { resolveStyle } from '../../../shared/sectionStyle.js';
 import SeoAssistant, { slugify } from '../components/SeoAssistant.jsx';
 import Icon from '../components/Icon.jsx';
 import { FileUploader } from '../components/Uploaders.jsx';
-import { Card, ConfirmDialog, Field, Loading, Modal, PageHead, Select, Toggle } from '../components/ui.jsx';
+import { Card, ConfirmDialog, Empty, Field, Loading, Modal, PageHead, Select, Toggle } from '../components/ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useLookups, useToast, useUndoDelete } from '../context.jsx';
 import { FONTS, SECTION_TYPES, imgUrl } from '../site/siteCore.jsx';
 import { SitePreview } from '../site/SiteApp.jsx';
+import { TEMPLATES, buildSections } from '../site/siteTemplates.js';
 
 const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
 const setPath = (o, p, v) => { const ks = p.split('.'); const root = Array.isArray(o) ? [...o] : { ...o }; let cur = root; ks.forEach((k, i) => { if (i === ks.length - 1) cur[k] = v; else { cur[k] = Array.isArray(cur[k]) ? [...cur[k]] : { ...(cur[k] || {}) }; cur = cur[k]; } }); return root; };
@@ -169,6 +170,44 @@ function SiteSettings({ cfg, setCfg, ctx }) {
 }
 
 // ------------------------------------------------------------------ blog
+/** Reviews sent from the website's review form: approve before they appear, reject, or delete. */
+function ReviewsTab({ canEdit, canDelete }) {
+  const toast = useToast();
+  const [st, setSt] = useState('pending');
+  const [d, setD] = useState(null);
+  const [err, setErr] = useState('');
+  const [del, setDel] = useState(null);
+  const load = useCallback(() => api.get('/api/site-admin/reviews', { status: st }).then((r) => { setD(r); setErr(''); }).catch((e) => setErr(e.message)), [st]);
+  useEffect(() => { setD(null); load(); }, [load]);
+  const act = async (r, what) => { try { await api.post(`/api/site-admin/reviews/${r.id}/${what}`, {}); toast(what === 'approve' ? 'Approved: it is now on your website' : what === 'reject' ? 'Rejected' : 'Moved back to waiting', 'ok'); load(); } catch (e) { toast(e.message, 'err'); } };
+  const remove = async () => { try { await api.del(`/api/site-admin/reviews/${del.id}`); toast('Deleted', 'ok'); setDel(null); load(); } catch (e) { toast(e.message, 'err'); } };
+  return (
+    <div className="stack" style={{ gap: 10 }}>
+      <p className="muted" style={{ margin: 0 }}>Reviews that visitors send from the “Customer reviews” block. Nothing shows on your website until you approve it. Check that the person is a real customer first.</p>
+      <div className="row wrap" style={{ gap: 6 }}>{[['pending', 'Waiting'], ['approved', 'On the website'], ['rejected', 'Rejected']].map(([k, l]) => <button key={k} className={`btn sm ${st === k ? 'primary' : ''}`} onClick={() => setSt(k)}>{l}{d ? ` (${d.counts[k]})` : ''}</button>)}</div>
+      {err && <div className="alert err">{err}</div>}
+      {!d ? (!err && <Loading />) : !d.rows.length ? <Empty title={st === 'pending' ? 'No reviews waiting' : 'Nothing here'} hint="Add the “Customer reviews” block to a page so visitors can send reviews." /> : d.rows.map((r) => (
+        <Card key={r.id} title={`${r.name}${r.company ? ` · ${r.company}` : ''}`}>
+          <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
+            {!!r.has_photo && <img src={`/api/site-admin/reviews/${r.id}/photo`} alt="" width="56" height="56" style={{ borderRadius: '50%', objectFit: 'cover' }} />}
+            <div className="grow">
+              <p style={{ marginTop: 0 }}>{r.rating ? <b style={{ color: '#d97706' }}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)} </b> : null}“{r.quote}”</p>
+              <small className="muted">{[r.role].filter(Boolean).join(' · ')} {r.email} (not shown on the website){r.decided_by ? ` · decided by ${r.decided_by}` : ''}</small>
+            </div>
+          </div>
+          {canEdit && <div className="row wrap" style={{ gap: 6, marginTop: 8 }}>
+            {r.status !== 'approved' && <button className="btn sm primary" onClick={() => act(r, 'approve')}>Approve</button>}
+            {r.status !== 'rejected' && <button className="btn sm" onClick={() => act(r, 'reject')}>Reject</button>}
+            {r.status !== 'pending' && <button className="btn sm" onClick={() => act(r, 'reset')}>Back to waiting</button>}
+            {canDelete && <button className="btn sm danger" onClick={() => setDel(r)}>Delete</button>}
+          </div>}
+        </Card>
+      ))}
+      {del && <ConfirmDialog title="Delete this review?" message={`${del.name}'s review and photo will be removed for good.`} confirmLabel="Delete" danger onConfirm={remove} onCancel={() => setDel(null)} />}
+    </div>
+  );
+}
+
 function BlogTab({ ctx }) {
   const toast = useToast();
   const [posts, setPosts] = useState(null);
@@ -218,9 +257,9 @@ function BlogTab({ ctx }) {
 
 
 const PALETTE = [
-  ['Layout', ['columns', 'imagetext', 'text', 'spacer', 'gallery', 'banner', 'cta']],
+  ['Layout', ['columns', 'imagetext', 'text', 'spacer', 'gallery', 'embed', 'banner', 'cta']],
   ['Data from the ERP', ['listings', 'projects', 'agents', 'livestats', 'blog', 'calculators', 'contact', 'booking', 'portal']],
-  ['Content', ['hero', 'stats', 'services', 'testimonials', 'faq', 'leadership', 'projectinfo']],
+  ['Content', ['hero', 'stats', 'services', 'testimonials', 'reviews', 'partners', 'faq', 'leadership', 'projectinfo']],
 ];
 const clone = (x) => JSON.parse(JSON.stringify(x));
 
@@ -268,6 +307,7 @@ export default function WebsiteEditor() {
   const [rowOver, setRowOver] = useState(null);
   const [adding, setAdding] = useState(false);
   const [newPage, setNewPage] = useState(null);
+  const [tpl, setTpl] = useState(null);
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
   const canEdit = can('website', 'edit');
@@ -356,8 +396,9 @@ export default function WebsiteEditor() {
           <div className="row" style={{ marginBottom: 10 }}>
             <div className="grow"><Select allowEmpty={false} value={pageId} onChange={switchPage} options={pages.map((p) => ({ value: p.id, label: `${p.title}${p.published ? '' : ' (hidden)'}  —  /site${p.slug === 'home' ? '' : '/p/' + p.slug}` }))} /></div>
             {can('website', 'create') && <button className="btn sm" onClick={() => setNewPage({ title: '' })}><Icon name="plus" size={13} />Page</button>}
+            {canEdit && <button className="btn sm" onClick={() => setTpl({ id: null, theme: true })}><Icon name="layers" size={13} />Templates</button>}
           </div>
-          <div className="tabs" role="tablist">{[['sections', 'Sections'], ['blocks', 'Add blocks'], ['page', 'Page'], ['site', 'Site design'], ['blog', 'Blog']].map(([k, l]) => <button key={k} role="tab" className={`tab ${tab === k ? 'active' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
+          <div className="tabs" role="tablist">{[['sections', 'Sections'], ['blocks', 'Add blocks'], ['page', 'Page'], ['site', 'Site design'], ['reviews', 'Reviews'], ['blog', 'Blog']].map(([k, l]) => <button key={k} role="tab" className={`tab ${tab === k ? 'active' : ''}`} onClick={() => setTab(k)}>{l}</button>)}</div>
           <div style={{ paddingTop: 12 }}>
             {tab === 'blocks' && (
               <div className="stack" style={{ gap: 14 }}>
@@ -426,6 +467,7 @@ export default function WebsiteEditor() {
               </div>
             )}
             {tab === 'site' && <SiteSettings cfg={cfg} setCfg={setCfg} ctx={ctx} />}
+            {tab === 'reviews' && <ReviewsTab canEdit={canEdit} canDelete={can('website', 'delete')} />}
             {tab === 'blog' && <BlogTab ctx={ctx} />}
           </div>
         </div>
@@ -459,6 +501,32 @@ export default function WebsiteEditor() {
           <div className="grid g3">{Object.entries(SECTION_TYPES).map(([k, t]) => <button key={k} className="card" style={{ padding: 14, textAlign: 'left', cursor: 'pointer' }} onClick={() => addSection(k)}><div style={{ fontSize: 24 }}>{t.icon}</div><b>{t.label}</b><div className="muted" style={{ fontSize: 12 }}>{t.desc}</div></button>)}</div>
         </Modal>
       )}
+      {tpl && (() => {
+        const t = TEMPLATES.find((x) => x.id === tpl.id);
+        const apply = () => {
+          setPage((p) => ({ ...p, sections: buildSections(t) }));
+          if (t.theme && tpl.theme) setCfg((c) => ({ ...c, theme: { ...(c.theme || {}), ...t.theme } }));
+          setSelected(null); setTpl(null);
+          toast(`${t.name} applied to this page. Review it, then press Save to publish. Undo brings your old page back.`, 'ok');
+        };
+        return (
+          <Modal title="Start from a template" size="lg" onClose={() => setTpl(null)} footer={<><button className="btn" onClick={() => setTpl(null)}>Cancel</button><button className="btn primary" disabled={!t} onClick={apply}>Use this template</button></>}>
+            <p className="muted" style={{ marginTop: 0 }}>Pick a starting point for the page you are editing. Its blocks replace the ones on this page (nothing is saved until you press Save, and Undo and earlier versions still work). Every text is a prompt for you to rewrite. For full freedom choose Blank canvas and add blocks yourself.</p>
+            <div className="grid g2" style={{ gap: 10 }}>
+              {TEMPLATES.map((x) => (
+                <button type="button" key={x.id} className="card" aria-pressed={tpl.id === x.id} style={{ padding: 14, textAlign: 'left', cursor: 'pointer', outline: tpl.id === x.id ? '2px solid var(--primary)' : 'none' }} onClick={() => setTpl({ ...tpl, id: x.id })}>
+                  <b>{x.name}</b>
+                  <div className="muted" style={{ margin: '4px 0 8px' }}>{x.tagline}</div>
+                  <div className="row wrap" style={{ gap: 4, marginBottom: 6 }}>{x.blocks.map((bk, i) => <span key={i} className="tag" style={{ fontSize: 11 }}>{SECTION_TYPES[bk.type]?.icon} {SECTION_TYPES[bk.type]?.label}</span>)}</div>
+                  <small className="muted">Best for: {x.best}</small>
+                  {x.theme && <div className="row" style={{ gap: 4, marginTop: 8 }}>{['primary', 'accent', 'dark', 'soft'].map((k) => <span key={k} title={k} style={{ width: 18, height: 18, borderRadius: 4, background: x.theme[k], border: '1px solid var(--border)' }} />)}<small className="muted" style={{ marginLeft: 6 }}>{x.theme.font_heading}</small></div>}
+                </button>
+              ))}
+            </div>
+            {t?.theme && <div style={{ marginTop: 12 }}><Toggle value={tpl.theme} onChange={(v) => setTpl({ ...tpl, theme: v })} label="Also apply its colours and fonts to the whole website" /></div>}
+          </Modal>
+        );
+      })()}
       {newPage && (
         <Modal title="New page" size="sm" onClose={() => setNewPage(null)} footer={<><button className="btn" onClick={() => setNewPage(null)}>Cancel</button><button className="btn primary" disabled={!newPage.title.trim()} onClick={async () => { try { const p = await api.post('/api/site-admin/pages', { title: newPage.title, sections: [{ id: uid(), type: 'banner', props: { text: newPage.title, href: '', tone: 'primary' } }, { id: uid(), type: 'text', props: { title: '', html: 'Write your content here…', align: 'left' } }] }); setNewPage(null); await loadPages(p.id); setPageId(p.id); toast('Page created', 'ok'); } catch (e) { toast(e.message, 'err'); } }}>Create page</button></>}>
           <Field label="Page title" required hint="The web address is generated from the title"><input className="input" autoFocus value={newPage.title} onChange={(e) => setNewPage({ title: e.target.value })} /></Field>

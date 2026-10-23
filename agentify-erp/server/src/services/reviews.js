@@ -18,9 +18,8 @@ const str = (v, max, label) => { const s = String(v ?? '').trim(); if (s.length 
 const PHOTO = /^data:(image\/(?:png|jpeg|webp));base64,([A-Za-z0-9+/=]+)$/;
 export const MAX_PHOTO_BYTES = 60 * 1024;
 
-/** A review from the public form. Stored as pending; the visitor is told it is reviewed before it appears. */
-export function submitReview(b) {
-  ensure();
+/** Validate and normalise a review from a public form (shared with each workspace's own website). Throws a readable 400. */
+export function cleanReview(b) {
   if (!b.consent) throw bad('Please confirm that you agree to your review and name being shown on the website');
   const name = str(b.name, 80, 'Name');
   if (name.length < 2) throw bad('Please enter your name');
@@ -43,11 +42,19 @@ export function submitReview(b) {
     if (!okSig) throw bad('That file is not a valid image');
     photoType = m[1];
   }
+  return { name, role: str(b.role, 80, 'Role') || null, company: str(b.company, 120, 'Company') || null, country, rating, quote, email, photo, photoType };
+}
+
+/** A review from the public form. Stored as pending; the visitor is told it is reviewed before it appears. */
+export function submitReview(b) {
+  ensure();
+  const c = cleanReview(b);
+  const { name, email, quote, rating, country, photo, photoType } = c;
   // the same person cannot flood the queue
   const dup = pdb().prepare("SELECT COUNT(*) n FROM site_reviews WHERE email=? AND status='pending'").get(email).n;
   if (dup >= 2) throw bad('You already have reviews waiting for approval. Thank you.');
   const id = Number(pdb().prepare('INSERT INTO site_reviews(name,role,company,country,rating,quote,email,photo,photo_type,consent) VALUES(?,?,?,?,?,?,?,?,?,1)')
-    .run(name, str(b.role, 80, 'Role') || null, str(b.company, 120, 'Company') || null, country, rating, quote, email, photo, photoType).lastInsertRowid);
+    .run(name, c.role, c.company, country, rating, quote, email, photo, photoType).lastInsertRowid);
   return { id, name };
 }
 

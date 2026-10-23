@@ -204,6 +204,92 @@ const Testimonials = ({ p }) => (
     <div className="tgrid">{(p.items || []).filter((t) => t.quote).map((t, i) => <figure key={i} className="tcard"><blockquote>“{t.quote}”</blockquote><figcaption><span className="av">{(t.name || '?')[0]}</span><div><b>{t.name}</b><small>{t.role}</small></div></figcaption></figure>)}</div></div></section>
 );
 
+const Partners = ({ p }) => {
+  const items = (p.items || []).filter((i) => i.logo);
+  if (!items.length) return null;
+  return (
+    <section className="sec"><div className="wrap"><Head title={p.title} />
+      <ul className="plogos">{items.map((i, k) => { const img = <img src={imgUrl(i.logo)} alt={i.name || ''} loading="lazy" />; return <li key={k}>{i.href ? <a href={i.href} target="_blank" rel="noopener noreferrer nofollow" aria-label={i.name || 'Partner'}>{img}</a> : img}</li>; })}</ul>
+    </div></section>
+  );
+};
+
+/** Only video, map and calendar addresses from known hosts become an embedded frame; anything else shows nothing. */
+export function embedSrc(raw) {
+  let u; try { u = new URL(String(raw || '').trim()); } catch { return null; }
+  if (u.protocol !== 'https:') return null;
+  const h = u.hostname.replace(/^www\./, '');
+  const yt = (id) => (id && /^[\w-]{6,20}$/.test(id) ? `https://www.youtube-nocookie.com/embed/${id}` : null);
+  if (h === 'youtube.com' || h === 'youtube-nocookie.com') return yt(/^\/(embed|shorts)\//.test(u.pathname) ? u.pathname.split('/')[2] : u.searchParams.get('v'));
+  if (h === 'youtu.be') return yt(u.pathname.slice(1));
+  if (h === 'vimeo.com' || h === 'player.vimeo.com') { const id = u.pathname.match(/(\d{5,})/)?.[1]; return id ? `https://player.vimeo.com/video/${id}` : null; }
+  if (h === 'google.com' && u.pathname.startsWith('/maps/embed')) return u.toString();
+  if (h === 'calendly.com') return u.toString();
+  if (h === 'openstreetmap.org' && u.pathname.startsWith('/export/embed')) return u.toString();
+  return null;
+}
+const Embed = ({ p }) => {
+  const src = embedSrc(p.url);
+  if (!src) return null;
+  return (
+    <section className="sec"><div className="wrap"><Head title={p.title} />
+      <div className="embed"><iframe src={src} title={p.title || 'Embedded content'} style={{ height: Math.min(900, Math.max(200, Number(p.height) || 420)) }} loading="lazy" referrerPolicy="strict-origin-when-cross-origin" allow="fullscreen; picture-in-picture" allowFullScreen sandbox="allow-scripts allow-same-origin allow-popups allow-forms" /></div>
+    </div></section>
+  );
+};
+
+function shrinkPhoto(file) {
+  return new Promise((resolve, reject) => {
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) return reject(new Error('Choose a PNG, JPG or WebP photo'));
+    const r = new FileReader();
+    r.onerror = () => reject(new Error('The photo could not be read'));
+    r.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('That photo could not be opened'));
+      img.onload = () => {
+        const side = Math.min(img.width, img.height), size = Math.min(256, side), c = document.createElement('canvas'); c.width = size; c.height = size;
+        c.getContext('2d').drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, size, size);
+        let out = c.toDataURL('image/webp', 0.82); if (!out.startsWith('data:image/webp')) out = c.toDataURL('image/jpeg', 0.8);
+        resolve(out);
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  });
+}
+/** Approved reviews plus a form so real customers can add theirs; the company approves each one in the editor. */
+function Reviews({ p }) {
+  const d = usePublic('/api/site/reviews');
+  const [open, setOpen] = useState(false);
+  const [f, setF] = useState({ name: '', role: '', company: '', rating: 5, quote: '', email: '', consent: false, website: '' });
+  const [photo, setPhoto] = useState('');
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const list = (d?.data || []).slice(0, Math.min(30, Math.max(1, Number(p.limit) || 12)));
+  const set = (k) => (e) => setF((x) => ({ ...x, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
+  const submit = async (e) => { e.preventDefault(); setErr(''); setBusy(true); try { await api.post('/api/site/reviews', { ...f, photo: photo || undefined }); setDone(true); } catch (x) { setErr(x.message); } finally { setBusy(false); } };
+  return (
+    <section className="sec soft"><div className="wrap"><Head title={p.title} subtitle={p.subtitle} />
+      {!!list.length && <div className="tgrid">{list.map((t) => <figure key={t.id} className="tcard">{t.rating ? <div className="rstars" role="img" aria-label={`${t.rating} out of 5 stars`}>{'★'.repeat(t.rating)}<i>{'★'.repeat(5 - t.rating)}</i></div> : null}<blockquote>“{t.quote}”</blockquote><figcaption>{t.photo ? <img className="av" src={t.photo} alt="" width="40" height="40" loading="lazy" /> : <span className="av">{(t.name || '?')[0]}</span>}<div><b>{t.name}</b><small>{[t.role, t.company].filter(Boolean).join(' · ')}</small></div></figcaption></figure>)}</div>}
+      <p style={{ textAlign: 'center', margin: '24px 0 0' }}>{!open && !done && <button type="button" className="btn" onClick={() => setOpen(true)}>Share your experience</button>}</p>
+      {done && <p className="rthanks" role="status">Thank you. Your review was received and will appear once we have approved it.</p>}
+      {open && !done && (
+        <form className="rform" onSubmit={submit}>
+          {err && <div className="rerr" role="alert">{err}</div>}
+          <div className="rrow"><label>Your name<input required value={f.name} onChange={set('name')} maxLength={80} autoComplete="name" /></label><label>Company<input value={f.company} onChange={set('company')} maxLength={120} /></label></div>
+          <div className="rrow"><label>Role<input value={f.role} onChange={set('role')} maxLength={80} /></label><label>Rating<select value={f.rating} onChange={(e) => setF((x) => ({ ...x, rating: Number(e.target.value) }))}>{[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{'★'.repeat(n)} ({n})</option>)}</select></label></div>
+          <label>Your review<textarea required rows={4} minLength={20} maxLength={600} value={f.quote} onChange={set('quote')} /></label>
+          <div className="rrow"><label>Email (never shown)<input type="email" required value={f.email} onChange={set('email')} autoComplete="email" /></label><label>Photo (optional)<input type="file" accept="image/png,image/jpeg,image/webp" onChange={async (e) => { const file = e.target.files[0]; if (!file) return; try { setPhoto(await shrinkPhoto(file)); } catch (x) { setErr(x.message); } }} /></label></div>
+          <input tabIndex={-1} autoComplete="off" aria-hidden="true" name="website" value={f.website} onChange={set('website')} style={{ position: 'absolute', left: -9999, width: 1, height: 1, opacity: 0 }} />
+          <label className="rconsent"><input type="checkbox" checked={f.consent} onChange={set('consent')} /> <span>I agree that my review, name, company and photo may be shown on this website.</span></label>
+          <button className="btn primary" disabled={busy}>{busy ? 'Sending…' : 'Send my review'}</button>
+        </form>
+      )}
+    </div></section>
+  );
+}
+
 function Blog({ p }) {
   const d = usePublic('/api/site/posts', { limit: p.limit || 3 });
   if (d && !d.data.length) return null;
@@ -364,7 +450,7 @@ const Portal = ({ p }) => (
 
 const Banner = ({ p }) => { const inner = <div className="wrap">{p.text}</div>; return p.href ? <A href={p.href} className={`banner ${p.tone || 'primary'}`}>{inner}</A> : <div className={`banner ${p.tone || 'primary'}`}>{inner}</div>; };
 
-const MAP = { hero: Hero, listings: Listings, projects: Projects, stats: Stats, services: Services, calculators: Calculators, agents: Agents, testimonials: Testimonials, blog: Blog, cta: Cta, text: TextBlock, imagetext: ImageText, faq: Faq, contact: Contact, gallery: Gallery, banner: Banner, leadership: Leadership, projectinfo: ProjectInfo, columns: Columns, spacer: Spacer, livestats: LiveStats, booking: Booking, portal: Portal };
+const MAP = { hero: Hero, listings: Listings, projects: Projects, stats: Stats, services: Services, calculators: Calculators, agents: Agents, testimonials: Testimonials, partners: Partners, reviews: Reviews, embed: Embed, blog: Blog, cta: Cta, text: TextBlock, imagetext: ImageText, faq: Faq, contact: Contact, gallery: Gallery, banner: Banner, leadership: Leadership, projectinfo: ProjectInfo, columns: Columns, spacer: Spacer, livestats: LiveStats, booking: Booking, portal: Portal };
 
 /**
  * Renders a page's sections. Each one sits in a wrapper (#sb-<id>) so the responsive layout settings can be compiled

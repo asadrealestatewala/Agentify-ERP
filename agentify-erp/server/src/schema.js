@@ -243,6 +243,10 @@ CREATE TABLE IF NOT EXISTS site_page_versions(
   id INTEGER PRIMARY KEY, page_id INTEGER NOT NULL REFERENCES site_pages(id) ON DELETE CASCADE, title TEXT, sections TEXT NOT NULL, label TEXT,
   user_id INTEGER, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_spv_page ON site_page_versions(page_id, id);
+CREATE TABLE IF NOT EXISTS site_reviews(
+  id INTEGER PRIMARY KEY, name TEXT NOT NULL, role TEXT, company TEXT, country TEXT, rating INTEGER, quote TEXT NOT NULL, email TEXT NOT NULL, photo BLOB, photo_type TEXT,
+  consent INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending', decided_by TEXT, decided_at TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE INDEX IF NOT EXISTS idx_site_reviews ON site_reviews(status, created_at);
 CREATE TABLE IF NOT EXISTS site_posts(
   id INTEGER PRIMARY KEY, slug TEXT UNIQUE NOT NULL, title TEXT NOT NULL, excerpt TEXT, body TEXT, cover TEXT, tags TEXT DEFAULT '[]',
   author_id INTEGER, published INTEGER NOT NULL DEFAULT 0, published_at TEXT, created_at TEXT NOT NULL, updated_at TEXT);

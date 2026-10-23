@@ -73,9 +73,11 @@ export function validateSiteConfig(c) {
 }
 
 /** Every href/url/link-like value inside page sections (hero buttons, banners, CTAs…) gets the same check. */
+const EMBED_HOSTS = /^(https:\/\/(www\.)?(youtube\.com\/(watch\?v=|embed\/|shorts\/)|youtu\.be\/|youtube-nocookie\.com\/embed\/|vimeo\.com\/(\d+|video\/\d+)|player\.vimeo\.com\/video\/|google\.com\/maps\/embed|calendly\.com\/|openstreetmap\.org\/export\/embed)[^\s"'<>]*)$/i;
 export function validateSections(sections) {
   for (const sec of sections) {
     if (!sec || typeof sec !== 'object') throw bad('Invalid section');
+    if (sec.type === 'embed' && sec.props?.url && !EMBED_HOSTS.test(String(sec.props.url).trim())) throw bad('A video, map or calendar block takes a link from YouTube, Vimeo, Google Maps (Share, Embed a map), Calendly or OpenStreetMap');
     if (sec.style !== undefined) {
       try { const s = cleanSectionStyle(sec.style); if (s) sec.style = s; else delete sec.style; } catch (e) { throw bad(e.message); }
     }

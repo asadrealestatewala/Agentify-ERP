@@ -287,3 +287,16 @@
 .sb-edwrap.drop-top::before, .sb-edwrap.drop-bottom::after { content: ''; position: absolute; left: 0; right: 0; height: 6px; background: var(--s-accent, #f59e0b); z-index: 8; box-shadow: 0 0 0 2px rgba(255,255,255,.7); border-radius: 4px; } .sb-edwrap.drop-top::before { top: -3px; } .sb-edwrap.drop-bottom::after { bottom: -3px; }
 .sb-endzone { margin: 18px 20px; padding: 22px; border: 2px dashed #b8c4c2; border-radius: 14px; text-align: center; color: #667085; font: 500 14px system-ui, sans-serif; } .sb-endzone.drop { border-color: var(--s-accent, #f59e0b); background: color-mix(in srgb, var(--s-accent, #f59e0b) 14%, #fff); color: #1b1b1b; }
 .sb-canvas .wa-float, .sb-canvas .cb-fab { display: none !important; }
+
+/* partner logos, embeds and customer reviews */
+.site .plogos{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:28px 48px;align-items:center;justify-content:center}
+.site .plogos img{display:block;height:44px;max-width:170px;width:auto;object-fit:contain;filter:grayscale(1);opacity:.75;transition:filter .2s,opacity .2s}
+.site .plogos a:hover img,.site .plogos a:focus-visible img{filter:none;opacity:1}
+.site .embed iframe{width:100%;border:0;border-radius:var(--radius,12px);background:#0001;display:block}
+.site .rstars{color:#f5b942;letter-spacing:2px;margin-bottom:6px}.site .rstars i{font-style:normal;color:#0002}
+.site .tcard img.av{width:40px;height:40px;border-radius:50%;object-fit:cover}
+.site .rform{max-width:640px;margin:20px auto 0;display:grid;gap:12px;position:relative}
+.site .rform label{display:grid;gap:5px;font-size:14px}.site .rform input:not([type=checkbox]),.site .rform select,.site .rform textarea{width:100%;padding:10px 12px;border:1px solid #0003;border-radius:8px;font:inherit;background:#fff;color:inherit}
+.site .rrow{display:grid;grid-template-columns:1fr 1fr;gap:12px}.site .rconsent{display:flex!important;gap:8px;align-items:flex-start;font-size:13px}
+.site .rerr{background:#fee2e2;color:#7f1d1d;padding:10px 12px;border-radius:8px}.site .rthanks{text-align:center;font-weight:600}
+@media (max-width:560px){.site .rrow{grid-template-columns:1fr}}
