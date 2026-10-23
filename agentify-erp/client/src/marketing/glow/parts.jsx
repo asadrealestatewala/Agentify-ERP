@@ -146,9 +146,9 @@ export function useInstall() {
   return { canPrompt: !!evt && !installed, installed, ios: ios && !installed, install };
 }
 
-// ---------------------------------------------------------------- theme (dark by default, remembered on this device)
+// ---------------------------------------------------------------- theme (the brand's light teal by default, dark on request, remembered on this device)
 export function useTheme() {
-  const [theme, setTheme] = useState(() => { try { return localStorage.getItem('agentify_theme') === 'light' ? 'light' : 'dark'; } catch { return 'dark'; } });
+  const [theme, setTheme] = useState(() => { try { return localStorage.getItem('agentify_theme') === 'dark' ? 'dark' : 'light'; } catch { return 'light'; } });
   const toggle = () => setTheme((t) => { const n = t === 'dark' ? 'light' : 'dark'; try { localStorage.setItem('agentify_theme', n); } catch { /* ignore */ } return n; });
   return [theme, toggle];
 }

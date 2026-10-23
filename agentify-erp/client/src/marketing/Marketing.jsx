@@ -843,7 +843,7 @@ export default function MarketingSite() {
     return (
       <CountryProvider info={info}>
         <Glow info={info} />
-        <div className="lp"><ConsentBanner show={banner && !browserOptOut()} onClose={() => setBanner(false)} /></div>
+        <div className="lp" style={{ minHeight: 0, background: "none" }}><ConsentBanner show={banner && !browserOptOut()} onClose={() => setBanner(false)} /></div>
       </CountryProvider>
     );
   }

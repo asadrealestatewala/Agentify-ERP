@@ -31,7 +31,7 @@ function Nav({ info, theme, toggleTheme }) {
   return (
     <header className={`gx-nav ${scrolled ? 'scrolled' : ''}`}>
       <div className="gx-nav-in">
-        <Link to="/" className="gx-logo" aria-label={`${brand} home`}><span className="gx-mark"><Ico n="home" size={18} stroke={2.2} /></span><span className="gx-word">AGENTIFY</span></Link>
+        <Link to="/" className="gx-logo" aria-label={`${brand} home`}><span className="gx-mark"><Ico n="home" size={18} stroke={2.2} /></span><span className="gx-word">{brand}</span></Link>
         <nav className="gx-links" aria-label="Main">{NAV.map(([h, l, isNew]) => <a key={h} href={h}>{l}{isNew && <b className="gx-new">NEW</b>}</a>)}</nav>
         <div className="gx-nav-r">
           <button type="button" className="gx-icon-btn gx-theme-top" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}><Ico n={theme === 'dark' ? 'sun' : 'moon'} size={18} /></button>
@@ -363,7 +363,7 @@ function Footer({ info }) {
   return (
     <footer className="gx-foot">
       <div className="gx-wrap">
-        <div className="gx-foot-big" aria-hidden="true">AGENTIFY</div>
+        <div className="gx-foot-big" aria-hidden="true">{(c.brand || "Agentify ERP").replace(/ ERP$/, "")}</div>
         <div className="gx-foot-g">
           <div><p>{c.brand}: real estate CRM with the ERP behind it.</p>{(c.contact_email || c.contact_phone || c.address) && <p className="gx-fine">{[c.contact_email, c.contact_phone, c.address].filter(Boolean).join(' · ')}</p>}{!!social.length && <p>{social.map(([k, v]) => <a key={k} href={v} target="_blank" rel="noreferrer noopener" className="gx-cap">{k}</a>)}</p>}</div>
           <div><h4>Product</h4><a href="#features">Features</a><a href="#tour">Live demo</a><a href="#pricing">Pricing</a><Link to="/real-estate">Real estate</Link><Link to="/construction">Construction</Link></div>

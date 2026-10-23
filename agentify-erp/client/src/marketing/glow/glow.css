@@ -4,12 +4,12 @@
    a light theme (the teal Agentify look) behind the sun/moon button. Everything is scoped to .glow.
    ===================================================================================================================== */
 .lp.glow{--bg:#161211;--bg2:#1e1817;--bg3:#261e1c;--ln:rgba(255,240,230,.09);--tx:#f5eee8;--mu:#a89b94;--dim:#6e625c;
-  --grad:linear-gradient(90deg,#f5b04a 0%,#34d399 38%,#0e9f8b 68%,#38bdf8 100%);--acc:#34d399;--c1:#f5b04a;--c2:#34d399;--c3:#38bdf8;--c4:#a78bfa;
+  --grad:linear-gradient(90deg,#34d399 0%,#2dd4bf 40%,#38bdf8 100%);--acc:#34d399;--c1:#f5b04a;--c2:#34d399;--c3:#38bdf8;--c4:#a78bfa;
   --cream:#fff4ee;--cream-ink:#1a1210;--glass:rgba(30,24,23,.78);--shadow-pop:0 14px 34px rgba(0,0,0,.4);
   /* tokens used by the light app-window previews (kept light on purpose, like a real app window) */
   --ink:#0f1b2d;--mut:#4d5b70;--line:#e3e7ee;--soft:#f5f7fa;--navy:#0f1b2d;--navy2:#18294a;--blue:#1d4ed8;--green:#15803d;--amber:#b45309;--red:#b91c1c;--g:#0e7c6b;--g2:#0a5c50;--r1:10px;--r2:16px;--shadow:0 1px 2px rgba(15,27,45,.06),0 16px 40px rgba(0,0,0,.35);
   background:var(--bg);color:var(--tx);overflow-x:clip}
-.lp.glow[data-theme="light"]{--bg:#f6faf9;--bg2:#ffffff;--bg3:#eaf2f0;--ln:rgba(15,27,45,.11);--tx:#10231f;--mu:#4d5b70;--dim:#7b8794;--cream:#10231f;--cream-ink:#ffffff;--glass:rgba(255,255,255,.88);--shadow-pop:0 14px 34px rgba(15,27,45,.16);--shadow:0 1px 2px rgba(15,27,45,.06),0 16px 40px rgba(15,27,45,.12)}
+.lp.glow[data-theme="light"]{--grad:linear-gradient(90deg,#0a5c50 0%,#0e7c6b 45%,#0f9aa8 100%);--acc:#0e7c6b;--bg:#f6faf9;--bg2:#ffffff;--bg3:#eaf2f0;--ln:rgba(15,27,45,.11);--tx:#10231f;--mu:#4d5b70;--dim:#7b8794;--cream:#10231f;--cream-ink:#ffffff;--glass:rgba(255,255,255,.88);--shadow-pop:0 14px 34px rgba(15,27,45,.16);--shadow:0 1px 2px rgba(15,27,45,.06),0 16px 40px rgba(15,27,45,.12)}
 .glow *{box-sizing:border-box}
 .glow h1,.glow h2,.glow h3{color:var(--tx)}
 .glow a{color:inherit}
@@ -58,8 +58,8 @@
 .glow .gx-nav.scrolled{border-bottom-color:var(--ln);box-shadow:0 8px 30px rgba(0,0,0,.18)}
 .glow .gx-nav-in{max-width:1320px;margin:0 auto;padding:12px 24px;display:flex;align-items:center;gap:20px}
 .glow .gx-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
-.glow .gx-mark{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--grad);color:#10231f}
-.glow .gx-word{font:800 15px 'Plus Jakarta Sans',sans-serif;letter-spacing:.28em;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.glow .gx-mark{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;background:#0e7c6b;color:#fff}
+.glow .gx-word{font:800 19px 'Plus Jakarta Sans',sans-serif;letter-spacing:-.01em;color:var(--tx)}
 .glow .gx-links{display:flex;gap:6px;margin-left:12px}
 .glow .gx-links a{font:600 14.5px 'Inter',sans-serif;color:var(--mu);text-decoration:none;padding:8px 12px;border-radius:10px;white-space:nowrap}
 .glow .gx-links a:hover{color:var(--tx);background:rgba(255,240,230,.07)}
@@ -73,7 +73,7 @@
 .glow .gx-dots{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .glow .gx-hero::before{content:'';position:absolute;inset:0;pointer-events:none;background-image:radial-gradient(rgba(255,240,230,.09) 1px,transparent 1.3px);background-size:26px 26px;-webkit-mask-image:linear-gradient(#000 40%,transparent);mask-image:linear-gradient(#000 40%,transparent)}
 .glow[data-theme="light"] .gx-hero::before{background-image:radial-gradient(rgba(15,27,45,.12) 1px,transparent 1.3px)}
-.glow .gx-hero-glow{position:absolute;left:50%;top:-8%;width:min(1100px,120%);height:640px;transform:translateX(-50%);pointer-events:none;background:radial-gradient(closest-side,rgba(52,211,153,.2),rgba(245,176,74,.1) 55%,transparent);filter:blur(30px);opacity:.8}
+.glow .gx-hero-glow{position:absolute;left:50%;top:-8%;width:min(1100px,120%);height:640px;transform:translateX(-50%);pointer-events:none;background:radial-gradient(closest-side,rgba(14,124,107,.22),rgba(56,189,248,.1) 55%,transparent);filter:blur(30px);opacity:.8}
 .glow .gx-hero-in{position:relative}
 .glow .gx-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 14px 7px 8px;border-radius:999px;border:1px solid var(--ln);background:rgba(255,240,230,.05);font:500 13.5px 'Inter',sans-serif;color:var(--mu);text-decoration:none;margin-bottom:26px}
 .glow .gx-chip:hover{border-color:rgba(52,211,153,.5);color:var(--tx)}
@@ -266,14 +266,14 @@
   .glow .gx-dash-g,.glow .gx-mob-g,.glow .gx-final,.glow .h-tour-g{grid-template-columns:1fr}
   .glow .gx-steps{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:34px}.glow .gx-steps::before{display:none}
   .glow .gx-foot-g{grid-template-columns:1fr 1fr}
-  .glow .gx-rot{min-height:2.2em}
+  .glow .gx-rot{min-height:1.1em}
   .glow .gx-hero-phone{width:clamp(120px,24%,170px);right:0}
   .glow .gx-pop.p1{left:0;top:-10%}.glow .gx-pop.p3{display:none}
 }
 @media(max-width:640px){
   .glow .gx-wrap{padding:0 16px}.glow .gx-nav-in{padding:10px 16px;gap:10px}
   .glow .gx-hide-m{display:none}
-  .glow .gx-word{letter-spacing:.2em}.glow .gx-nav-r{gap:8px}
+  .glow .gx-nav-r{gap:8px}
   .glow .gx-fgrid,.glow .gx-steps,.glow .gx-foot-g{grid-template-columns:1fr}
   .glow .gx-cta .gx-btn{flex:1 1 100%}
   .glow .gx-float{display:none}.glow .gx-dash .gx-float{display:none}
@@ -303,3 +303,20 @@
 
 /* the shared marketing header rule (sticky, tinted) must not touch card headers inside the page */
 .glow header:not(.gx-nav){position:static;background:none;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;z-index:auto}
+
+/* device frame: visible bezel on both themes, speaker notch and a status-bar band so the screen reads as a phone */
+.glow .h-phone{position:relative;border:9px solid #0b1422;border-radius:38px;background:#0b1422;box-shadow:0 0 0 1.5px rgba(150,170,190,.35),0 30px 60px rgba(8,20,30,.35),0 0 60px rgba(14,124,107,.18)}
+.glow .h-phone::before{content:'';position:absolute;z-index:3;top:5px;left:50%;width:64px;height:16px;border-radius:12px;background:#0b1422;transform:translateX(-50%)}
+.glow .h-phone-s{min-height:500px;border-radius:29px}
+.glow .h-phone-top{padding-top:28px}
+.glow .gx-mob-stage .gx-pop.m2{right:-2%;top:-2%}
+.glow .gx-mob-stage .gx-pop.m1{left:-4%;top:auto;bottom:4%}
+.glow .gx-mob-stage .gx-pop{max-width:150px;white-space:normal}
+.glow .gx-mob-stage .gx-pop.m2{right:-34px;top:12%}
+.glow .gx-mob-stage .gx-pop.m1{left:-46px;bottom:12%}
+@media (max-width:760px){.glow .gx-mob-stage .gx-pop{display:none}}
+.glow .gx-word{white-space:nowrap}
+@media(max-width:480px){.glow .gx-word{font-size:16px}.glow .gx-mark{width:28px;height:28px}}
+@media(max-width:400px){.glow .gx-word{font-size:15px}.glow .gx-logo{gap:7px}.glow .gx-nav-in{gap:6px}.glow .gx-nav-r{gap:6px}.glow .gx-nav-r .gx-btn.cream.sm{padding:8px 10px;font-size:13px}}
+@media(max-width:600px){.glow .gx-rot{min-height:2.2em}}
+.glow .gx-foot-big{line-height:1.12;padding-bottom:.06em;letter-spacing:-.02em}
