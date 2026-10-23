@@ -5,21 +5,17 @@
 //    scrolls normally and the visitor can leave the section at any time;
 //  - no animation library: the scroll position sets one CSS variable (--p) and CSS does the 3D maths;
 //  - it switches itself off (static hero below) on phones and narrow windows, short windows, reduced motion and low-power devices.
-// The cards are decorative copies of real product screens (genuine per-country screenshots, a sample lead list and the
-// phone preview); the keyboard-accessible way into the same screens is the row of buttons under the hero buttons.
+// The cards are decorative copies of real product screens (genuine per-country screenshots of the running app); the keyboard-accessible way into the same screens is the row of buttons under the hero buttons.
 import { useEffect, useState } from 'react';
-import { PhoneCRM } from './Tour.jsx';
-import { LEADS, STAGES } from './sample.js';
 import { reducedMotion } from './parts.jsx';
 
 const shot = (kind, code) => `/marketing/m-${kind}-${String(code).toLowerCase()}.webp`;
-const stageOf = (k) => STAGES.find((s) => s.key === k) || STAGES[0];
 
 /** The six screens in the tunnel and the tour tab each one opens. */
 export const TUNNEL = [
   { tab: 'pipeline', title: 'Sales pipeline', kind: 'shot', shot: 're-pipeline' },
-  { tab: 'inbox', title: 'Lead inbox', kind: 'inbox' },
-  { tab: 'mobile', title: 'Mobile CRM', kind: 'phone' },
+  { tab: 'inbox', title: 'Lead inbox', kind: 'shot', shot: 're-inbox' },
+  { tab: 'mobile', title: 'Mobile CRM', kind: 'phone', shot: 're-mob-leads' },
   { tab: 'tasks', title: 'Follow-ups', kind: 'shot', shot: 're-dialer' },
   { tab: 'properties', title: 'Properties and interests', kind: 'shot', shot: 're-sale' },
   { tab: 'team', title: 'Team performance', kind: 'shot', shot: 're-dash' },
@@ -71,14 +67,9 @@ export function useTunnel(ref) {
   return on;
 }
 
-function Face({ c, code, currency }) {
-  if (c.kind === 'shot') return <img src={shot(c.shot, code)} width="2200" height="1480" loading="lazy" alt="" draggable="false" onError={(e) => { e.currentTarget.style.display = 'none'; }} />;
-  if (c.kind === 'phone') return <div className="gx-tc-phone"><PhoneCRM currency={currency} compact /></div>;
-  return (
-    <ul className="gx-tc-list">{LEADS.slice(0, 5).map((l) => (
-      <li key={l.id}><span className="h-av sm">{l.name.split(' ').map((p) => p[0]).join('')}</span><span><b>{l.name}</b><small>{l.source} · {l.received}</small></span><span className={`h-chip ${stageOf(l.stage).tone}`}>{stageOf(l.stage).label}</span></li>
-    ))}</ul>
-  );
+function Face({ c, code }) {
+  if (c.kind === 'phone') return <img className="phone" src={`/marketing/m-${c.shot}-${String(code).toLowerCase()}.webp`} width="780" height="1688" loading="lazy" alt="" draggable="false" onError={(e) => { e.currentTarget.style.display = 'none'; }} />;
+  return <img src={shot(c.shot, code)} width="2200" height="1480" loading="lazy" alt="" draggable="false" onError={(e) => { e.currentTarget.style.display = 'none'; }} />;
 }
 
 /** The flying cards. Decorative (aria-hidden): clicking one opens the matching tour tab; keyboard users use the buttons under the hero. */
@@ -89,7 +80,7 @@ export function TunnelCards({ country, onPick }) {
       {TUNNEL.map((c, i) => (
         <div key={c.tab} className="gx-tcard" style={{ '--bx': `${POS[i].bx}vw`, '--by': `${POS[i].by}vh`, '--rz': `${POS[i].rz}deg`, '--s': POS[i].s, '--z': i + 1 }} onClick={() => onPick(c.tab)}>
           <div className="gx-tc-bar"><i /><i /><i /><span>{c.title} · sample</span></div>
-          <div className="gx-tc-body"><Face c={c} code={country.code} currency={country.currency} /></div>
+          <div className="gx-tc-body"><Face c={c} code={country.code} /></div>
         </div>
       ))}
     </div>

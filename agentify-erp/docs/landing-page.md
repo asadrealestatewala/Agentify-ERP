@@ -68,3 +68,14 @@ All previews are React components with fixed sample data from `sample.js`, label
 - **Perspective tunnel:** on wide, tall windows with motion allowed, six decorative product cards fly towards the visitor as the page scrolls (`glow/Tunnel.jsx`). Progress comes from the scroll position only; no wheel or touch event is intercepted and no animation library is used. It switches off on phones and narrow windows (< 900 px), short windows (< 640 px), reduced motion and low-memory or two-core devices. The six buttons under the hero buttons open the same screens of the live demo and are the keyboard route.
 - **Beyond the CRM** (`glow/Extra.jsx`): the ERP capabilities behind the CRM. **Customer stories** (same file) render only when permitted testimonials exist in the console; with none, the section is absent.
 - **Android app:** `client/public/downloads/agentify-erp.apk` is served at `/downloads/agentify-erp.apk`; see `mobile/README.md` to rebuild it. The Download app buttons link to it on Android and use the browser's one-click install elsewhere.
+
+## Real screens (no mock-ups)
+
+Every product image on the home page is a screenshot of the running app from the demo workspaces `shotre-<cc>` (one set per country): the live-demo tabs, the hero laptop and phone, the tunnel cards, the film and the phone section. The records on those screens are sample records of a demo workspace and the page says so. To refresh them after the app changes:
+
+```
+node scripts/seed-showcase.mjs                              # local dev data only: fills the demo workspaces through the app's own API
+node scripts/capture-marketing-screens.mjs client/public/marketing
+```
+
+The server must be running on http://localhost:4000 with the `shotre-*` workspaces present (Chrome is used through puppeteer-core; install it in a scratch folder, it is not a project dependency). The interactive "dashboard at a glance" section is still an illustration with figures labelled sample.

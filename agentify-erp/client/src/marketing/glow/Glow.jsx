@@ -7,7 +7,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCountry } from '../countryCtx.js';
 import { track } from '../analytics.js';
 import { BRANDS } from '../brandIcons.js';
-import Tour, { PhoneCRM } from './Tour.jsx';
+import Tour from './Tour.jsx';
+import { PhoneShot } from './RealShots.jsx';
 import { Ico, CountUp, DotField, reducedMotion, spot, useInstall, useReveal, useTheme } from './parts.jsx';
 import { sampleMoney } from './sample.js';
 import { TunnelCards, useTunnel } from './Tunnel.jsx';
@@ -137,7 +138,7 @@ function Hero({ info, onFilm }) {
             <div className="gx-lap-top"><i /><i /><i /><span>sample data</span></div>
             <div className="gx-lap-screen"><img src={shot('re-dash', country.code)} width="2200" height="1480" alt={`The Agentify dashboard, from a ${country.name} demo workspace with sample data`} fetchPriority="high" onError={(e) => { e.currentTarget.style.display = 'none'; }} /><span className="gx-scan" aria-hidden="true" /></div>
           </div>
-          <div className="gx-hero-phone"><PhoneCRM currency={country.currency} compact /></div>
+          <div className="gx-hero-phone"><PhoneShot code={country.code} compact /></div>
           <div className="gx-pop p1" aria-hidden="true"><b>New lead assigned</b><small>Sample lead · website · 9 min ago</small></div>
           <div className="gx-pop p2" aria-hidden="true"><b>✓ Viewing booked</b><small>Sample · Thursday, 11:00</small></div>
           <div className="gx-pop p3" aria-hidden="true"><b>Follow-up due today, 4:00 pm</b><small>Call back · sample</small></div>
@@ -281,14 +282,14 @@ function Mobile() {
         <div className="gx-mob-stage gx-rv">
           <span className="gx-float big" style={{ left: '2%', top: '10%', '--d': 22, '--c': 'var(--c2)', '--i': 1 }} aria-hidden="true"><span><Ico n="chat" size={22} /></span></span>
           <span className="gx-float big" style={{ left: '88%', top: '70%', '--d': 28, '--c': 'var(--c1)', '--i': 3 }} aria-hidden="true"><span><Ico n="calendar" size={22} /></span></span>
-          <PhoneCRM currency={country.currency} />
+          <PhoneShot code={country.code} />
           <div className="gx-pop m1" aria-hidden="true"><b>Follow-ups due today: 3</b><small>sample</small></div>
           <div className="gx-pop m2" aria-hidden="true"><b>✓ Viewing booked, Thursday</b><small>sample</small></div>
         </div>
         <div className="gx-rv">
           <p className="gx-eyebrow"><i>05</i> The CRM in your pocket</p>
           <h2 id="gx-mob-h" className="gx-h2">Between viewings, <span className="gx-grad">it is all in your hand</span></h2>
-          <p className="gx-lead">Check new leads, open a client, see what they are looking for and complete the follow-up. Try the phone: tap a lead, tick the follow-up, switch to Tasks.</p>
+          <p className="gx-lead">Check new leads, open a client, see what they are looking for and complete the follow-up. These are the phone screens of the app itself: switch between Leads, Client and Tasks under the phone.</p>
           <ul className="gx-ticks col"><li>Installs on Android and iPhone from the browser</li><li>Bottom tabs for leads, tasks and alerts</li><li>Push reminders for your daily goals once installed</li></ul>
           <div className="gx-install">
             {inst.installed ? <p>The app is installed on this device.</p> : inst.apk

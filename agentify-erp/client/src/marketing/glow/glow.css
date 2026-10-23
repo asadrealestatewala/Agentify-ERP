@@ -373,3 +373,22 @@
 .glow .gx-hotbtn{padding:7px 12px;font-size:13px;min-height:38px}
 .glow .gx-tcards{z-index:1}
 .glow #gx-h1{max-width:15.5em;text-wrap:balance}
+
+/* real screens of the app */
+.glow .gx-screen{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;object-position:top left;border-radius:14px;border:1px solid var(--ln);background:var(--bg2);box-shadow:0 24px 60px rgba(0,0,0,.25)}
+.glow .gx-shotnote{margin:0 0 10px;font:600 11.5px ui-monospace,Menlo,monospace;letter-spacing:.04em;text-transform:uppercase;color:var(--mu)}
+.glow .h-tour-stage{display:grid;justify-items:stretch}
+.glow .gx-phoneshot{display:grid;justify-items:center;gap:16px}
+.glow .gx-phone{position:relative;width:min(290px,72%);border:9px solid #0b1422;border-radius:38px;background:#0b1422;box-shadow:0 0 0 1.5px rgba(150,170,190,.35),0 30px 60px rgba(8,20,30,.35),0 0 60px rgba(14,124,107,.18);overflow:hidden}
+.glow .gx-phone::before{content:'';position:absolute;z-index:2;top:6px;left:50%;width:64px;height:16px;border-radius:12px;background:#0b1422;transform:translateX(-50%)}
+.glow .gx-phone img{display:block;width:100%;height:auto;aspect-ratio:390/844;object-fit:cover;object-position:top;border-radius:29px;background:#fff}
+.glow .gx-phoneshot.compact .gx-phone{width:100%;border-width:6px;border-radius:26px}.glow .gx-phoneshot.compact .gx-phone img{border-radius:20px}
+.glow .gx-phoneshot.compact .gx-phone::before{top:4px;width:40px;height:10px}
+.glow .gx-phone-tabs{display:flex;gap:6px;padding:4px;border:1px solid var(--ln);border-radius:999px;background:var(--bg2)}
+.glow .gx-phone-tabs button{border:0;background:none;color:var(--mu);border-radius:999px;padding:8px 16px;min-height:40px;font:600 13.5px 'Inter',sans-serif;cursor:pointer}
+.glow .gx-phone-tabs button.on{background:var(--cream);color:var(--cream-ink)}
+.glow .gx-mob-stage .gx-phone{width:min(290px,72%)}
+.glow .gx-tc-body img.phone{object-position:top;object-fit:cover}
+.glow .h-tour-copy .gx-btn{margin-top:16px}
+.glow .gx-tunnel.on{height:225svh}
+.glow .gx-tunnel.on + .gx-wrap .gx-stage{margin-top:0}
