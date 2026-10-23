@@ -25,3 +25,17 @@ This folder wraps the hosted ERP in a native shell so you can publish to Google 
 3. `npm run add:android` (and/or `npm run add:ios` on a Mac), then `npm run sync`
 4. `npm run open:android` → build/sign the APK or AAB in Android Studio (iOS: Xcode).
 5. Replace the generated launcher icons with `client/public/icon-512.png`.
+
+## Android app file (built and served)
+
+`client/public/downloads/agentify-erp.apk` is a debug-signed build of this wrapper (app id `co.agentifyerp.app`, loads https://agentifyerp.co) and is served at `/downloads/agentify-erp.apk`; the landing page and the workspace "Download app" buttons link to it on Android.
+
+Rebuild after changing the wrapper (JDK 17 and the Android SDK, platform 34, must be installed):
+
+```
+cd mobile && npm install && npx cap sync android
+cd android && ./gradlew assembleDebug
+cp app/build/outputs/apk/debug/app-debug.apk ../../client/public/downloads/agentify-erp.apk
+```
+
+For Google Play, create your own upload keystore and build `bundleRelease`; keep the keystore and passwords out of the repository. iOS needs a Mac with Xcode (`npm run add:ios`).

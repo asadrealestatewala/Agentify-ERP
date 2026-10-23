@@ -1,12 +1,13 @@
 {
-  "appId": "pk.expertmarketing.erp",
-  "appName": "Expert ERP",
+  "appId": "co.agentifyerp.app",
+  "appName": "Agentify ERP",
   "webDir": "www",
   "server": {
-    "url": "https://YOUR-ERP-DOMAIN.example",
+    "url": "https://agentifyerp.co",
     "cleartext": false,
     "allowNavigation": [
-      "YOUR-ERP-DOMAIN.example"
+      "agentifyerp.co",
+      "*.agentifyerp.co"
     ]
   },
   "android": {

@@ -3,6 +3,7 @@
 // only when real published listings are configured (see marketing/home/config.js).
 import { useEffect, useState } from 'react';
 import { Card, PageHead } from '../components/ui.jsx';
+import { APK_URL } from '../installApp.js';
 // Native store listings, once published, set at build time (only https links on play.google.com / apps.apple.com are shown).
 const STORE_LINKS = { android: import.meta.env.VITE_ANDROID_STORE_URL || '', ios: import.meta.env.VITE_IOS_STORE_URL || '' };
 
@@ -34,6 +35,10 @@ export default function InstallApp() {
   return (
     <>
       <PageHead title="Install the app" sub="Use the ERP like an app on your phone or computer: its own icon, full screen, and reminders." />
+      <Card title="Android app">
+        <p>Download the Agentify ERP app file and open it to install. Android may ask you to allow installs from your browser once.</p>
+        <a className="btn primary" href={APK_URL} download="agentify-erp.apk">Download for Android</a>
+      </Card>
       <Card title="On this device">
         {state === 'installed' ? <p>The app is installed on this device. Open it from your home screen or app list.</p>
           : evt ? (<><p>Your browser can install the app now.</p><button className="btn primary" onClick={install} disabled={state === 'asking'}>{state === 'asking' ? 'Waiting for your answer…' : 'Install the app'}</button></>)
