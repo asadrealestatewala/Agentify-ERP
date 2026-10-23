@@ -31,6 +31,7 @@ import { PortalDashboard, PortalDevelopment, PortalDocuments, PortalLayout, Port
 import Security from './pages/Security.jsx';
 import { MyAttendance, MyLeave, MyPayroll, MyProfile, MyTasks } from './pages/MySpace.jsx';
 import InstallApp from './pages/InstallApp.jsx';
+import TrainingLibrary from './pages/TrainingLibrary.jsx';
 import { AttendanceBoard, Assets, LeaveBoard } from './pages/HrExtras.jsx';
 import Content from './pages/Content.jsx';
 import Promos from './pages/Promos.jsx';
@@ -177,6 +178,7 @@ export default function App() {
         <Route path="ai-studio" element={G('crm', <AIStudio />)} />
         <Route path="meetings" element={G('crm', <Meetings />)} />
         <Route path="recordings" element={G('crm', <Recordings />)} />
+        <Route path="training" element={<TrainingLibrary />} />
         <Route path="settings/integrations" element={G('crm', <Integrations />)} />
         {/* Construction */}
         <Route path="construction" element={G('construction', <ConstructionOverview />)} />

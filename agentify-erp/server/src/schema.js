@@ -306,4 +306,10 @@ CREATE TABLE IF NOT EXISTS auth_tokens(
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_kind ON auth_tokens(kind, email);
 -- email-address confirmation links (a separate table: auth_tokens.kind has a CHECK that older databases cannot change)
 CREATE TABLE IF NOT EXISTS verify_tokens(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, token_hash TEXT UNIQUE NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL);
+-- training videos: the library of finished videos and which roles may watch each one
+CREATE TABLE IF NOT EXISTS training_library(
+  id INTEGER PRIMARY KEY, title TEXT NOT NULL, description TEXT, category TEXT NOT NULL DEFAULT 'System overview', path TEXT NOT NULL, mime TEXT, size INTEGER NOT NULL DEFAULT 0,
+  seconds INTEGER, seed_key TEXT UNIQUE, sort_order INTEGER NOT NULL DEFAULT 100, created_by INTEGER, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS training_assignments(
+  video_id INTEGER NOT NULL, role_id INTEGER NOT NULL, PRIMARY KEY(video_id, role_id));
 `;

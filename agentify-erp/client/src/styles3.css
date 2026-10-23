@@ -381,3 +381,10 @@ html[dir="rtl"] .input-group .addon { border-radius: 0 var(--radius, 8px) var(--
 /* Download app button in the top bar: icon only on phones */
 .get-app-btn{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
 @media (max-width:640px){.get-app-label{display:none}.get-app-btn{padding-left:10px;padding-right:10px}}
+
+/* training videos: dashboard card list */
+.train-mini{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.train-mini a{display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:10px;color:inherit;text-decoration:none}
+.train-mini a:hover{background:var(--soft,rgba(14,124,107,.08))}
+.train-mini svg{color:var(--primary,#0e7c6b);flex:none}
+.train-mini span{display:grid;gap:2px;min-width:0}.train-mini b{font-weight:650}.train-mini small{color:var(--muted,#64748b);font-size:12.5px}

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { BarsChart, DonutChart, LinesChart } from '../components/Charts.jsx';
 import Icon from '../components/Icon.jsx';
 import Onboarding from '../components/Onboarding.jsx';
+import TrainingForYou from '../components/TrainingForYou.jsx';
 import TodayCards, { NeedsAttention, useToday } from '../components/TodayFeed.jsx';
 import { Card, DateRangeFilter, Loading, ProgressBar, Stat, StatusBadge } from '../components/ui.jsx';
 import { useAuth, useFetch } from '../context.jsx';
@@ -110,6 +111,7 @@ export default function Dashboard() {
           <Hero user={user} d={d} range={range} setRange={setRange} today={today} />
           <QuickActions />
           <Onboarding />
+          <TrainingForYou />
           <div className="dtabs" role="tablist" aria-label="Dashboard sections">
             {tabs.map(([k, l, ic, tone]) => <button key={k} role="tab" aria-selected={active === k} className={`dtab ${active === k ? 'on' : ''}`} onClick={() => setTab(k)}><span className={`ic-tile ic-${tone}`}><Icon name={ic} size={13} /></span>{l}</button>)}
           </div>

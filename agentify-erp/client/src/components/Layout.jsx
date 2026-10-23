@@ -28,6 +28,7 @@ const NAV = [
   { label: 'Meetings', icon: 'calendar', to: '/meetings', module: 'crm' },
   { label: 'Recordings', icon: 'file', to: '/recordings', module: 'crm' },
   { label: 'AI Studio', icon: 'star', to: '/ai-studio', module: 'crm' },
+  { label: 'Training videos', icon: 'video', to: '/training', always: true },
   { label: 'Mortgage', icon: 'card', to: '/mortgage', module: 'crm', flag: 'mortgage' },
   { label: 'Documents', icon: 'file', to: '/documents', module: 'crm', flag: 'templates' },
   { label: 'Construction', icon: 'hardhat', module: 'construction', product: 'construction', children: [
