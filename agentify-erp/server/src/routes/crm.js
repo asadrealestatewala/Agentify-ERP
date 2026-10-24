@@ -7,6 +7,7 @@ import { buildWhere } from '../filters.js';
 import { sendTable } from './helpers.js';
 import { asyncH, bad, forbidden, notFound, jparse, now, today, int, required, region } from '../util.js';
 import { saleSummary } from '../services/sales.js';
+import { attributionFor } from '../services/leads.js';
 import { customerLedger } from '../services/payments.js';
 import { progressSql } from '../services/schedule.js';
 
@@ -280,6 +281,7 @@ r.get('/contacts/:id(\\d+)/workspace', can('crm', 'view'), asyncH((req, res) => 
     notes: all('SELECT n.*, u.name user_name FROM notes n LEFT JOIN users u ON u.id=n.user_id WHERE entity_type=? AND entity_id=? ORDER BY n.id DESC', 'contact', id),
     tasks: all(`SELECT t.*, u.name assignee FROM tasks t LEFT JOIN users u ON u.id=t.assigned_to WHERE entity_type='contact' AND entity_id=? ORDER BY (status='done'), due_date`, id),
     documents: all('SELECT d.*, u.name uploaded_by_name FROM documents d LEFT JOIN users u ON u.id=d.uploaded_by WHERE entity_type=? AND entity_id=? ORDER BY d.id DESC', 'contact', id),
+    attribution: attributionFor(id).map(({ connection_id, ...a }) => a), // where website enquiries came from and what the visitor agreed to
     sales: salesRows,
     projects: all(`SELECT DISTINCT pr.id, pr.name, pr.code, pr.dev_status FROM projects pr JOIN sales s ON s.project_id=pr.id WHERE s.contact_id=? AND s.status='confirmed'`, id),
     interests: all(`SELECT p.id, p.title, p.status, p.net_price FROM properties p WHERE p.id=?`, c.property_id ?? 0),

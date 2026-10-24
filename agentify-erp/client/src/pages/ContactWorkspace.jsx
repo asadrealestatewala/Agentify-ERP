@@ -156,6 +156,25 @@ function CommunicationPanel({ c, reload }) {
   );
 }
 
+/** Where website enquiries came from (page, campaign) and what the visitor agreed to, as the website sent it. */
+function WebsiteSource({ items }) {
+  if (!items?.length) return null;
+  return (
+    <div className="card" style={{ padding: 12 }}>
+      <strong>Website enquiries</strong>
+      {items.slice(0, 5).map((a) => {
+        const utm = Object.values(a.utm || {}).filter(Boolean).join(' / ');
+        return (
+          <div key={a.id} className="muted" style={{ fontSize: 13, marginTop: 6 }}>
+            {a.created_at} · {a.form || 'Website form'}{a.test ? ' (test)' : ''}{a.page_url ? ` · ${a.page_url}` : ''}{utm ? ` · ${utm}` : ''}
+            {a.consent ? ` · Privacy ${a.consent.privacy === true ? 'accepted' : a.consent.privacy === false ? 'declined' : 'not stated'}${a.consent.marketing === true ? ', marketing accepted' : ''}` : ' · No consent recorded'}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ContactWorkspace() {
   const { id } = useParams();
   const nav = useNavigate();
@@ -248,7 +267,7 @@ export default function ContactWorkspace() {
           <Card flush>
             <Tabs tabs={tabs} value={tab} onChange={setTab} />
             <div className="card-b">
-              {tab === 'activity' && (<div className="stack">{can('crm', 'edit') && <Composer contact={c} onDone={reload} />}<Timeline items={ws.activities.slice(0, 40)} /></div>)}
+              {tab === 'activity' && (<div className="stack">{can('crm', 'edit') && <Composer contact={c} onDone={reload} />}<WebsiteSource items={ws.attribution} /><Timeline items={ws.activities.slice(0, 40)} /></div>)}
               {tab === 'notes' && (<div className="stack">{can('crm', 'edit') && <Composer contact={c} onDone={reload} />}
                 {ws.notes.length ? ws.notes.map((n) => <div key={n.id} className="card" style={{ padding: 12 }}><div className="row between"><span className="muted">{n.user_name || 'Website'} · {dateTime(n.created_at)}</span>
                   {can('crm', 'edit') && <button className="btn sm ghost danger" onClick={async () => { await api.del(`/api/notes/${n.id}`); reload(); }}>Delete</button>}</div><div style={{ marginTop: 6, whiteSpace: 'pre-wrap' }}>{n.body}</div></div>) : <Empty>No notes yet.</Empty>}</div>)}

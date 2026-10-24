@@ -8,7 +8,7 @@ import { useAuth, useToast } from '../context.jsx';
 
 const PLATFORMS = [
   { key: 'wordpress', label: 'WordPress', method: 'The "Agentify Connect" plugin', scopes: ['leads:write', 'listings:read', 'projects:read', 'agents:read', 'webhooks:manage'],
-    note: 'The plugin is not released yet. Until it is, a WordPress developer can connect this site with the key and the API reference.' },
+    note: 'Install the Agentify Connect plugin (not on WordPress.org yet; ask your administrator for the plugin file), then paste this workspace address and the key in Settings > Agentify Connect.' },
   { key: 'custom', label: 'Custom website', method: 'Server API, or the hosted form', scopes: ['leads:write', 'listings:read', 'projects:read'], note: 'Your developer sends leads from the website\'s server with the key. For a plain contact form without a developer, use a hosted form (next step).' },
   { key: 'webflow', label: 'Webflow', method: 'Hosted form (embed block)', scopes: ['leads:write'], note: 'Add the hosted form to an Embed block. It has not been tested on Webflow yet.' },
   { key: 'wix', label: 'Wix', method: 'Hosted form (embed block)', scopes: ['leads:write'], note: 'Add the hosted form to an Embed or HTML block. It has not been tested on Wix yet.' },
