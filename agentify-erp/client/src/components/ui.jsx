@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import Icon from './Icon.jsx';
 import { DATE_PRESETS, initials, money, titleCase, cur, getRegion } from '../format.js';
+import { useBackClose } from '../backNav.js';
 
 export const Spinner = () => <span className="spinner" />;
 /** Skeleton placeholder (shimmer) instead of a bare spinner; `rows` lines plus a header block. */
@@ -83,6 +84,7 @@ export function StagePill({ name, color }) {
 export const DemoChip = ({ show }) => (show ? <span className="demo-chip" title="Seeded demo data">DEMO</span> : null);
 
 export function Modal({ title, children, footer, onClose, size = '', closeOnOverlay = false }) {
+  useBackClose(onClose);
   useEffect(() => {
     const h = (e) => e.key === 'Escape' && onClose?.();
     window.addEventListener('keydown', h);
@@ -99,6 +101,7 @@ export function Modal({ title, children, footer, onClose, size = '', closeOnOver
     </div>, document.body);
 }
 export function Drawer({ title, children, footer, onClose, size = '' }) {
+  useBackClose(onClose);
   useEffect(() => {
     const h = (e) => e.key === 'Escape' && onClose?.();
     window.addEventListener('keydown', h);

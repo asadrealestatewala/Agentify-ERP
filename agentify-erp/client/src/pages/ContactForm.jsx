@@ -4,6 +4,7 @@ import { Check, CurrencyInput, Drawer, Field, Select, TagInput } from '../compon
 import { api } from '../api.js';
 import { useAuth, useLookups, useToast } from '../context.jsx';
 import { getRegion } from '../format.js';
+import { checkField } from '../validate.js';
 
 const GENDERS = ['Male', 'Female', 'Other'];
 const PRIORITIES = ['Low', 'Medium', 'High'];
@@ -60,6 +61,10 @@ export default function ContactForm({ initial, onClose, onSaved }) {
   const submit = (e) => {
     e.preventDefault();
     if (!(f.full_name || f.first_name)) return setErr('Please enter a name');
+    for (const [k, label] of [['first_name', 'First name'], ['last_name', 'Last name'], ['full_name', 'Full name'], ['email', 'Email']]) {
+      const m = checkField(k, f[k]);
+      if (m) return setErr(`${label}: ${m}`);
+    }
     if (!editing && !f.phone && !f.alt_phone && !f.whatsapp && !f.email) return setErr('Add a phone number, WhatsApp number or email so the lead can be contacted');
     save(false);
   };

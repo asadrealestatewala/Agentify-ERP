@@ -38,7 +38,7 @@ export function Users() {
         </Card>
       )}
       {invite && <FormModal title="Invite a team member" size="sm" initial={invite}
-        fields={[{ name: 'email', label: 'Email', type: 'email', required: true }, { name: 'name', label: 'Name (optional)' }, { name: 'role_id', label: 'Role', type: 'select', number: true, required: true, options: staffRoleOpts, allowEmpty: false }]}
+        fields={[{ name: 'email', label: 'Email', type: 'email', required: true }, { name: 'name', label: 'Name (optional)', person: true }, { name: 'role_id', label: 'Role', type: 'select', number: true, required: true, options: staffRoleOpts, allowEmpty: false }]}
         onClose={() => setInvite(null)} onSave={async (f) => { const r = await api.post('/api/settings/invites', f); setInvite(null); invites.reload(); setSentLink({ email: f.email, ...r }); }} />}
       {sentLink && (
         <Modal title="Invitation created" size="sm" onClose={() => setSentLink(null)} footer={<button className="btn primary" onClick={() => setSentLink(null)}>Done</button>}>
@@ -50,7 +50,7 @@ export function Users() {
         </Modal>
       )}
       {edit && <FormModal title={edit.id ? 'Edit user' : 'Add user'} size="sm" initial={edit}
-        fields={[{ name: 'name', label: 'Full name', required: true }, { name: 'email', label: 'Email (login)', type: 'email', required: true }, { name: 'phone', label: 'Phone' }, { name: 'role_id', label: 'Role', type: 'select', number: true, required: true, options: roleOpts, allowEmpty: false },
+        fields={[{ name: 'name', label: 'Full name', required: true, person: true }, { name: 'email', label: 'Email (login)', type: 'email', required: true }, { name: 'phone', label: 'Phone' }, { name: 'role_id', label: 'Role', type: 'select', number: true, required: true, options: roleOpts, allowEmpty: false },
           { name: 'password', label: edit.id ? 'New password (leave blank to keep)' : 'Password', type: 'password', required: !edit.id, hint: 'Minimum 8 characters' }, ...(edit.id && edit.id !== user.id ? [{ name: 'active', label: 'Account active', type: 'bool' }] : [])]}
         onClose={() => setEdit(null)} onSave={async (f) => { const body = { ...f, active: f.active === undefined ? undefined : !!f.active }; if (!body.password) delete body.password; if (edit.id) await api.put(`/api/settings/users/${edit.id}`, body); else await api.post('/api/settings/users', body); setEdit(null); reload(); toast('Saved', 'ok'); }} />}
     </div>

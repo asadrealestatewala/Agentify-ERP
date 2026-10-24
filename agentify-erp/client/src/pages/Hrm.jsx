@@ -12,7 +12,7 @@ import { useAuth, useFetch, useLookups, useToast } from '../context.jsx';
 import { date, money, todayPK } from '../format.js';
 
 const empFields = (employees, users = []) => [
-  { name: 'name', label: 'Employee name', required: true }, { name: 'father_name', label: 'Father’s name' }, { name: 'cnic', label: 'CNIC' }, { name: 'dob', label: 'Date of birth', type: 'date' }, { name: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
+  { name: 'name', label: 'Employee name', required: true, person: true }, { name: 'father_name', label: 'Father’s name' }, { name: 'cnic', label: 'CNIC' }, { name: 'dob', label: 'Date of birth', type: 'date' }, { name: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
   { name: 'phone', label: 'Contact number' }, { name: 'email', label: 'Email', type: 'email' }, { name: 'address', label: 'Address', full: true }, { name: 'emergency_contact', label: 'Emergency contact', full: true },
   { name: 'department', label: 'Department', type: 'select', lookup: 'department' }, { name: 'designation', label: 'Designation', type: 'select', lookup: 'designation' }, { name: 'hire_date', label: 'Recruitment date', type: 'date' },
   { name: 'employment_type', label: 'Employment status', type: 'select', lookup: 'employment_type', allowEmpty: false }, { name: 'salary', label: 'Salary (monthly)', type: 'money' }, { name: 'bonus', label: 'Standing bonus', type: 'money' },

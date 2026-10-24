@@ -545,9 +545,9 @@ test('lead form as a sales agent: needs a contact method, smart duplicate detect
   // …and they cannot see it
   assert.ok(!(await a2.get('/api/contacts?limit=100')).data.rows.some((c) => c.id === ok.data.id));
   // a manager sees the duplicate by name and may knowingly force a second record
-  const mgrClash = await sm.post('/api/contacts', { ...base, first_name: 'Tariq2', phone: '03337771234' });
+  const mgrClash = await sm.post('/api/contacts', { ...base, first_name: 'Tariqtwo', phone: '03337771234' });
   assert.equal(mgrClash.status, 400); assert.match(mgrClash.data.error, /Tariq Lead/);
-  assert.equal((await sm.post('/api/contacts', { ...base, first_name: 'Tariq2', phone: '03337771234', force: true })).status, 201);
+  assert.equal((await sm.post('/api/contacts', { ...base, first_name: 'Tariqtwo', phone: '03337771234', force: true })).status, 201);
   // editing cannot create a duplicate or strip the last contact method
   const second = await a1.post('/api/contacts', { ...base, first_name: 'Second', phone: '0345 1112223' });
   const edit = await a1.put(`/api/contacts/${second.data.id}`, { phone: '0333 7771234' }); assert.equal(edit.status, 400); assert.equal(edit.data.duplicate_id, ok.data.id);

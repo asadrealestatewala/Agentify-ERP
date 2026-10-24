@@ -5,6 +5,7 @@ import Icon from './Icon.jsx';
 import { Card, CurrencyInput, ConfirmDialog, Field, Modal, PageHead, Select, TagInput, Toggle } from './ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useLookups, useMeta, useToast, useUndoDelete } from '../context.jsx';
+import { checkField } from '../validate.js';
 
 /** Renders one form control from a field spec. */
 export function FieldInput({ f, value, onChange, form }) {
@@ -35,6 +36,11 @@ export function FormModal({ title, fields, initial = {}, onSave, onClose, size =
   const submit = async (e) => {
     e?.preventDefault();
     for (const f of fields) if (f.required && (form[f.name] === undefined || form[f.name] === null || form[f.name] === '') && (!f.showIf || f.showIf(form))) return setErr(`${f.label} is required`);
+    for (const f of fields) {
+      if (f.showIf && !f.showIf(form)) continue;
+      const bad = checkField(f.name, form[f.name], { person: !!f.person });
+      if (bad) return setErr(`${f.label}: ${bad}`);
+    }
     setBusy(true); setErr('');
     try { await onSave(form); } catch (er) { setErr(er.message); } finally { setBusy(false); }
   };

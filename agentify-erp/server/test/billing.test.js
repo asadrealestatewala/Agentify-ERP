@@ -59,15 +59,15 @@ test('seat limit counts users and pending invitations, and is lifted by upgradin
   assert.equal((await call('erp.test', 'POST', `/api/platform/tenants/${w.id}/subscription`, { plan: 'starter', period_end: daysFromNow(30) }, OP)).status, 200);
   const roles = (await w.get('/api/settings/roles')).data;
   const agent = roles.find((r) => r.name === 'Sales Agent').id;
-  for (let i = 1; i <= 3; i += 1) assert.equal((await w.post('/api/settings/users', { name: `U${i}`, email: `u${i}@seats.test`, password: 'Passw0rd!x', role_id: agent })).status, 201);
+  for (let i = 1; i <= 3; i += 1) assert.equal((await w.post('/api/settings/users', { name: `User ${'ABC'[i - 1]}`, email: `u${i}@seats.test`, password: 'Passw0rd!x', role_id: agent })).status, 201);
   assert.equal((await w.post('/api/settings/invites', { email: 'inv@seats.test', role_id: agent })).status, 201);   // 5th seat reserved
-  const over = await w.post('/api/settings/users', { name: 'U9', email: 'u9@seats.test', password: 'Passw0rd!x', role_id: agent });
+  const over = await w.post('/api/settings/users', { name: 'User Nine', email: 'u9@seats.test', password: 'Passw0rd!x', role_id: agent });
   assert.equal(over.status, 402); assert.equal(over.data.code, 'seat_limit');
   assert.equal((await w.post('/api/settings/invites', { email: 'inv2@seats.test', role_id: agent })).status, 402);
   // accepting the reserved invitation still works
   const list = (await w.get('/api/settings/invites')).data; assert.equal(list.length, 1);
   await call('erp.test', 'POST', `/api/platform/tenants/${w.id}/subscription`, { plan: 'growth', period_end: daysFromNow(30) }, OP);
-  assert.equal((await w.post('/api/settings/users', { name: 'U9', email: 'u9@seats.test', password: 'Passw0rd!x', role_id: agent })).status, 201);
+  assert.equal((await w.post('/api/settings/users', { name: 'User Nine', email: 'u9@seats.test', password: 'Passw0rd!x', role_id: agent })).status, 201);
 });
 
 test('project limit is enforced on the plan', async () => {

@@ -18,6 +18,7 @@ import { runLifecycle } from './services/lifecycle.js';
 import platformRoutes from './routes/platform.js';
 import billing from './routes/billing.js';
 import { billingGuard, apiAccessGuard } from './services/plans.js';
+import { validateInput } from './validation.js';
 import { authenticate, csrfGuard, requireStaff } from './rbac.js';
 import { HttpError } from './util.js';
 import { runReminders } from './services/reminders.js';
@@ -104,7 +105,7 @@ export function createApp() {
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
-  }, apiAccessGuard, pub);
+  }, apiAccessGuard, validateInput, pub);
 
   // provider call-backs (signed by the provider; no sign-in)
   app.use('/api/hooks', rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: true, legacyHeaders: false }), integrationHooks);
@@ -114,7 +115,7 @@ export function createApp() {
 
   app.use('/api', rateLimit({ windowMs: 60_000, limit: 900, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests' } }));
   app.use('/api', authenticate, csrfGuard);
-  app.use('/api', billingGuard);
+  app.use('/api', billingGuard, validateInput);
 
   // Listing media (images/videos) is public by design; documents are NOT served statically.
   app.use('/uploads/media', (req, res, next) => {
