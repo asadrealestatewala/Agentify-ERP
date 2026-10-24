@@ -85,8 +85,8 @@ test('a free website: own plan, website builder only, public only on the sites d
   assert.ok(!live.offline && live.company, 'live on the sites domain after publishing');
 
   // the sites domain shows the website only
-  const shell = await call('fs1.sites.test', 'GET', '/site/');
-  assert.equal(shell.status, 200);
+  const built = fs.existsSync(path.join(process.cwd(), '..', 'client', 'dist', 'index.html'));
+  if (built) assert.equal((await call('fs1.sites.test', 'GET', '/site/')).status, 200);
   const login2 = await call('fs1.sites.test', 'GET', '/login');
   assert.equal(login2.status, 302); assert.match(login2.location, /^http.*fs1\.erp\.test|\/\/fs1\.erp\.test/);
   assert.equal((await call('fs1.sites.test', 'GET', '/api/contacts')).status, 404);
@@ -94,7 +94,7 @@ test('a free website: own plan, website builder only, public only on the sites d
   // the app address sends visitors to the sites domain; private previews stay on the app address
   const onApp = await call('fs1.erp.test', 'GET', '/site/p/about');
   assert.equal(onApp.status, 302); assert.equal(onApp.location, 'https://fs1.sites.test/site/p/about');
-  assert.equal((await call('fs1.erp.test', 'GET', '/site/?preview=abc')).status, 200);
+  if (built) assert.equal((await call('fs1.erp.test', 'GET', '/site/?preview=abc')).status, 200);
 });
 
 test('only free websites exist on the sites domain; unknown names and the bare domain never show the app', async () => {
