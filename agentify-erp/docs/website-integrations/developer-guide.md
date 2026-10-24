@@ -58,4 +58,4 @@ Answer with any 2xx within 8 seconds. Other answers are retried after 1, 5, 30, 
 In the connection, add a **form**. You get a publishable key (`pk_...`), an allow-list of website addresses, and two snippets: an iframe and a one-line script (`/embed/agentify-form.js`). The key has no secret and can only submit leads from the allowed addresses, at most 8 a minute per visitor. A hidden `website` field catches bots; the answer is the same for new and known people.
 
 ## Not covered yet
-WordPress plugin (Phase 3), website-only signup (Phase 4), and Webflow/Wix/Squarespace presets (Phase 5). Embeds on those builders are not tested.
+The WordPress plugin lives in `wordpress-plugin/` and is not yet published on WordPress.org. Website-only signup (Phase 4) and Webflow/Wix/Squarespace presets (Phase 5) are not built. Embeds on those builders are not tested.
