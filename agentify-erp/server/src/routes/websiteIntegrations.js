@@ -5,6 +5,7 @@ import { all, get } from '../db.js';
 import { can, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { asyncH, notFound } from '../util.js';
+import { PRESETS } from '../services/presets.js';
 import { PLATFORMS, SCOPES, createConnection, events, getConnection, listConnections, record, revokeConnection, rotateKey, updateConnection } from '../services/connections.js';
 import { submitLead } from '../services/leads.js';
 import { ENQUIRY_TYPES } from './integrationApi.js';
@@ -18,7 +19,7 @@ const need = (req) => { const c = getConnection(Number(req.params.id)); if (!c) 
 const counts = () => Object.fromEntries(all('SELECT connection_id id, COUNT(*) n FROM lead_attribution WHERE test=0 AND connection_id IS NOT NULL GROUP BY connection_id').map((x) => [x.id, x.n]));
 
 r.get('/meta', can('website', 'view'), (_req, res) => res.json({
-  scopes: Object.entries(SCOPES).map(([key, label]) => ({ key, label })), platforms: PLATFORMS, enquiry_types: ENQUIRY_TYPES,
+  scopes: Object.entries(SCOPES).map(([key, label]) => ({ key, label })), platforms: PLATFORMS, presets: PRESETS, enquiry_types: ENQUIRY_TYPES,
   stages: all("SELECT id, value name FROM lookups WHERE type='lead_stage' AND active=1 ORDER BY sort_order"),
   agents: all("SELECT u.id, u.name FROM users u JOIN roles r ON r.id=u.role_id WHERE u.active=1 AND r.name IN ('Sales Agent','Sales Manager') ORDER BY u.name"),
   projects: all('SELECT id, name FROM projects WHERE site_visible=1 ORDER BY name'),
@@ -66,6 +67,7 @@ r.post('/connections/:id(\\d+)/test-lead', can('website', 'edit'), asyncH((req, 
 // ---- hosted forms (publishable keys) and the snippets to put them on a website
 const origin = (req) => `${req.protocol}://${req.get('host')}`;
 const withSnippets = (req, f) => ({ ...f, snippets: {
+  url: `${origin(req)}/embed/form/${f.form_key}`,
   script: `<script src="${origin(req)}/embed/agentify-form.js" data-form="${f.form_key}"></script>`,
   iframe: `<iframe src="${origin(req)}/embed/form/${f.form_key}" title="${f.title || f.name}" style="width:100%;border:0;min-height:460px" loading="lazy"></iframe>`,
 } });

@@ -169,8 +169,9 @@ function Overview({ c, can, reload, onKey }) {
   );
 }
 
-function Forms({ c, can }) {
+function Forms({ c, can, presets }) {
   const toast = useToast();
+  const preset = presets?.[c.platform];
   const [rows, setRows] = useState(null);
   const [edit, setEdit] = useState(null);
   const load = useCallback(() => api.get(`/api/website-integrations/connections/${c.id}/forms`).then(setRows).catch(() => setRows([])), [c.id]);
@@ -191,9 +192,22 @@ function Forms({ c, can }) {
             {can && <div className="row" style={{ gap: 6 }}><button className="btn sm" onClick={() => setEdit({ ...f, origins: f.origins.join('\n') })}>Edit</button><button className="btn sm danger" onClick={async () => { if (!window.confirm('Switch this form off? Websites showing it will stop working.')) return; await api.del(`/api/website-integrations/connections/${c.id}/forms/${f.id}`); load(); }}>Switch off</button></div>}
           </div>
           <div className="stack" style={{ gap: 6, marginTop: 8 }}>
-            <div className="muted" style={{ fontSize: 12 }}>Paste into your website (one of the two):</div>
-            <CodeBox text={f.snippets.script} toast={toast} />
-            <CodeBox text={f.snippets.iframe} toast={toast} />
+            {preset ? (
+              <>
+                <div className="muted" style={{ fontSize: 12 }}><b>{preset.label}:</b> {preset.summary}</div>
+                <ol className="muted" style={{ fontSize: 12.5, margin: '0 0 0 18px', padding: 0 }}>{preset.steps.map((x) => <li key={x}>{x}</li>)}</ol>
+                <CodeBox text={preset.snippet === 'iframe' ? f.snippets.url : f.snippets.script} toast={toast} />
+                <div className="muted" style={{ fontSize: 12 }}>Add these to "Websites that may show this form" (Edit): {preset.allow.join('; ')}.</div>
+                {preset.cautions.map((x) => <div key={x} className="alert warn" style={{ fontSize: 12.5 }}>{x}</div>)}
+                <div className="muted" style={{ fontSize: 12 }}>These steps are written from {preset.label}'s documentation and have not been tested on a live {preset.label} site yet. Use "Send a test submission" after you publish.</div>
+              </>
+            ) : (
+              <>
+                <div className="muted" style={{ fontSize: 12 }}>Paste into your website (one of the two):</div>
+                <CodeBox text={f.snippets.script} toast={toast} />
+                <CodeBox text={f.snippets.iframe} toast={toast} />
+              </>
+            )}
           </div>
         </div>
       ))}
@@ -240,14 +254,14 @@ function Hooks({ c, can }) {
   );
 }
 
-function Details({ c, can, reload, onKey, onClose }) {
+function Details({ c, can, reload, onKey, onClose, presets }) {
   const [tab, setTab] = useState('overview');
   return (
     <Modal title={c.name} size="lg" onClose={onClose}>
       <Tabs value={tab} onChange={setTab} tabs={[{ key: 'overview', label: 'Health' }, { key: 'forms', label: 'Hosted forms' }, { key: 'hooks', label: 'Events' }]} />
       <div style={{ marginTop: 12 }}>
         {tab === 'overview' && <Overview c={c} can={can} reload={reload} onKey={onKey} />}
-        {tab === 'forms' && <Forms c={c} can={can} />}
+        {tab === 'forms' && <Forms c={c} can={can} presets={presets} />}
         {tab === 'hooks' && <Hooks c={c} can={can} />}
       </div>
     </Modal>
@@ -292,7 +306,7 @@ export default function WebsiteIntegrations() {
         </Card>
       </div>
       {wizard && meta && <Wizard meta={meta} onClose={() => setWizard(false)} onDone={load} />}
-      {current && <Details c={current} can={canEdit} reload={load} onKey={setNewKey} onClose={() => setOpen(null)} />}
+      {current && <Details c={current} presets={meta?.presets} can={canEdit} reload={load} onKey={setNewKey} onClose={() => setOpen(null)} />}
       {newKey && (
         <Modal title="New key" onClose={() => setNewKey(null)} footer={<button className="btn primary" onClick={() => setNewKey(null)}>I have saved it</button>}>
           <div className="stack"><div className="alert warn"><b>Copy the key now.</b> It cannot be shown again. The old key works for 24 hours.</div>
