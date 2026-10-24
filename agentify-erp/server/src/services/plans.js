@@ -67,6 +67,11 @@ export const trialLimits = (product = 'real_estate') => {
   const p = PLANS[trialPlanFor(product === 'bundle' ? 'real_estate' : product)];
   return { name: 'Free trial', seats: p ? p.seats : null, projects: p ? p.projects : null, properties: p ? p.properties ?? null : null, storage_mb: p ? p.storage_mb ?? null : null, api_access: p ? p.api_access !== false && p.api_access !== 0 : true, modules: p ? p.modules : null };
 };
+/** A free website (product `website`): the website builder only, no CRM, no payment, never locked for billing. */
+export const FREE_SITE_LIMITS = { name: 'Free website', seats: 2, projects: 0, properties: 0, storage_mb: 200, api_access: true, modules: ['website'] };
+export const isFreeSite = (tenant) => tenant?.product === 'website';
+/** The only API areas a free website workspace can use (everything else is refused on the server, not just hidden). */
+const FREE_SITE_API = /^\/(auth|billing|site|site-admin|seo|website-integrations|region|settings|privacy|push|announcements|training|notifications)(\/|$)/;
 /** The original install is not metered. */
 const LEGACY_LIMITS = { name: 'Unlimited', seats: null, projects: null, properties: null, storage_mb: null, api_access: true, modules: null };
 export const GRACE_DAYS = 7;
@@ -110,6 +115,7 @@ export function effectiveLimits(tenant, base, addons = []) {
 /** Products a workspace may use right now. */
 export function tenantProducts(tenant) {
   if (!tenant || tenant.is_legacy) return Object.keys(PRODUCTS);
+  if (isFreeSite(tenant)) return [];
   const o = parseJson(tenant.entitlements);
   if (Array.isArray(o?.products) && o.products.length) return o.products.filter((p) => PRODUCTS[p]);
   const sub = tenant.subscription_status || 'trialing';
@@ -137,6 +143,12 @@ export function billingState(tenant, today = todayUtc(), nowMs = Date.now()) {
   if (!tenant) return { plan: null, status: 'none', locked: false, limits: LEGACY_LIMITS, products: Object.keys(PRODUCTS) };
   const products = tenantProducts(tenant);
   if (tenant.is_legacy) return { plan: 'legacy', status: 'active', locked: false, limits: effectiveLimits(tenant, LEGACY_LIMITS), products };
+  if (isFreeSite(tenant)) {
+    const base = { products, limits: effectiveLimits(tenant, FREE_SITE_LIMITS), product: 'website', free_site: true, plan: 'site_free', period_end: null };
+    if (tenant.status === 'suspended') return { ...base, status: 'suspended', locked: true, reason: 'suspended' };
+    if (tenant.status === 'cancelled') return { ...base, status: 'canceled', locked: true, reason: 'cancelled' };
+    return { ...base, status: 'active', locked: false };
+  }
   const sub = tenant.subscription_status || 'trialing';
   const plan = PLANS[tenant.plan] ? tenant.plan : null;
   const paid = plan && !['trialing', 'pending'].includes(sub);
@@ -253,6 +265,7 @@ export function billingGuard(req, _res, next) {
   const st = billingState(t);
   const open = ['GET', 'HEAD', 'OPTIONS'].includes(req.method) || /^\/(auth|billing|site|public)(\/|$)/.test(req.path);
   if (st.locked && !open) return next(new HttpError(402, lockMessage(st.reason), { code: 'billing_locked', reason: st.reason }));
+  if (st.free_site && !FREE_SITE_API.test(req.path)) return next(new HttpError(403, 'This is a free website account: it includes the website builder only.', { code: 'free_site_only' }));
   const mod = moduleFor(req.path);
   if (mod && mod[1].product && !st.products.includes(mod[1].product)) {
     return next(new HttpError(402, `${mod[1].label} is part of ${PRODUCTS[mod[1].product].label}, which your subscription does not include. Add it from Plan & Billing.`, { code: 'product_not_in_plan', product: mod[1].product, module: mod[0] }));

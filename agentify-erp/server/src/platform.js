@@ -3,7 +3,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import fs from 'node:fs';
-import { DATA_DIR, UPLOAD_DIR, DEFAULT_DB_FILE, openDb } from './db.js';
+import { DATA_DIR, UPLOAD_DIR, DEFAULT_DB_FILE, openDb, setSetting } from './db.js';
 import { als } from './context.js';
 import { bootstrap, upgradePermissions, seedDemo, ensureBootstrapped } from './seed.js';
 import { ensureSite } from './services/siteDefaults.js';
@@ -196,6 +196,28 @@ export const getTenantBySlug = (slug) => hydrate(pget('SELECT * FROM tenants WHE
 export const listTenants = () => pall('SELECT * FROM tenants ORDER BY id').map(hydrate);
 export const legacyTenant = () => hydrate(pget('SELECT * FROM tenants WHERE is_legacy=1'));
 
+
+// ---------------------------------------------------------------- free-website domain (set in the admin console)
+// Free websites are served only from this separate domain, never from the app's own domain, so a flagged or abused free
+// site cannot hurt the app's reputation or share its cookies. Empty until a super admin sets it.
+let sitesCache = { at: 0, domain: '' };
+/** The free-websites domain (for example agentifysites.co), or '' when none is set. Cached for 30 seconds. */
+export function sitesDomain() {
+  if (Date.now() - sitesCache.at > 30_000) {
+    const r = platformDb().prepare("SELECT value FROM platform_settings WHERE key='free_sites_domain'").get();
+    sitesCache = { at: Date.now(), domain: String(r?.value || '').toLowerCase() };
+  }
+  return sitesCache.domain;
+}
+export const forgetSitesDomain = () => { sitesCache = { at: 0, domain: '' }; };
+const cleanHost = (h) => String(h || '').toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '');
+/** Is this host the free-websites domain or one of its subdomains? */
+export function isSitesHost(hostname) {
+  const d = isMultiTenant() ? sitesDomain() : '';
+  const h = cleanHost(hostname);
+  return !!d && (h === d || h.endsWith(`.${d}`));
+}
+
 /**
  * Which tenant a request is for, from its host name.
  * Single-tenant mode (no ERP_BASE_DOMAIN): always the original install.
@@ -205,6 +227,14 @@ export function resolveTenant(hostname) {
   if (!isMultiTenant()) return legacyTenant();
   const host = String(hostname || '').toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '');
   if (!host || host === BASE_DOMAIN || host === `www.${BASE_DOMAIN}`) return null;
+  // <slug>.<free-websites domain>: only free website workspaces are served there
+  if (isSitesHost(host)) {
+    const d = sitesDomain();
+    if (host === d || host === `www.${d}`) return null;
+    const slug = host.slice(0, -(d.length + 1));
+    const t = slug.includes('.') ? null : getTenantBySlug(slug);
+    return t && t.product === 'website' ? t : null;
+  }
   if (host.endsWith(`.${BASE_DOMAIN}`)) {
     const slug = host.slice(0, -(BASE_DOMAIN.length + 1));
     return slug.includes('.') ? null : getTenantBySlug(slug);
@@ -237,6 +267,12 @@ export function tenantContext(req, res, next) {
   try { tenant = resolveTenant(req.hostname); } catch (e) { return next(e); }
   const needsTenant = req.path.startsWith('/api/') || req.path.startsWith('/uploads/') || req.path === '/sitemap.xml' || req.path === '/robots.txt';
   if (!tenant) {
+    // an unknown address on the free-websites domain is never the marketing site
+    if (isSitesHost(req.hostname)) {
+      const apex = cleanHost(req.hostname) === sitesDomain();
+      if (apex && req.method === 'GET') return res.redirect(302, `https://${BASE_DOMAIN}/`);
+      return res.status(404).type('text/plain').send('This website does not exist.');
+    }
     if (needsTenant && !req.path.startsWith('/api/platform/')) return res.status(404).json({ error: 'Workspace not found' });
     return next();
   }
@@ -282,11 +318,14 @@ export function createTenant({ slug, name, adminName, adminEmail, adminPassword,
   if (!isEmail(String(adminEmail || '').trim())) throw bad('A valid admin email is required');
   if (adminName && !isPersonName(String(adminName))) throw bad('Please enter a valid name: letters only, no numbers or symbols');
   if (String(adminPassword || '').length < 8) throw bad('Admin password must be at least 8 characters');
-  if (!PRODUCT_CHOICES.includes(product)) throw bad('Choose Real Estate Brokerage or Construction Management');
+  const freeSite = product === 'website';
+  if (!freeSite && !PRODUCT_CHOICES.includes(product)) throw bad('Choose Real Estate Brokerage or Construction Management');
   try { new Intl.DateTimeFormat('en', { timeZone: timezone }); } catch { throw bad(`Unknown timezone: ${timezone}`); }
   const email = String(adminEmail).toLowerCase();
   let days = trialDays, status = 'trialing', note = null;
-  if (trialPolicy) {
+  // a free website has no trial and no payment: it is simply active on its own plan
+  if (freeSite) { days = null; status = 'active'; plan = 'site_free'; }
+  else if (trialPolicy) {
     const trialPlan = PLANS[PLAN_SETTINGS.trial_plans?.[product === 'bundle' ? 'real_estate' : product]];
     if (!days || trialPlan?.trial_eligible === false) { days = null; status = 'pending'; note = 'Free trials are not offered for this product'; }
     else if (PLAN_SETTINGS.one_trial_per_email && trialUsed(email)) { days = null; status = 'pending'; note = 'A free trial was already used with this owner email'; }
@@ -305,6 +344,7 @@ export function createTenant({ slug, name, adminName, adminEmail, adminPassword,
       upgradePermissions();
       syncRegionLookups();
       ensureSite({ withPosts: demo });
+      if (freeSite) setSetting('site_offline', '1'); // offline until the owner confirms their email and publishes
       if (demo) { if (region === 'PK') seedDemo(); else seedRegionDemo(); }
     });
   } catch (e) {

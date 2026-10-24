@@ -6,7 +6,7 @@
 import crypto from 'node:crypto';
 import dns from 'node:dns/promises';
 import net from 'node:net';
-import { platformDb, BASE_DOMAIN } from '../platform.js';
+import { platformDb, BASE_DOMAIN, sitesDomain } from '../platform.js';
 import { bad, HttpError } from '../util.js';
 
 export const DOMAIN_SCHEMA = `
@@ -27,6 +27,7 @@ export function normalizeDomain(input) {
   const labels = d.split('.');
   if (labels.length < 2 || !labels.every((l) => LABEL.test(l)) || !/^[a-z]{2,}$/.test(labels.at(-1))) throw bad('That does not look like a domain name.');
   if (BASE_DOMAIN && (d === BASE_DOMAIN || d.endsWith(`.${BASE_DOMAIN}`))) throw bad(`Domains ending in ${BASE_DOMAIN} are ours. Use your own domain.`);
+  { const sd = sitesDomain(); if (sd && (d === sd || d.endsWith(`.${sd}`))) throw bad(`Domains ending in ${sd} are ours. Use your own domain.`); }
   if (/\.(localhost|local|test|invalid|internal)$/.test(d) && process.env.NODE_ENV === 'production') throw bad('Use a public domain name.');
   return d;
 }
@@ -95,6 +96,13 @@ export function mayIssueCertificate(domain) {
   if (BASE_DOMAIN && d.endsWith(`.${BASE_DOMAIN}`)) {
     const slug = d.slice(0, -(BASE_DOMAIN.length + 1));
     return /^[a-z0-9-]{1,63}$/.test(slug) && !!pdb().prepare('SELECT 1 FROM tenants WHERE slug=?').get(slug);
+  }
+  // the free-websites domain: its apex (redirects to the marketing site) and the subdomains of free websites that exist
+  const sd = sitesDomain();
+  if (sd && (d === sd || d.endsWith(`.${sd}`))) {
+    if (d === sd) return true;
+    const slug = d.slice(0, -(sd.length + 1));
+    return /^[a-z0-9-]{1,63}$/.test(slug) && !!pdb().prepare("SELECT 1 FROM tenants WHERE slug=? AND product='website' AND status='active'").get(slug);
   }
   return !!pdb().prepare("SELECT 1 FROM domain_requests WHERE domain=? AND status='verified'").get(d);
 }

@@ -83,6 +83,14 @@ function LibraryGuard({ children }) {
 }
 const G = (module, el, action) => <Guard module={module} action={action}>{el}</Guard>;
 
+/** The home page: a free website account has no dashboard, so it opens on the website editor. */
+function Home() {
+  const [site, setSite] = useState(null);
+  useEffect(() => { api.get('/api/billing/status').then((b) => setSite(b.product === 'website')).catch(() => setSite(false)); }, []);
+  if (site === null) return <Loading />;
+  return site ? <Navigate to="/website" replace /> : G('dashboard', <Dashboard />);
+}
+
 export default function App() {
   const { user } = useAuth();
   const { meta } = useMeta();
@@ -139,7 +147,7 @@ export default function App() {
       <Route path="/portal/*" element={<Navigate to="/" replace />} />
       <Route path="/vendor/*" element={<Navigate to="/" replace />} />
       <Route element={<Layout />}>
-        <Route index element={G('dashboard', <Dashboard />)} />
+        <Route index element={<Home />} />
         {/* CRM */}
         <Route path="contacts" element={G('crm', <Contacts />)} />
         <Route path="leads" element={G('crm', <Contacts type="lead" title="Leads" />)} />

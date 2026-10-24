@@ -91,16 +91,20 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
   }, [loc.pathname]);
   useEffect(() => { try { localStorage.setItem('nav-open', JSON.stringify(open)); } catch { /* ignore */ } }, [open]);
 
+  // a free website account sees the website builder and its settings only (the server refuses everything else too)
+  const siteOnly = ent?.product === 'website';
+  const SITE_ONLY_PATHS = new Set(['/website', '/website/seo', '/website/assistant', '/settings/website-integrations', '/settings/billing', '/settings/users']);
   const groups = NAV.map((g) => {
+    if (siteOnly && !['Website', 'Settings'].includes(g.label)) return null;
     if (!g.always && !ok(null, g.module)) return null;
     if (!hasProduct(g.product)) return null;
     if (g.flag && !getRegion().config.flags?.[g.flag]) return null;
     if (!g.children) return g;
-    const kids = (g.always ? g.children : g.children.filter((c) => ok(c[2], g.module))).filter((c) => hasProduct(PRODUCT_PATHS[c[1]]));
+    const kids = (g.always ? g.children : g.children.filter((c) => ok(c[2], g.module))).filter((c) => hasProduct(PRODUCT_PATHS[c[1]])).filter((c) => !siteOnly || SITE_ONLY_PATHS.has(c[1]));
     return kids.length ? { ...g, children: kids } : null;
   }).filter(Boolean);
   // upgrade path: the product a workspace does not have yet, for people who manage billing
-  const missing = products && ok('settings') ? ['construction', 'real_estate'].filter((pr) => !products.includes(pr)) : [];
+  const missing = products && !siteOnly && ok('settings') ? ['construction', 'real_estate'].filter((pr) => !products.includes(pr)) : [];
   if (missing.length && !ent?.legacy) groups.push({ label: missing[0] === 'construction' ? 'Add Construction' : 'Add Real Estate', icon: 'plus', to: '/settings/billing' });
   // longest-prefix match so /properties/new does not also light up /properties
   const allPaths = groups.flatMap((g) => g.children?.map((c) => c[1]) || []);

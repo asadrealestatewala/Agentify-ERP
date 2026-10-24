@@ -25,6 +25,9 @@ import { stripeConfig, getSetting } from '../services/platformConfig.js';
 import { selectableRegions, listCountries } from '../regions/index.js';
 import { GLOBAL_CRM_COPY } from '../regions/marketingCopy.js';
 import { mayIssueCertificate } from '../integrations/domains.js';
+import { freeSitesOpen } from '../services/freeSites.js';
+import { publicSiteUrl } from '../services/siteHost.js';
+import { sitesDomain } from '../platform.js';
 import { locate, geoConfigured } from '../services/geo.js';
 import { handleCallback } from '../services/oauthFlow.js';
 import { PROVIDERS, appCreds, authorizeUrl, readState, redirectUri, signState, mainOrigin } from '../services/oauthApps.js';
@@ -45,7 +48,7 @@ r.get('/site', (req, res) => {
   const landing = isMultiTenant() && onPlatformHost(req);
   if (!landing) return res.json({ landing: false, multi_tenant: isMultiTenant() });
   const methods = [...new Set(platformDb().prepare('SELECT method FROM payment_accounts WHERE active=1 ORDER BY sort_order, id').all().map((a) => a.method))];
-  res.json({ landing: true, regions: [...selectableRegions(platformDb()).values()].map((p) => ({ code: p.code, name: p.name, currency: p.currency, sub_region_label: p.sub_region_label, sub_regions: p.sub_regions, languages: p.languages })), countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, base_domain: BASE_DOMAIN, trial_days: PLAN_SETTINGS.default_trial_days, plans: planCatalog(), products: PRODUCTS, addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })), local_methods: methods, cards: stripe.stripeConfigured() });
+  res.json({ landing: true, regions: [...selectableRegions(platformDb()).values()].map((p) => ({ code: p.code, name: p.name, currency: p.currency, sub_region_label: p.sub_region_label, sub_regions: p.sub_regions, languages: p.languages })), countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, base_domain: BASE_DOMAIN, free_sites: { open: freeSitesOpen(), domain: freeSitesOpen() ? sitesDomain() : null }, trial_days: PLAN_SETTINGS.default_trial_days, plans: planCatalog(), products: PRODUCTS, addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })), local_methods: methods, cards: stripe.stripeConfigured() });
 });
 
 /** Approximate country and city of the visitor, for the marketing headline only (see services/geo.js). Never blocks the page. */
@@ -106,9 +109,15 @@ r.post('/signup', signupLimiter, asyncH(async (req, res) => {
     if (!t || t.purpose !== 'google-signup' || !t.email) throw bad('Your Google sign-in expired. Choose Continue with Google again.');
     google = t;
   }
+  const free = b.product === 'website';
+  if (free) {
+    if (!freeSitesOpen()) throw new HttpError(403, 'Free websites are not open yet.');
+    const who = String(google ? google.email : b.admin_email || '').trim().toLowerCase();
+    if (who && platformDb().prepare("SELECT 1 FROM tenants WHERE product='website' AND lower(owner_email)=?").get(who)) throw new HttpError(409, 'There is already a free website for this email address. Sign in to it, or use another email.');
+  }
   const tenant = createTenant({
     slug: b.slug, name: b.company_name, adminName: String(b.admin_name || (google && google.name) || '').trim() || 'Admin', adminEmail: google ? google.email : b.admin_email, adminPassword: google ? crypto.randomBytes(24).toString('base64url') : b.admin_password,
-    timezone: b.timezone || 'Asia/Karachi', currency: b.currency || 'PKR', region: b.region || 'PK', sub_region: b.sub_region || null, language: b.language || null, demo: b.sample_data === true && String(b.region || 'PK').toUpperCase() !== 'PK', product: b.product || 'real_estate', trialPolicy: true,
+    timezone: b.timezone || 'Asia/Karachi', currency: b.currency || 'PKR', region: b.region || 'PK', sub_region: b.sub_region || null, language: b.language || null, demo: !free && b.sample_data === true && String(b.region || 'PK').toUpperCase() !== 'PK', product: free ? 'website' : b.product || 'real_estate', trialPolicy: !free,
   });
   // which version of the Terms the owner accepted (0 = the unpublished template) and when
   platformDb().prepare('UPDATE tenants SET terms_version=?, terms_accepted_at=? WHERE id=?').run(termsVersion(), new Date().toISOString(), tenant.id);
@@ -122,12 +131,13 @@ r.post('/signup', signupLimiter, asyncH(async (req, res) => {
     run('UPDATE users SET email_verified=?, contact_id=NULL WHERE id=?', google ? 1 : 0, owner.id);
     return google ? null : issueVerification(owner.id);
   });
-  const mail = layout({ heading: `Your ${tenant.name} workspace is ready`, lines: [google ? `You signed up with Google as ${tenant.owner_email}, so there is nothing to confirm. Sign in with Google any time, or use Forgot password to set a password.` : `Confirm ${tenant.owner_email} with the button below, then sign in to start setting up your company.`, tenant.trial_ends_at ? `Your ${PLAN_SETTINGS.default_trial_days}-day free trial runs until ${tenant.trial_ends_at.slice(0, 10)} (UTC).` : tenant.trial_note ? `${tenant.trial_note}. Choose a plan in Settings > Plan & Billing to start.` : ''].filter(Boolean), button: google ? { label: 'Open your workspace', url: origin } : { label: 'Confirm email and open workspace', url: `${origin}/verify-email/${token}` } });
+  const siteUrl = publicSiteUrl(tenant, req);
+  const mail = layout({ heading: free ? `Your free website ${tenant.name} is ready to build` : `Your ${tenant.name} workspace is ready`, lines: [free ? `Your website will be public at ${siteUrl} once you publish it. Publishing needs a confirmed email address.` : '', google ? `You signed up with Google as ${tenant.owner_email}, so there is nothing to confirm. Sign in with Google any time, or use Forgot password to set a password.` : `Confirm ${tenant.owner_email} with the button below, then sign in to start setting up your company.`, tenant.trial_ends_at ? `Your ${PLAN_SETTINGS.default_trial_days}-day free trial runs until ${tenant.trial_ends_at.slice(0, 10)} (UTC).` : tenant.trial_note ? `${tenant.trial_note}. Choose a plan in Settings > Plan & Billing to start.` : ''].filter(Boolean), button: google ? { label: 'Open your workspace', url: origin } : { label: 'Confirm email and open workspace', url: `${origin}/verify-email/${token}` } });
   await sendMail({ type: 'welcome', to: tenant.owner_email, subject: `Welcome: ${tenant.name} is ready`, ...mail });
   recordServerEvent('signup_completed', { ...(b.analytics || {}), product: tenant.product, tenant_id: tenant.id });
   // the browser is sent into the new workspace already signed in (one-time code, valid two minutes), not to its sign-in page
   const enter = url && ownerId ? `${url}/login?sso=${issueLoginCode(tenant.id, ownerId, 'signup')}` : null;
-  res.status(201).json({ tenant: publicView(tenant), login_url: url, enter_url: enter });
+  res.status(201).json({ tenant: publicView(tenant), login_url: url, enter_url: enter, site_url: free ? siteUrl : undefined });
 }));
 
 r.get('/tenants', requireOperator, need('workspaces.view'), (_req, res) => res.json(listTenants().map(publicView)));
@@ -194,7 +204,7 @@ r.get('/marketing', asyncH((req, res) => {
   mainOnly(req);
   const methods = [...new Set(platformDb().prepare('SELECT method FROM payment_accounts WHERE active=1 ORDER BY sort_order, id').all().map((a) => a.method))];
   const regions = [...selectableRegions(platformDb()).values()].map((p) => ({ code: p.code, name: p.name, currency: p.currency, sub_region_label: p.sub_region_label, sub_regions: p.sub_regions, languages: p.languages }));
-  res.json({ content: { ...publicContent(), reviews: publicReviews() }, base_domain: BASE_DOMAIN, regions, countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, trial_days: PLAN_SETTINGS.default_trial_days, one_trial_per_email: PLAN_SETTINGS.one_trial_per_email, products: PRODUCTS,
+  res.json({ content: { ...publicContent(), reviews: publicReviews() }, base_domain: BASE_DOMAIN, free_sites: { open: freeSitesOpen(), domain: freeSitesOpen() ? sitesDomain() : null }, regions, countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, trial_days: PLAN_SETTINGS.default_trial_days, one_trial_per_email: PLAN_SETTINGS.one_trial_per_email, products: PRODUCTS,
     plans: planCatalog().filter((p) => PLANS[p.id]?.visible), addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })),
     google_signup: !!appCreds('google'), local_methods: methods, cards: stripe.stripeConfigured(), terms_version: termsVersion(), ga4_id: getSetting('ga4_measurement_id') || null });
 }));
