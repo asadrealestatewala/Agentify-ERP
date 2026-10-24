@@ -122,3 +122,30 @@ test('DNS check compares the wildcard and bare domain with this server', async (
   const bad = await checkFreeSitesDns(fake({ 'sites.test': ['198.51.100.1'] }));
   assert.deepEqual([bad.wildcard_ok, bad.apex_ok], [false, false]);
 });
+
+test('paying workspaces keep their own subdomain and can attach their own domain to it', async () => {
+  const { resolver, records, requestDomain, verifyDomain } = await import('../src/integrations/domains.js');
+  const su = await signup({ product: 'real_estate', slug: 'paid1', company_name: 'Paid Realty', admin_email: 'paid@free.test' });
+  assert.equal(su.status, 201);
+  assert.equal((await call('paid1.erp.test', 'GET', '/api/platform/site')).status, 200, 'the workspace answers at <name>.<app domain>');
+  const t = getTenantBySlug('paid1');
+  assert.equal(mayIssueCertificate('paid1.erp.test'), true);
+  requestDomain(t, 'www.paidrealty.example');
+  const rec = records(t);
+  const cname = rec.records.find((x) => x.type === 'CNAME');
+  assert.equal(cname.value, 'paid1.erp.test', 'the customer domain points at the workspace subdomain');
+  assert.equal(mayIssueCertificate('www.paidrealty.example'), false, 'no certificate before the domain is verified');
+  const old = { ...resolver };
+  resolver.txt = async () => [[rec.records.find((x) => x.type === 'TXT').value]];
+  resolver.cname = async () => ['paid1.erp.test.'];
+  try { await verifyDomain(t); } finally { Object.assign(resolver, old); }
+  assert.equal(mayIssueCertificate('www.paidrealty.example'), true, 'certificate allowed once verified');
+  assert.throws(() => requestDomain(t, 'x.sites.test'), /ours/, 'a paying workspace cannot take a name under the free-sites domain');
+});
+
+test('builder presets: Webflow, Wix and Squarespace steps are served, with the right snippet kind and the form address', async () => {
+  const { PRESETS } = await import('../src/services/presets.js');
+  assert.deepEqual(Object.keys(PRESETS).sort(), ['squarespace', 'webflow', 'wix']);
+  assert.equal(PRESETS.wix.snippet, 'iframe', 'Wix HTML embeds are framed by Wix, so Wix uses the address-based embed');
+  for (const p of Object.values(PRESETS)) { assert.ok(p.steps.length >= 3 && p.allow.length && p.summary); }
+});

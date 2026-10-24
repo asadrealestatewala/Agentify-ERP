@@ -57,5 +57,8 @@ Answer with any 2xx within 8 seconds. Other answers are retried after 1, 5, 30, 
 ## Hosted form (no code)
 In the connection, add a **form**. You get a publishable key (`pk_...`), an allow-list of website addresses, and two snippets: an iframe and a one-line script (`/embed/agentify-form.js`). The key has no secret and can only submit leads from the allowed addresses, at most 8 a minute per visitor. A hidden `website` field catches bots; the answer is the same for new and known people.
 
+## Website builder presets
+For Webflow, Wix and Squarespace, a connection of that platform shows step-by-step instructions next to each hosted form (defined in `server/src/services/presets.js`, served by `GET /api/website-integrations/meta`). Webflow and Squarespace use the one-line script in an Embed or Code block. Wix wraps HTML embeds in its own frame, which the form refuses (it may only be framed by the sites on its allow-list), so Wix uses "Embed a Site" with the form address. Add both the live domain and the builder's preview address to the form's allow-list.
+
 ## Not covered yet
-The WordPress plugin lives in `wordpress-plugin/` and is not yet published on WordPress.org. Website-only signup (Phase 4) and Webflow/Wix/Squarespace presets (Phase 5) are not built. Embeds on those builders are not tested.
+The WordPress plugin lives in `wordpress-plugin/` and is not yet published on WordPress.org. The Webflow, Wix and Squarespace steps were written from each builder's documentation and have not been tried on live accounts. Shopify, Framer and a Zapier app are not built.
