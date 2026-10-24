@@ -35,13 +35,27 @@ export function MoneyBox({ value, onChange, placeholder, ...rest }) {
 export const imgUrl = (p) => (!p ? null : /^(https?:|data:|\/)/.test(p) ? p : `/uploads/${p}`);
 export const waLink = (num, text) => `https://wa.me/${String(num || '').replace(/[^\d]/g, '')}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
 
+/** A preview link (?preview=…) shows the unpublished draft; the token is kept for the rest of the visit so every page uses it. */
+export function previewToken() {
+  try {
+    const q = new URLSearchParams(window.location.search).get('preview');
+    if (q) sessionStorage.setItem('site_preview', q);
+    return q || sessionStorage.getItem('site_preview') || '';
+  } catch { return ''; }
+}
+export const withPreview = (url) => { const t = previewToken(); return t ? `${url}${url.includes('?') ? '&' : '?'}preview=${encodeURIComponent(t)}` : url; };
+
 /** Loads the site configuration once and injects theme variables + Google font. `override` powers the live editor preview. */
 export function SiteProvider({ children, override }) {
   const [state, setState] = useState(override ? { config: override.config, menu: [] } : null);
   const [err, setErr] = useState('');
   useEffect(() => {
     if (override) return;
-    api.get('/api/site/bootstrap').then(setState).catch((e) => setErr(e.message));
+    api.get(withPreview('/api/site/bootstrap')).then((d) => {
+      // an expired or revoked preview link falls back to the live site; forget it so later pages do the same
+      if (!d.preview) { try { sessionStorage.removeItem('site_preview'); } catch { /* storage unavailable */ } }
+      setState(d);
+    }).catch((e) => setErr(e.message));
   }, [override]);
   const config = override?.config || state?.config;
   useOrgSchema(override ? null : config);
@@ -54,8 +68,9 @@ export function SiteProvider({ children, override }) {
     link.href = `https://fonts.googleapis.com/css2?${fonts.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@400;500;600;700`).join('&')}&display=swap`;
     return undefined;
   }, [config?.theme?.font_heading, config?.theme?.font_body]); // eslint-disable-line
-  const value = useMemo(() => (config ? { config, menu: state?.menu || [], preview: !!override } : null), [config, state, override]);
+  const value = useMemo(() => (config ? { config, menu: state?.menu || [], preview: !!override, draft: !!state?.preview, workspaceUrl: state?.workspace_url || '' } : null), [config, state, override]);
   if (err) return <div className="site-error">The website could not be loaded: {err}</div>;
+  if (state?.offline) return <div className="site-offline" role="status"><h1>{state.company?.name || 'This website'}</h1><p>This website is not available at the moment. Please check back soon.</p></div>;
   if (!value) return <div className="center-box"><span className="spinner" /></div>;
   const t = config.theme;
   const style = {

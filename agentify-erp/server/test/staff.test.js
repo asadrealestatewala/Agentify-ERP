@@ -319,6 +319,7 @@ test('site design: only safe links, listed fonts and sensible calculator figures
     c.calculators.construction.rates = { Basic: 3000, Executive: 8000 }; c.calculators.construction.breakdown = [{ label: 'Structure', pct: 60 }, { label: 'Finishing', pct: 40 }];
   });
   assert.equal(ok.status, 200, JSON.stringify(ok.data));
+  assert.equal((await s.post('/api/site-admin/publish')).status, 200, 'saving keeps a draft; publishing puts it live');
   const live = (await anon('/api/site/bootstrap')).data.config;
   assert.deepEqual(Object.keys(live.calculators.construction.rates), ['Basic', 'Executive']);
   assert.equal(live.theme.font_heading, 'Playfair Display');
@@ -975,6 +976,7 @@ test('website: construction calculators, company profile sections and editable r
   cfg.calculators.tools.plans.grey = [{ label: 'Advance', pct: 40 }, { label: 'Handover', pct: 60 }];
   cfg.calculators.tools.rates.grey.Premium = 3400; cfg.calculators.show_installment = true;
   assert.equal((await admin.put('/api/site-admin/config', cfg)).status, 200);
+  assert.equal((await admin.post('/api/site-admin/publish')).status, 200);
   const after = (await anon('/api/site/bootstrap')).data.config;
   assert.equal(after.calculators.tools.rates.grey.Premium, 3400); assert.equal(after.calculators.tools.plans.grey.length, 2); assert.equal(after.calculators.show_installment, true);
 
@@ -990,6 +992,7 @@ test('website: construction calculators, company profile sections and editable r
   const full = (await admin.get(`/api/site-admin/pages/${home.id}`)).data;
   const secs = full.sections.map((s) => (s.type === 'leadership' ? { ...s, props: { ...s.props, members: [...s.props.members, { name: 'Second Director', role: 'Director', director: true, photo: '', bio: 'Joins the board', phone: '', email: '' }, { name: 'Ayesha Noor', role: 'Sales Lead', director: false, photo: '', bio: '', phone: '', email: '' }] } } : s));
   assert.equal((await admin.put(`/api/site-admin/pages/${home.id}`, { ...full, sections: secs })).status, 200);
+  assert.equal((await admin.post('/api/site-admin/publish')).status, 200);
   const edited = (await anon('/api/site/pages/home')).data.sections.find((s) => s.type === 'leadership').props.members;
   assert.deepEqual(edited.map((x) => x.name), ['Raja Usman', 'Second Director', 'Ayesha Noor']);
   assert.equal((await admin.put(`/api/site-admin/pages/${home.id}`, { ...full, sections: secs.map((s) => (s.type === 'leadership' ? { ...s, props: { ...s.props, members: [{ ...s.props.members[0], photo: 'javascript:alert(1)' }] } } : s)) })).status, 400, 'unsafe image values are refused');
@@ -1027,13 +1030,15 @@ test('website manager and SEO manager roles: permissions, SEO tools, sitemap and
   assert.equal((await seo.put(`/api/seo/posts/${post.id}`, { seo_title: 'How installment plans work on a plot purchase in Pakistan', seo_desc: post.excerpt })).status, 200);
   assert.equal((await agent.put(`/api/seo/pages/${home.id}`, { seo_title: 'hack' })).status, 403);
 
-  // public sitemap and robots, driven by the saved address
+  // public sitemap and robots, driven by the saved address (live once the website is published)
+  assert.equal((await wm.post('/api/site-admin/publish')).status, 200);
   const sm = await fetch(base + '/sitemap.xml'); const xml = await sm.text();
   assert.match(sm.headers.get('content-type'), /xml/); assert.ok(xml.includes('<loc>https://www.expertdevelopers.pk/site</loc>') && xml.includes('/site/blog/') && xml.includes('/site/property/'));
   const rb = await (await fetch(base + '/robots.txt')).text();
   assert.ok(rb.includes('Sitemap: https://www.expertdevelopers.pk/sitemap.xml') && rb.includes('Disallow: /api/'));
   await seo.put('/api/seo/site', { noindex: true });
-  assert.match(await (await fetch(base + '/robots.txt')).text(), /Disallow: \/\n/); await seo.put('/api/seo/site', { noindex: false });
+  assert.equal((await wm.post('/api/site-admin/publish')).status, 200);
+  assert.match(await (await fetch(base + '/robots.txt')).text(), /Disallow: \/\n/); await seo.put('/api/seo/site', { noindex: false }); await wm.post('/api/site-admin/publish');
   assert.equal((await seo.get('/api/seo/export?format=csv')).status, 200);
 });
 
@@ -1093,8 +1098,9 @@ test('website chatbot: knowledge bank, live data answers, lead capture into the 
   const admin = await client('admin@expertdevelopers.pk');
   const cfg = (await admin.get('/api/site-admin/config')).data; cfg.bot.enabled = false;
   assert.equal((await admin.put('/api/site-admin/config', cfg)).status, 200);
+  assert.equal((await admin.post('/api/site-admin/publish')).status, 200);
   assert.equal((await anon('/api/site/bot/message', { method: 'POST', body: JSON.stringify({ message: 'hello' }) })).status, 404);
-  cfg.bot.enabled = true; await admin.put('/api/site-admin/config', cfg);
+  cfg.bot.enabled = true; await admin.put('/api/site-admin/config', cfg); await admin.post('/api/site-admin/publish');
 });
 
 test('rich-text articles: SEO manager can write them, HTML is sanitised, public page gets outline and reading time', async () => {
@@ -1132,6 +1138,7 @@ test('rich-text articles: SEO manager can write them, HTML is sanitised, public 
   const full = (await admin.get(`/api/site-admin/pages/${home.id}`)).data;
   const secs = [...full.sections, { id: 'sx1', type: 'text', props: { title: 'Rich', html: '<h2>Hello</h2><p onclick="x()">Body</p><script>bad()</script>', align: 'left' } }];
   assert.equal((await wm.put(`/api/site-admin/pages/${home.id}`, { ...full, sections: secs })).status, 200);
+  assert.equal((await wm.post('/api/site-admin/publish')).status, 200);
   const live = (await anon('/api/site/pages/home')).data.sections.find((s) => s.id === 'sx1').props.html;
   assert.ok(live.includes('<h2 id="hello">Hello</h2>') && !/script|onclick/.test(live));
 });
@@ -1156,7 +1163,7 @@ test('web builder: responsive section styles compile to scoped media queries, ar
   const full = (await admin.get(`/api/site-admin/pages/${home.id}`)).data;
   const withStyle = (style) => [{ id: 'bx1', type: 'columns', props: { cols: 3, items: [{ title: 'A', text: 'x' }, { title: 'B', text: 'y' }] }, style }, ...full.sections];
   const ok = await admin.put(`/api/site-admin/pages/${home.id}`, { ...full, sections: withStyle({ desktop: { pad_top: 9999, evil: 'url(x)', align: 'center' }, mobile: { hide: true, scale: 10, cols: 1 }, anchor: 'Our Projects!' }) });
-  assert.equal(ok.status, 200);
+  assert.equal(ok.status, 200); assert.equal((await admin.post('/api/site-admin/publish')).status, 200);
   const saved = ok.data.sections[0].style;
   assert.deepEqual(saved.desktop, { pad_top: 300, align: 'center' }); assert.equal(saved.mobile.scale, 50); assert.equal(saved.anchor, 'our-projects');
   for (const bad of [{ desktop: { bg_color: 'red; background:url(//evil)' } }, { desktop: { bg_image: 'javascript:alert(1)' } }, { desktop: { align: 'justify' } }]) {

@@ -6,7 +6,7 @@ import ChatBot from './ChatBot.jsx';
 import { resolveStyle } from '../../../shared/sectionStyle.js';
 import { CalculatorTabs } from './ConstructionTools.jsx';
 import { A, safeHref, AgentCard, InquiryForm, Placeholder, PostCard, ProjectCard, PropertyCard, SearchBox, SectionRenderer, usePublic } from './components.jsx';
-import { Markdown, SECTION_TYPES, SiteProvider, fullPrice, imgUrl, priceText, useSite, useTitle, waLink, MoneyBox, minorOf, curCode, siteCopy, isPK, exampleAmount } from './siteCore.jsx';
+import { Markdown, SECTION_TYPES, SiteProvider, withPreview, fullPrice, imgUrl, priceText, useSite, useTitle, waLink, MoneyBox, minorOf, curCode, siteCopy, isPK, exampleAmount } from './siteCore.jsx';
 import { getRegion } from '../format.js';
 import './site.css';
 
@@ -74,11 +74,12 @@ function Footer() {
 }
 
 function SiteLayout() {
-  const { config } = useSite();
+  const { config, draft } = useSite();
   const wa = config.contact.whatsapp;
   useEffect(() => { window.scrollTo(0, 0); }, []);
   return (
     <>
+      {draft && <div className="s-draft-bar" role="status">Preview of unpublished changes. Visitors still see the published website. <a href="/site" onClick={() => { try { sessionStorage.removeItem('site_preview'); } catch { /* storage unavailable */ } }}>See the live website</a></div>}
       <Header />
       <main id="site-main"><Outlet /></main>
       <Footer />
@@ -94,7 +95,7 @@ export function PageView({ slug: fixed }) {
   const slug = fixed || params.slug;
   const [page, setPage] = useState(null);
   const [err, setErr] = useState(false);
-  useEffect(() => { setPage(null); setErr(false); api.get(`/api/site/pages/${slug}`).then(setPage).catch(() => setErr(true)); window.scrollTo(0, 0); }, [slug]);
+  useEffect(() => { setPage(null); setErr(false); api.get(withPreview(`/api/site/pages/${slug}`)).then(setPage).catch(() => setErr(true)); window.scrollTo(0, 0); }, [slug]);
   useTitle(page && slug !== 'home' ? (page.seo_title || page.title) : '', page?.seo_desc);
   if (err) return <NotFound />;
   if (!page) return <div className="center-box"><span className="spinner" /></div>;

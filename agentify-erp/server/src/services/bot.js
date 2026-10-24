@@ -1,5 +1,6 @@
 import { all, get, run } from '../db.js';
 import { jparse, now } from '../util.js';
+import { livePages } from './siteRelease.js';
 import { estimateCost, DEFAULT_TOOLS } from '../../../shared/constructionTools.js';
 
 /**
@@ -29,9 +30,10 @@ export function buildKnowledge(cfg) {
     text: `You can call us on ${c.phone || ''}${c.landline ? ` or ${c.landline}` : ''}, WhatsApp ${c.whatsapp || c.phone || ''}, or email ${c.email || ''}. Our office is at ${c.address || ''}. Opening hours: ${c.hours || ''}.`, link: '/site/p/contact', source: 'Company', boost: 1.3 });
   add({ id: 'company', title: `About ${cfg.brand?.name || 'the company'}`, text: cfg.footer?.about || '', link: '/site/p/about', source: 'Company' });
 
-  for (const pg of all('SELECT slug,title,sections FROM site_pages WHERE published=1')) {
+  // what visitors can read: the published release of the website, not unpublished edits
+  for (const pg of livePages()) {
     const link = pg.slug === 'home' ? '/site' : `/site/p/${pg.slug}`;
-    for (const s of jparse(pg.sections, [])) {
+    for (const s of pg.sections || []) {
       const p = s.props || {};
       if (s.type === 'text') add({ id: `${pg.slug}-${s.id}`, title: p.title || pg.title, text: p.html, link, source: `Page: ${pg.title}` });
       else if (s.type === 'imagetext') add({ id: `${pg.slug}-${s.id}`, title: p.title, text: p.text, link, source: `Page: ${pg.title}` });
