@@ -118,7 +118,7 @@ export async function test(id, actor, { to } = {}) {
   try {
     if (id === 'email') {
       if (!(getSetting('resend_api_key') || process.env.RESEND_API_KEY)) throw new Error('No API key saved');
-      const ok = await sendMail({ to, subject: 'Agentify ERP: email test', ...layout({ heading: 'Email delivery works', lines: ['This test was sent from the platform console.'] }), type: 'test' });
+      const ok = await sendMail({ to, subject: 'Agentify ERP: email test', ...layout({ brand: 'platform', heading: 'Email delivery works', lines: ['This test was sent from the platform console.'] }), type: 'test' });
       if (!ok) throw new Error('The provider did not accept the message (check the key and the From domain)');
       outcome = 'success'; detail = `Test email accepted by the provider for ${to}`;
     } else if (id === 'stripe') {

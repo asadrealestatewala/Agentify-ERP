@@ -5,6 +5,7 @@
 //   GET  /api/integrations/dialer/queue     "Call next": leads ranked by who most needs a call
 //   POST /api/integrations/calls            start a call;  POST /calls/:id/outcome records how it went
 //   POST /api/integrations/sms              send a text message
+import { recordingFilter } from '../services/recordingFilters.js';
 import express, { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -157,8 +158,13 @@ r.get('/scripts/:id/render', can('crm', 'view'), asyncH((req, res) => {
 r.get('/dialer/stats', can('crm', 'view'), (req, res) => res.json(callStats(req.user, String(req.query.range || '7d'))));
 r.get('/recordings/calls', can('crm', 'view'), (req, res) => {
   const own = req.user.own_scope ? ' AND k.user_id=?' : '';
+  const f = recordingFilter(req.query, {
+    text: ['r.transcript', 'k.notes', 'k.outcome', 'c.full_name', 'k.to_number'],
+    customer: ['c.full_name', 'c.phone', 'c.email', 'k.to_number', 'k.from_number'],
+    host: ['u.name'], when: 'r.created_at', transcript: 'r.transcript_status', seconds: 'r.duration',
+  });
   res.json(all(`SELECT r.id, r.call_id, r.duration, r.size, r.transcript_status, r.error, r.created_at, (r.path IS NOT NULL) AS has_audio, substr(r.transcript,1,300) AS excerpt, k.to_number, c.full_name AS contact_name, u.name AS agent_name
-    FROM call_recordings r JOIN calls k ON k.id=r.call_id LEFT JOIN contacts c ON c.id=k.contact_id LEFT JOIN users u ON u.id=k.user_id WHERE 1=1${own} ORDER BY r.id DESC LIMIT 200`, ...(req.user.own_scope ? [req.user.id] : [])));
+    FROM call_recordings r JOIN calls k ON k.id=r.call_id LEFT JOIN contacts c ON c.id=k.contact_id LEFT JOIN users u ON u.id=k.user_id WHERE 1=1${own}${f.sql} ORDER BY r.id DESC LIMIT 200`, ...(req.user.own_scope ? [req.user.id] : []), ...f.params));
 });
 const recFor = (req) => {
   const rec = get('SELECT r.*, k.user_id FROM call_recordings r JOIN calls k ON k.id=r.call_id WHERE r.id=?', Number(req.params.id));

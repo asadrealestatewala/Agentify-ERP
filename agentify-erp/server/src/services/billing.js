@@ -194,7 +194,7 @@ export async function submitLocalPayment(tenant, user, { plan, interval = 'month
   }
   logTenantEvent(tenant.id, 'billing:payment-submitted', { id, method, plan });
   if (process.env.BILLING_OPERATOR_EMAIL) {
-    const mail = layout({ heading: 'Payment to confirm', lines: [`${tenant.name} (${tenant.slug}) says they paid PKR ${amount.toLocaleString('en-PK')} by ${LOCAL_METHODS[method]} for ${PLANS[plan].name} (${interval}).`, `Reference: ${ref}`] });
+    const mail = layout({ brand: 'platform', heading: 'Payment to confirm', lines: [`${tenant.name} (${tenant.slug}) says they paid PKR ${amount.toLocaleString('en-PK')} by ${LOCAL_METHODS[method]} for ${PLANS[plan].name} (${interval}).`, `Reference: ${ref}`] });
     await sendMail({ type: 'billing', to: process.env.BILLING_OPERATOR_EMAIL, subject: `Payment to confirm: ${tenant.name}`, ...mail });
   }
   return { id, amount, currency: 'PKR', status: 'pending', quote: q };
@@ -228,7 +228,7 @@ export async function approveSubmission(id, decisionNote, decidedBy = null) {
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   logTenantEvent(s.tenant_id, 'billing:payment-approved', { id, method: s.method });
   if (!['active', 'past_due'].includes(tenant.subscription_status)) recordServerEvent('subscription_activated', { product: PLANS[s.plan]?.product, plan: s.plan, tenant_id: s.tenant_id });
-  const mail = layout({ heading: 'Payment received', lines: [`Thank you. We received your ${LOCAL_METHODS[s.method]} payment and your ${PLANS[s.plan].name} plan is active until ${periodEnd}.`] });
+  const mail = layout({ brand: 'platform', heading: 'Payment received', lines: [`Thank you. We received your ${LOCAL_METHODS[s.method]} payment and your ${PLANS[s.plan].name} plan is active until ${periodEnd}.`] });
   await sendMail({ type: 'billing', to: s.submitted_by, subject: 'Your payment was confirmed', ...mail });
   return getTenant(s.tenant_id);
 }
@@ -241,7 +241,7 @@ export async function rejectSubmission(id, decisionNote) {
   if (!String(decisionNote || '').trim()) throw bad('Say why it was rejected so the customer can fix it');
   db.prepare("UPDATE payment_submissions SET status='rejected', decision_note=?, decided_at=datetime('now') WHERE id=?").run(decisionNote, id);
   logTenantEvent(s.tenant_id, 'billing:payment-rejected', { id });
-  const mail = layout({ heading: 'We could not confirm your payment', lines: [`Reference ${s.reference}: ${decisionNote}`, 'Please check the details and submit again, or contact us.'] });
+  const mail = layout({ brand: 'platform', heading: 'We could not confirm your payment', lines: [`Reference ${s.reference}: ${decisionNote}`, 'Please check the details and submit again, or contact us.'] });
   await sendMail({ type: 'billing', to: s.submitted_by, subject: 'We could not confirm your payment', ...mail });
 }
 
