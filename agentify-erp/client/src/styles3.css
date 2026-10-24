@@ -433,3 +433,4 @@ html[dir="rtl"] .input-group .addon { border-radius: 0 var(--radius, 8px) var(--
 .lde-group > summary { cursor: pointer; padding: 9px 0; font-weight: 600; font-size: 13.5px; }
 .lde-field { display: grid; gap: 4px; margin-top: 8px; font-size: 12.5px; color: var(--muted); } .lde-field > span { display: flex; align-items: center; gap: 8px; }
 .lde-field .input, .lde-field textarea { width: 100%; height: auto; min-height: 34px; padding: 7px 10px; }
+.menu-pop { z-index: 400; }

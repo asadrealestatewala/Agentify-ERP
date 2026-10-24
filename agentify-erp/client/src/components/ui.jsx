@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import Icon from './Icon.jsx';
@@ -176,7 +176,7 @@ export function CurrencyInput({ value, onChange, prefix = cur(), ...p }) {
       <div className="input-group">
         <span className="addon">{prefix}</span>
         <input className="input mono" inputMode="numeric" value={display}
-          onChange={(e) => { const d = e.target.value.replace(/[^d]/g, ''); onChange(d === '' ? '' : Number(d)); }} {...p} />
+          onChange={(e) => { const d = e.target.value.replace(/\D/g, ''); onChange(d === '' ? '' : Number(d)); }} {...p} />
       </div>
     );
   }
@@ -248,17 +248,34 @@ export function DateRangeFilter({ value, onChange, presets = DATE_PRESETS }) {
 /** Click-outside popover menu (row actions, export menu). */
 export function Menu({ trigger, children, align = 'right' }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
   const ref = useRef(null);
+  const popRef = useRef(null);
+  // The list is drawn at the top of <body> and placed from the button's position, so a table (or any scrolling
+  // area) can never clip it; it flips above the button when there is no room below.
+  const place = () => {
+    const r = ref.current?.getBoundingClientRect();
+    if (!r) return;
+    const h = popRef.current?.offsetHeight || 0, w = popRef.current?.offsetWidth || 170;
+    const below = window.innerHeight - r.bottom, top = below < h + 12 && r.top > below ? Math.max(8, r.top - h - 4) : r.bottom + 4;
+    const left = align === 'left' ? r.left : r.right - w;
+    setPos({ top, left: Math.min(Math.max(8, left), window.innerWidth - w - 8) });
+  };
+  useLayoutEffect(() => { if (open) place(); }, [open, children]);
   useEffect(() => {
     if (!open) return undefined;
-    const h = (e) => { if (!ref.current?.contains(e.target)) setOpen(false); };
+    const h = (e) => { if (!ref.current?.contains(e.target) && !popRef.current?.contains(e.target)) setOpen(false); };
+    const close = () => setOpen(false);
     document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    return () => { document.removeEventListener('mousedown', h); window.removeEventListener('resize', close); window.removeEventListener('scroll', close, true); };
   }, [open]);
   return (
     <div style={{ position: 'relative' }} ref={ref}>
       <span onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}>{trigger}</span>
-      {open && <div className="menu" style={align === 'left' ? { left: 0, right: 'auto' } : undefined} onClick={() => setOpen(false)}>{children}</div>}
+      {open && createPortal(
+        <div className="menu menu-pop" ref={popRef} style={{ position: 'fixed', right: 'auto', top: pos?.top ?? -9999, left: pos?.left ?? -9999, visibility: pos ? 'visible' : 'hidden' }} onClick={() => setOpen(false)}>{children}</div>, document.body)}
     </div>
   );
 }
