@@ -11,6 +11,9 @@ import { authenticate, touch, record } from '../services/connections.js';
 import { submitLead } from '../services/leads.js';
 import { publicProperty, publicProjects, publicProject } from '../services/website.js';
 import { liveConfig } from '../services/siteRelease.js';
+import { getConnection, record as logEvent } from '../services/connections.js';
+import { formByKey, markUsed, originAllowed } from '../services/formKeys.js';
+import { EVENTS, checkUrl, createSubscription, listSubscriptions, removeSubscription } from '../services/webhooksOut.js';
 
 const r = Router();
 const VISIBLE = "p.published=1 AND p.status IN ('available','featured','reserved','sold')";
@@ -19,6 +22,38 @@ export const ENQUIRY_TYPES = ['inquiry', 'contact', 'visit', 'callback', 'lead']
 const CODES = { 400: 'invalid_request', 401: 'invalid_key', 402: 'plan_limit', 403: 'forbidden', 404: 'not_found', 409: 'conflict', 413: 'too_large', 422: 'unprocessable', 429: 'rate_limited' };
 /** The one error shape of this API. */
 export const v1Error = (res, status, message, code) => res.status(status).json({ error: { code: code || CODES[status] || 'server_error', message } });
+
+// ---------------------------------------------------------------- browser submissions (publishable form key, no secret)
+const selfOrigin = (req) => `${req.protocol}://${req.get('host')}`;
+const cors = (req, res, form) => {
+  const origin = req.get('origin') || '';
+  if (!originAllowed(form, origin, selfOrigin(req))) return false;
+  res.set({ 'Access-Control-Allow-Origin': origin, Vary: 'Origin', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '600' });
+  return true;
+};
+r.options('/forms/:key/submit', (req, res) => {
+  const form = formByKey(req.params.key);
+  if (!form || !cors(req, res, form)) return res.sendStatus(403);
+  res.sendStatus(204);
+});
+const formLimit = rateLimit({ windowMs: 60_000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false, keyGenerator: (req) => `${req.ip}:${req.params.key}`,
+  handler: (_req, res) => v1Error(res, 429, 'Too many submissions. Please wait a minute and try again.') });
+r.post('/forms/:key/submit', formLimit, apiAccessGuard, validateInput, asyncH((req, res) => {
+  const form = formByKey(req.params.key);
+  if (!form) throw new HttpError(404, 'This form does not exist or was switched off');
+  if (!cors(req, res, form)) throw new HttpError(403, 'This website is not allowed to use this form', { code: 'origin_not_allowed' });
+  const body = req.body;
+  if (!body || typeof body !== 'object' || Array.isArray(body)) throw bad('Send the form as a JSON object');
+  if (body.website) return res.status(201).json({ ok: true }); // honeypot: bots fill the hidden field
+  const conn = getConnection(form.connection_id);
+  if (!conn.scopes.includes('leads:write')) throw new HttpError(403, 'This connection may not send leads', { code: 'insufficient_scope' });
+  const withForm = { ...conn, config: { ...conn.config, require_privacy_consent: conn.config.require_privacy_consent || !!form.consent_text } };
+  const { test: _t, external_id: _e, ...clean } = body;
+  const type = ENQUIRY_TYPES.includes(String(clean.enquiry_type)) ? String(clean.enquiry_type) : 'inquiry';
+  submitLead({ ...clean, source: { ...(clean.source || {}), form: form.name } }, { kind: type, connection: withForm });
+  markUsed(form.id); logEvent(conn.id, 'form', 'success', `${form.name} · ${type}`);
+  res.status(201).json({ ok: true }); // the same answer whether the person was new or known, so nothing can be probed
+}));
 
 // wrong keys are slowed down per address before anything is looked up
 r.use(rateLimit({ windowMs: 60_000, limit: 30, skipSuccessfulRequests: true, standardHeaders: 'draft-7', legacyHeaders: false, handler: (_req, res) => v1Error(res, 429, 'Too many requests with an invalid key. Try again in a minute.') }));
@@ -130,6 +165,19 @@ r.get('/agents', need('agents:read'), (req, res) => {
   const al = allowed(req.connection);
   const rows = all(`SELECT u.id,u.name,u.phone,u.email,r.name role, COUNT(p.id) listings FROM users u JOIN roles r ON r.id=u.role_id JOIN properties p ON p.agent_id=u.id AND ${VISIBLE} AND ${al.sql} WHERE u.active=1 GROUP BY u.id ORDER BY listings DESC, u.name`, ...al.params);
   res.json({ data: rows.map((a) => ({ id: a.id, name: a.name, role: a.role, phone: a.phone, email: a.email, whatsapp: (a.phone || '').replace(/[^\d+]/g, ''), listings: a.listings })) });
+});
+
+// ---------------------------------------------------------------- webhook subscriptions (REST hooks, also what Zapier needs)
+r.get('/webhooks', need('webhooks:manage'), (req, res) => res.json({ data: listSubscriptions(req.connection.id), events: Object.keys(EVENTS) }));
+r.post('/webhooks', need('webhooks:manage'), asyncH(async (req, res) => {
+  await checkUrl(req.body?.url);
+  const { id, secret } = createSubscription(req.connection.id, req.body);
+  logEvent(req.connection.id, 'webhook', 'success', `Subscription ${id} created`);
+  res.status(201).json({ ...listSubscriptions(req.connection.id).find((x) => x.id === id), secret }); // the secret is shown once
+}));
+r.delete('/webhooks/:id(\\d+)', need('webhooks:manage'), (req, res) => {
+  removeSubscription(req.connection.id, Number(req.params.id));
+  res.status(204).end();
 });
 
 // ---------------------------------------------------------------- errors

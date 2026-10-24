@@ -6,6 +6,7 @@ import { activity, notify } from '../audit.js';
 import { bad, int, jparse, now } from '../util.js';
 import { phoneKey } from './phone.js';
 import { isPersonName } from '../validation.js';
+import { publish } from './events.js';
 
 /** Round-robin lead routing: website -> CRM lead -> sales agent -> sales manager. */
 export function nextAgent() {
@@ -110,6 +111,7 @@ export function submitLead(body, { kind = 'lead', connection = null, test = fals
       cid, connection?.id ?? null, text(body.external_id, 120) || null, source?.form ?? null, text(body.enquiry_type, 40) || kind, source?.page_url ?? null, source?.referrer ?? null,
       source ? JSON.stringify(source.utm) : null, consent ? JSON.stringify(consent) : null, result, test ? 1 : 0, now());
   }
+  if (result === 'created') publish('lead', `WEB-${cid}`, text(body.enquiry_type, 40) || kind, test);
   if (!test) notify([agent, mgr], 'lead', `New website ${kind}`, `${name}${about ? ` — ${about}` : ''}`, `/contacts/${cid}`);
   return { id: cid, result };
 }

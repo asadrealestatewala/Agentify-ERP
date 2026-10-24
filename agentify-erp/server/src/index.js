@@ -66,6 +66,8 @@ import portal from './routes/portal.js';
 import pub from './routes/public.js';
 import integrationApi from './routes/integrationApi.js';
 import websiteIntegrations from './routes/websiteIntegrations.js';
+import embed from './routes/embed.js';
+import { runDueDeliveries } from './services/webhooksOut.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -114,6 +116,7 @@ export function createApp() {
 
   // Integration API v1: per-connection keys in the Authorization header, its own error format; before staff sign-in and CSRF
   app.use('/api/v1', integrationApi);
+  app.use('/embed', embed);
 
   // provider call-backs (signed by the provider; no sign-in)
   app.use('/api/hooks', rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: true, legacyHeaders: false }), integrationHooks);
@@ -235,6 +238,9 @@ if (isMain) {
   // scheduled social posts go out within a minute of their time
   const socialTick = () => forEachTenantAsync(() => runDuePosts()).then(() => markJob('social-posts')).catch((e) => markJob('social-posts', e));
   setInterval(socialTick, 60 * 1000).unref();
+  // events for websites that subscribed through the Integration API: failed deliveries are retried here
+  const webhookTick = () => forEachTenantAsync(() => runDueDeliveries()).then(() => markJob('webhook-deliveries')).catch((e) => markJob('webhook-deliveries', e));
+  setInterval(webhookTick, 60 * 1000).unref();
   const meetingTick = () => forEachTenantAsync(() => runMeetingReminders()).then(() => markJob('meeting-reminders')).catch((e) => markJob('meeting-reminders', e));
   setInterval(meetingTick, 60 * 1000).unref();
   // platform-wide: daily metric snapshot (for period comparisons) and super-admin alerts

@@ -61,4 +61,16 @@ CREATE TABLE IF NOT EXISTS lead_attribution(
   consent TEXT, result TEXT NOT NULL, test INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_lead_attr_contact ON lead_attribution(contact_id);
 CREATE INDEX IF NOT EXISTS idx_lead_attr_conn ON lead_attribution(connection_id, id);
+
+CREATE TABLE IF NOT EXISTS webhook_subscriptions(
+  id INTEGER PRIMARY KEY, connection_id INTEGER NOT NULL, url TEXT NOT NULL, events TEXT NOT NULL, secret_enc TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL, last_success_at TEXT, last_error TEXT, last_error_at TEXT);
+CREATE TABLE IF NOT EXISTS webhook_deliveries(
+  id INTEGER PRIMARY KEY, subscription_id INTEGER NOT NULL, event TEXT NOT NULL, event_id TEXT NOT NULL, payload TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending',
+  attempts INTEGER NOT NULL DEFAULT 0, next_attempt_at TEXT, last_status INTEGER, last_error TEXT, created_at TEXT NOT NULL, delivered_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_webhook_due ON webhook_deliveries(status, next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_webhook_sub ON webhook_deliveries(subscription_id, id);
+CREATE TABLE IF NOT EXISTS form_keys(
+  id INTEGER PRIMARY KEY, connection_id INTEGER NOT NULL, form_key TEXT NOT NULL UNIQUE, name TEXT NOT NULL, origins TEXT NOT NULL DEFAULT '[]', title TEXT, consent_text TEXT, button TEXT,
+  active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL, last_used_at TEXT);
 `;

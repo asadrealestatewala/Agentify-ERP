@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { get, all, run, getSetting, setSetting } from '../db.js';
 import { now, jparse } from '../util.js';
 import { progressSql } from './schedule.js';
+import { publish } from './events.js';
 
 /** ERP status -> website visibility. ERP is the source of truth. */
 export function websiteState(p) {
@@ -78,6 +79,7 @@ const syncLog = (propertyId, event, status, response) => run('INSERT INTO sync_l
 
 /** Optional push notification to the website. The site can also pull from /api/public. */
 export function fireWebhook(propertyId, event) {
+  publish('listing', propertyId, event); // Integration API subscribers (webhooksOut.js)
   const url = getSetting('website_webhook_url');
   const p = get('SELECT * FROM properties WHERE id=?', propertyId);
   if (!p) return;

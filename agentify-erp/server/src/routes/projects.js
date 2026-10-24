@@ -6,6 +6,7 @@ import { crud, uploader } from './helpers.js';
 import { asyncH, bad, notFound, jparse, now, today, int } from '../util.js';
 import { projectFinancials } from '../services/projectFinance.js';
 import { scheduleFor, progressSql } from '../services/schedule.js';
+import { publish } from '../services/events.js';
 
 const r = Router();
 
@@ -28,6 +29,7 @@ crud(pc, {
     for (const k of ['total_units', 'total_value', 'budget']) if (d[k] === '') d[k] = null;
     if (d.manager_id === '') d.manager_id = null;
   },
+  after: (id) => publish('project', id),
   canDelete: (p) => { if (get('SELECT 1 FROM properties WHERE project_id=?', p.id)) throw bad('Project has units and cannot be deleted'); },
 });
 r.use('/projects', pc);

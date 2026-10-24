@@ -2,6 +2,7 @@ import { all, get, run, tx } from '../db.js';
 import { bad, now } from '../util.js';
 import { audit, notify } from '../audit.js';
 import { fireWebhook } from './website.js';
+import { publish } from './events.js';
 
 /** Everyone who should hear about a listing waiting for review: Listing Managers and anyone else who can approve properties. */
 export function reviewerIds() {
@@ -57,6 +58,7 @@ export function approveProject(id, req) {
   if (!p) throw bad('Project not found');
   if (p.site_state !== 'requested') throw bad('This project is not waiting for approval');
   run("UPDATE projects SET site_visible=1, site_featured=1, site_state='approved', site_note=NULL WHERE id=?", id);
+  publish('project', id);
   audit(req, 'Project approved for website', 'project', id, p.name);
   if (p.site_requested_by && p.site_requested_by !== req.user.id) notify(p.site_requested_by, 'listing', 'Your project is live and featured', `${p.name} is now featured on the website`, `/projects/${id}`);
 }
