@@ -11,11 +11,16 @@ import { publicProperty } from '../services/website.js';
 const r = Router();
 r.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false, message: { error: 'Rate limit exceeded' } }));
 
-r.use((req, _res, next) => {
+r.use((req, res, next) => {
   const key = getSetting('website_api_key', '');
-  const given = String(req.headers['x-api-key'] || req.query.api_key || '');
+  const header = String(req.headers['x-api-key'] || '');
+  // ?api_key= still works for existing websites, but a key in the address ends up in server logs, browser history and
+  // referrers; such calls are told so (Deprecation header) and will stop working once the old API is retired
+  const fromQuery = !header && req.query.api_key ? String(req.query.api_key) : '';
+  const given = header || fromQuery;
   const ok = key && given.length === key.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(key));
   if (!ok) return next(new HttpError(401, 'Invalid API key'));
+  if (fromQuery) res.setHeader('Deprecation', 'true').setHeader('Warning', '299 - "Send the key in the X-API-Key header; ?api_key= will be removed"');
   next();
 });
 
@@ -46,12 +51,13 @@ r.get('/property/:id(\\d+)', asyncH((req, res) => {
   res.json(publicProperty(p));
 }));
 r.get('/projects', asyncH((req, res) => {
-  res.json({ data: all('SELECT id,code,name,location,developer,description,total_units,dev_status,expected_completion FROM projects ORDER BY name')
+  // only projects the company chose to show on its website (site_visible), the same rule as the company's own site
+  res.json({ data: all('SELECT id,code,name,location,developer,description,total_units,dev_status,expected_completion FROM projects WHERE site_visible=1 ORDER BY name')
     .map((p) => ({ ...p, available_units: get("SELECT COUNT(*) n FROM properties WHERE project_id=? AND published=1 AND status IN ('available','featured')", p.id).n,
       images: all("SELECT path FROM media WHERE entity_type='project' AND entity_id=? ORDER BY sort_order", p.id).map((m) => `/uploads/${m.path}`) })) });
 }));
 r.get('/project/:id(\\d+)', asyncH((req, res) => {
-  const p = get('SELECT id,code,name,location,developer,description,total_land_area,land_unit,total_units,dev_status,start_date,expected_completion FROM projects WHERE id=?', req.params.id);
+  const p = get('SELECT id,code,name,location,developer,description,total_land_area,land_unit,total_units,dev_status,start_date,expected_completion FROM projects WHERE id=? AND site_visible=1', req.params.id);
   if (!p) throw notFound('Project not found');
   res.json({ ...p, progress: get(`SELECT ${progressSql(String(Number(p.id)))} v`).v ?? 0,
     images: all("SELECT path FROM media WHERE entity_type='project' AND entity_id=? ORDER BY sort_order", p.id).map((m) => `/uploads/${m.path}`),

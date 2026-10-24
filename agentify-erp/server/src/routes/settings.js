@@ -10,6 +10,7 @@ import { crud, uploader } from './helpers.js';
 import { asyncH, bad, notFound, jparse, now } from '../util.js';
 import { createInvite, pendingInvites, revokeInvite } from '../services/accessLinks.js';
 import { assertSeatAvailable } from '../services/plans.js';
+import { webhookSecret } from '../services/website.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -26,7 +27,7 @@ r.get('/meta', asyncH((req, res) => {
   const lookups = {};
   for (const l of all('SELECT * FROM lookups WHERE active=1 ORDER BY type, sort_order, id')) (lookups[l.type] ||= []).push({ ...l, meta: jparse(l.meta, {}) });
   const settings = {};
-  const hidden = ['website_api_key', 'website_webhook_url', ...(req.user.own_scope ? ['default_commission_pct'] : [])];
+  const hidden = ['website_api_key', 'website_webhook_url', 'website_webhook_secret', ...(req.user.own_scope ? ['default_commission_pct'] : [])];
   for (const s of all('SELECT key,value FROM settings')) if (!hidden.includes(s.key)) settings[s.key] = s.value;
   res.json({
     lookups, settings,
@@ -43,10 +44,14 @@ r.get('/meta', asyncH((req, res) => {
 r.get('/system', can('settings', 'view'), (req, res) => {
   const out = {};
   for (const k of SETTING_KEYS) out[k] = getSetting(k, '');
+  out.website_webhook_secret = webhookSecret();
   res.json(out);
 });
 r.put('/system', can('settings', 'edit'), asyncH((req, res) => {
-  for (const k of SETTING_KEYS) if (req.body[k] !== undefined) setSetting(k, req.body[k]);
+  // the API key only changes through "Regenerate" (a form saved with an older copy must not put the old key back)
+  const url = req.body.website_webhook_url;
+  if (url && !/^https:\/\/[^\s/?#]+\.[^\s]*$/i.test(String(url).trim())) throw bad('The webhook URL must be a full https:// address');
+  for (const k of SETTING_KEYS) if (k !== 'website_api_key' && req.body[k] !== undefined) setSetting(k, k === 'website_webhook_url' ? String(req.body[k] || '').trim() : req.body[k]);
   if (req.body.print_social !== undefined) { const v = jparse(req.body.print_social, null); if (!Array.isArray(v)) throw bad('Social handles must be a list'); }
   if (req.body.agent_targets) { if (!jparse(req.body.agent_targets)) throw bad('Agent targets must be valid JSON'); }
   audit(req, 'Updated system settings', 'settings', null, Object.keys(req.body).join(', '));
@@ -70,6 +75,13 @@ r.post('/system/regenerate-api-key', can('settings', 'edit'), asyncH((req, res) 
   setSetting('website_api_key', key);
   audit(req, 'Regenerated website API key', 'settings');
   res.json({ key });
+}));
+
+r.post('/system/regenerate-webhook-secret', can('settings', 'edit'), asyncH((req, res) => {
+  setSetting('website_webhook_secret', '');
+  const secret = webhookSecret();
+  audit(req, 'Regenerated website webhook signing secret', 'settings');
+  res.json({ secret });
 }));
 
 // ---- Users

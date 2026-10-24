@@ -210,12 +210,14 @@ export function SystemSettings() {
   const { data, reload: rl } = useFetch('/api/settings/system');
   const [f, setF] = useState(null);
   const [key, setKey] = useState(null);
+  const [secret, setSecret] = useState(null);
   const [saving, setSaving] = useState(false);
   useEffect(() => { if (data) setF(data); }, [data]);
   if (!f) return <Loading />;
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const ro = !can('settings', 'edit');
   const apiKey = key || f.website_api_key;
+  const hookSecret = secret || f.website_webhook_secret;
   const base = window.location.origin;
   return (
     <div style={{ maxWidth: 900 }}>
@@ -237,7 +239,8 @@ export function SystemSettings() {
         <Card title="Website API"><div className="stack">
           <div className="muted">The company website reads properties and posts leads through the ERP API. Send the key in an <code>X-API-Key</code> header.</div>
           <Field label="API key"><div className="row"><input className="input mono" readOnly value={apiKey || ''} /><button className="btn" disabled={ro} onClick={async () => { const r = await api.post('/api/settings/system/regenerate-api-key'); setKey(r.key); toast('New key generated — update your website', 'ok'); }}>Regenerate</button></div></Field>
-          <Field label="Webhook URL (optional)" hint="ERP POSTs property.published / featured / sold / hidden events here"><input className="input" disabled={ro} value={f.website_webhook_url || ''} onChange={(e) => set('website_webhook_url', e.target.value)} placeholder="https://www.example.com/api/erp-webhook" /></Field>
+          <Field label="Webhook URL (optional)" hint="ERP POSTs property.published / featured / sold / hidden events here (https only)"><input className="input" disabled={ro} value={f.website_webhook_url || ''} onChange={(e) => set('website_webhook_url', e.target.value)} placeholder="https://www.example.com/api/erp-webhook" /></Field>
+          <Field label="Webhook signing secret" hint="Each delivery carries an Agentify-Signature header: t=<unix time>,v1=<HMAC-SHA256 of “t.body” with this secret>. Check it and reject anything older than 5 minutes. The API key is never sent to your webhook."><div className="row"><input className="input mono" readOnly value={hookSecret || ''} /><button className="btn" disabled={ro} onClick={async () => { const r = await api.post('/api/settings/system/regenerate-webhook-secret'); setSecret(r.secret); toast('New signing secret generated — update your website', 'ok'); }}>Regenerate</button></div></Field>
           <div className="sum-box" style={{ fontFamily: 'monospace', fontSize: 12, lineHeight: 1.7, overflow: 'auto' }}>GET {base}/api/public/properties<br />GET {base}/api/public/properties/featured<br />GET {base}/api/public/property/:id<br />GET {base}/api/public/projects · /api/public/project/:id<br />POST {base}/api/public/lead · /inquiry · /contact</div>
         </div></Card>
       </div>
