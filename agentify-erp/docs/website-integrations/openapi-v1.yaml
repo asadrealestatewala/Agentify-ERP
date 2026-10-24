@@ -1,0 +1,159 @@
+openapi: 3.0.3
+info:
+  title: Agentify ERP Integration API
+  version: v1
+  description: |
+    Lets a website send leads to the CRM and read the listings, projects and agents it is allowed to show.
+    The base URL is your own workspace address, for example https://yourcompany.agentifyerp.co.
+servers:
+  - url: https://{workspace}/api/v1
+    variables:
+      workspace: { default: yourcompany.agentifyerp.co }
+security:
+  - bearerKey: []
+paths:
+  /ping:
+    get:
+      summary: Check the key and see which workspace and permissions it has
+      responses:
+        '200': { description: OK }
+        '401': { $ref: '#/components/responses/Error' }
+  /leads:
+    post:
+      summary: Send a lead (needs leads:write)
+      description: A person already in the CRM (same phone in any spelling, or same e-mail) gets a new history entry instead of a duplicate. Always send an Idempotency-Key.
+      parameters:
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 200 } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeadInput' }
+      responses:
+        '201': { description: Lead created, content: { application/json: { schema: { $ref: '#/components/schemas/LeadResult' } } } }
+        '200': { description: Added to an existing person, or a replay of an earlier request (Idempotent-Replay header) }
+        '400': { $ref: '#/components/responses/Error' }
+        '422': { description: Idempotency-Key reused with a different body, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { $ref: '#/components/responses/Error' }
+  /form-options:
+    get:
+      summary: Stages, lead sources and accepted fields (needs leads:write)
+      responses: { '200': { description: OK } }
+  /listings:
+    get:
+      summary: Published listings this key may show (needs listings:read)
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: per_page, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+        - { name: type, in: query, schema: { type: string } }
+        - { name: city, in: query, schema: { type: string } }
+        - { name: purpose, in: query, schema: { type: string } }
+        - { name: project_id, in: query, schema: { type: integer } }
+        - { name: featured, in: query, schema: { type: string, enum: ['1'] } }
+        - { name: include_sold, in: query, schema: { type: string, enum: ['1'] } }
+        - { name: updated_since, in: query, description: 'Date or date-time; only listings changed since', schema: { type: string } }
+      responses:
+        '200': { description: OK }
+  /listings/{ref}:
+    get:
+      summary: One listing by id or code (needs listings:read)
+      parameters: [{ name: ref, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK }, '404': { $ref: '#/components/responses/Error' } }
+  /projects:
+    get: { summary: Projects (needs projects:read), responses: { '200': { description: OK } } }
+  /projects/{ref}:
+    get:
+      summary: One project by id or code (needs projects:read)
+      parameters: [{ name: ref, in: path, required: true, schema: { type: string } }]
+      responses: { '200': { description: OK }, '404': { $ref: '#/components/responses/Error' } }
+  /agents:
+    get: { summary: Agents who have listings on the website (needs agents:read; empty unless the company shows agents), responses: { '200': { description: OK } } }
+  /webhooks:
+    get: { summary: Webhook subscriptions of this key (needs webhooks:manage), responses: { '200': { description: OK } } }
+    post:
+      summary: Subscribe to events (needs webhooks:manage). The signing secret is returned once.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string, format: uri, description: Public https address }
+                events: { type: array, items: { type: string, enum: [listing.published, listing.updated, listing.unpublished, project.updated, lead.created] } }
+      responses: { '201': { description: Created }, '400': { $ref: '#/components/responses/Error' } }
+  /webhooks/{id}:
+    delete:
+      summary: Remove a subscription (needs webhooks:manage)
+      parameters: [{ name: id, in: path, required: true, schema: { type: integer } }]
+      responses: { '204': { description: Removed } }
+  /forms/{key}/submit:
+    post:
+      summary: Browser form submission with a publishable key (no secret; only from allowed website addresses)
+      security: []
+      parameters: [{ name: key, in: path, required: true, schema: { type: string, example: pk_xxxxxxxx } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/LeadInput' } } }
+      responses:
+        '201': { description: '{ "ok": true } whether the person was new or already known' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+components:
+  securitySchemes:
+    bearerKey:
+      type: http
+      scheme: bearer
+      description: 'A connection key such as agf_12_... made in Settings > Website Integrations. Shown once.'
+  responses:
+    Error:
+      description: Error
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, enum: [invalid_request, invalid_key, forbidden, insufficient_scope, not_found, consent_required, idempotency_key_required, idempotency_conflict, origin_not_allowed, rate_limited, server_error] }
+            message: { type: string }
+    LeadInput:
+      type: object
+      required: [name]
+      description: name is required, plus a phone or an email.
+      properties:
+        name: { type: string, description: Letters only }
+        phone: { type: string }
+        email: { type: string }
+        message: { type: string, maxLength: 2000 }
+        enquiry_type: { type: string, enum: [inquiry, contact, visit, callback, lead] }
+        property_ref: { type: string, description: Listing id or code }
+        project_ref: { type: string, description: Project id or code }
+        external_id: { type: string, description: Your own reference }
+        test: { type: boolean, description: Marks a test lead (tagged "test", no notification) }
+        consent:
+          type: object
+          properties:
+            marketing: { type: boolean }
+            privacy: { type: boolean }
+            text: { type: string, description: The wording the visitor accepted }
+            at: { type: string, description: When they accepted (ISO date-time) }
+        source:
+          type: object
+          properties:
+            form: { type: string }
+            page_url: { type: string }
+            referrer: { type: string }
+            utm_source: { type: string }
+            utm_medium: { type: string }
+            utm_campaign: { type: string }
+            utm_term: { type: string }
+            utm_content: { type: string }
+    LeadResult:
+      type: object
+      properties:
+        lead_ref: { type: string, example: WEB-123 }
+        result: { type: string, enum: [created, matched] }
+        test: { type: boolean }

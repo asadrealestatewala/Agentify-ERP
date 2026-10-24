@@ -57,7 +57,7 @@ const NAV = [
     ['Sales Reports', '/reports/Sales'], ['CRM Reports', '/reports/CRM'], ['Property Reports', '/reports/Property'], ['Project Reports', '/reports/Project'],
     ['Financial Reports', '/reports/Financial', 'accounting'], ['Vendor Reports', '/reports/Vendor', 'vendors'], ['Employee Reports', '/reports/Employee', 'hrm'], ['Commission Reports', '/reports/Sales'] ] },
   { label: 'Settings', icon: 'settings', module: 'settings', children: [
-    ['Users', '/settings/users'], ['Integrations', '/settings/integrations'], ['Plan & Billing', '/settings/billing'], ['Roles & Permissions', '/settings/roles'], ['Custom Fields', '/settings/custom-fields'], ['Property Settings', '/settings/property'],
+    ['Users', '/settings/users'], ['Integrations', '/settings/integrations'], ['Website Integrations', '/settings/website-integrations', 'website'], ['Plan & Billing', '/settings/billing'], ['Roles & Permissions', '/settings/roles'], ['Custom Fields', '/settings/custom-fields'], ['Property Settings', '/settings/property'],
     ['Payment Methods', '/settings/payment-methods'], ['Lead Stages', '/settings/lead-stages'], ['Categories & Lists', '/settings/categories'], ['Commission Rules', '/settings/commission-rules'], ['Receipts & Branding', '/settings/branding'], ['Notifications', '/settings/notifications'], ['System Settings', '/settings/system'], ['Audit Log', '/settings/audit'] ] },
 ];
 
