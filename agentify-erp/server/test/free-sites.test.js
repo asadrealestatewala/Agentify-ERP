@@ -149,3 +149,13 @@ test('builder presets: Webflow, Wix and Squarespace steps are served, with the r
   assert.equal(PRESETS.wix.snippet, 'iframe', 'Wix HTML embeds are framed by Wix, so Wix uses the address-based embed');
   for (const p of Object.values(PRESETS)) { assert.ok(p.steps.length >= 3 && p.allow.length && p.summary); }
 });
+
+test('a signup for both products gets a bundle workspace with both products during the trial', async () => {
+  const { tenantProducts } = await import('../src/services/plans.js');
+  const su = await signup({ product: 'bundle', slug: 'both1', company_name: 'Both Co', admin_email: 'both@free.test' });
+  assert.equal(su.status, 201);
+  const t = getTenantBySlug('both1');
+  assert.equal(t.product, 'bundle');
+  assert.deepEqual(tenantProducts(t).sort(), ['construction', 'real_estate']);
+  assert.equal((await signup({ product: 'nonsense', slug: 'bad1', company_name: 'Bad Co', admin_email: 'bad@free.test' })).status, 400);
+});
