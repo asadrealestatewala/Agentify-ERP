@@ -49,6 +49,7 @@ import { VerifyEmail } from './pages/AuthPages.jsx';
 import Mortgage from './pages/Mortgage.jsx';
 import Documents from './pages/Documents.jsx';
 import Integrations from './pages/Integrations.jsx';
+import WebsiteIntegrations from './pages/WebsiteIntegrations.jsx';
 import Dialer from './pages/Dialer.jsx';
 import Appointments from './pages/Appointments.jsx';
 import AIStudio from './pages/AIStudio.jsx';
@@ -180,6 +181,7 @@ export default function App() {
         <Route path="recordings" element={G('crm', <Recordings />)} />
         <Route path="training" element={<TrainingLibrary />} />
         <Route path="settings/integrations" element={G('crm', <Integrations />)} />
+        <Route path="settings/website-integrations" element={G('website', <WebsiteIntegrations />)} />
         {/* Construction */}
         <Route path="construction" element={G('construction', <ConstructionOverview />)} />
         <Route path="construction/projects/:id" element={G('construction', <ConstructionProject />)} />

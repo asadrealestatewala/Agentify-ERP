@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import { get, all, run, getSetting, setSetting } from '../db.js';
 import { now, jparse } from '../util.js';
+import { progressSql } from './schedule.js';
+import { publish } from './events.js';
 
 /** ERP status -> website visibility. ERP is the source of truth. */
 export function websiteState(p) {
@@ -39,6 +41,24 @@ export function publicProperty(p, { full = true } = {}) {
   };
 }
 
+const LISTED = "p.published=1 AND p.status IN ('available','featured','reserved','sold')";
+const projectImages = (id) => all("SELECT path FROM media WHERE entity_type='project' AND entity_id=? ORDER BY sort_order", id).map((m) => `/uploads/${m.path}`);
+
+/** Projects the company chose to show on its website (site_visible), with the fields any website may read. */
+export function publicProjects({ ids = null } = {}) {
+  const rows = all('SELECT id,code,name,location,developer,description,total_units,dev_status,expected_completion FROM projects WHERE site_visible=1 ORDER BY name');
+  return rows.filter((p) => !ids || ids.includes(p.id)).map((p) => ({ ...p,
+    available_units: get("SELECT COUNT(*) n FROM properties WHERE project_id=? AND published=1 AND status IN ('available','featured')", p.id).n, images: projectImages(p.id) }));
+}
+/** One project (only if shown on the website) with its progress and listings; null when it is not public. */
+export function publicProject(idOrCode) {
+  const ref = String(idOrCode);
+  const p = get('SELECT id,code,name,location,developer,description,total_land_area,land_unit,total_units,dev_status,start_date,expected_completion FROM projects WHERE (id=? OR code=?) AND site_visible=1', /^\d+$/.test(ref) ? Number(ref) : -1, ref);
+  if (!p) return null;
+  return { ...p, progress: get(`SELECT ${progressSql(String(Number(p.id)))} v`).v ?? 0, images: projectImages(p.id),
+    properties: all(`SELECT p.* FROM properties p WHERE p.project_id=? AND ${LISTED} LIMIT 100`, p.id).map((x) => publicProperty(x, { full: false })) };
+}
+
 /** The secret that signs webhook deliveries (never the API key, which the receiving site must not get). Made on first use. */
 export function webhookSecret() {
   let s = getSetting('website_webhook_secret', '');
@@ -59,6 +79,7 @@ const syncLog = (propertyId, event, status, response) => run('INSERT INTO sync_l
 
 /** Optional push notification to the website. The site can also pull from /api/public. */
 export function fireWebhook(propertyId, event) {
+  publish('listing', propertyId, event); // Integration API subscribers (webhooksOut.js)
   const url = getSetting('website_webhook_url');
   const p = get('SELECT * FROM properties WHERE id=?', propertyId);
   if (!p) return;

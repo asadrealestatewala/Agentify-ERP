@@ -13,6 +13,7 @@ import { audit, activity } from '../audit.js';
 import { asyncH, bad, notFound, forbidden, now, today, addDays } from '../util.js';
 import { can, hasPerm } from '../rbac.js';
 import { currentRegion } from '../regions/runtime.js';
+import { toE164 } from '../services/phone.js';
 import { catalogFor } from '../integrations/catalog.js';
 import { saveIntegration, integrationConfig, integrationRow, allIntegrations, markTested, removeIntegration, logIntegration, mask } from '../integrations/store.js';
 import { validateTwilioConfig, testTwilio, startBridgeCall, sendSms } from '../integrations/twilio.js';
@@ -35,13 +36,7 @@ const r = Router();
 const parseJson = (s) => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
 const region = () => currentRegion().config;
 
-/** International format for a phone entered the way people write it in this country. */
-export function toE164(raw) {
-  const s = String(raw || '').trim();
-  if (!s) return null;
-  if (/^\+[1-9]\d{6,14}$/.test(s.replace(/[\s()-]/g, ''))) return s.replace(/[\s()-]/g, '');
-  return currentRegion().phone.e164(s);
-}
+export { toE164 };
 const webBase = (req) => `${req.protocol}://${req.get('host')}`;
 
 // ---- the hub

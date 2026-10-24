@@ -64,6 +64,10 @@ import dashboard from './routes/dashboard.js';
 import misc from './routes/misc.js';
 import portal from './routes/portal.js';
 import pub from './routes/public.js';
+import integrationApi from './routes/integrationApi.js';
+import websiteIntegrations from './routes/websiteIntegrations.js';
+import embed from './routes/embed.js';
+import { runDueDeliveries } from './services/webhooksOut.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -110,6 +114,10 @@ export function createApp() {
     next();
   }, apiAccessGuard, validateInput, pub);
 
+  // Integration API v1: per-connection keys in the Authorization header, its own error format; before staff sign-in and CSRF
+  app.use('/api/v1', integrationApi);
+  app.use('/embed', embed);
+
   // provider call-backs (signed by the provider; no sign-in)
   app.use('/api/hooks', rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: true, legacyHeaders: false }), integrationHooks);
 
@@ -132,6 +140,7 @@ export function createApp() {
   app.use('/api/billing', billing);
   app.use('/api/site', site);
   app.use('/api/site-admin', siteAdmin);
+  app.use('/api/website-integrations', websiteIntegrations);
   app.use('/api/goals', goals);
   app.use('/api/staff', staff);
   app.use('/api/insights', insights);
@@ -198,7 +207,7 @@ export function createApp() {
     if (err instanceof HttpError) return res.status(err.status).json({ error: err.message, ...(err.extra || {}) });
     if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'File is too large' });
     if (err.name === 'MulterError') return res.status(400).json({ error: err.message });
-    if (err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid JSON' });
+    if (err.type === 'entity.parse.failed') return req.originalUrl.startsWith('/api/v1/') ? res.status(400).json({ error: { code: 'invalid_json', message: 'The request body is not valid JSON' } }) : res.status(400).json({ error: 'Invalid JSON' });
     if (/UNIQUE constraint failed/.test(err.message || '')) return res.status(409).json({ error: 'A record with this unique value already exists' });
     console.error(err);
     recordError(err, req);
@@ -229,6 +238,9 @@ if (isMain) {
   // scheduled social posts go out within a minute of their time
   const socialTick = () => forEachTenantAsync(() => runDuePosts()).then(() => markJob('social-posts')).catch((e) => markJob('social-posts', e));
   setInterval(socialTick, 60 * 1000).unref();
+  // events for websites that subscribed through the Integration API: failed deliveries are retried here
+  const webhookTick = () => forEachTenantAsync(() => runDueDeliveries()).then(() => markJob('webhook-deliveries')).catch((e) => markJob('webhook-deliveries', e));
+  setInterval(webhookTick, 60 * 1000).unref();
   const meetingTick = () => forEachTenantAsync(() => runMeetingReminders()).then(() => markJob('meeting-reminders')).catch((e) => markJob('meeting-reminders', e));
   setInterval(meetingTick, 60 * 1000).unref();
   // platform-wide: daily metric snapshot (for period comparisons) and super-admin alerts

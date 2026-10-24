@@ -15,8 +15,8 @@ export const viaCustomDomain = (req) => !!(isMultiTenant() && req.tenant?.custom
 export const workspaceUrl = (tenant, req) => (BASE_DOMAIN === 'localhost' && req ? `${req.protocol}://${tenant.slug}.localhost${req.get('host')?.match(/:\d+$/)?.[0] || ''}` : `https://${tenant.slug}.${BASE_DOMAIN}`);
 
 // what a custom domain serves: the website, its data, public images and the app's static files
-const SITE_API = /^\/api\/(site|public|hooks|meet)(\/|$)/;
-const SITE_PATH = /^\/(site(\/.*)?|sitemap\.xml|robots\.txt|assets\/.+|uploads\/media\/.+|[\w.-]+\.(png|ico|svg|webmanifest|js|json|txt|jpg|webp))?$/;
+const SITE_API = /^\/api\/(site|public|hooks|meet)(\/|$)|^\/api\/v1\/forms\/[\w-]+\/submit$/;
+const SITE_PATH = /^\/(site(\/.*)?|sitemap\.xml|robots\.txt|assets\/.+|embed\/.+|uploads\/media\/.+|[\w.-]+\.(png|ico|svg|webmanifest|js|json|txt|jpg|webp))?$/;
 
 /** Express middleware: on a custom domain everything except the website goes to the workspace address. */
 export function websiteOnlyOnCustomDomain(req, res, next) {
