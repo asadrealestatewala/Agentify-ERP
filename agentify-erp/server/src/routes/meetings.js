@@ -1,4 +1,5 @@
 // Meetings: scheduling and invitations for staff (signed in), and the public room API that guests and staff use to join.
+import { recordingFilter } from '../services/recordingFilters.js';
 import express, { Router } from 'express';
 import fs from 'node:fs';
 import rateLimit from 'express-rate-limit';
@@ -88,8 +89,13 @@ r.post('/', can('crm', 'edit'), asyncH(async (req, res) => {
 }));
 r.get('/recordings/all', can('crm', 'view'), (req, res) => {
   const own = req.user.own_scope ? ' AND (m.host_user_id=?)' : '';
-  res.json(all(`SELECT rr.id, rr.meeting_id, m.title, m.starts_at, rr.kind, rr.size, rr.duration, rr.transcript_status, rr.created_at, substr(rr.transcript,1,300) AS excerpt, (SELECT COUNT(*) FROM meeting_transcript t WHERE t.meeting_id=m.id) AS caption_lines
-    FROM meeting_recordings rr JOIN meetings m ON m.id=rr.meeting_id WHERE 1=1${own} ORDER BY rr.id DESC LIMIT 200`, ...(req.user.own_scope ? [req.user.id] : [])));
+  const f = recordingFilter(req.query, {
+    text: ['m.title', 'm.description', 'rr.transcript', '(SELECT group_concat(t.text, \' \') FROM meeting_transcript t WHERE t.meeting_id=m.id)'],
+    customer: ['c.full_name', 'c.phone', 'c.email', '(SELECT group_concat(coalesce(i.name,\'\') || \' \' || coalesce(i.email,\'\') || \' \' || coalesce(i.phone,\'\'), \' \') FROM meeting_invites i WHERE i.meeting_id=m.id)'],
+    host: ['hu.name'], when: 'rr.created_at', transcript: 'rr.transcript_status', seconds: 'rr.duration',
+  });
+  res.json(all(`SELECT rr.id, rr.meeting_id, m.title, m.starts_at, rr.kind, rr.size, rr.duration, rr.transcript_status, rr.created_at, substr(rr.transcript,1,300) AS excerpt, hu.name AS host_name, c.full_name AS contact_name, (SELECT COUNT(*) FROM meeting_transcript t WHERE t.meeting_id=m.id) AS caption_lines
+    FROM meeting_recordings rr JOIN meetings m ON m.id=rr.meeting_id LEFT JOIN users hu ON hu.id=m.host_user_id LEFT JOIN contacts c ON c.id=m.contact_id WHERE 1=1${own}${f.sql} ORDER BY rr.id DESC LIMIT 200`, ...(req.user.own_scope ? [req.user.id] : []), ...f.params));
 });
 const recOf = (req) => { const rec = get('SELECT rr.*, m.host_user_id, m.title FROM meeting_recordings rr JOIN meetings m ON m.id=rr.meeting_id WHERE rr.id=?', Number(req.params.id)); if (!rec) throw notFound('Recording not found'); if (req.user.own_scope && rec.host_user_id !== req.user.id) throw forbidden('This is not your meeting'); return rec; };
 r.get('/recordings/:id', can('crm', 'view'), asyncH((req, res) => { const rec = recOf(req); res.json({ ...rec, path: undefined, captions: all('SELECT speaker, text, at_ms FROM meeting_transcript WHERE meeting_id=? ORDER BY id', rec.meeting_id) }); }));

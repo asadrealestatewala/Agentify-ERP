@@ -48,7 +48,7 @@ function transition(t, fields, reason) {
 /** Email the owner and put an in-app notification in front of the workspace's admins. */
 async function tell(t, { subject, heading, lines, dedupe }) {
   const url = billingUrl(t);
-  if (t.owner_email) await withTenant(t, () => sendMail({ type: 'billing_notice', to: t.owner_email, subject, ...layout({ heading, lines, button: { label: 'Open Plan & Billing', url } }) }));
+  if (t.owner_email) await withTenant(t, () => sendMail({ type: 'billing_notice', to: t.owner_email, subject, ...layout({ brand: 'platform', heading, lines, button: { label: 'Open Plan & Billing', url } }) }));
   try {
     withTenant(t, () => {
       const admins = all("SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE u.active=1 AND r.portal=0 AND r.name IN ('Super Admin','Admin')").map((r) => r.id);

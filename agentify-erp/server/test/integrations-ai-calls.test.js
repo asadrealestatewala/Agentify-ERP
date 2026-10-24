@@ -144,6 +144,15 @@ test('call recording: notice, signed hook, download, transcript with OpenAI, aud
   for (let i = 0; i < 30; i += 1) { const list = (await get('/api/integrations/recordings/calls')).data; if (list[0]?.transcript_status === 'done') break; await wait(100); }
   const list = (await get('/api/integrations/recordings/calls')).data;
   assert.equal(list.length, 1); assert.equal(list[0].has_audio, 1); assert.equal(list[0].transcript_status, 'done'); assert.match(list[0].excerpt, /call transcript/);
+  const cf = async (qs) => (await get(`/api/integrations/recordings/calls?${qs}`)).data;
+  assert.equal((await cf('q=transcript')).length, 1, 'keyword in what was said');
+  assert.equal((await cf('q=mortgage')).length, 0);
+  assert.equal((await cf('transcript=ready')).length, 1); assert.equal((await cf('transcript=none')).length, 0);
+  assert.equal((await cf('min_minutes=1')).length, 1, '61 seconds');
+  assert.equal((await cf('min_minutes=2')).length, 0);
+  const cday = list[0].created_at.slice(0, 10);
+  assert.equal((await cf(`from=${cday}&to=${cday}`)).length, 1); assert.equal((await cf('from=2999-01-01')).length, 0);
+  assert.equal((await cf('customer=zzzz')).length, 0);
   const detail = (await get(`/api/integrations/recordings/calls/${list[0].id}`)).data;
   assert.equal(detail.transcript, 'Hello, this is the call transcript.'); assert.equal(detail.path, undefined, 'server paths are not exposed');
   const audio = await call(HOST, 'GET', `/api/integrations/recordings/calls/${list[0].id}/audio`, null, { cookie: c });

@@ -229,7 +229,7 @@ export async function remindOwner(id, req) {
   const when = e.date ? (e.days_left < 0 ? `ended on ${e.date}` : e.days_left === 0 ? 'ends today' : `ends on ${e.date} (${e.days_left} day${e.days_left === 1 ? '' : 's'} left)`) : null;
   const what = { trial: 'Your free trial', grace: 'The grace period after your failed payment', ends: 'Your subscription', renews: 'Your current billing period' }[e.kind] || 'Your subscription';
   const lines = [when ? `${what} ${when}.` : 'Your workspace needs a plan to keep editing.', e.locked ? 'Your data is safe but read-only until a plan is active.' : 'Choose or renew a plan to keep full access. Nothing is deleted.'];
-  const sent = await withTenant(t, () => sendMail({ type: 'billing_notice', to: t.owner_email, subject: `${t.name}: ${e.locked ? 'your workspace is read-only' : 'your plan needs attention'}`, ...layout({ heading: `${t.name} billing reminder`, lines, button: { label: 'Open billing', url: `${workspaceUrl(t, req)}/billing` } }) }));
+  const sent = await withTenant(t, () => sendMail({ type: 'billing_notice', to: t.owner_email, subject: `${t.name}: ${e.locked ? 'your workspace is read-only' : 'your plan needs attention'}`, ...layout({ brand: 'platform', heading: `${t.name} billing reminder`, lines, button: { label: 'Open billing', url: `${workspaceUrl(t, req)}/billing` } }) }));
   logTenantEvent(t.id, 'reminder-sent', { kind: e.kind, date: e.date });
   return { sent, to: t.owner_email };
 }
@@ -263,7 +263,7 @@ export async function userAction(tenantId, userId, action, { email = false } = {
         const token = adminResetLink(u.id, u.email);
         const link = `${base}/reset-password/${token}`;
         let sent = false;
-        if (email) sent = await sendMail({ type: 'password_reset', to: u.email, subject: 'Set a new password', ...layout({ heading: 'Set a new password', lines: [`Hi ${u.name}, support created this link so you can choose a new password for ${t.name}.`, 'It works once and expires in 24 hours.'], button: { label: 'Choose a new password', url: link } }) });
+        if (email) sent = await sendMail({ type: 'password_reset', to: u.email, subject: 'Set a new password', ...layout({ brand: 'platform', heading: 'Set a new password', lines: [`Hi ${u.name}, support created this link so you can choose a new password for ${t.name}.`, 'It works once and expires in 24 hours.'], button: { label: 'Choose a new password', url: link } }) });
         out = { link, email_sent: sent, expires_in_hours: 24 };
         break;
       }
@@ -271,7 +271,7 @@ export async function userAction(tenantId, userId, action, { email = false } = {
       case 'resend-verify': {
         if (!u.email) throw bad('This user has no email address');
         const token = issueVerification(u.id);
-        out = { email_sent: await sendMail({ type: 'verification', to: u.email, subject: 'Confirm your email address', ...layout({ heading: 'Confirm your email address', lines: [`Hi ${u.name}, please confirm this address for ${t.name}.`], button: { label: 'Confirm email', url: `${base}/verify-email/${token}` } }) }) };
+        out = { email_sent: await sendMail({ type: 'verification', to: u.email, subject: 'Confirm your email address', ...layout({ brand: 'platform', heading: 'Confirm your email address', lines: [`Hi ${u.name}, please confirm this address for ${t.name}.`], button: { label: 'Confirm email', url: `${base}/verify-email/${token}` } }) }) };
         break;
       }
       case 'disable-2fa': run('UPDATE users SET totp_enabled=0, totp_secret=NULL, recovery_codes=NULL, token_version=token_version+1 WHERE id=?', u.id); break;

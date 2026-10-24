@@ -138,6 +138,24 @@ test('meetings: limits, scheduling, invitations, join window, room signalling, c
   assert.equal(fin.status, 201, JSON.stringify(fin.data));
   const recs = (await get('/api/meetings/recordings/all')).data;
   assert.equal(recs.length, 1); assert.equal(recs[0].title, 'Viewing walk-through'); assert.equal(recs[0].duration, 95); assert.equal(recs[0].caption_lines, 1);
+  // filters: keyword (title and what was said), customer, host, date, time of day, transcript state, length
+  const rf = async (qs) => (await get(`/api/meetings/recordings/all?${qs}`)).data;
+  assert.equal((await rf('q=walk-through')).length, 1, 'title keyword');
+  assert.equal((await rf('q=kitchen')).length, 1, 'something said in the meeting');
+  assert.equal((await rf('q=garage')).length, 0);
+  assert.equal((await rf('customer=carla')).length, 1, 'an invited customer');
+  assert.equal((await rf('customer=nobody')).length, 0);
+  assert.equal((await rf('host=zzz')).length, 0);
+  const day = recs[0].created_at.slice(0, 10); const hhmm = recs[0].created_at.slice(11, 16);
+  assert.equal((await rf(`from=${day}&to=${day}`)).length, 1, 'on the day');
+  assert.equal((await rf('to=2000-01-01')).length, 0, 'before it existed');
+  assert.equal((await rf(`time_from=${hhmm}&time_to=${hhmm}`)).length, 1, 'time of day');
+  assert.equal((await rf('min_minutes=2')).length, 0, '95 seconds is under two minutes');
+  assert.equal((await rf('min_minutes=1')).length, 1);
+  assert.equal((await rf('transcript=ready')).length, 0); assert.equal((await rf('transcript=none')).length, 1);
+  assert.equal((await rf("q=%25")).length, 0, 'a percent sign is searched for, not treated as a wildcard');
+  assert.equal((await get('/api/meetings/recordings/all?from=yesterday')).status, 400);
+  assert.equal((await get('/api/meetings/recordings/all?time_from=25:00')).status, 400);
   const vid = await call(HOST, 'GET', `/api/meetings/recordings/${recs[0].id}/video`, null, { cookie: c });
   assert.equal(vid.status, 200); assert.equal(vid.buf.toString(), 'WEBM-part-one-part-two');
   assert.equal((await call(HOST, 'GET', `/api/meetings/recordings/${recs[0].id}/video`)).status, 401);

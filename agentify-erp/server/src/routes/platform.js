@@ -132,7 +132,7 @@ r.post('/signup', signupLimiter, asyncH(async (req, res) => {
     return google ? null : issueVerification(owner.id);
   });
   const siteUrl = publicSiteUrl(tenant, req);
-  const mail = layout({ heading: free ? `Your free website ${tenant.name} is ready to build` : `Your ${tenant.name} workspace is ready`, lines: [free ? `Your website will be public at ${siteUrl} once you publish it. Publishing needs a confirmed email address.` : '', google ? `You signed up with Google as ${tenant.owner_email}, so there is nothing to confirm. Sign in with Google any time, or use Forgot password to set a password.` : `Confirm ${tenant.owner_email} with the button below, then sign in to start setting up your company.`, tenant.trial_ends_at ? `Your ${PLAN_SETTINGS.default_trial_days}-day free trial runs until ${tenant.trial_ends_at.slice(0, 10)} (UTC).` : tenant.trial_note ? `${tenant.trial_note}. Choose a plan in Settings > Plan & Billing to start.` : ''].filter(Boolean), button: google ? { label: 'Open your workspace', url: origin } : { label: 'Confirm email and open workspace', url: `${origin}/verify-email/${token}` } });
+  const mail = layout({ brand: 'platform', heading: free ? `Your free website ${tenant.name} is ready to build` : `Your ${tenant.name} workspace is ready`, lines: [free ? `Your website will be public at ${siteUrl} once you publish it. Publishing needs a confirmed email address.` : '', google ? `You signed up with Google as ${tenant.owner_email}, so there is nothing to confirm. Sign in with Google any time, or use Forgot password to set a password.` : `Confirm ${tenant.owner_email} with the button below, then sign in to start setting up your company.`, tenant.trial_ends_at ? `Your ${PLAN_SETTINGS.default_trial_days}-day free trial runs until ${tenant.trial_ends_at.slice(0, 10)} (UTC).` : tenant.trial_note ? `${tenant.trial_note}. Choose a plan in Settings > Plan & Billing to start.` : ''].filter(Boolean), button: google ? { label: 'Open your workspace', url: origin } : { label: 'Confirm email and open workspace', url: `${origin}/verify-email/${token}` } });
   await sendMail({ type: 'welcome', to: tenant.owner_email, subject: `Welcome: ${tenant.name} is ready`, ...mail });
   recordServerEvent('signup_completed', { ...(b.analytics || {}), product: tenant.product, tenant_id: tenant.id });
   // the browser is sent into the new workspace already signed in (one-time code, valid two minutes), not to its sign-in page
@@ -217,7 +217,7 @@ r.post('/demo-request', publicLimiter, asyncH(async (req, res) => {
   if (b.website) return res.status(201).json({ ok: true }); // honeypot: pretend success
   const out = createDemoRequest(b);
   const to = process.env.SALES_EMAIL || process.env.BILLING_OPERATOR_EMAIL || marketingContent().contact_email;
-  if (to) await sendMail({ type: 'demo_request', to, subject: `Demo request: ${out.name}`, ...layout({ heading: 'New demo request', lines: [`${out.name} <${out.email}>`, `Company: ${b.company || '—'} · Product: ${out.product || 'not chosen'} · Team: ${b.team_size || '—'}`, String(b.message || '').slice(0, 1000)] }) });
+  if (to) await sendMail({ type: 'demo_request', to, subject: `Demo request: ${out.name}`, ...layout({ brand: 'platform', heading: 'New demo request', lines: [`${out.name} <${out.email}>`, `Company: ${b.company || '—'} · Product: ${out.product || 'not chosen'} · Team: ${b.team_size || '—'}`, String(b.message || '').slice(0, 1000)] }) });
   recordServerEvent('demo_requested', { product: out.product, source: b.source, landing_page: b.landing_page, visitor_id: b.visitor_id, session_id: b.session_id, consent: b.consent });
   res.status(201).json({ ok: true });
 }));
@@ -246,7 +246,7 @@ r.post('/find-workspace', publicLimiter, asyncH(async (req, res) => {
   const e = String(req.body?.email || '').trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw bad('Please enter a valid email address');
   const list = listTenants().filter((t) => !t.is_legacy && t.owner_email === e && t.status !== 'cancelled');
-  if (list.length) await sendMail({ type: 'workspace_list', to: e, subject: 'Your Agentify ERP workspaces', ...layout({ heading: 'Your workspaces', lines: list.map((t) => `${t.name}: ${urlFor(t.slug, req)}/login`) }) });
+  if (list.length) await sendMail({ type: 'workspace_list', to: e, subject: 'Your Agentify ERP workspaces', ...layout({ brand: 'platform', heading: 'Your workspaces', lines: list.map((t) => `${t.name}: ${urlFor(t.slug, req)}/login`) }) });
   res.json({ ok: true, message: 'If that email owns a workspace, we have emailed its address.' });
 }));
 r.use((_req, _res, next) => next(new HttpError(404, 'Endpoint not found')));
