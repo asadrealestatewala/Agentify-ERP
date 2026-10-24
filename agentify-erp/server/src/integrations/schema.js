@@ -44,4 +44,21 @@ CREATE TABLE IF NOT EXISTS meeting_transcript(
 CREATE INDEX IF NOT EXISTS idx_meeting_transcript ON meeting_transcript(meeting_id, id);
 CREATE TABLE IF NOT EXISTS promo_videos(
   id INTEGER PRIMARY KEY, property_id INTEGER, title TEXT NOT NULL, script TEXT, path TEXT NOT NULL, size INTEGER, duration INTEGER, created_by INTEGER, created_at TEXT NOT NULL);
+
+-- Website integrations (API v1): one connection per website or plugin, with its own scoped key
+CREATE TABLE IF NOT EXISTS integration_connections(
+  id INTEGER PRIMARY KEY, name TEXT NOT NULL, platform TEXT NOT NULL DEFAULT 'custom', scopes TEXT NOT NULL DEFAULT '[]', config TEXT NOT NULL DEFAULT '{}',
+  key_hash TEXT NOT NULL, key_hint TEXT, prev_key_hash TEXT, prev_key_until TEXT, status TEXT NOT NULL DEFAULT 'active',
+  created_by INTEGER, created_at TEXT NOT NULL, last_used_at TEXT, last_success_at TEXT, last_error TEXT, last_error_at TEXT, revoked_at TEXT);
+CREATE TABLE IF NOT EXISTS connection_events(
+  id INTEGER PRIMARY KEY, connection_id INTEGER NOT NULL, event TEXT NOT NULL, outcome TEXT NOT NULL, detail TEXT, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_connection_events ON connection_events(connection_id, id);
+CREATE TABLE IF NOT EXISTS api_idempotency(
+  connection_id INTEGER NOT NULL, idem_key TEXT NOT NULL, request_hash TEXT NOT NULL, status INTEGER NOT NULL, response TEXT NOT NULL, created_at TEXT NOT NULL,
+  PRIMARY KEY(connection_id, idem_key));
+CREATE TABLE IF NOT EXISTS lead_attribution(
+  id INTEGER PRIMARY KEY, contact_id INTEGER NOT NULL, connection_id INTEGER, external_id TEXT, form TEXT, enquiry_type TEXT, page_url TEXT, referrer TEXT, utm TEXT,
+  consent TEXT, result TEXT NOT NULL, test INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_lead_attr_contact ON lead_attribution(contact_id);
+CREATE INDEX IF NOT EXISTS idx_lead_attr_conn ON lead_attribution(connection_id, id);
 `;
