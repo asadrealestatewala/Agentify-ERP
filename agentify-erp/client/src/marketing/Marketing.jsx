@@ -220,7 +220,7 @@ function Footer({ info, onCookies }) {
     </div><div style={{ width: '100%', marginTop: 18 }}>© {new Date().getFullYear()} {c.brand}</div></div></footer>
   );
 }
-const PRODUCT_LABELS = { real_estate: 'Real Estate Brokerage Management', construction: 'Construction Management', website: 'Free website' };
+const PRODUCT_LABELS = { real_estate: 'Real Estate Brokerage Management', construction: 'Construction Management', bundle: 'Real Estate + Construction', website: 'Free website' };
 
 function ConsentBanner({ show, onClose }) {
   useEffect(() => {
@@ -386,6 +386,7 @@ function ProductSplit({ info }) {
       <h2 className="mh2">Two products, built for how each business works</h2>
       <p className="mlead">Shared sign-in, users, billing, reports and notifications. The product modules stay separate, so each team sees only what it needs.</p>
       <div className="msplit-g">{view('real_estate')}{view('construction')}</div>
+      <p style={{ textAlign: 'center', marginTop: 22 }}><Link className="lbtn p" to="/signup?product=bundle" onClick={() => track('cta_start_trial', { where: 'both_products' })}>Start a free trial with both</Link></p>
     </div></section>
   );
 }
@@ -616,7 +617,7 @@ function Pricing({ info }) {
                 {p.api_access && <li>Website / partner API</li>}
                 {(p.features || []).map((f) => <li key={f}>{f}</li>)}
               </ul>
-              <Link className={`lbtn ${p.highlight ? 'p' : ''}`} to={`/signup?product=${p.product === 'bundle' ? 'real_estate' : p.product}&plan=${p.id}`}>{p.trial_eligible ? 'Start free trial' : 'Get started'}</Link>
+              <Link className={`lbtn ${p.highlight ? 'p' : ''}`} to={`/signup?product=${p.product}&plan=${p.id}`}>{p.trial_eligible ? 'Start free trial' : 'Get started'}</Link>
             </div>
           ))}</div>
         )}
@@ -754,8 +755,11 @@ function Signup({ info }) {
   const loc = useLocation();
   const q = new URLSearchParams(loc.search);
   const freeOpen = !!info.free_sites?.open;
-  const [product, setProduct] = useState(['real_estate', 'construction'].includes(q.get('product')) || (freeOpen && q.get('product') === 'website') ? q.get('product') : '');
-  const free = product === 'website';
+  // products are ticked, not picked: one, the other, or both (a "bundle" workspace); the free website is its own choice
+  const [picked, setPicked] = useState(() => { const v = q.get('product'); return v === 'bundle' ? ['real_estate', 'construction'] : ['real_estate', 'construction'].includes(v) || (freeOpen && v === 'website') ? [v] : []; });
+  const free = picked.includes('website');
+  const product = free ? 'website' : picked.length === 2 ? 'bundle' : picked[0] || '';
+  const toggle = (k) => { setErr(''); setPicked((cur) => (k === 'website' ? (cur.includes(k) ? [] : [k]) : cur.filter((x) => x !== 'website' && x !== k).concat(cur.includes(k) ? [] : [k]))); };
   const [f, setF] = useState({ company_name: '', slug: '', admin_name: '', admin_email: q.get('email') || '', admin_password: '', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Karachi', currency: 'PKR', accept_terms: false });
   const [slugTouched, setSlugTouched] = useState(false);
   const [avail, setAvail] = useState(null);
@@ -782,7 +786,7 @@ function Signup({ info }) {
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   const submit = async (e) => {
     e.preventDefault(); setErr('');
-    if (!product) { setErr('Choose a product first'); return; }
+    if (!product) { setErr('Tick Real Estate, Construction or both to continue'); return; }
     if (!f.accept_terms) { setErr('Please accept the Terms of Service and Privacy Policy'); return; }
     setBusy(true);
     try { setDone(await api.post('/api/platform/signup', { ...f, google_token: gWho ? gToken : undefined, region: country.code, currency: country.currency, timezone: (country.timezones || []).includes(f.timezone) ? f.timezone : (country.timezones || [f.timezone])[0], language: f.language || null, sample_data: !!f.sample_data, product, analytics: attributionFields() })); } catch (x) { setErr(x.message); } finally { setBusy(false); }
@@ -823,14 +827,21 @@ function Signup({ info }) {
   }
   return (
     <section><div className="lwrap">
-      <div className="lsh"><h1 style={{ fontSize: 40 }}>Start your free trial</h1><p>{info.trial_days} days free, no card needed{info.one_trial_per_email ? ', one trial per owner email' : ''}. Your company gets its own private workspace.</p></div>
+      <div className="lsh"><h1 style={{ fontSize: 40 }}>Start free for {info.trial_days} days</h1><p>Pick real estate, construction or both. No card needed{info.one_trial_per_email ? ', one trial per owner email' : ''}. Your company gets its own private workspace.</p>
+        <ul className="lperks"><li>No card to start</li><li>Your own private workspace and web address</li><li>Add your own domain later</li><li>Real estate + construction in one login</li></ul></div>
       <form className="lform" onSubmit={submit} style={{ maxWidth: 640 }}>
         {err && <div className="lerr" role="alert">{err}</div>}
-        <fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ fontWeight: 700, marginBottom: 8 }}>1. What do you need?</legend>
-          <div className="lchoose">
-            <button type="button" className={product === 'real_estate' ? 'on' : ''} aria-pressed={product === 'real_estate'} onClick={() => setProduct('real_estate')}><b>Real Estate Brokerage</b><span>Leads, inventory, sales, installments, commissions, receipts, customer portal.</span></button>
-            <button type="button" className={product === 'construction' ? 'on' : ''} aria-pressed={product === 'construction'} onClick={() => setProduct('construction')}><b>Construction Management</b><span>Projects, BOQs, budgets, procurement, materials, labour, progress, client billing.</span></button>
-            {freeOpen && <button type="button" className={product === 'website' ? 'on' : ''} aria-pressed={product === 'website'} onClick={() => setProduct('website')}><b>Free website only</b><span>A website builder with your own address on {info.free_sites.domain}. No CRM, no trial, no card.</span></button>}
+        <fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ fontWeight: 700, marginBottom: 4 }}>1. What do you need?</legend>
+          <p className="lmini" style={{ margin: '0 0 10px' }}>Tick one, or both. Both run in the same workspace with one login, one team and one set of reports.</p>
+          <div className="lchoose" role="group" aria-label="Products">
+            <button type="button" role="checkbox" aria-checked={picked.includes('real_estate')} className={picked.includes('real_estate') ? 'on' : ''} onClick={() => toggle('real_estate')}><i className="lbox" aria-hidden="true" /><b>Real Estate Brokerage</b><span>Leads, inventory, sales, installments, commissions, receipts, customer portal.</span></button>
+            <button type="button" role="checkbox" aria-checked={picked.includes('construction')} className={picked.includes('construction') ? 'on' : ''} onClick={() => toggle('construction')}><i className="lbox" aria-hidden="true" /><b>Construction Management</b><span>Projects, BOQs, budgets, procurement, materials, labour, progress, client billing.</span></button>
+            {freeOpen && <button type="button" role="checkbox" aria-checked={free} className={`lfull ${free ? 'on' : ''}`} onClick={() => toggle('website')}><i className="lbox" aria-hidden="true" /><b>Free website only</b><span>A website builder with your own address on {info.free_sites.domain}. No CRM, no trial, no card.</span></button>}
+          </div>
+          <div className="lpick" role="status" aria-live="polite">
+            {product === 'bundle' ? <><b>Both products selected.</b> Real estate and construction in one workspace: your sales team and your site teams share contacts, accounting and reports.</>
+              : product === 'real_estate' || product === 'construction' ? <>Starting with <b>{PRODUCT_LABELS[product]}</b>. <button type="button" className="llink" onClick={() => toggle(product === 'real_estate' ? 'construction' : 'real_estate')}>Add {product === 'real_estate' ? 'Construction' : 'Real Estate'} too</button></>
+                : free ? <>Free website selected.</> : <>Nothing ticked yet. You can add the other product later.</>}
           </div>
         </fieldset>
         <div style={{ fontWeight: 700 }}>2. Your company and account</div>
@@ -862,7 +873,7 @@ function Signup({ info }) {
         {!country.open && <div className="lerr" role="status">Signups for {country.name} are not open yet. <Link to={`/contact?country=${country.code.toLowerCase()}`}>Join the waiting list</Link> and we will email you when they open.</div>}
         <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontWeight: 400 }}><input type="checkbox" checked={f.accept_terms} onChange={set('accept_terms')} style={{ width: 'auto', marginTop: 4 }} />
           <span>I agree to the <Link to="/legal/terms" target="_blank">Terms of Service</Link>, <Link to="/legal/subscription" target="_blank">Subscription Terms</Link> and <Link to="/legal/privacy" target="_blank">Privacy Policy</Link>.</span></label>
-        <button className="lbtn p" disabled={busy || !country.open || (avail && !avail.available)}>{busy ? 'Creating your workspace…' : free ? 'Create free website' : 'Create workspace'}</button>
+        <button className="lbtn p" disabled={busy || !country.open || (avail && !avail.available)}>{busy ? 'Creating your workspace…' : free ? 'Create my free website' : `Start my ${info.trial_days}-day free trial`}</button>
         <p className="lmini" style={{ margin: 0, textAlign: 'center' }}>Already have one? <Link to="/login">Sign in</Link></p>
       </form>
     </div></section>
