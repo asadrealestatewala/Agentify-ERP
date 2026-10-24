@@ -224,21 +224,27 @@ test('website editor: permissions, pages, sections, theme, blog and listing-agen
   const cfg = (await admin.get('/api/site-admin/config')).data;
   assert.equal((await admin.put('/api/site-admin/config', { ...cfg, theme: { ...cfg.theme, primary: 'red' } })).status, 400, 'colour must be hex');
   assert.equal((await admin.put('/api/site-admin/config', { ...cfg, theme: { ...cfg.theme, primary: '#123456', font_heading: 'Merriweather' }, header: { ...cfg.header, cta_label: 'Staff login' }, footer: { ...cfg.footer, about: 'Custom footer text' }, social: [{ platform: 'Facebook', url: 'https://fb.com/expert' }] })).status, 200);
+  assert.notEqual((await anon('/api/site/bootstrap')).data.config.theme.primary, '#123456', 'saved changes stay a draft until published');
+  assert.equal((await admin.post('/api/site-admin/publish')).status, 200);
   const boot = (await anon('/api/site/bootstrap')).data;
   assert.equal(boot.config.theme.primary, '#123456'); assert.equal(boot.config.theme.font_heading, 'Merriweather'); assert.equal(boot.config.footer.about, 'Custom footer text'); assert.equal(boot.config.social[0].url, 'https://fb.com/expert');
   assert.ok(boot.config.calculators.construction.rates.Standard, 'untouched defaults are preserved');
   // pages
   const page = await admin.post('/api/site-admin/pages', { title: 'Invest With Us', sections: [{ id: 'a1', type: 'text', props: { title: 'Invest', html: 'Hello **world**' } }] });
   assert.equal(page.status, 201); assert.equal(page.data.slug, 'invest-with-us');
+  assert.equal((await anon('/api/site/pages/invest-with-us')).status, 404, 'a new page appears only when the site is published');
+  assert.equal((await admin.post('/api/site-admin/publish')).status, 200);
   assert.equal((await anon('/api/site/pages/invest-with-us')).data.sections[0].props.title, 'Invest');
   assert.equal((await admin.post('/api/site-admin/pages', { title: 'Invest With Us' })).status, 400, 'duplicate address');
   await admin.put(`/api/site-admin/pages/${page.data.id}`, { published: false });
+  assert.equal((await admin.post('/api/site-admin/publish')).status, 200);
   assert.equal((await anon('/api/site/pages/invest-with-us')).status, 404, 'unpublished pages are hidden');
   assert.equal((await admin.del(`/api/site-admin/pages/${get("SELECT id FROM site_pages WHERE slug='home'").id}`)).status, 400, 'home page is protected');
   // edit home hero from the editor
   const home = (await admin.get(`/api/site-admin/pages/${get("SELECT id FROM site_pages WHERE slug='home'").id}`)).data;
   home.sections[0].props.headline = 'Edited headline';
   await admin.put(`/api/site-admin/pages/${home.id}`, { sections: home.sections });
+  assert.equal((await admin.post('/api/site-admin/publish')).status, 200);
   assert.equal((await anon('/api/site/pages/home')).data.sections[0].props.headline, 'Edited headline');
   // blog
   const post = await admin.post('/api/site-admin/posts', { title: 'Hello World Post', body: 'Body', published: true, tags: ['news'] });
@@ -389,6 +395,7 @@ test('page text typed on the canvas is cleaned on save: scripts and event handle
     { id: 'i4', type: 'text', props: { title: 'T', html: evil } },
   ] });
   assert.equal(made.status, 201, JSON.stringify(made.data));
+  assert.equal((await admin.post('/api/site-admin/publish')).status, 200);
   const pub = (await anon('/api/site/pages/inline-text-test')).data;
   const all = JSON.stringify(pub);
   assert.ok(!/<script|onerror|javascript:/i.test(all), all.slice(0, 400));

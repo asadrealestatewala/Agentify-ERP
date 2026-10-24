@@ -5,7 +5,8 @@ import { asyncH, bad, notFound, int, jparse, today, moneyText, curCode } from '.
 import { websiteState } from '../services/website.js';
 import { progressSql, scheduleFor } from '../services/schedule.js';
 import { ingest } from './public.js';
-import { defaultConfig } from '../services/siteDefaults.js';
+import { mergeConfig, publicSite, liveConfig, validPreview } from '../services/siteRelease.js';
+import { viaCustomDomain, workspaceUrl } from '../services/siteHost.js';
 import { sendPdf } from '../services/pdf.js';
 import { buildPlan } from '../../../shared/installmentPlan.js';
 import { botConfig, logChat, reply } from '../services/bot.js';
@@ -20,12 +21,12 @@ const r = Router();
 r.use(rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests' } }));
 const inquiryLimit = rateLimit({ windowMs: 10 * 60_000, limit: 12, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many enquiries — please try again later.' } });
 
-export const siteConfig = () => {
-  const saved = jparse(getSetting('site_config'), {});
-  // `rates` is a user-defined list of grades: replace it as a whole so deleted / renamed grades do not come back from the defaults
-  const merge = (a, b) => (Array.isArray(b) || typeof b !== 'object' || b === null ? (b ?? a) : Object.fromEntries([...new Set([...Object.keys(a || {}), ...Object.keys(b)])].map((k) => [k, k in b ? (k !== 'rates' && typeof a?.[k] === 'object' && !Array.isArray(a[k]) ? merge(a[k], b[k]) : b[k]) : a[k]])));
-  return merge(defaultConfig(), saved);
-};
+/** The editor's draft configuration (what the website editor and the SEO manager edit). Visitors get the live release. */
+export const siteConfig = () => mergeConfig(jparse(getSetting('site_config'), {}));
+
+/** The configuration visitors see: the published release, or the draft through a valid preview link. */
+const isPreview = (req) => !!req.query.preview && validPreview(req.query.preview);
+const visitorConfig = (req) => (isPreview(req) ? siteConfig() : liveConfig());
 
 const VISIBLE = "p.published=1 AND p.status IN ('available','featured','reserved')";
 const img = (p) => (p ? `/uploads/${p}` : null);
@@ -50,20 +51,27 @@ function card(p, cfg) {
 }
 
 r.get('/bootstrap', (req, res) => {
-  const cfg = siteConfig();
-  const menu = all('SELECT slug,title FROM site_pages WHERE published=1 AND show_in_menu=1 ORDER BY sort_order');
-  res.json({ config: { ...cfg, listing: { show_agent: cfg.listing.show_agent, per_page: cfg.listing.per_page } }, menu, company: { name: getSetting('company_name') } });
+  const preview = isPreview(req);
+  const site = publicSite({ preview });
+  if (preview) res.set({ 'X-Robots-Tag': 'noindex, nofollow', 'Cache-Control': 'private, no-store' });
+  if (site.offline) return res.json({ offline: true, company: { name: getSetting('company_name') } });
+  const cfg = site.config;
+  const menu = site.pages.filter((p) => p.published && p.show_in_menu).sort((a, b) => a.sort_order - b.sort_order).map((p) => ({ slug: p.slug, title: p.title }));
+  res.json({ config: { ...cfg, listing: { show_agent: cfg.listing.show_agent, per_page: cfg.listing.per_page } }, menu, company: { name: getSetting('company_name') }, ...(preview ? { preview: true } : {}),
+    ...(viaCustomDomain(req) ? { workspace_url: workspaceUrl(req.tenant, req) } : {}) });
 });
 
 r.get('/pages/:slug', asyncH((req, res) => {
-  const p = get('SELECT slug,title,sections,seo_title,seo_desc FROM site_pages WHERE slug=? AND published=1', req.params.slug);
+  const site = publicSite({ preview: isPreview(req) });
+  const p = !site.offline && site.pages.find((x) => x.slug === req.params.slug && x.published);
   if (!p) throw notFound('Page not found');
-  res.json({ ...p, sections: jparse(p.sections, []) });
+  if (site.preview) res.set({ 'X-Robots-Tag': 'noindex, nofollow', 'Cache-Control': 'private, no-store' });
+  res.json({ slug: p.slug, title: p.title, sections: p.sections, seo_title: p.seo_title, seo_desc: p.seo_desc });
 }));
 
 // --- listings (Zameen-style search)
 r.get('/listings', asyncH((req, res) => {
-  const cfg = siteConfig(), q = req.query;
+  const cfg = visitorConfig(req), q = req.query;
   const where = [VISIBLE], params = [];
   if (cfg.listing.show_sold && q.include_sold === '1') where[0] = "p.published=1 AND p.status IN ('available','featured','reserved','sold')";
   const eq = (col, v) => { if (v) { where.push(`${col}=?`); params.push(v); } };
@@ -98,7 +106,7 @@ r.get('/facets', (req, res) => {
 });
 
 r.get('/listings/:id(\\d+)', asyncH((req, res) => {
-  const cfg = siteConfig();
+  const cfg = visitorConfig(req);
   const p = get(`${SELECT} WHERE p.id=? AND p.published=1 AND p.status IN ('available','featured','reserved','sold')`, req.params.id);
   if (!p) throw notFound('This listing is no longer available');
   const images = all("SELECT kind,path,caption FROM media WHERE entity_type='property' AND entity_id=? AND kind IN ('cover','gallery','siteplan','map','dev') ORDER BY kind='cover' DESC, sort_order", p.id).map((m) => ({ kind: m.kind, url: img(m.path), caption: m.caption }));
@@ -115,7 +123,7 @@ r.get('/projects', asyncH((req, res) => {
   res.json({ data: rows.map((p) => ({ ...p, cover: img(p.cover) })) });
 }));
 r.get('/projects/:id(\\d+)', asyncH((req, res) => {
-  const cfg = siteConfig();
+  const cfg = visitorConfig(req);
   const p = get(`SELECT p.id,p.code,p.name,p.location,p.developer,p.description,p.total_land_area,p.land_unit,p.total_units,p.dev_status,p.kind,p.start_date,p.expected_completion, ${progressSql('p.id')} progress FROM projects p WHERE p.id=? AND p.site_visible=1`, req.params.id);
   if (!p) throw notFound('Project not found');
   const sch = scheduleFor(p.id, { scope: 'project', clientOnly: true });
@@ -126,13 +134,13 @@ r.get('/projects/:id(\\d+)', asyncH((req, res) => {
 
 // --- agents who have published listings
 r.get('/agents', asyncH((req, res) => {
-  const cfg = siteConfig();
+  const cfg = visitorConfig(req);
   if (!cfg.listing.show_agent) return res.json({ data: [] });
   const rows = all(`SELECT u.id,u.name,u.phone,u.email,r.name role, COUNT(p.id) listings FROM users u JOIN roles r ON r.id=u.role_id JOIN properties p ON p.agent_id=u.id AND ${VISIBLE} WHERE u.active=1 GROUP BY u.id ORDER BY listings DESC, u.name`);
   res.json({ data: rows.map((a) => ({ id: a.id, name: a.name, role: a.role, phone: a.phone, email: a.email, whatsapp: (a.phone || '').replace(/[^\d+]/g, ''), listings: a.listings })) });
 }));
 r.get('/agents/:id(\\d+)', asyncH((req, res) => {
-  const cfg = siteConfig();
+  const cfg = visitorConfig(req);
   const a = get("SELECT u.id,u.name,u.phone,u.email,r.name role FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=? AND u.active=1", req.params.id);
   if (!a || !cfg.listing.show_agent) throw notFound('Agent not found');
   res.json({ ...a, whatsapp: (a.phone || '').replace(/[^\d+]/g, ''), listings: all(`${SELECT} WHERE ${VISIBLE} AND p.agent_id=? ORDER BY p.id DESC LIMIT 48`, a.id).map((x) => card(x, cfg)) });
@@ -215,7 +223,7 @@ r.get('/booking-options', (req, res) => res.json({ projects: all('SELECT id,name
 const botLimit = rateLimit({ windowMs: 60_000, limit: 40, standardHeaders: true, legacyHeaders: false, message: { error: 'You are sending messages too quickly — please wait a moment.' } });
 const sessionOf = (b) => String(b?.session || '').replace(/[^\w-]/g, '').slice(0, 64) || 'anon';
 r.post('/bot/message', botLimit, asyncH((req, res) => {
-  const cfg = siteConfig();
+  const cfg = visitorConfig(req);
   if (!botConfig(cfg).enabled) throw notFound('The assistant is switched off');
   const text = String(req.body?.message || '').trim().slice(0, 400);
   if (!text) throw bad('Type a message');
@@ -225,7 +233,7 @@ r.post('/bot/message', botLimit, asyncH((req, res) => {
 }));
 r.post('/bot/lead', inquiryLimit, asyncH((req, res) => {
   if (req.body?.website) return res.json({ ok: true }); // honeypot
-  const cfg = siteConfig();
+  const cfg = visitorConfig(req);
   if (!botConfig(cfg).enabled) throw notFound('The assistant is switched off');
   const b = req.body || {}, session = sessionOf(b);
   const bit = (label, v) => (String(v || '').trim() ? `${label}: ${String(v).trim().slice(0, 200)}` : '');

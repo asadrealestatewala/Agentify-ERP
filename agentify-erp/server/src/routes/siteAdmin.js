@@ -13,12 +13,60 @@ import { buildKnowledge, reply } from '../services/bot.js';
 import rateLimit from 'express-rate-limit';
 import { generateSiteDraft, BUSINESS_TYPES, STYLES, TONES } from '../services/siteAi.js';
 import { isHtml, sanitizeHtml, wordCount } from '../services/richText.js';
+import { liveRelease, isOffline, draftDiffers, publishDraft, setOffline, releaseList, restoreRelease, discardDraft, createPreviewLink, revokePreviewLinks } from '../services/siteRelease.js';
 
 /** Website editor backend (permission module: website). */
 const r = Router();
 r.use(requireStaff);
 
 const slugify = (s) => String(s || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+
+// Every change made here is a draft. Before the first one, the website visitors see is frozen as the live release.
+r.use((req, _res, next) => { if (req.method !== 'GET') liveRelease(); next(); });
+
+// ---- publishing: draft -> release (what visitors see), unpublish, history with restore, shareable preview links
+const releaseRow = (id) => get('SELECT r.id, r.label, r.published_at, u.name by_name FROM site_releases r LEFT JOIN users u ON u.id=r.published_by WHERE r.id=?', id);
+r.get('/publish', can('website', 'view'), (req, res) => {
+  const live = liveRelease();
+  res.json({ live: releaseRow(live.id), offline: isOffline(), changes: draftDiffers(), releases: get('SELECT COUNT(*) n FROM site_releases').n });
+});
+r.post('/publish', can('website', 'edit'), asyncH((req, res) => {
+  const label = String(req.body?.label || '').trim().slice(0, 120);
+  const id = publishDraft(req.user.id, label || 'Published');
+  audit(req, 'Published the website', 'website', id, label || null);
+  res.json({ ok: true, live: releaseRow(id) });
+}));
+r.post('/unpublish', can('website', 'delete'), asyncH((req, res) => {
+  setOffline(true);
+  audit(req, 'Took the website offline', 'website');
+  res.json({ ok: true, offline: true });
+}));
+r.post('/online', can('website', 'edit'), asyncH((req, res) => {
+  setOffline(false);
+  audit(req, 'Put the website back online', 'website');
+  res.json({ ok: true, offline: false });
+}));
+r.get('/releases', can('website', 'view'), (req, res) => res.json(releaseList()));
+r.post('/releases/:id(\\d+)/restore', can('website', 'edit'), asyncH((req, res) => {
+  const id = restoreRelease(Number(req.params.id), req.user.id);
+  audit(req, 'Restored an earlier version of the website', 'website', id, `from release ${req.params.id}`);
+  res.json({ ok: true, live: releaseRow(id) });
+}));
+r.post('/draft/discard', can('website', 'delete'), asyncH((req, res) => {
+  discardDraft(req.user.id);
+  audit(req, 'Discarded unpublished website changes', 'website');
+  res.json({ ok: true });
+}));
+r.post('/preview-link', can('website', 'view'), asyncH((req, res) => {
+  const { token, expires_at } = createPreviewLink(req.user.id);
+  audit(req, 'Created a website preview link', 'website');
+  res.status(201).json({ path: `/site?preview=${token}`, expires_at });
+}));
+r.delete('/preview-links', can('website', 'edit'), asyncH((req, res) => {
+  revokePreviewLinks();
+  audit(req, 'Revoked website preview links', 'website');
+  res.json({ ok: true });
+}));
 
 r.get('/config', can('website', 'view'), (req, res) => res.json(siteConfig()));
 r.put('/config', can('website', 'edit'), asyncH((req, res) => {

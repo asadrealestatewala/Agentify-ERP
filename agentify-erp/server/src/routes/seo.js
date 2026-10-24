@@ -6,6 +6,7 @@ import { asyncH, bad, notFound, now } from '../util.js';
 import { siteConfig } from './site.js';
 import { validateSiteConfig } from '../services/siteValidate.js';
 import { sendTable } from './helpers.js';
+import { liveConfig, livePages, liveRelease, isOffline } from '../services/siteRelease.js';
 
 /** SEO manager backend (permission module: seo) plus the public sitemap.xml and robots.txt. */
 const r = Router();
@@ -58,6 +59,9 @@ r.get('/overview', can('seo', 'view'), asyncH((req, res) => {
   });
 }));
 
+// edits here change the draft: make sure the live website is frozen as a release first
+r.use((req, _res, next) => { if (req.method !== 'GET') liveRelease(); next(); });
+
 r.put('/site', can('seo', 'edit'), asyncH((req, res) => {
   const b = req.body || {};
   const cfg = siteConfig();
@@ -104,17 +108,20 @@ r.get('/export', can('seo', 'export'), asyncH((req, res) => {
 // ---------------------------------------------------------------- public: sitemap.xml and robots.txt (mounted at the site root)
 const baseUrl = (req, cfg) => (cfg.seo?.base_url || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
 export function sitemap(req, res) {
-  const cfg = siteConfig(), base = baseUrl(req, cfg);
+  const cfg = liveConfig(), base = baseUrl(req, cfg);
   const urls = [{ loc: '/site', pri: '1.0' }, { loc: '/site/properties', pri: '0.9' }, { loc: '/site/projects', pri: '0.8' }, { loc: '/site/agents', pri: '0.5' }, { loc: '/site/calculators', pri: '0.7' }, { loc: '/site/blog', pri: '0.6' }];
-  for (const p of all('SELECT slug,updated_at FROM site_pages WHERE published=1 AND slug<>\'home\'')) urls.push({ loc: `/site/p/${p.slug}`, mod: p.updated_at, pri: '0.7' });
+  if (isOffline()) return res.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>\n');
+  // published pages of the live release (unpublished edits are not on the site yet)
+  const releasedAt = liveRelease().published_at;
+  for (const p of livePages().filter((x) => x.slug !== 'home')) urls.push({ loc: `/site/p/${p.slug}`, mod: releasedAt, pri: '0.7' });
   for (const p of all("SELECT id,updated_at FROM properties WHERE published=1 AND status IN ('available','featured','reserved')")) urls.push({ loc: `/site/property/${p.id}`, mod: p.updated_at, pri: '0.8' });
   for (const p of all('SELECT id FROM projects WHERE site_visible=1')) urls.push({ loc: `/site/project/${p.id}`, pri: '0.8' });
   for (const p of all('SELECT slug,COALESCE(updated_at,published_at) m FROM site_posts WHERE published=1')) urls.push({ loc: `/site/blog/${p.slug}`, mod: p.m, pri: '0.5' });
   res.type('application/xml').send(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${esc(base + u.loc)}</loc>${u.mod ? `<lastmod>${esc(String(u.mod).slice(0, 10))}</lastmod>` : ''}<priority>${u.pri}</priority></url>`).join('\n')}\n</urlset>\n`);
 }
 export function robots(req, res) {
-  const cfg = siteConfig(), base = baseUrl(req, cfg);
-  res.type('text/plain').send(cfg.seo?.noindex ? 'User-agent: *\nDisallow: /\n' : `User-agent: *\nAllow: /site\nDisallow: /api/\nDisallow: /uploads/documents\nDisallow: /portal\nDisallow: /vendor\nDisallow: /login\n\nSitemap: ${base}/sitemap.xml\n`);
+  const cfg = liveConfig(), base = baseUrl(req, cfg);
+  res.type('text/plain').send(cfg.seo?.noindex || isOffline() ? 'User-agent: *\nDisallow: /\n' : `User-agent: *\nAllow: /site\nDisallow: /api/\nDisallow: /uploads/documents\nDisallow: /portal\nDisallow: /vendor\nDisallow: /login\n\nSitemap: ${base}/sitemap.xml\n`);
 }
 
 export default r;

@@ -138,6 +138,10 @@
 .site .preview-frame { background: var(--s-bg); }
 .site .preview-frame .s-header.sticky { position: relative; }
 .site-error { padding: 60px; text-align: center; color: #b91c1c; }
+.site-offline { min-height: 70vh; display: grid; place-content: center; gap: 8px; padding: 40px 16px; text-align: center; color: #334155; font-family: system-ui, sans-serif; }
+.site-offline h1 { margin: 0; font-size: 28px; color: #0f172a; }
+.s-draft-bar { padding: 8px 16px; text-align: center; font-size: 14px; font-weight: 600; background: #fef3c7; color: #78350f; border-bottom: 1px solid #f59e0b; }
+.s-draft-bar a { color: inherit; text-decoration: underline; margin-left: 6px; white-space: nowrap; }
 
 @media (max-width: 1000px) {
   .site .listing-layout { grid-template-columns: 1fr; } .site .filters { position: static; display: none; } .site .filters.open { display: grid; }

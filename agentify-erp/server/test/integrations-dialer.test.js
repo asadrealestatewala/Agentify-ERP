@@ -165,8 +165,12 @@ test('custom domain: DNS records are shown, verification needs both records, the
   resolver.cname = async () => ['dial.erp.test.'];
   const yes = await post('/api/integrations/domain/verify');
   assert.equal(yes.status, 200, JSON.stringify(yes.data)); assert.equal(yes.data.current.status, 'verified');
-  const brand = await call('www.dialrealty.com', 'GET', '/api/auth/brand');
-  assert.equal(brand.status, 200); assert.equal(brand.data.name, 'Dial Realty');
+  // the connected domain serves the website only; signing in stays on the workspace address
+  const site = await call('www.dialrealty.com', 'GET', '/api/site/bootstrap');
+  assert.equal(site.status, 200, JSON.stringify(site.data)); assert.equal(site.data.workspace_url, 'https://dial.erp.test');
+  const erp = await call('www.dialrealty.com', 'GET', '/api/auth/brand');
+  assert.equal(erp.status, 404); assert.match(erp.data.error, /dial\.erp\.test/);
+  assert.equal((await call('dial.erp.test', 'GET', '/api/auth/brand')).data.name, 'Dial Realty', 'the workspace address still has the sign-in');
   // another workspace cannot take it, and the web server may now issue a certificate for it
   assert.equal((await call('erp.test', 'GET', '/api/platform/domain-check?domain=www.dialrealty.com')).status, 200);
   assert.equal((await call('erp.test', 'GET', '/api/platform/domain-check?domain=evil.example.com')).status, 404);
@@ -174,5 +178,5 @@ test('custom domain: DNS records are shown, verification needs both records, the
   assert.equal((await call('erp.test', 'GET', '/api/platform/domain-check?domain=nobody-here.erp.test')).status, 404, 'no certificate for a workspace that does not exist');
   // removing it stops serving it
   assert.equal((await call(HOST, 'DELETE', '/api/integrations/domain', null, { cookie: c })).status, 200);
-  assert.equal((await call('www.dialrealty.com', 'GET', '/api/auth/brand')).status, 404);
+  assert.equal((await call('www.dialrealty.com', 'GET', '/api/site/bootstrap')).status, 404);
 });

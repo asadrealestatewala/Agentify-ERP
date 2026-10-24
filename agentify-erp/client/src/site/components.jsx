@@ -142,8 +142,12 @@ export function LinkBtn({ path, value }) {
 /** Internal links use the router; external/tel/mailto use a normal anchor. */
 const SAFE = /^(https?:\/\/|\/|#|mailto:|tel:)/i;
 export const safeHref = (h) => (typeof h === 'string' && SAFE.test(h.trim()) ? h.trim() : '');
+/** Sign-in pages belong to the workspace address; on a custom domain (website only) they open there instead. */
+const ERP_PATH = /^\/(login|portal|vendor)(\/|$)/;
 export function A({ href: raw, children, ...p }) {
-  const href = safeHref(raw);
+  const ws = useSite()?.workspaceUrl;
+  let href = safeHref(raw);
+  if (ws && ERP_PATH.test(href)) href = `${ws}${href}`;
   if (!href) return <span {...p}>{children}</span>;
   return isInternal(href) ? <Link to={href} {...p}>{children}</Link> : <a href={href} {...(/^https?:/.test(href) ? { target: '_blank', rel: 'noreferrer' } : {})} {...p}>{children}</a>;
 }

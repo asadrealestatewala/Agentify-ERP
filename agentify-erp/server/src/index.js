@@ -11,6 +11,7 @@ import { scheduleBackups } from './services/backup.js';
 import { tenantContext, bootstrapTenants, forEachTenant, forEachTenantAsync, isMultiTenant, resolveTenant, BASE_DOMAIN } from './platform.js';
 import { runDuePosts } from './integrations/social.js';
 import { injectMeta, platformSitemap, platformRobots, MARKETING_ROUTES } from './services/marketing.js';
+import { injectSiteMeta, websiteOnlyOnCustomDomain } from './services/siteHost.js';
 import { ensureFirstAdmin } from './services/platformAuth.js';
 import { markJob, snapshot, generateNotifications } from './services/platformMetrics.js';
 import { maintenanceGate, recordError } from './services/maintenance.js';
@@ -97,6 +98,8 @@ export function createApp() {
   app.get('/sitemap.xml', (req, res, next) => (onMain(req) ? res.type('application/xml').send(platformSitemap(req)) : next()));
   app.get('/robots.txt', (req, res, next) => (onMain(req) ? res.type('text/plain').send(platformRobots(req)) : next()));
   app.use(tenantContext);
+  // a customer's own domain shows the website only; sign-in and the ERP stay on the workspace address
+  app.use(websiteOnlyOnCustomDomain);
 
   // Public website API: key-authenticated, CORS-open (no cookies involved)
   app.use('/api/public', (req, res, next) => {
@@ -181,6 +184,11 @@ export function createApp() {
       if (onMain(req) && MARKETING_ROUTES[req.path]) {
         shell ||= fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
         return res.type('html').send(injectMeta(shell, req.path, req));
+      }
+      // the workspace website: its pages get their own title, description and sharing tags from the server
+      if (req.tenant && (req.path === '/site' || req.path.startsWith('/site/'))) {
+        shell ||= fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
+        try { return res.set('Cache-Control', 'no-cache').type('html').send(injectSiteMeta(shell, req)); } catch (e) { console.error('[site meta]', e); }
       }
       res.sendFile(path.join(dist, 'index.html'));
     });

@@ -243,6 +243,11 @@ CREATE TABLE IF NOT EXISTS site_page_versions(
   id INTEGER PRIMARY KEY, page_id INTEGER NOT NULL REFERENCES site_pages(id) ON DELETE CASCADE, title TEXT, sections TEXT NOT NULL, label TEXT,
   user_id INTEGER, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_spv_page ON site_page_versions(page_id, id);
+-- website releases: what visitors see (services/siteRelease.js); site_pages + settings.site_config are the editor's draft
+CREATE TABLE IF NOT EXISTS site_releases(
+  id INTEGER PRIMARY KEY, config TEXT NOT NULL, pages TEXT NOT NULL, label TEXT, restored_from INTEGER, published_by INTEGER, published_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS site_preview_links(
+  id INTEGER PRIMARY KEY, token_hash TEXT NOT NULL UNIQUE, created_by INTEGER, created_at TEXT NOT NULL, expires_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS site_reviews(
   id INTEGER PRIMARY KEY, name TEXT NOT NULL, role TEXT, company TEXT, country TEXT, rating INTEGER, quote TEXT NOT NULL, email TEXT NOT NULL, photo BLOB, photo_type TEXT,
   consent INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'pending', decided_by TEXT, decided_at TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));

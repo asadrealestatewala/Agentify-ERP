@@ -287,6 +287,77 @@ function useSectionHistory(page, setPage) {
 }
 
 // ------------------------------------------------------------------ main editor
+const when = (iso) => { try { return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); } catch { return iso; } };
+
+/** Publishing: what visitors see is the last published release; saves are a draft until Publish. */
+function PublishPanel({ status, dirty, onSaveFirst, onChanged, onDiscarded, onClose }) {
+  const { can } = useAuth();
+  const toast = useToast();
+  const [label, setLabel] = useState('');
+  const [rows, setRows] = useState(null);
+  const [busy, setBusy] = useState('');
+  const [link, setLink] = useState(null);
+  const [ask, setAsk] = useState(null); // 'offline' | 'discard' | release row to restore
+  useEffect(() => { api.get('/api/site-admin/releases').then(setRows).catch(() => setRows([])); }, [status]);
+  const act = async (key, fn, msg) => {
+    setBusy(key);
+    try { await fn(); if (msg) toast(msg, 'ok'); await onChanged(); } catch (e) { toast(e.message, 'err'); } finally { setBusy(''); setAsk(null); }
+  };
+  const publish = () => act('publish', async () => { if (dirty) await onSaveFirst(); await api.post('/api/site-admin/publish', { label }); setLabel(''); }, 'Published. Visitors now see these changes.');
+  const makeLink = () => act('link', async () => { const r = await api.post('/api/site-admin/preview-link'); setLink({ url: `${window.location.origin}${r.path}`, expires_at: r.expires_at }); });
+  const copy = async () => { try { await navigator.clipboard.writeText(link.url); toast('Preview link copied', 'ok'); } catch { toast('Copy the link from the box', 'err'); } };
+  const pending = dirty || status?.changes;
+  return (
+    <Modal title="Publish the website" size="lg" onClose={onClose}>
+      <div className="stack">
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+          {status?.offline ? <span className="pill red">Offline</span> : <span className="pill green">Live</span>}
+          {pending ? <span className="pill amber">Unpublished changes</span> : <span className="pill grey">Visitors see the latest version</span>}
+          {status?.live && <span className="muted">Live since {when(status.live.published_at)}{status.live.by_name ? ` by ${status.live.by_name}` : ''}</span>}
+        </div>
+        <p className="muted" style={{ margin: 0 }}>Save keeps a draft that only your team sees. Publish puts the whole website (every page, the header, footer and colours) live at once. Every publish is kept below, so you can go back to any earlier version.</p>
+        {can('website', 'edit') && (
+          <div className="row" style={{ gap: 8 }}>
+            <input className="input" style={{ flex: 1 }} maxLength={120} placeholder="What changed? (optional, e.g. New Eid offer banner)" value={label} onChange={(e) => setLabel(e.target.value)} aria-label="Note for this version" />
+            <button className="btn primary" disabled={!!busy || (!pending && !status?.offline)} onClick={publish}>{busy === 'publish' ? 'Publishing…' : dirty ? 'Save and publish' : 'Publish'}</button>
+          </div>
+        )}
+        <div className="card" style={{ padding: 12 }}>
+          <div className="row between" style={{ gap: 8, flexWrap: 'wrap' }}>
+            <div><b>Share a preview</b><div className="muted" style={{ fontSize: 12 }}>Anyone with the link sees the saved draft for 7 days. Search engines are told not to index it.</div></div>
+            <div className="row" style={{ gap: 6 }}>
+              <button className="btn sm" disabled={!!busy} onClick={makeLink}>{busy === 'link' ? 'Creating…' : 'Create preview link'}</button>
+              {can('website', 'edit') && <button className="btn sm" disabled={!!busy} onClick={() => act('revoke', () => api.del('/api/site-admin/preview-links'), 'All preview links stopped working')}>Stop all links</button>}
+            </div>
+          </div>
+          {link && <div className="row" style={{ gap: 6, marginTop: 8 }}><input className="input" style={{ flex: 1 }} readOnly value={link.url} onFocus={(e) => e.target.select()} aria-label="Preview link" /><button className="btn sm" onClick={copy}>Copy</button><a className="btn sm" href={link.url} target="_blank" rel="noreferrer">Open ↗</a></div>}
+          {dirty && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Save first: the preview shows saved changes only.</div>}
+        </div>
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          {status?.offline
+            ? can('website', 'edit') && <button className="btn sm" disabled={!!busy} onClick={() => act('online', () => api.post('/api/site-admin/online'), 'The website is back online')}>Put the website back online</button>
+            : can('website', 'delete') && <button className="btn sm" disabled={!!busy} onClick={() => setAsk('offline')}>Take the website offline</button>}
+          {can('website', 'delete') && status?.changes && <button className="btn sm" disabled={!!busy} onClick={() => setAsk('discard')}>Discard unpublished changes</button>}
+        </div>
+        <h4 style={{ margin: '6px 0 0' }}>Published versions</h4>
+        {!rows ? <Loading /> : !rows.length ? <div className="muted">Nothing published yet.</div> : (
+          <div className="stack" style={{ gap: 6 }}>
+            {rows.map((r) => (
+              <div key={r.id} className="row between" style={{ gap: 8, borderBottom: '1px solid var(--line, #e5e7eb)', paddingBottom: 6 }}>
+                <div className="grow"><b>{r.label || 'Published'}</b> {r.live && <span className="pill green">Live</span>}<div className="muted" style={{ fontSize: 12 }}>{when(r.published_at)}{r.by_name ? ` · ${r.by_name}` : ''} · {r.pages} page(s)</div></div>
+                {!r.live && can('website', 'edit') && <button className="btn sm" disabled={!!busy} onClick={() => setAsk(r)}>Make live again</button>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {ask === 'offline' && <ConfirmDialog danger title="Take the website offline?" message="Visitors see a short 'not available' page and search engines stop indexing it. Your pages and drafts are kept, and you can put it back online at any time." confirmLabel="Take offline" onCancel={() => setAsk(null)} onConfirm={() => act('offline', () => api.post('/api/site-admin/unpublish'), 'The website is offline')} />}
+      {ask === 'discard' && <ConfirmDialog danger title="Discard unpublished changes?" message="The editor goes back to the live website. Each changed page keeps its current layout in its own version history first, and pages added since the last publish are hidden, not deleted." confirmLabel="Discard changes" onCancel={() => setAsk(null)} onConfirm={() => act('discard', async () => { await api.post('/api/site-admin/draft/discard'); await onDiscarded(); }, 'Unpublished changes discarded')} />}
+      {ask && typeof ask === 'object' && <ConfirmDialog title="Make this version live again?" message={`Visitors will see the website as it was on ${when(ask.published_at)}. It is added as a new version, so you can switch back. Your draft in the editor is not changed.`} confirmLabel="Make live" onCancel={() => setAsk(null)} onConfirm={() => act('restore', () => api.post(`/api/site-admin/releases/${ask.id}/restore`), 'That version is live again')} />}
+    </Modal>
+  );
+}
+
 export default function WebsiteEditor() {
   const toast = useToast();
   const { can } = useAuth();
@@ -316,7 +387,11 @@ export default function WebsiteEditor() {
   const [prev, setPrev] = useState(null); // a template shown on the canvas before it is applied
   const [busy, setBusy] = useState(false);
   const [confirmDel, setConfirmDel] = useState(false);
+  const [pub, setPub] = useState(null); // publish status: live release, offline, unpublished changes
+  const [pubOpen, setPubOpen] = useState(false);
   const canEdit = can('website', 'edit');
+  const loadPub = useCallback(() => api.get('/api/site-admin/publish').then(setPub).catch(() => {}), []);
+  useEffect(() => { loadPub(); }, [loadPub]);
 
   const loadPages = useCallback(async (select) => {
     const l = await api.get('/api/site-admin/pages'); setPages(l);
@@ -336,8 +411,15 @@ export default function WebsiteEditor() {
     try {
       if (dirtyCfg) { await api.put('/api/site-admin/config', cfg); setSavedCfg(JSON.stringify(cfg)); }
       if (dirtyPage) { const p = await api.put(`/api/site-admin/pages/${page.id}`, { title: page.title, slug: page.slug, sections: page.sections, published: !!page.published, seo_title: page.seo_title || '', seo_desc: page.seo_desc || '', show_in_menu: !!page.show_in_menu }); setPage(p); setSavedPage(JSON.stringify(p)); loadPages(); }
-      toast('Website saved — changes are live', 'ok');
-    } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); }
+      toast('Draft saved. Press Publish to put it live.', 'ok');
+      loadPub();
+    } catch (e) { toast(e.message, 'err'); throw e; } finally { setBusy(false); }
+  };
+  const saveDraft = () => save().catch(() => {});
+  const reloadDraft = async () => {
+    const c = await api.get('/api/site-admin/config'); setCfg(c); setSavedCfg(JSON.stringify(c));
+    await loadPages();
+    if (pageId) { const p = await api.get(`/api/site-admin/pages/${pageId}`).catch(() => null); if (p) { hist.reset(); setPage(p); setSavedPage(JSON.stringify(p)); setSelected(null); } }
   };
   const switchPage = (id) => { if (dirtyPage && !window.confirm('You have unsaved changes on this page. Switch anyway?')) return; setPageId(Number(id)); };
 
@@ -379,7 +461,7 @@ export default function WebsiteEditor() {
     hide: (m) => { const sec = pageRef.current.sections.find((x) => x.id === m.id); if (sec) toggleHide(sec, device); },
   };
   const openVersions = async () => setVersions({ rows: await api.get(`/api/site-admin/pages/${page.id}/versions`), label: '' });
-  const restoreVersion = async (v) => { const d = await api.get(`/api/site-admin/pages/${page.id}/versions/${v.id}`); setPage((p) => ({ ...p, sections: d.sections })); setVersions(null); toast('Version loaded into the editor — press Save to publish it (or Undo to go back)', 'ok'); };
+  const restoreVersion = async (v) => { const d = await api.get(`/api/site-admin/pages/${page.id}/versions/${v.id}`); setPage((p) => ({ ...p, sections: d.sections })); setVersions(null); toast('Version loaded into the editor — Save, then Publish to put it live (or Undo to go back)', 'ok'); };
   useEffect(() => {
     const h = (e) => {
       const el = document.activeElement; if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
@@ -400,13 +482,16 @@ export default function WebsiteEditor() {
     setPage((p) => ({ ...p, sections: prev.sections }));
     if (t?.theme && prev.theme) setCfg((c) => ({ ...c, theme: { ...(c.theme || {}), ...t.theme } }));
     setSelected(null); setPrev(null);
-    toast(`${prev.label} applied to this page. Review it, then press Save to publish. Undo brings your old page back.`, 'ok');
+    toast(`${prev.label} applied to this page. Review it, Save, then Publish to put it live. Undo brings your old page back.`, 'ok');
   };
   const actionBtns = (<>
         <button className="btn" disabled={!hist.canUndo} onClick={hist.undo} title="Undo (Ctrl+Z)">↶ Undo</button><button className="btn" disabled={!hist.canRedo} onClick={hist.redo} title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
         <button className="btn" onClick={openVersions}>🕘 History</button>
         <a className="btn" href="/site" target="_blank" rel="noreferrer">View live site ↗</a>
-        <button className="btn primary" disabled={!dirty || busy || !canEdit} onClick={save}>{busy ? 'Saving…' : dirty ? 'Save changes' : 'Saved'}</button>
+        <button className="btn" disabled={!dirty || busy || !canEdit} onClick={saveDraft}>{busy ? 'Saving…' : dirty ? 'Save draft' : 'Saved'}</button>
+        <button className={`btn ${dirty || pub?.changes || pub?.offline ? 'primary' : ''}`} onClick={() => setPubOpen(true)} title="Publish, preview link, earlier versions">
+          {pub?.offline ? 'Offline · Publish' : dirty || pub?.changes ? 'Publish…' : 'Published ✓'}
+        </button>
       </>);
   return (
     <div className={full ? 'wed-fs' : ''}>
@@ -418,7 +503,7 @@ export default function WebsiteEditor() {
           {actionBtns}
         </div>
       ) : (
-        <PageHead title="Website editor" sub="Edit the public website — header, footer, hero, listings, colours, fonts, images, blog and more. Changes go live when you save.">
+        <PageHead title="Website editor" sub="Edit the public website — header, footer, hero, listings, colours, fonts, images, blog and more. Save keeps a draft; Publish puts it live.">
           <button className="btn" onClick={() => setFull(true)}>⤢ Full screen</button>
           {actionBtns}
         </PageHead>
@@ -523,12 +608,13 @@ export default function WebsiteEditor() {
           <div className="wed-frame bc"><BuilderCanvas config={prev ? prev.config : cfg} sections={prev ? prev.sections : sections} selected={prev ? null : selected} device={device} readonly={!!prev} actions={prev ? {} : canvasActions} /></div>
         </div>
       </div>
+      {pubOpen && <PublishPanel status={pub} dirty={dirty} onSaveFirst={save} onChanged={loadPub} onDiscarded={reloadDraft} onClose={() => setPubOpen(false)} />}
       {delId && <ConfirmDialog danger title="Delete this block?" message="The block is removed from the page. You can undo for a few seconds, or with Ctrl+Z." confirmLabel="Delete" onCancel={() => setDelId(null)} onConfirm={doDelete} />}
       {versions && (
         <Modal title="Version history" size="lg" onClose={() => setVersions(null)}>
           <div className="stack">
             <div className="row" style={{ gap: 8 }}><input className="input" style={{ flex: 1 }} placeholder="Name this version (e.g. Before Eid sale banner)" value={versions.label} onChange={(e) => setVersions({ ...versions, label: e.target.value })} /><button className="btn primary" onClick={async () => { await api.post(`/api/site-admin/pages/${page.id}/versions`, { label: versions.label }); setVersions({ rows: await api.get(`/api/site-admin/pages/${page.id}/versions`), label: '' }); toast('Version saved', 'ok'); }}>Save current version</button></div>
-            <p className="muted" style={{ margin: 0 }}>Every save keeps a snapshot (newest 40). Loading one puts it in the editor — nothing goes live until you press Save.</p>
+            <p className="muted" style={{ margin: 0 }}>Every save keeps a snapshot (newest 40). Loading one puts it in the editor — nothing goes live until you Save and Publish.</p>
             {!versions.rows.length ? <div className="muted">No versions yet — they appear after the first save.</div> : versions.rows.map((v) => (
               <div key={v.id} className="row between" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
                 <div><b>{v.label || 'Saved'}</b><div className="muted" style={{ fontSize: 12 }}>{v.created_at?.replace('T', ' ').slice(0, 16)} · {v.by_name || 'system'} · {v.sections} blocks</div></div>
@@ -555,7 +641,7 @@ export default function WebsiteEditor() {
           setPage((p) => ({ ...p, sections: d.sections.map((x) => ({ ...x, props: { ...JSON.parse(JSON.stringify(SECTION_TYPES[x.type]?.defaults || {})), ...x.props } })) }));
           setCfg((c) => ({ ...c, ...(ai.theme && Object.keys(d.theme).length ? { theme: { ...(c.theme || {}), ...d.theme } } : {}), ...(ai.seo && (d.seo.title || d.seo.description) ? { seo: { ...(c.seo || {}), ...(d.seo.title ? { title: d.seo.title } : {}), ...(d.seo.description ? { description: d.seo.description } : {}) } } : {}) }));
           setSelected(null); setAi(null);
-          toast('The AI draft is on this page. Read it, add your own photos and facts, then press Save to publish. Undo brings your old page back.', 'ok');
+          toast('The AI draft is on this page. Read it, add your own photos and facts, then Save and Publish to put it live. Undo brings your old page back.', 'ok');
         };
         const d = ai.draft;
         return (
@@ -604,7 +690,7 @@ export default function WebsiteEditor() {
           setPage((p) => ({ ...p, sections: buildSections(t) }));
           if (t.theme && tpl.theme) setCfg((c) => ({ ...c, theme: { ...(c.theme || {}), ...t.theme } }));
           setSelected(null); setTpl(null);
-          toast(`${t.name} applied to this page. Review it, then press Save to publish. Undo brings your old page back.`, 'ok');
+          toast(`${t.name} applied to this page. Review it, Save, then Publish to put it live. Undo brings your old page back.`, 'ok');
         };
         const preview = () => { setPrev({ id: t.id, label: t.name, theme: tpl.theme, sections: buildSections(t), config: { ...cfg, theme: t.theme && tpl.theme ? { ...(cfg.theme || {}), ...t.theme } : cfg.theme } }); setTpl(null); };
         return (
