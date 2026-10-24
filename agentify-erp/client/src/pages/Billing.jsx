@@ -10,7 +10,7 @@ const price = (p, currency, interval) => {
   const cur = p.price[currency] ? currency : p.price.PKR ? 'PKR' : 'USD';
   return p.price[cur]?.[interval] == null ? '—' : fmtMoney(p.price[cur][interval], cur);
 };
-const PRODUCT_LABEL = { real_estate: 'Real Estate Brokerage', construction: 'Construction Management', bundle: 'Real Estate + Construction' };
+const PRODUCT_LABEL = { real_estate: 'Real Estate Brokerage', construction: 'Construction Management', bundle: 'Real Estate + Construction', website: 'Free website' };
 /** A UTC instant shown in the viewer's own timezone. */
 const localWhen = (iso) => (iso ? new Date(String(iso).length > 10 ? iso : `${iso}T23:59:59Z`).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
 

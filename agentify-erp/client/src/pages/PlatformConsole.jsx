@@ -15,6 +15,7 @@ import { AnalyticsPage, WebsitePage, DemoRequestsPage, AnnouncementsPage, Integr
 import LandingEditorPage from './platform/LandingEditor.jsx';
 import { MailboxPage, SentLogPage, MailboxSettingsPage } from './platform/Mailbox.jsx';
 import { RegionsPage } from "./platform/Regions.jsx";
+import FreeSitesPage from './platform/FreeSites.jsx';
 
 const A = '/api/platform/admin';
 const SLOT_LABEL = (s) => s.replace('_', ' · ').replace(/^./, (c) => c.toUpperCase());
@@ -297,6 +298,7 @@ function ConsoleRoutes() {
         <Route path="analytics" element={<Allowed perm="analytics.view"><AnalyticsPage /></Allowed>} />
         <Route path="website/visual" element={<Allowed perm="content.manage"><LandingEditorPage /></Allowed>} />
         <Route path="website" element={<Allowed perm="content.manage"><WebsitePage /></Allowed>} />
+        <Route path="free-sites" element={<Allowed perm="system.view"><FreeSitesPage /></Allowed>} />
         <Route path="reviews" element={<Allowed perm="content.manage"><ReviewsPage /></Allowed>} />
         <Route path="demo-requests" element={<Allowed perm="workspaces.view"><DemoRequestsPage /></Allowed>} />
         <Route path="announcements" element={<Allowed perm="dashboard.view"><AnnouncementsPage /></Allowed>} />

@@ -5,7 +5,7 @@ import { all, get, run, tx, getSetting, setSetting, uploadDir } from '../db.js';
 import { can, hasPerm, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { uploader } from './helpers.js';
-import { asyncH, bad, notFound, jparse, now } from '../util.js';
+import { asyncH, bad, notFound, jparse, now, HttpError } from '../util.js';
 import { siteConfig } from './site.js';
 import { validateSiteConfig, validateSections } from '../services/siteValidate.js';
 import { defaultConfig, defaultPages } from '../services/siteDefaults.js';
@@ -30,7 +30,14 @@ r.get('/publish', can('website', 'view'), (req, res) => {
   const live = liveRelease();
   res.json({ live: releaseRow(live.id), offline: isOffline(), changes: draftDiffers(), releases: get('SELECT COUNT(*) n FROM site_releases').n });
 });
-r.post('/publish', can('website', 'edit'), asyncH((req, res) => {
+/** A free website goes public only once its owner has confirmed their email address (keeps throwaway signups off the web). */
+const verifiedToPublish = (req, _res, next) => {
+  if (req.tenant?.product === 'website' && !get('SELECT email_verified FROM users WHERE id=?', req.user.id)?.email_verified) {
+    return next(new HttpError(403, 'Confirm your email address first: open the link in the welcome email, then publish.', { code: 'email_not_verified' }));
+  }
+  next();
+};
+r.post('/publish', can('website', 'edit'), verifiedToPublish, asyncH((req, res) => {
   const label = String(req.body?.label || '').trim().slice(0, 120);
   const id = publishDraft(req.user.id, label || 'Published');
   audit(req, 'Published the website', 'website', id, label || null);
@@ -41,13 +48,13 @@ r.post('/unpublish', can('website', 'delete'), asyncH((req, res) => {
   audit(req, 'Took the website offline', 'website');
   res.json({ ok: true, offline: true });
 }));
-r.post('/online', can('website', 'edit'), asyncH((req, res) => {
+r.post('/online', can('website', 'edit'), verifiedToPublish, asyncH((req, res) => {
   setOffline(false);
   audit(req, 'Put the website back online', 'website');
   res.json({ ok: true, offline: false });
 }));
 r.get('/releases', can('website', 'view'), (req, res) => res.json(releaseList()));
-r.post('/releases/:id(\\d+)/restore', can('website', 'edit'), asyncH((req, res) => {
+r.post('/releases/:id(\\d+)/restore', can('website', 'edit'), verifiedToPublish, asyncH((req, res) => {
   const id = restoreRelease(Number(req.params.id), req.user.id);
   audit(req, 'Restored an earlier version of the website', 'website', id, `from release ${req.params.id}`);
   res.json({ ok: true, live: releaseRow(id) });

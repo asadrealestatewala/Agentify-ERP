@@ -34,6 +34,7 @@ import { subscriptionHistory } from '../services/subscriptions.js';
 import mailboxRoutes from './platformMailbox.js';
 import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite } from '../services/platformStaff.js';
+import { freeSitesConfig, saveFreeSites, checkFreeSitesDns } from '../services/freeSites.js';
 
 const r = Router();
 // every console request gets a request id and its IP / browser recorded with any audit row it writes
@@ -151,6 +152,16 @@ r.delete('/payment-accounts/:id', requireOperator, need('billing.configure'), as
 r.get('/backups', requireOperator, need('system.view'), (_req, res) => res.json({ dir: backupDir(), backups: listBackups(), keep: Number(process.env.BACKUP_KEEP) || 14, every_hours: Number(process.env.BACKUP_EVERY_HOURS) || 24, enabled: process.env.BACKUP_ENABLED !== '0', uploads: process.env.BACKUP_UPLOADS === '1' }));
 r.post('/backups/run', requireOperator, need('system.manage'), limiter, asyncH((req, res) => { const out = runBackup(); audit(req.operator.email, 'backup-run', { name: out.name }); res.json(out); }));
 r.get('/audit', requireOperator, need('audit.view'), (_req, res) => res.json(platformDb().prepare('SELECT * FROM platform_audit ORDER BY id DESC LIMIT 100').all()));
+
+// ---- Free websites: the separate domain they are served from, the signup switch, and a DNS check
+r.get('/free-sites', requireOperator, need('system.view'), (_req, res) => res.json(freeSitesConfig()));
+r.put('/free-sites', requireOperator, need('system.manage'), asyncH((req, res) => {
+  const before = freeSitesConfig();
+  const out = saveFreeSites({ domain: req.body?.domain, open: req.body?.open === true }, req.operator.email);
+  audit(req.operator.email, 'free-sites-settings', { domain: out.domain || null, open: out.open, previous_domain: before.domain || null });
+  res.json(out);
+}));
+r.post('/free-sites/check-dns', requireOperator, need('system.view'), limiter, asyncH(async (_req, res) => res.json(await checkFreeSitesDns())));
 
 // ---- Super admin: overview, workspace progress, expiry and sign-in help
 r.get('/overview', requireOperator, need('dashboard.view'), (req, res) => res.json(overview(req, req.operator)));

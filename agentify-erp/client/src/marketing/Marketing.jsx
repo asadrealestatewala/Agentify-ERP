@@ -220,7 +220,7 @@ function Footer({ info, onCookies }) {
     </div><div style={{ width: '100%', marginTop: 18 }}>© {new Date().getFullYear()} {c.brand}</div></div></footer>
   );
 }
-const PRODUCT_LABELS = { real_estate: 'Real Estate Brokerage Management', construction: 'Construction Management' };
+const PRODUCT_LABELS = { real_estate: 'Real Estate Brokerage Management', construction: 'Construction Management', website: 'Free website' };
 
 function ConsentBanner({ show, onClose }) {
   useEffect(() => {
@@ -753,7 +753,9 @@ function Signup({ info }) {
   const { country, countries, setCountry } = useCountry();
   const loc = useLocation();
   const q = new URLSearchParams(loc.search);
-  const [product, setProduct] = useState(['real_estate', 'construction'].includes(q.get('product')) ? q.get('product') : '');
+  const freeOpen = !!info.free_sites?.open;
+  const [product, setProduct] = useState(['real_estate', 'construction'].includes(q.get('product')) || (freeOpen && q.get('product') === 'website') ? q.get('product') : '');
+  const free = product === 'website';
   const [f, setF] = useState({ company_name: '', slug: '', admin_name: '', admin_email: q.get('email') || '', admin_password: '', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Karachi', currency: 'PKR', accept_terms: false });
   const [slugTouched, setSlugTouched] = useState(false);
   const [avail, setAvail] = useState(null);
@@ -812,6 +814,7 @@ function Signup({ info }) {
         <p><b>{t.name}</b> · {PRODUCT_LABELS[t.product]}</p>
         {t.trial_ends_at ? <p>Your free trial runs until <b>{new Date(t.trial_ends_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</b> (your local time).</p>
           : <p>{t.trial_note ? `${t.trial_note}. ` : ''}Choose a plan in Settings › Plan &amp; Billing to start working.</p>}
+        {done.site_url && <p>Your website will be public at <b>{done.site_url.replace(/^https?:\/\//, '')}</b> once you publish it. Publishing needs your email confirmed first.</p>}
         <p className="lmini">We emailed {t.owner_email} a link to confirm the address.</p>
         {unreachable && <div className="lerr" role="alert" style={{ textAlign: 'left', margin: '12px 0' }}>Your workspace was created at <b>{done.login_url.replace(/^https?:\/\//, '')}</b>, but that address cannot be reached yet. This is a setup step on our side (the website address for workspaces is still being connected). Your data is safe. Please try the button below again in a little while, or contact us.</div>}
         <button type="button" className="lbtn p" onClick={enter} disabled={checking}>{checking ? 'Checking the address…' : unreachable ? 'Check again' : 'Open your workspace'}</button>
@@ -827,11 +830,12 @@ function Signup({ info }) {
           <div className="lchoose">
             <button type="button" className={product === 'real_estate' ? 'on' : ''} aria-pressed={product === 'real_estate'} onClick={() => setProduct('real_estate')}><b>Real Estate Brokerage</b><span>Leads, inventory, sales, installments, commissions, receipts, customer portal.</span></button>
             <button type="button" className={product === 'construction' ? 'on' : ''} aria-pressed={product === 'construction'} onClick={() => setProduct('construction')}><b>Construction Management</b><span>Projects, BOQs, budgets, procurement, materials, labour, progress, client billing.</span></button>
+            {freeOpen && <button type="button" className={product === 'website' ? 'on' : ''} aria-pressed={product === 'website'} onClick={() => setProduct('website')}><b>Free website only</b><span>A website builder with your own address on {info.free_sites.domain}. No CRM, no trial, no card.</span></button>}
           </div>
         </fieldset>
         <div style={{ fontWeight: 700 }}>2. Your company and account</div>
         {gErr && <div className="lerr" role="alert">{gErr}</div>}
-        {info.google_signup && !gWho && (
+        {info.google_signup && !gWho && !free && (
           <>
             <a className="lbtn" href={`/api/platform/oauth/google/signup?${new URLSearchParams({ product: product || '', country: country.code })}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, background: '#fff', color: '#1f2937', border: '1px solid #d0d5dd' }}>
               <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z" /><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.2 5.5-4.7 7.2l7.5 5.8c4.4-4.1 7-10.1 7-17.5z" /><path fill="#FBBC05" d="M10.5 28.7a14.5 14.5 0 010-9.4l-7.9-6.1a24 24 0 000 21.6l7.9-6.1z" /><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z" /></svg>
@@ -842,7 +846,7 @@ function Signup({ info }) {
         )}
         {gWho && <div className="lok" role="status" style={{ background: '#e6f5ea', color: '#166534', padding: '10px 14px', borderRadius: 10 }}>Signed in with Google as <b>{gWho.email}</b>. No password needed: you will sign in with Google.</div>}
         <label>Company name<input required value={f.company_name} onChange={(e) => { const v = e.target.value; setF((s) => ({ ...s, company_name: v, slug: slugTouched ? s.slug : slugify(v) })); }} autoComplete="organization" /></label>
-        <label>Workspace address<span className="lhint">{avail ? (avail.available ? `Available: ${f.slug}.${info.base_domain}` : avail.reason) : 'Letters, digits and hyphens'}</span>
+        <label>Workspace address<span className="lhint">{avail ? (avail.available ? `Available: ${f.slug}.${free ? info.free_sites.domain : info.base_domain}` : avail.reason) : 'Letters, digits and hyphens'}</span>
           <input required value={f.slug} onChange={(e) => { setSlugTouched(true); setF((s) => ({ ...s, slug: slugify(e.target.value) })); }} placeholder="your-company" aria-invalid={avail && !avail.available} /></label>
         <div className="lrow"><label>Your name<input required value={f.admin_name} onChange={set('admin_name')} autoComplete="name" /></label><label>Work email<input type="email" required value={f.admin_email} onChange={set('admin_email')} autoComplete="email" readOnly={!!gWho} /></label></div>
         {!gWho && <label>Password<span className="lhint">At least 8 characters</span><input type="password" minLength={8} required value={f.admin_password} onChange={set('admin_password')} autoComplete="new-password" /></label>}
@@ -854,11 +858,11 @@ function Signup({ info }) {
         {country.timezones?.length > 1 && <label>Time zone<select value={country.timezones.includes(f.timezone) ? f.timezone : country.timezones[0]} onChange={set('timezone')}>{country.timezones.map((z) => <option key={z} value={z}>{z.replace('_', ' ')}</option>)}</select></label>}
         {country.languages?.length > 1 && <label>Language<select value={f.language || country.languages[0]} onChange={set('language')}>{country.languages.map((x) => <option key={x} value={x}>{{ en: 'English', fr: 'Français', ar: 'العربية' }[x] || x}</option>)}</select></label>}
         <div className="lhint" aria-live="polite">Set from your country: {[country.currency, country.config?.date_style, country.config?.area?.labels?.[country.config?.area?.default], country.config?.timezone].filter(Boolean).join(' · ')}</div>
-        {country.code !== 'PK' && <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontWeight: 400 }}><input type="checkbox" checked={!!f.sample_data} onChange={set('sample_data')} style={{ width: 'auto', marginTop: 4 }} /><span>Add sample listings, clients and sales for {country.name} so I can explore (marked as demo data).</span></label>}
+        {country.code !== 'PK' && !free && <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontWeight: 400 }}><input type="checkbox" checked={!!f.sample_data} onChange={set('sample_data')} style={{ width: 'auto', marginTop: 4 }} /><span>Add sample listings, clients and sales for {country.name} so I can explore (marked as demo data).</span></label>}
         {!country.open && <div className="lerr" role="status">Signups for {country.name} are not open yet. <Link to={`/contact?country=${country.code.toLowerCase()}`}>Join the waiting list</Link> and we will email you when they open.</div>}
         <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontWeight: 400 }}><input type="checkbox" checked={f.accept_terms} onChange={set('accept_terms')} style={{ width: 'auto', marginTop: 4 }} />
           <span>I agree to the <Link to="/legal/terms" target="_blank">Terms of Service</Link>, <Link to="/legal/subscription" target="_blank">Subscription Terms</Link> and <Link to="/legal/privacy" target="_blank">Privacy Policy</Link>.</span></label>
-        <button className="lbtn p" disabled={busy || !country.open || (avail && !avail.available)}>{busy ? 'Creating your workspace…' : 'Create workspace'}</button>
+        <button className="lbtn p" disabled={busy || !country.open || (avail && !avail.available)}>{busy ? 'Creating your workspace…' : free ? 'Create free website' : 'Create workspace'}</button>
         <p className="lmini" style={{ margin: 0, textAlign: 'center' }}>Already have one? <Link to="/login">Sign in</Link></p>
       </form>
     </div></section>

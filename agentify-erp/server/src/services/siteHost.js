@@ -3,13 +3,34 @@
 // canonical link and sharing tags from the server, so search engines and link previews (WhatsApp, Facebook) see them
 // without running JavaScript.
 import { get, getSetting } from '../db.js';
-import { BASE_DOMAIN, isMultiTenant } from '../platform.js';
+import { BASE_DOMAIN, isMultiTenant, isSitesHost, sitesDomain } from '../platform.js';
 import { publicSite, validPreview } from './siteRelease.js';
 
 const hostOf = (req) => String(req.hostname || '').toLowerCase().replace(/\.$/, '');
 
 /** Is this request for a workspace through its own connected domain (not <slug>.<base domain>)? */
 export const viaCustomDomain = (req) => !!(isMultiTenant() && req.tenant?.custom_domain && hostOf(req) === String(req.tenant.custom_domain).toLowerCase());
+/** Is this request for a free website on the free-websites domain? Those addresses serve the website only. */
+export const viaSitesDomain = (req) => !!(req.tenant?.product === 'website' && isSitesHost(req.hostname));
+
+/** Where a free website is public: <slug>.<free-websites domain>, or null while no such domain is set. */
+export function publicSiteUrl(tenant, req) {
+  const d = sitesDomain();
+  if (!d || tenant?.product !== 'website') return null;
+  if (d === 'localhost' && req) return `${req.protocol}://${tenant.slug}.localhost${req.get('host')?.match(/:\d+$/)?.[0] || ''}`;
+  return `https://${tenant.slug}.${d}`;
+}
+
+/**
+ * A free website's public pages live on the free-websites domain only. On the app's own address (where its owner signs
+ * in and edits) the public pages send visitors there instead; private preview links keep working on the app address.
+ */
+export function freeSiteToSitesDomain(req, res, next) {
+  if (req.tenant?.product !== 'website' || viaSitesDomain(req) || !['GET', 'HEAD'].includes(req.method)) return next();
+  if (req.query.preview || req.path.startsWith('/site/__editor') || !(req.path === '/site' || req.path.startsWith('/site/'))) return next();
+  const to = publicSiteUrl(req.tenant, req);
+  return to ? res.redirect(302, `${to}${req.originalUrl}`) : next();
+}
 
 /** The workspace address, where staff, customers and vendors sign in. */
 export const workspaceUrl = (tenant, req) => (BASE_DOMAIN === 'localhost' && req ? `${req.protocol}://${tenant.slug}.localhost${req.get('host')?.match(/:\d+$/)?.[0] || ''}` : `https://${tenant.slug}.${BASE_DOMAIN}`);
@@ -20,7 +41,7 @@ const SITE_PATH = /^\/(site(\/.*)?|sitemap\.xml|robots\.txt|assets\/.+|embed\/.+
 
 /** Express middleware: on a custom domain everything except the website goes to the workspace address. */
 export function websiteOnlyOnCustomDomain(req, res, next) {
-  if (!viaCustomDomain(req)) return next();
+  if (!viaCustomDomain(req) && !viaSitesDomain(req)) return next();
   if (SITE_API.test(req.path) || SITE_PATH.test(req.path)) return next();
   const ws = workspaceUrl(req.tenant, req);
   if (req.path.startsWith('/api/')) return res.status(404).json({ error: `This address shows the website only. Use ${ws} for the workspace.` });

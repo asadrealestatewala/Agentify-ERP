@@ -11,7 +11,7 @@ import { scheduleBackups } from './services/backup.js';
 import { tenantContext, bootstrapTenants, forEachTenant, forEachTenantAsync, isMultiTenant, resolveTenant, BASE_DOMAIN } from './platform.js';
 import { runDuePosts } from './integrations/social.js';
 import { injectMeta, platformSitemap, platformRobots, MARKETING_ROUTES } from './services/marketing.js';
-import { injectSiteMeta, websiteOnlyOnCustomDomain } from './services/siteHost.js';
+import { injectSiteMeta, websiteOnlyOnCustomDomain, freeSiteToSitesDomain } from './services/siteHost.js';
 import { ensureFirstAdmin } from './services/platformAuth.js';
 import { markJob, snapshot, generateNotifications } from './services/platformMetrics.js';
 import { maintenanceGate, recordError } from './services/maintenance.js';
@@ -104,6 +104,7 @@ export function createApp() {
   app.use(tenantContext);
   // a customer's own domain shows the website only; sign-in and the ERP stay on the workspace address
   app.use(websiteOnlyOnCustomDomain);
+  app.use(freeSiteToSitesDomain);
 
   // Public website API: key-authenticated, CORS-open (no cookies involved)
   app.use('/api/public', (req, res, next) => {
