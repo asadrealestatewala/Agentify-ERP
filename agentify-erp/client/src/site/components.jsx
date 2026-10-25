@@ -221,8 +221,9 @@ export function ProjectCard({ p }) {
       <div className="jbody">
         <h3>{p.name}</h3><div className="muted">📍 {p.location || '—'}</div>
         {p.description && <p>{p.description.slice(0, 110)}{p.description.length > 110 ? '…' : ''}</p>}
-        <div className="jbar"><div style={{ width: `${p.progress || 0}%` }} /></div>
-        <div className="jmeta"><span>{p.progress || 0}% developed</span><b>{p.available} available</b></div>
+        {/* a project without a schedule or development items has no progress figure: show none rather than 0% */}
+        {p.progress != null && <div className="jbar"><div style={{ width: `${p.progress}%` }} /></div>}
+        {(p.progress != null || p.available > 0) && <div className="jmeta"><span>{p.progress != null ? `${p.progress}% developed` : ''}</span>{p.available > 0 && <b>{p.available} available</b>}</div>}
       </div>
     </Link>
   );

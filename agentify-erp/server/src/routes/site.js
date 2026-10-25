@@ -101,7 +101,10 @@ r.get('/facets', (req, res) => {
     types: all(`SELECT p.property_type value, COUNT(*) n ${v} AND p.property_type IS NOT NULL GROUP BY p.property_type ORDER BY n DESC`),
     purposes: all(`SELECT p.purpose value, COUNT(*) n ${v} GROUP BY p.purpose`),
     price: get(`SELECT MIN(p.net_price) min, MAX(p.net_price) max ${v}`),
+    units: all(`SELECT p.unit value, COUNT(*) n ${v} AND p.unit<>'' GROUP BY p.unit ORDER BY n DESC`),
     projects: all("SELECT id, name FROM projects WHERE site_visible=1 ORDER BY name"),
+    project_kinds: all("SELECT kind value, COUNT(*) n FROM projects WHERE site_visible=1 AND kind<>'' GROUP BY kind ORDER BY n DESC"),
+    project_statuses: all("SELECT dev_status value, COUNT(*) n FROM projects WHERE site_visible=1 AND dev_status<>'' GROUP BY dev_status ORDER BY n DESC"),
     popular: all(`SELECT p.area_name value, p.city, COUNT(*) n ${v} AND p.area_name<>'' GROUP BY p.area_name ORDER BY n DESC LIMIT 8`),
   });
 });
@@ -118,9 +121,14 @@ r.get('/listings/:id(\\d+)', asyncH((req, res) => {
 
 // --- projects
 r.get('/projects', asyncH((req, res) => {
+  const q = req.query, where = ['p.site_visible=1'], params = [];
+  if (q.kind) { where.push('p.kind=?'); params.push(String(q.kind)); }
+  if (q.status) { where.push('p.dev_status=?'); params.push(String(q.status)); }
+  if (q.q) { where.push('(p.name LIKE ? OR p.location LIKE ? OR p.description LIKE ?)'); params.push(...Array(3).fill(`%${q.q}%`)); }
+  if (q.available === '1') where.push("EXISTS (SELECT 1 FROM properties x WHERE x.project_id=p.id AND x.published=1 AND x.status IN ('available','featured'))");
   const rows = all(`SELECT p.id,p.code,p.name,p.location,p.description,p.dev_status,p.kind,p.total_units,p.start_date,p.expected_completion, ${progressSql('p.id')} progress,
     (SELECT COUNT(*) FROM properties x WHERE x.project_id=p.id AND x.published=1 AND x.status IN ('available','featured')) available,
-    (SELECT path FROM media WHERE entity_type='project' AND entity_id=p.id ORDER BY sort_order LIMIT 1) cover FROM projects p WHERE p.site_visible=1 ORDER BY p.site_featured DESC, p.name`);
+    (SELECT path FROM media WHERE entity_type='project' AND entity_id=p.id ORDER BY sort_order LIMIT 1) cover FROM projects p WHERE ${where.join(' AND ')} ORDER BY p.site_featured DESC, p.name`, ...params);
   res.json({ data: rows.map((p) => ({ ...p, description: cleanForOutput(p.description), cover: img(p.cover) })) });
 }));
 r.get('/projects/:id(\\d+)', asyncH((req, res) => {

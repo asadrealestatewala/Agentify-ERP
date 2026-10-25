@@ -138,8 +138,9 @@ function checkImages(req) {
 export function uploader(dir, kind = 'documents', maxMb = 25) {
   const m = multer({
     storage: multer.diskStorage({
-      // resolved per request: every tenant uploads into its own folder
-      destination: (_r, _f, cb) => { const target = path.join(uploadDir(), dir); fs.mkdir(target, { recursive: true }, (e) => cb(e, target)); },
+      // resolved per request (see wrap): every tenant uploads into its own folder. The second and later files of a
+      // multi-file upload arrive outside the tenant context, so uploadDir() alone would put them in the shared folder.
+      destination: (r, _f, cb) => { const target = path.join(r.uploadRoot || uploadDir(), dir); fs.mkdir(target, { recursive: true }, (e) => cb(e, target)); },
       filename: (_r, f, cb) => cb(null, crypto.randomBytes(16).toString('hex') + path.extname(f.originalname).toLowerCase()),
     }),
     limits: { fileSize: maxMb * 1024 * 1024, files: 20 },
@@ -150,6 +151,6 @@ export function uploader(dir, kind = 'documents', maxMb = 25) {
     },
   });
   // multer finishes from stream events, outside the request's tenant context; restore it for the route handler
-  const wrap = (mw) => (req, res, next) => mw(req, res, keepContext((err) => (err || kind !== 'image' ? next(err) : next(checkImages(req)))));
+  const wrap = (mw) => (req, res, next) => { req.uploadRoot = uploadDir(); return mw(req, res, keepContext((err) => (err || kind !== 'image' ? next(err) : next(checkImages(req))))); };
   return { single: (f) => wrap(m.single(f)), array: (f, n) => wrap(m.array(f, n)), fields: (f) => wrap(m.fields(f)), any: () => wrap(m.any()), none: () => wrap(m.none()) };
 }

@@ -120,3 +120,27 @@ test('one workspace\'s theme, pages and settings are invisible to and untouchabl
   // the shared definitions are untouched by either install
   assert.equal(SITE_THEMES.find((t) => t.id === 'horizon').pages[0].blocks[0].props.headline, 'Architecture you can live in');
 });
+
+test('several images uploaded at once all land in the workspace’s own folder and are served from its site', async () => {
+  assert.equal((await signup('multipix', 'owner@multipix.test')).status, 201);
+  const a = await login('multipix.erp.test', 'owner@multipix.test', 'Tenant@12345');
+  const png = Buffer.concat([Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'), Buffer.alloc(100_000)]);
+  const boundary = '----multipix';
+  const raw = Buffer.concat([0, 1, 2].flatMap((i) => [Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="files"; filename="p${i}.png"\r\nContent-Type: image/png\r\n\r\n`), png, Buffer.from('\r\n')]).concat([Buffer.from(`--${boundary}--\r\n`)]));
+  const up = await new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port, path: '/api/site-admin/media', method: 'POST', headers: { Host: 'multipix.erp.test', cookie: a.c, 'X-Requested-With': 'ERP', 'Content-Type': `multipart/form-data; boundary=${boundary}`, 'Content-Length': raw.length } }, (res) => {
+      let t = ''; res.on('data', (c) => { t += c; }); res.on('end', () => resolve({ status: res.statusCode, data: JSON.parse(t) }));
+    });
+    req.on('error', reject); req.flushHeaders();
+    // the body follows the headers a moment later, as it does from a browser on a real network
+    setTimeout(() => { req.write(raw.subarray(0, 1000)); setTimeout(() => { req.write(raw.subarray(1000)); req.end(); }, 30); }, 30);
+  });
+  assert.equal(up.status, 201, JSON.stringify(up.data));
+  assert.equal(up.data.length, 3);
+  for (const m of up.data) {
+    const file = path.basename(m.path);
+    assert.ok(fs.existsSync(path.join(dir, 'uploads', 'tenants', 'multipix', 'media', file)), `${file} is in the workspace folder`);
+    assert.ok(!fs.existsSync(path.join(dir, 'uploads', 'media', file)), `${file} is not in the shared folder`);
+    assert.equal((await call('multipix.erp.test', 'GET', `/uploads/${m.path}`)).status, 200);
+  }
+});
