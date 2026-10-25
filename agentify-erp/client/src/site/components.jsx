@@ -6,6 +6,7 @@ import { useMemo } from 'react';
 import { Markdown, imgUrl, isInternal, priceText, useSite, waLink, MoneyBox, curCode, siteCopy, isPK, exampleAmount } from './siteCore.jsx';
 import { safeId, sectionCss } from '../../../shared/sectionStyle.js';
 import { DEMO_AGENTS, DEMO_LISTINGS, DEMO_POSTS } from './demoContent.js';
+import SiteIcon, { ICON_SIZE, Ic } from './SiteIcon.jsx';
 
 /**
  * Inline editing. On the editor canvas each section is wrapped in this context; <Ed> then renders its text as an editable element
@@ -167,7 +168,8 @@ const usePublic = (url, params) => {
 };
 export { usePublic };
 
-export const Placeholder = ({ icon = '🏠', label }) => <div className="ph" aria-hidden="true"><span>{icon}</span>{label && <small>{label}</small>}</div>;
+/** Picture stand-in: a large outline icon (semantic id from shared/siteIcons.js) on a soft tint. */
+export const Placeholder = ({ icon = 'residential', label }) => <div className="ph" aria-hidden="true"><SiteIcon name={icon} size={44} stroke={1.5} />{label && <small>{label}</small>}</div>;
 
 export function Stars() { return <span className="featured-tag">★ Featured</span>; }
 
@@ -176,23 +178,23 @@ export function PropertyCard({ p, onEnquire }) {
   return (
     <article className="pcard">
       <Link to={`/site/property/${p.id}`} className="pcard-img" aria-label={p.title}>
-        {p.cover ? <img src={imgUrl(p.cover)} alt={p.title} loading="lazy" /> : <Placeholder icon={p.type === 'Plots' ? '🌳' : p.type === 'Shops' || p.type === 'Offices' ? '🏢' : '🏠'} />}
+        {p.cover ? <img src={imgUrl(p.cover)} alt={p.title} loading="lazy" /> : <Placeholder icon={p.type === 'Plots' ? 'land' : p.type === 'Shops' || p.type === 'Offices' ? 'commercial' : 'residential'} />}
         <div className="tags">{p.sample && <span className="tag-sample">Sample</span>}{p.featured && <Stars />}{p.purpose === 'Rent' && <span className="tag-rent">For rent</span>}{sold && <span className="tag-sold">Sold</span>}{reserved && <span className="tag-res">Reserved</span>}{p.ready && <span className="tag-ready">Ready</span>}</div>
-        {p.photos > 1 && <span className="photos">📷 {p.photos}</span>}
+        {p.photos > 1 && <span className="photos"><Ic n="photos" /> {p.photos}</span>}
       </Link>
       <div className="pcard-body">
         <div className="price">{priceText(p.price, p.purpose)}{p.discount > 0 && <small className="was">{priceText(p.total_price)}</small>}</div>
         <Link to={`/site/property/${p.id}`} className="ptitle">{p.title}</Link>
-        <div className="ploc">📍 {[p.area_name, p.city].filter(Boolean).join(', ') || p.location || '—'}</div>
+        <div className="ploc"><Ic n="location" /> {[p.area_name, p.city].filter(Boolean).join(', ') || p.location || '—'}</div>
         <div className="pfacts">
-          {p.area && <span>📐 {p.area} {p.unit}</span>}
-          {p.bedrooms != null && <span>🛏 {p.bedrooms}</span>}
-          {p.bathrooms != null && <span>🛁 {p.bathrooms}</span>}
-          {p.installment && <span className="inst">💳 Installments</span>}
+          {p.area && <span><Ic n="area" /> {p.area} {p.unit}</span>}
+          {p.bedrooms != null && <span><Ic n="bedrooms" /> {p.bedrooms}<span className="sr-only"> bedrooms</span></span>}
+          {p.bathrooms != null && <span><Ic n="bathrooms" /> {p.bathrooms}<span className="sr-only"> bathrooms</span></span>}
+          {p.installment && <span className="inst"><Ic n="installments" /> Installments</span>}
         </div>
         {p.agent && <div className="pagent"><span className="av">{p.agent.name.split(' ').map((x) => x[0]).join('').slice(0, 2)}</span><span className="grow">{p.agent.name}</span>
-          {p.agent.phone && <a href={`tel:${p.agent.phone}`} aria-label={`Call ${p.agent.name}`} className="ic">📞</a>}
-          {p.agent.whatsapp && <a href={waLink(p.agent.whatsapp, `Hi, I'm interested in ${p.title} (${p.code})`)} target="_blank" rel="noreferrer" aria-label="WhatsApp" className="ic">💬</a>}</div>}
+          {p.agent.phone && <a href={`tel:${p.agent.phone}`} aria-label={`Call ${p.agent.name}`} className="ic"><SiteIcon name="phone" size={16} /></a>}
+          {p.agent.whatsapp && <a href={waLink(p.agent.whatsapp, `Hi, I'm interested in ${p.title} (${p.code})`)} target="_blank" rel="noreferrer" aria-label={`WhatsApp ${p.agent.name}`} className="ic"><SiteIcon name="whatsapp" size={16} /></a>}</div>}
       </div>
     </article>
   );
@@ -205,9 +207,9 @@ export function AgentCard({ a }) {
       <h4>{a.name}</h4>
       <div className="muted">{a.role === 'Sales Manager' ? 'Sales manager' : 'Listing agent'} · {a.listings} listing{a.listings === 1 ? '' : 's'}</div>
       <div className="acts">
-        {a.phone && <a className="btn-s" href={`tel:${a.phone}`}>📞 Call</a>}
-        {a.whatsapp && <a className="btn-s wa" href={waLink(a.whatsapp)} target="_blank" rel="noreferrer">💬 WhatsApp</a>}
-        {a.email && <a className="btn-s" href={`mailto:${a.email}`}>✉️ Email</a>}
+        {a.phone && <a className="btn-s" href={`tel:${a.phone}`}><Ic n="phone" /> Call</a>}
+        {a.whatsapp && <a className="btn-s wa" href={waLink(a.whatsapp)} target="_blank" rel="noreferrer"><Ic n="whatsapp" /> WhatsApp</a>}
+        {a.email && <a className="btn-s" href={`mailto:${a.email}`}><Ic n="email" /> Email</a>}
       </div>
       <Link to={`/site/agent/${a.id}`} className="more">View listings →</Link>
     </div>
@@ -217,9 +219,9 @@ export function AgentCard({ a }) {
 export function ProjectCard({ p }) {
   return (
     <Link to={`/site/project/${p.id}`} className="jcard">
-      <div className="jimg">{p.cover ? <img src={imgUrl(p.cover)} alt={p.name} loading="lazy" /> : <Placeholder icon="🏗️" />}<span className="jstatus">{p.dev_status}</span></div>
+      <div className="jimg">{p.cover ? <img src={imgUrl(p.cover)} alt={p.name} loading="lazy" /> : <Placeholder icon="construction" />}<span className="jstatus">{p.dev_status}</span></div>
       <div className="jbody">
-        <h3>{p.name}</h3><div className="muted">📍 {p.location || '—'}</div>
+        <h3>{p.name}</h3><div className="muted"><Ic n="location" /> {p.location || '—'}</div>
         {p.description && <p>{p.description.slice(0, 110)}{p.description.length > 110 ? '…' : ''}</p>}
         {/* a project without a schedule or development items has no progress figure: show none rather than 0% */}
         {p.progress != null && <div className="jbar"><div style={{ width: `${p.progress}%` }} /></div>}
@@ -232,7 +234,7 @@ export function ProjectCard({ p }) {
 export function PostCard({ p }) {
   return (
     <Link to={`/site/blog/${p.slug}`} className="bcard">
-      <div className="bimg">{p.cover ? <img src={imgUrl(p.cover)} alt={p.title} loading="lazy" /> : <Placeholder icon="📰" />}</div>
+      <div className="bimg">{p.cover ? <img src={imgUrl(p.cover)} alt={p.title} loading="lazy" /> : <Placeholder icon="news" />}</div>
       <div className="bbody"><div className="muted">{(p.published_at || '').slice(0, 10)}</div><h3>{p.title}</h3><p>{p.excerpt}</p><span className="more">Read more →</span></div>
     </Link>
   );
@@ -306,7 +308,7 @@ function HeroFormCard({ p }) {
   const c = config.contact || {};
   return (
     <div className="hero-card">
-      {(c.phone || c.email) && <ul className="hero-card-contact">{c.phone && <li>📞 <a href={`tel:${c.phone}`}>{c.phone}</a></li>}{c.email && <li>✉️ <a href={`mailto:${c.email}`}>{c.email}</a></li>}</ul>}
+      {(c.phone || c.email) && <ul className="hero-card-contact">{c.phone && <li><Ic n="phone" /> <a href={`tel:${c.phone}`}>{c.phone}</a></li>}{c.email && <li><Ic n="email" /> <a href={`mailto:${c.email}`}>{c.email}</a></li>}</ul>}
       <InquiryForm title={p.form_title || 'Talk to an agent'} kind="contact" compact />
     </div>
   );
@@ -329,7 +331,7 @@ function Hero({ p }) {
     return (
       <section className={`hero-split ${p.height || 'tall'}`}><div className="wrap hs-grid">
         <div className="hs-text">{text}{search}</div>
-        <div className="hs-img"><ImgBtn path="image" label="Change image" />{bg ? <img src={bg} alt="" /> : <Placeholder icon="🏡" />}</div>
+        <div className="hs-img"><ImgBtn path="image" label="Change image" />{bg ? <img src={bg} alt="" /> : <Placeholder icon="residential" />}</div>
       </div></section>
     );
   }
@@ -376,7 +378,7 @@ const Services = ({ p }) => {
   const v = ['raised', 'steps'].includes(p.variant) ? p.variant : 'cards';
   return (
     <section className={`sec svc-sec svc-${v}${v === 'raised' && p.overlap ? ' overlap' : ''}`}><div className="wrap">{!(v === 'raised' && p.overlap) && <Head title={p.title} subtitle={p.subtitle} />}
-      <div className="svc">{(p.items || []).map((s, i) => <A key={i} href={s.href} className="svc-card"><span className="svc-ic">{v === 'steps' ? i + 1 : s.icon}</span><Ed as="h4" value={s.title} path={`items.${i}.title`} /><Ed as="p" value={s.text} path={`items.${i}.text`} />{v === 'raised' && s.href && <span className="svc-more">{p.link_label || 'Learn more'}</span>}<LinkBtn path={`items.${i}.href`} value={s.href} /></A>)}</div></div></section>
+      <div className="svc">{(p.items || []).map((s, i) => <A key={i} href={s.href} className="svc-card"><span className="svc-ic">{v === 'steps' ? i + 1 : <SiteIcon name={s.icon} size={ICON_SIZE.card} />}</span><Ed as="h4" value={s.title} path={`items.${i}.title`} /><Ed as="p" value={s.text} path={`items.${i}.text`} />{v === 'raised' && s.href && <span className="svc-more">{p.link_label || 'Learn more'}</span>}<LinkBtn path={`items.${i}.href`} value={s.href} /></A>)}</div></div></section>
   );
 };
 
@@ -503,7 +505,7 @@ const TextBlock = ({ p }) => <section className="sec"><div className="wrap narro
 const ImageText = ({ p }) => (
   <section className="sec"><div className={`wrap split ${p.image_side === 'left' ? 'rev' : ''}`}>
     <div className="split-text">{p.title && <Ed as="h2" value={p.title} path="title" />}<EdRich value={p.text} path="text" />{p.button_label && <A href={p.button_href} className="btn-p"><Ed value={p.button_label} path="button_label" /></A>}{p.button_label && <LinkBtn path="button_href" value={p.button_href} />}</div>
-    <div className="split-img"><ImgBtn path="image" />{p.image ? <img src={imgUrl(p.image)} alt={p.title || ''} loading="lazy" /> : <Placeholder icon="🏡" />}</div>
+    <div className="split-img"><ImgBtn path="image" />{p.image ? <img src={imgUrl(p.image)} alt={p.title || ''} loading="lazy" /> : <Placeholder icon="residential" />}</div>
   </div></section>
 );
 
@@ -519,7 +521,7 @@ function Contact({ p }) {
   return (
     <section className="sec"><div className="wrap split">
       <div className="split-text"><Ed as="h2" value={p.title} path="title" />{p.text && <Ed as="p" value={p.text} path="text" />}
-        {p.show_details && <ul className="cdetails">{c.phone && <li>📞 <a href={`tel:${c.phone}`}>{c.phone}</a></li>}{c.landline && <li>☎️ <a href={`tel:${c.landline}`}>{c.landline}</a></li>}{c.whatsapp && <li>💬 <a href={waLink(c.whatsapp)} target="_blank" rel="noreferrer">WhatsApp {c.whatsapp}</a></li>}{c.email && <li>✉️ <a href={`mailto:${c.email}`}>{c.email}</a></li>}{c.address && <li>📍 {c.address}</li>}{c.hours && <li>🕘 {c.hours}</li>}</ul>}</div>
+        {p.show_details && <ul className="cdetails">{c.phone && <li><Ic n="phone" /> <a href={`tel:${c.phone}`}>{c.phone}</a></li>}{c.landline && <li><Ic n="landline" /> <a href={`tel:${c.landline}`}>{c.landline}</a></li>}{c.whatsapp && <li><Ic n="whatsapp" /> <a href={waLink(c.whatsapp)} target="_blank" rel="noreferrer">WhatsApp {c.whatsapp}</a></li>}{c.email && <li><Ic n="email" /> <a href={`mailto:${c.email}`}>{c.email}</a></li>}{c.address && <li><Ic n="location" /> {c.address}</li>}{c.hours && <li><Ic n="hours" /> {c.hours}</li>}</ul>}</div>
       {p.show_form && <InquiryForm title="Send us a message" kind="contact" />}
     </div></section>
   );
@@ -533,12 +535,12 @@ function Leadership({ p }) {
   const all = (p.members || []).filter((m) => m.name);
   if (!all.length) return null;
   const directors = all.filter((m) => m.director), team = all.filter((m) => !m.director);
-  const contact = (m) => (m.phone || m.email) && <div className="mem-contact">{m.phone && <a href={`tel:${m.phone}`}>📞 {m.phone}</a>}{m.email && <a href={`mailto:${m.email}`}>✉️ {m.email}</a>}</div>;
+  const contact = (m) => (m.phone || m.email) && <div className="mem-contact">{m.phone && <a href={`tel:${m.phone}`}><Ic n="phone" /> {m.phone}</a>}{m.email && <a href={`mailto:${m.email}`}><Ic n="email" /> {m.email}</a>}</div>;
   return (
     <section className="sec soft"><div className="wrap"><Head title={p.title} subtitle={p.subtitle} />
       {directors.map((m, i) => (
         <article key={i} className={`director ${i % 2 ? 'rev' : ''}`}>
-          <div className="director-img">{m.photo ? <img src={imgUrl(m.photo)} alt={m.name} loading="lazy" /> : <Placeholder icon="👤" />}</div>
+          <div className="director-img">{m.photo ? <img src={imgUrl(m.photo)} alt={m.name} loading="lazy" /> : <Placeholder icon="agent" />}</div>
           <div className="director-body"><span className="eyebrow">{m.role}</span><h3>{m.name}</h3><Markdown text={m.bio} />{contact(m)}</div>
         </article>
       ))}
@@ -638,8 +640,8 @@ const Portal = ({ p }) => (
   <section className="sec"><div className="wrap">
     <Head title={p.title} subtitle={p.subtitle} />
     <div className="portal-cards">
-      {p.show_customer !== false && <A href="/portal/login" className="portal-card"><span>🏠</span><h3>Customer portal</h3><p>{siteCopy('portal_blurb', 'See your plot or house, payments, receipts, documents and construction progress.')}</p><b>Sign in →</b></A>}
-      {p.show_vendor !== false && <A href="/vendor/login" className="portal-card"><span>🧰</span><h3>Vendor portal</h3><p>Check payments and ledger, and bid on open tenders and contracts.</p><b>Sign in →</b></A>}
+      {p.show_customer !== false && <A href="/portal/login" className="portal-card"><span className="portal-ic"><SiteIcon name="residential" size={ICON_SIZE.card} /></span><h3>Customer portal</h3><p>{siteCopy('portal_blurb', 'See your plot or house, payments, receipts, documents and construction progress.')}</p><b>Sign in →</b></A>}
+      {p.show_vendor !== false && <A href="/vendor/login" className="portal-card"><span className="portal-ic"><SiteIcon name="tools" size={ICON_SIZE.card} /></span><h3>Vendor portal</h3><p>Check payments and ledger, and bid on open tenders and contracts.</p><b>Sign in →</b></A>}
     </div>
   </div></section>
 );

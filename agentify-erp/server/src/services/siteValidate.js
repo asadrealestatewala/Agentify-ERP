@@ -3,6 +3,7 @@ import { checkTools } from '../../../shared/constructionTools.js';
 import { isHtml, sanitizeHtml } from './richText.js';
 import { cleanSectionStyle } from '../../../shared/sectionStyle.js';
 import { MAX_SECTIONS, SECTION_ID, SECTION_TYPE_NAMES } from '../../../shared/sectionTypes.js';
+import { normalizeIconValue } from '../../../shared/siteIcons.js';
 
 /** Fonts offered in the editor (kept in step with client/src/site/siteCore.jsx FONTS). Anything else would be injected into CSS. */
 export const SITE_FONTS = ['Inter', 'Poppins', 'Roboto', 'Open Sans', 'Montserrat', 'Lato', 'Nunito', 'Playfair Display', 'Merriweather', 'DM Sans', 'Manrope', 'Raleway', 'Work Sans', 'Source Sans 3'];
@@ -98,6 +99,9 @@ export function validateSections(sections) {
     if (Array.isArray(v)) return v.forEach((x, i) => walk(x, `${path}[${i}]`));
     if (v && typeof v === 'object') {
       for (const [k, val] of Object.entries(v)) {
+        // Icons are stored as approved semantic ids only (shared/siteIcons.js): known legacy emoji become their id, anything
+        // else (markup, URLs, component names, unknown text) becomes the fallback id, and a non-text value is cleared.
+        if (k === 'icon') { v[k] = typeof val === 'string' ? normalizeIconValue(val) : ''; continue; }
         if (/^(html|text|a|body|bio|intro|answer)$/.test(k) && typeof val === 'string' && isHtml(val)) { v[k] = sanitizeHtml(val); continue; }
         if (/(^|_)(href|url|link)$/i.test(k) && typeof val === 'string') checkLink(val, `A link in the page (${k})`);
         else if (/^(image|src|bg|background|bg_image|cover|logo|photo)$/i.test(k) && typeof val === 'string') checkImage(val, `The ${k} in the page`);
