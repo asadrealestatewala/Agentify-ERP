@@ -130,7 +130,7 @@ function Properties() {
   const set = (patch) => { const n = { ...q, ...patch, page: patch.page ?? '' }; for (const k of Object.keys(n)) if (n[k] === '' || n[k] == null) delete n[k]; setSp(n); };
   const rent = q.purpose === 'Rent';
   useTitle(rent ? 'Properties for rent' : q.purpose === 'Sell' ? 'Properties for sale' : 'Properties');
-  const active = ['city', 'type', 'q', 'min_price', 'max_price', 'beds', 'installment', 'ready', 'featured', 'project_id', 'min_area', 'max_area'].filter((k) => q[k]);
+  const active = ['city', 'type', 'q', 'min_price', 'max_price', 'beds', 'installment', 'ready', 'featured', 'project_id', 'min_area', 'max_area', 'unit'].filter((k) => q[k]);
   return (
     <div className="wrap sec">
       <div className="listing-top">
@@ -150,6 +150,7 @@ function Properties() {
           <label>Property type<select value={q.type || ''} onChange={(e) => set({ type: e.target.value })}><option value="">All</option>{facets?.types.map((c) => <option key={c.value} value={c.value}>{c.value} ({c.n})</option>)}</select></label>
           <label>Project<select value={q.project_id || ''} onChange={(e) => set({ project_id: e.target.value })}><option value="">All</option>{facets?.projects.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
           <div className="two"><label>Min price ({curCode()})<MoneyBox value={q.min_price} placeholder={exampleAmount(2000000)} onChange={(v) => set({ min_price: v })} /></label><label>Max price ({curCode()})<MoneyBox value={q.max_price} placeholder={exampleAmount(10000000)} onChange={(v) => set({ max_price: v })} /></label></div>
+          {facets?.units?.length > 1 && <label>Size unit<select value={q.unit || ''} onChange={(e) => set({ unit: e.target.value })}><option value="">All</option>{facets.units.map((c) => <option key={c.value} value={c.value}>{c.value} ({c.n})</option>)}</select></label>}
           <div className="two"><label>Min area ({getRegion().config.area?.labels?.[getRegion().config.area?.default] || 'area'})<input type="number" min="0" value={q.min_area || ''} onChange={(e) => set({ min_area: e.target.value })} /></label><label>Max area<input type="number" min="0" value={q.max_area || ''} onChange={(e) => set({ max_area: e.target.value })} /></label></div>
           <label>Bedrooms<div className="chips">{['', '1', '2', '3', '4', '5', '6+'].map((b) => <button key={b} className={(q.beds || '') === b ? 'on' : ''} onClick={() => set({ beds: b })}>{b || 'Any'}</button>)}</div></label>
           {getRegion().config.calculators?.installments !== false && <label className="chk"><input type="checkbox" checked={q.installment === '1'} onChange={(e) => set({ installment: e.target.checked ? '1' : '' })} /> Installments available</label>}
@@ -255,10 +256,29 @@ function PropertyPage() {
 }
 
 // ---------------------------------------------------------------- projects / agents / blog / calculators
+const PROJECT_KIND = { development: 'Plots & developments', construction: 'House construction' };
 function ProjectsPage() {
-  const d = usePublic('/api/site/projects');
+  const [sp, setSp] = useSearchParams();
+  const facets = usePublic('/api/site/facets');
+  const q = Object.fromEntries(sp.entries());
+  const d = usePublic('/api/site/projects', q);
+  const set = (patch) => { const n = { ...q, ...patch }; for (const k of Object.keys(n)) if (n[k] === '' || n[k] == null) delete n[k]; setSp(n); };
+  const kinds = facets?.project_kinds || [], statuses = facets?.project_statuses || [];
+  const active = ['q', 'kind', 'status', 'available'].filter((k) => q[k]);
   useTitle('Projects');
-  return <div className="wrap sec"><h1>Our projects</h1><p className="muted">Planned communities with development progress you can follow.</p>{!d ? null : <div className="jgrid">{d.data.map((p) => <ProjectCard key={p.id} p={p} />)}</div>}</div>;
+  return (
+    <div className="wrap sec">
+      <h1>Our projects</h1><p className="muted">Planned communities with development progress you can follow.</p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12, alignItems: 'center', margin: '16px 0 24px' }}>
+        <input aria-label="Search projects" value={q.q || ''} placeholder="Search by name or location" onChange={(e) => set({ q: e.target.value })} />
+        {kinds.length > 1 && <select aria-label="Project type" value={q.kind || ''} onChange={(e) => set({ kind: e.target.value })}><option value="">All types</option>{kinds.map((c) => <option key={c.value} value={c.value}>{PROJECT_KIND[c.value] || c.value} ({c.n})</option>)}</select>}
+        {statuses.length > 1 && <select aria-label="Project status" value={q.status || ''} onChange={(e) => set({ status: e.target.value })}><option value="">Any status</option>{statuses.map((c) => <option key={c.value} value={c.value}>{c.value} ({c.n})</option>)}</select>}
+        <label className="chk"><input type="checkbox" checked={q.available === '1'} onChange={(e) => set({ available: e.target.checked ? '1' : '' })} /> With properties available</label>
+        {active.length > 0 && <button className="btn-s" onClick={() => setSp({})}>Clear filters</button>}
+      </div>
+      {!d ? null : !d.data.length ? <div className="empty-state"><h3>No projects match your search</h3><p>Try removing a filter.</p>{active.length > 0 && <button className="btn-p" onClick={() => setSp({})}>Show all projects</button>}</div> : <div className="jgrid">{d.data.map((p) => <ProjectCard key={p.id} p={p} />)}</div>}
+    </div>
+  );
 }
 
 function ProjectPage() {
