@@ -115,6 +115,25 @@ const ALLOWED = {
 };
 const MIME_OK = /^(application\/pdf|image\/(jpeg|png|webp|gif)|video\/(mp4|webm|quicktime)|application\/(msword|vnd\.openxmlformats-officedocument\.(wordprocessingml\.document|spreadsheetml\.sheet)|vnd\.ms-excel|octet-stream))$/;
 
+// The first bytes of each image format we accept: the extension and the browser's type claim alone can be faked.
+const IMAGE_MAGIC = { '.jpg': [[0xff, 0xd8, 0xff]], '.jpeg': [[0xff, 0xd8, 0xff]], '.png': [[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]], '.gif': [[0x47, 0x49, 0x46, 0x38]], '.webp': [[0x52, 0x49, 0x46, 0x46]] };
+function looksLikeImage(file) {
+  const ext = path.extname(file.filename || file.originalname || '').toLowerCase();
+  const sigs = IMAGE_MAGIC[ext]; if (!sigs) return false;
+  let head;
+  try { const fd = fs.openSync(file.path, 'r'); head = Buffer.alloc(12); fs.readSync(fd, head, 0, 12, 0); fs.closeSync(fd); } catch { return false; }
+  if (ext === '.webp' && head.toString('latin1', 8, 12) !== 'WEBP') return false;
+  return sigs.some((sig) => sig.every((b, i) => head[i] === b));
+}
+/** After an image upload: every file must really be an image of its extension, or all of them are removed and refused. */
+function checkImages(req) {
+  const files = [...(req.file ? [req.file] : []), ...(Array.isArray(req.files) ? req.files : Object.values(req.files || {}).flat())];
+  const badOne = files.find((f) => !looksLikeImage(f));
+  if (!badOne) return undefined;
+  for (const f of files) fs.rm(f.path, { force: true }, () => {});
+  return bad(`This file is not a valid image: ${badOne.originalname}`);
+}
+
 /** Validated multipart upload into uploads/<dir>. Random filenames — originals never touch the disk path. */
 export function uploader(dir, kind = 'documents', maxMb = 25) {
   const m = multer({
@@ -131,6 +150,6 @@ export function uploader(dir, kind = 'documents', maxMb = 25) {
     },
   });
   // multer finishes from stream events, outside the request's tenant context; restore it for the route handler
-  const wrap = (mw) => (req, res, next) => mw(req, res, keepContext(next));
+  const wrap = (mw) => (req, res, next) => mw(req, res, keepContext((err) => (err || kind !== 'image' ? next(err) : next(checkImages(req)))));
   return { single: (f) => wrap(m.single(f)), array: (f, n) => wrap(m.array(f, n)), fields: (f) => wrap(m.fields(f)), any: () => wrap(m.any()), none: () => wrap(m.none()) };
 }

@@ -258,8 +258,11 @@ r.delete('/media/:id(\\d+)', can('website', 'delete'), asyncH((req, res) => {
   for (const po of all('SELECT title FROM site_posts WHERE cover=? OR body LIKE ?', m.path, `%${m.path}%`)) usedIn.push(`the article “${po.title}”`);
   if (usedIn.length) throw bad(`This image is still used on ${usedIn.join(', ')}. Replace it there first, then delete it.`);
   run('DELETE FROM media WHERE id=?', m.id);
-  fs.rm(path.join(uploadDir(), m.path), { force: true }, () => {});
-  res.json({ ok: true });
+  // an earlier published version or a saved page version may still show it: keep the file so restoring them keeps the image
+  const like = `%${m.path}%`;
+  const kept = !!get('SELECT 1 FROM site_releases WHERE config LIKE ? OR pages LIKE ? LIMIT 1', like, like) || !!get('SELECT 1 FROM site_page_versions WHERE sections LIKE ? LIMIT 1', like);
+  if (!kept) fs.rm(path.join(uploadDir(), m.path), { force: true }, () => {});
+  res.json({ ok: true, file_kept: kept });
 }));
 
 // ---------------------------------------------------------------- chatbot knowledge bank

@@ -2,6 +2,7 @@ import { bad } from '../util.js';
 import { checkTools } from '../../../shared/constructionTools.js';
 import { isHtml, sanitizeHtml } from './richText.js';
 import { cleanSectionStyle } from '../../../shared/sectionStyle.js';
+import { MAX_SECTIONS, SECTION_ID, SECTION_TYPE_NAMES } from '../../../shared/sectionTypes.js';
 
 /** Fonts offered in the editor (kept in step with client/src/site/siteCore.jsx FONTS). Anything else would be injected into CSS. */
 export const SITE_FONTS = ['Inter', 'Poppins', 'Roboto', 'Open Sans', 'Montserrat', 'Lato', 'Nunito', 'Playfair Display', 'Merriweather', 'DM Sans', 'Manrope', 'Raleway', 'Work Sans', 'Source Sans 3'];
@@ -75,8 +76,16 @@ export function validateSiteConfig(c) {
 /** Every href/url/link-like value inside page sections (hero buttons, banners, CTAs…) gets the same check. */
 const EMBED_HOSTS = /^(https:\/\/(www\.)?(youtube\.com\/(watch\?v=|embed\/|shorts\/)|youtu\.be\/|youtube-nocookie\.com\/embed\/|vimeo\.com\/(\d+|video\/\d+)|player\.vimeo\.com\/video\/|google\.com\/maps\/embed|calendly\.com\/|openstreetmap\.org\/export\/embed)[^\s"'<>]*)$/i;
 export function validateSections(sections) {
+  if (sections.length > MAX_SECTIONS) throw bad(`A page can hold up to ${MAX_SECTIONS} blocks`);
+  const ids = new Set();
   for (const sec of sections) {
-    if (!sec || typeof sec !== 'object') throw bad('Invalid section');
+    if (!sec || typeof sec !== 'object' || Array.isArray(sec)) throw bad('Invalid section');
+    if (!SECTION_TYPE_NAMES.includes(sec.type)) throw bad(`“${String(sec.type ?? '').slice(0, 30)}” is not a block this website can show. Delete that block, then save again.`);
+    const id = typeof sec.id === 'number' ? String(sec.id) : sec.id;
+    if (typeof id !== 'string' || !SECTION_ID.test(id)) throw bad('Every block needs an id made of letters, digits, _ or -');
+    if (ids.has(id)) throw bad('Two blocks on this page have the same id. Duplicate the block again instead of copying its data.');
+    ids.add(id);
+    if (sec.props !== undefined && (typeof sec.props !== 'object' || sec.props === null || Array.isArray(sec.props))) throw bad('Invalid block settings');
     if (sec.type === 'embed' && sec.props?.url && !EMBED_HOSTS.test(String(sec.props.url).trim())) throw bad('A video, map or calendar block takes a link from YouTube, Vimeo, Google Maps (Share, Embed a map), Calendly or OpenStreetMap');
     if (sec.style !== undefined) {
       try { const s = cleanSectionStyle(sec.style); if (s) sec.style = s; else delete sec.style; } catch (e) { throw bad(e.message); }
@@ -88,10 +97,21 @@ export function validateSections(sections) {
       for (const [k, val] of Object.entries(v)) {
         if (/^(html|text|a|body|bio|intro|answer)$/.test(k) && typeof val === 'string' && isHtml(val)) { v[k] = sanitizeHtml(val); continue; }
         if (/(^|_)(href|url|link)$/i.test(k) && typeof val === 'string') checkLink(val, `A link in the page (${k})`);
-        else if (/^(image|bg|background|cover|logo|photo)$/i.test(k) && typeof val === 'string') checkImage(val, `The ${k} in the page`);
+        else if (/^(image|src|bg|background|bg_image|cover|logo|photo)$/i.test(k) && typeof val === 'string') checkImage(val, `The ${k} in the page`);
         else walk(val, `${path}.${k}`);
       }
     }
   };
   walk(sections, 'sections');
+}
+
+/**
+ * Defence in depth for what visitors receive: every text that holds HTML is cleaned again on the way out (pages saved
+ * before the sanitiser existed, or written by other code, are covered too). Returns a cleaned copy; never throws.
+ */
+export function cleanForOutput(value) {
+  if (typeof value === 'string') return isHtml(value) ? sanitizeHtml(value) : value;
+  if (Array.isArray(value)) return value.map(cleanForOutput);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, cleanForOutput(v)]));
+  return value;
 }
