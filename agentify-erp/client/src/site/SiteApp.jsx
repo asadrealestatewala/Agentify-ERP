@@ -12,7 +12,7 @@ import './site.css';
 
 const SOCIAL_ICON = { Facebook: 'f', Instagram: '◎', YouTube: '▶', WhatsApp: '✆', 'X (Twitter)': '𝕏', Twitter: '𝕏', LinkedIn: 'in', TikTok: '♪', Website: '🌐', Other: '🔗' };
 
-function Header() {
+export function Header() {
   const { config, menu, preview } = useSite();
   const [open, setOpen] = useState(false);
   const h = config.header, b = config.brand;
@@ -35,7 +35,7 @@ function Header() {
   );
 }
 
-function Footer() {
+export function Footer() {
   const { config } = useSite();
   const f = config.footer, b = config.brand, c = config.contact;
   const wa = c.whatsapp;
