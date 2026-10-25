@@ -13,6 +13,7 @@
   "time_style": "24h",
   "timezone": "Europe/London",
   "units_system": "mixed",
+  "distance_unit": "mi",
   "area_units": [ "sqft", "sqm", "acre", "hectare" ],
   "default_area_unit": "sqft",
   "phone": {

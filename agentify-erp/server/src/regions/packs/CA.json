@@ -13,6 +13,7 @@
   "time_style": "12h",
   "timezone": "America/Toronto",
   "units_system": "imperial",
+  "distance_unit": "km",
   "area_units": [ "sqft", "sqm", "acre", "hectare" ],
   "default_area_unit": "sqft",
   "phone": {
@@ -269,5 +270,6 @@
     "payment_steps": [ "Pay by e-transfer, bank transfer or card", "Include your reference", "We confirm and issue a receipt" ]
   },
   "lead_sources": [ "Walk-in", "Website", "REALTOR.ca", "Open house", "Referral", "Social media", "Phone call" ],
-  "amenities": [ "Garage", "Garden / yard", "Pool", "Central air", "Fireplace", "Basement", "Balcony", "Gym", "Concierge", "Parking locker", "Parking" ]
+  "amenities": [ "Garage", "Garden / yard", "Pool", "Central air", "Fireplace", "Basement", "Balcony", "Gym", "Concierge", "Parking locker", "Parking" ],
+  "timezones": [ "America/Toronto", "America/Vancouver", "America/Edmonton", "America/Winnipeg", "America/Regina", "America/Halifax", "America/St_Johns" ]
 }

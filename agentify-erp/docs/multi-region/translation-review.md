@@ -12,3 +12,8 @@ Coverage today: sign-in and shared buttons. More screens move to `t('key', 'Engl
 ## Arabic PDF text
 
 `server/src/services/rtlPdf.js` draws Arabic-script text right to left in PDFs using Noto Naskh Arabic (SIL Open Font License, `server/assets/fonts/`). It is **not yet used** by the receipt, voucher or statement PDFs: a sample (`arabic-pdf-sample.pdf`) must first be checked by a native reader for joined letters, reading direction and mixed Arabic/English/number lines.
+
+## Property visits (visits.*)
+
+French and Arabic strings for property visits (`visits.*`, `common.close`, `common.saved`) were machine-drafted and need a
+native review, in particular the location notice (`visits.notice`). Urdu has no UI locale yet, so Urdu users see English.

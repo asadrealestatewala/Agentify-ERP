@@ -13,6 +13,7 @@
   "time_style": "12h",
   "timezone": "Asia/Karachi",
   "units_system": "mixed",
+  "distance_unit": "km",
   "area_units": [ "marla", "kanal", "sqft", "sqyd", "acre" ],
   "default_area_unit": "marla",
   "marla_sqft": 272.25,

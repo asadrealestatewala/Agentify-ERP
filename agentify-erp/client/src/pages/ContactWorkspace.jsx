@@ -11,6 +11,7 @@ import ContactForm from './ContactForm.jsx';
 import RegionFields from '../components/RegionFields.jsx';
 import PrivacyTools from '../components/PrivacyTools.jsx';
 import MortgageCard from '../components/MortgageCard.jsx';
+import { VisitsPanel } from '../components/Visits.jsx';
 import { getRegion } from '../format.js';
 import { leadMessage, useCompanyName, waLink } from '../components/WhatsApp.jsx';
 
@@ -279,7 +280,7 @@ export default function ContactWorkspace() {
                 const dev = ws.development.find((d) => d.project_id === p.id);
                 return <Card key={p.id} title={<Link to={`/projects/${p.id}`}>{p.name}</Link>} actions={<StatusBadge status={p.dev_status || 'planning'} tone="blue" label={p.dev_status} />}><div className="row"><span className="muted">Development progress</span><div className="grow"><ProgressBar value={dev?.progress || 0} /></div><b>{dev?.progress || 0}%</b></div></Card>; })}</div> : <Empty>Not linked to any project yet. Projects appear once a property is purchased.</Empty>)}
               {tab === 'communication' && <CommunicationPanel c={c} reload={reload} />}
-              {tab === 'appointments' && (<div className="stack"><div className="muted">Tasks that include “visit”, “meeting” or “appointment” appear here. Create one from the Tasks tab.</div>
+              {tab === 'appointments' && (<div className="stack"><VisitsPanel contactId={c.id} /><div className="muted">Tasks that include “visit”, “meeting” or “appointment” also appear here. Create one from the Tasks tab.</div>
                 {ws.appointments.length ? ws.appointments.map((a) => <div key={a.id} className="card row between" style={{ padding: 12 }}><b>{a.title}</b><span>{date(a.due_date)}</span></div>) : <Empty>No upcoming appointments.</Empty>}</div>)}
               {tab === 'timeline' && (
                 <table className="t"><thead><tr><th>Date</th><th>Time</th><th>User</th><th>Action</th><th>Previous</th><th>New</th></tr></thead>

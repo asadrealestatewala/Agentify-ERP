@@ -1,56 +1,70 @@
-// Appointments: viewings, site visits, meetings and calls, added to your Google Calendar when it is connected.
+// Appointments and property visits: the agent's schedule (phone-friendly cards with check-in / check-out), everyone's
+// schedule for managers, and the workspace's visit settings. Added to Google Calendar when it is connected.
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Card, Empty, ErrorBox, Field, Loading, Modal, PageHead, StatusBadge } from '../components/ui.jsx';
-import { api } from '../api.js';
-import { useToast } from '../context.jsx';
-import { dateTime } from '../format.js';
+import { Card, ErrorBox, Field, Loading, PageHead, Tabs, Toggle } from '../components/ui.jsx';
+import { VisitForm, VisitList, VisitSheet } from '../components/Visits.jsx';
+import { api, qs } from '../api.js';
+import { useAuth, useToast } from '../context.jsx';
+import { today } from '../format.js';
+import { t } from '../i18n.js';
 
-const KINDS = [['viewing', 'Viewing'], ['site_visit', 'Site visit'], ['meeting', 'Meeting'], ['call', 'Call'], ['signing', 'Signing'], ['other', 'Other']];
-const blank = () => ({ title: '', kind: 'viewing', starts_at: '', ends_at: '', location: '', notes: '', contact_id: '' });
+const VIEWS = [['upcoming', 'Upcoming'], ['today', 'Today'], ['past', 'Past'], ['all', 'All']];
 
 export default function Appointments() {
-  const toast = useToast();
+  const { user, can } = useAuth();
   const [d, setD] = useState(null);
   const [err, setErr] = useState('');
-  const [f, setF] = useState(null);
-  const [contacts, setContacts] = useState([]);
-  const load = useCallback(() => api.get('/api/appointments').then(setD).catch((e) => setErr(e.message)), []);
-  useEffect(() => { load(); api.get('/api/contacts').then((r) => setContacts(Array.isArray(r) ? r : r.items || r.rows || [])).catch(() => {}); }, [load]);
-  const save = async () => {
-    try {
-      const body = { ...f, contact_id: f.contact_id || undefined };
-      if (f.id) await api.put(`/api/appointments/${f.id}`, body); else await api.post('/api/appointments', body);
-      toast('Saved'); setF(null); load();
-    } catch (e) { toast(e.message, 'err'); }
-  };
-  const cancel = async (a) => { if (!window.confirm('Cancel this appointment?')) return; await api.post(`/api/appointments/${a.id}/cancel`); load(); };
+  const [form, setForm] = useState(null);
+  const [open, setOpen] = useState(null);
+  const [view, setView] = useState('upcoming');
+  const [who, setWho] = useState('mine');
+  const manager = !user?.own_scope;
+  const load = useCallback(() => {
+    const d0 = today();
+    const range = view === 'today' ? { from: d0, to: d0 } : view === 'upcoming' ? { from: d0 } : view === 'past' ? { to: d0 } : {};
+    return api.get(`/api/appointments${qs({ ...range, mine: who === 'mine' ? '1' : '' })}`).then(setD).catch((e) => setErr(e.message));
+  }, [view, who]);
+  useEffect(() => { load(); }, [load]);
+  const items = d ? (view === 'past' ? [...d.items].reverse() : d.items) : [];
   return (
     <>
-      <PageHead title="Appointments" sub={d?.calendar_connected ? 'Connected to your Google Calendar: new appointments appear there.' : 'Connect Google Calendar in Settings > Integrations to see these in your calendar.'}>
-        <button className="btn primary sm" onClick={() => setF(blank())}>New appointment</button>
+      <PageHead title={t('visits.page_title', 'Appointments & visits')} sub={d?.calendar_connected ? 'Connected to your Google Calendar: new appointments appear there.' : 'Connect Google Calendar in Settings > Integrations to see these in your calendar.'}>
+        {can('crm', 'edit') && <button className="btn primary sm" onClick={() => setForm({})}>{t('visits.schedule', 'Schedule a visit')}</button>}
       </PageHead>
       <ErrorBox error={err} />
-      {!d ? (!err && <Loading />) : !d.items.length ? <Empty title="No appointments yet" hint="Book a viewing or site visit with a client." /> : (
-        <Card flush><div className="table-wrap"><table className="t"><thead><tr><th>When</th><th>What</th><th>With</th><th>Property</th><th>Where</th><th>Calendar</th><th /></tr></thead><tbody>
-          {d.items.map((a) => <tr key={a.id} style={a.status === 'canceled' ? { opacity: 0.5 } : undefined}>
-            <td className="nowrap">{dateTime(a.starts_at)}</td><td><b>{a.title}</b><div className="muted">{(KINDS.find(([k]) => k === a.kind) || [])[1]}</div></td>
-            <td>{a.contact_id ? <Link to={`/contacts/${a.contact_id}`}>{a.contact_name}</Link> : '—'}</td><td>{a.property_title || '—'}</td><td>{a.location || '—'}</td>
-            <td>{a.status === 'canceled' ? <StatusBadge status="inactive" label="Canceled" /> : a.google_event_id ? <StatusBadge status="active" label="In Google Calendar" /> : a.sync_error ? <span className="muted" title={a.sync_error}>Not synced</span> : '—'}</td>
-            <td className="right nowrap">{a.status !== 'canceled' && <><button className="btn sm" onClick={() => setF({ ...a, contact_id: a.contact_id || '', starts_at: a.starts_at.slice(0, 16).replace(' ', 'T'), ends_at: a.ends_at.slice(0, 16).replace(' ', 'T') })}>Edit</button>{' '}<button className="btn sm danger" onClick={() => cancel(a)}>Cancel</button></>}</td></tr>)}
-        </tbody></table></div></Card>)}
-      {f && (
-        <Modal title={f.id ? 'Edit appointment' : 'New appointment'} onClose={() => setF(null)} footer={<><button className="btn" onClick={() => setF(null)}>Close</button><button className="btn primary" onClick={save}>Save</button></>}>
-          <Field label="Title" required><input className="input" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} placeholder="Viewing at 12 Maple Street" /></Field>
-          <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <Field label="Kind"><select className="input" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}>{KINDS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
-            <Field label="With"><select className="input" value={f.contact_id} onChange={(e) => setF({ ...f, contact_id: e.target.value })}><option value="">Nobody in particular</option>{contacts.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}</select></Field>
-            <Field label="Starts" required><input className="input" type="datetime-local" value={f.starts_at} onChange={(e) => setF({ ...f, starts_at: e.target.value })} /></Field>
-            <Field label="Ends (default one hour)"><input className="input" type="datetime-local" value={f.ends_at} onChange={(e) => setF({ ...f, ends_at: e.target.value })} /></Field>
-          </div>
-          <Field label="Where"><input className="input" value={f.location || ''} onChange={(e) => setF({ ...f, location: e.target.value })} /></Field>
-          <Field label="Notes"><textarea className="input" rows={2} value={f.notes || ''} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
-        </Modal>)}
+      <div className="row wrap" style={{ gap: 8, marginBottom: 12 }}>
+        <Tabs value={view} onChange={setView} tabs={VIEWS.map(([key, label]) => ({ key, label }))} />
+        {manager && <select className="input" style={{ width: 'auto' }} value={who} onChange={(e) => setWho(e.target.value)} aria-label="Whose schedule"><option value="mine">My schedule</option><option value="all">Everyone</option></select>}
+      </div>
+      {!d ? (!err && <Loading />) : <VisitList items={items} onOpen={(a) => setOpen(a.id)} />}
+      {can('settings', 'edit') && d && <VisitSettings initial={d.settings} />}
+      {form && <VisitForm initial={form} onClose={() => setForm(null)} onSaved={() => { setForm(null); load(); }} />}
+      {open && <VisitSheet id={open} onClose={() => setOpen(null)} onChange={load} />}
     </>
+  );
+}
+
+/** Workspace settings for visit check-ins. Policy text is the business's own and should be reviewed before use. */
+function VisitSettings({ initial }) {
+  const toast = useToast();
+  const [s, setS] = useState(initial);
+  const [shown, setShown] = useState(false);
+  const save = async () => { try { setS(await api.put('/api/appointments/visit-settings', s)); toast('Saved'); } catch (e) { toast(e.message, 'err'); } };
+  return (
+    <div style={{ marginTop: 16 }}>
+      <button type="button" className="btn sm" onClick={() => setShown(!shown)} aria-expanded={shown}>Visit check-in settings</button>
+      {shown && (
+        <Card title="Visit check-in settings">
+          <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            <Field label="Near the property within (metres)" hint="Shown to agents in the workspace's distance unit."><input className="input" type="number" min={25} value={s.proximity_m} onChange={(e) => setS({ ...s, proximity_m: e.target.value })} /></Field>
+            <Field label="Oldest usable reading (seconds)" hint="Older readings are kept but marked late, not verified."><input className="input" type="number" min={15} value={s.max_fix_age_s} onChange={(e) => setS({ ...s, max_fix_age_s: e.target.value })} /></Field>
+            <Field label="Clear coordinates after (days)" hint="0 keeps them with the visit. The check-in record itself stays."><input className="input" type="number" min={0} value={s.retention_days} onChange={(e) => setS({ ...s, retention_days: e.target.value })} /></Field>
+          </div>
+          <Toggle value={!!s.manual_exception} onChange={(v) => setS({ ...s, manual_exception: v })} label="Allow a manual exception (check-in without a location, with a reason)" />
+          <Field label="Notice shown to staff before the first location request" hint="Leave empty to use the built-in wording. Have your business or legal adviser review this text; it is not a consent form.">
+            <textarea className="input" rows={3} value={s.location_notice || ''} onChange={(e) => setS({ ...s, location_notice: e.target.value })} /></Field>
+          <div><button className="btn primary" onClick={save}>Save settings</button></div>
+        </Card>)}
+    </div>
   );
 }

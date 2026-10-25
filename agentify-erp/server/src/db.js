@@ -113,6 +113,13 @@ function migrate() {
   addCol('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 1'); addCol('users', 'totp_secret', 'TEXT'); addCol('users', 'totp_enabled', 'INTEGER NOT NULL DEFAULT 0'); addCol('users', 'recovery_codes', 'TEXT'); addCol('users', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0');
   addCol('users', 'vendor_id', 'INTEGER'); addCol('vendors', 'vendor_code', 'TEXT');
   addCol('assets', 'vendor_id', 'INTEGER'); addCol('assets', 'project_id', 'INTEGER'); addCol('assets', 'warranty_until', 'TEXT'); addCol('assets', 'source', 'TEXT');
+  // property visits on appointments (all nullable, so older apps and rows keep working)
+  for (const [c, t] of [['timezone', 'TEXT'], ['starts_utc', 'TEXT'], ['ends_utc', 'TEXT'], ['client_key', 'TEXT'], ['checked_in_at', 'TEXT'], ['checked_out_at', 'TEXT'],
+    ['outcome', 'TEXT'], ['outcome_notes', 'TEXT'], ['followup_task_id', 'INTEGER'], ['status_note', 'TEXT'], ['status_by', 'INTEGER'], ['status_at', 'TEXT']]) addCol('appointments', c, t);
+  if (cols('appointments').length) {
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_key ON appointments(created_by, client_key) WHERE client_key IS NOT NULL');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_appointments_property ON appointments(property_id); CREATE INDEX IF NOT EXISTS idx_appointments_contact ON appointments(contact_id)');
+  }
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_notif_dedupe ON notifications(user_id, dedupe) WHERE dedupe IS NOT NULL');
   db.exec('CREATE INDEX IF NOT EXISTS idx_sales_contact ON sales(contact_id); CREATE INDEX IF NOT EXISTS idx_sales_agent ON sales(agent_id); CREATE INDEX IF NOT EXISTS idx_sales_bundle ON sales(bundle_id);');
   // every receipt belongs to one or more sales through receipt_sales
