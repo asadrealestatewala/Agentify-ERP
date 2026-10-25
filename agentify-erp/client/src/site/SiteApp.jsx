@@ -273,7 +273,7 @@ function ProjectPage() {
     <div>
       <Crumbs items={[{ label: 'Home', href: '/site' }, { label: 'Projects', href: '/site/projects' }, { label: p.name }]} />
       <div className="wrap sec">
-        <div className="phead"><div><h1>{p.name}</h1><div className="ploc big">📍 {p.location} · {p.dev_status}</div></div><div className="pprice"><b>{p.progress || 0}%</b><small>developed</small></div></div>
+        <div className="phead"><div><h1>{p.name}</h1><div className="ploc big">📍 {p.location} · {p.dev_status}</div></div>{p.progress != null && <div className="pprice"><b>{p.progress}%</b><small>developed</small></div>}</div>
         {p.images.length > 0 && <div className="ggrid">{p.images.map((m, i) => <figure key={i}><img src={imgUrl(m.url)} alt={m.caption || p.name} loading="lazy" /></figure>)}</div>}
         <div className="box"><h3>About the project</h3><Markdown text={p.description} /><dl className="facts">{[['Developer', p.developer], ['Land area', p.total_land_area ? `${p.total_land_area} ${p.land_unit}` : null], ['Total units', p.total_units], ['Started', p.start_date], ['Expected completion', p.expected_completion]].filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl></div>
         {p.schedule && (
