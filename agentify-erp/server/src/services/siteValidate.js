@@ -40,6 +40,9 @@ export function validateSiteConfig(c) {
     if (c.bot.quick_replies !== undefined && (!Array.isArray(c.bot.quick_replies) || c.bot.quick_replies.length > 8 || c.bot.quick_replies.some((q) => typeof q !== 'string' || q.length > 60))) throw bad('Quick replies must be up to 8 short phrases');
   }
   const h = c.header || {};
+  if (h.style !== undefined && !['light', 'dark', 'transparent'].includes(h.style)) throw bad('Header style must be light, dark or transparent');
+  if (c.footer?.style !== undefined && !['dark', 'light'].includes(c.footer.style)) throw bad('Footer style must be dark or light');
+  if (c.active_theme !== undefined && c.active_theme !== null && !/^[a-z0-9-]{1,40}$/.test(String(c.active_theme))) throw bad('Unknown theme');
   checkLink(h.cta_href, 'The header button link');
   (h.links || []).forEach((l, i) => checkLink(l.href, `Header menu link ${i + 1}`));
   (c.footer?.columns || []).forEach((col) => (col.links || []).forEach((l, i) => checkLink(l.href, `Footer link “${l.label || i + 1}”`)));

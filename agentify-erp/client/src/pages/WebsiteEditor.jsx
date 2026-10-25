@@ -13,8 +13,8 @@ import { FONTS, SECTION_TYPES, imgUrl } from '../site/siteCore.jsx';
 import { SitePreview } from '../site/SiteApp.jsx';
 import { TEMPLATES, buildSections } from '../site/siteTemplates.js';
 
-const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
-const setPath = (o, p, v) => { const ks = p.split('.'); const root = Array.isArray(o) ? [...o] : { ...o }; let cur = root; ks.forEach((k, i) => { if (i === ks.length - 1) cur[k] = v; else { cur[k] = Array.isArray(cur[k]) ? [...cur[k]] : { ...(cur[k] || {}) }; cur = cur[k]; } }); return root; };
+export const getPath = (o, p) => p.split('.').reduce((a, k) => (a == null ? a : a[k]), o);
+export const setPath = (o, p, v) => { const ks = p.split('.'); const root = Array.isArray(o) ? [...o] : { ...o }; let cur = root; ks.forEach((k, i) => { if (i === ks.length - 1) cur[k] = v; else { cur[k] = Array.isArray(cur[k]) ? [...cur[k]] : { ...(cur[k] || {}) }; cur = cur[k]; } }); return root; };
 const uid = () => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 // ------------------------------------------------------------------ media picker
@@ -68,7 +68,7 @@ function FieldEditor({ fields, values, onChange, ctx }) {
   );
 }
 
-function FieldRow({ f, value, onChange, ctx }) {
+export function FieldRow({ f, value, onChange, ctx }) {
   const v = value ?? (f.type === 'list' ? [] : f.type === 'bool' ? false : '');
   switch (f.type) {
     case 'lines': return <Field label={f.label}><textarea className="textarea" rows={5} value={Array.isArray(v) ? v.join('\n') : v} onChange={(e) => onChange(e.target.value.split('\n').slice(0, 8))} /></Field>;
@@ -117,8 +117,8 @@ function FieldRow({ f, value, onChange, ctx }) {
 
 // ------------------------------------------------------------------ global site settings schema
 const SOCIALS = ['Facebook', 'Instagram', 'YouTube', 'WhatsApp', 'X (Twitter)', 'LinkedIn', 'TikTok', 'Website', 'Other'].map((p) => ({ value: p, label: p }));
-const LINKS = (label) => ({ key: label.key, label: label.label, type: 'list', item: [{ key: 'label', label: 'Label', type: 'text' }, { key: 'href', label: 'Link (e.g. /site/properties)', type: 'text' }], blank: { label: '', href: '' } });
-const SITE_GROUPS = [
+export const LINKS = (label) => ({ key: label.key, label: label.label, type: 'list', item: [{ key: 'label', label: 'Label', type: 'text' }, { key: 'href', label: 'Link (e.g. /site/properties)', type: 'text' }], blank: { label: '', href: '' } });
+export const SITE_GROUPS = [
   { id: 'brand', title: 'Brand & logo', fields: [{ key: 'brand.name', label: 'Website name', type: 'text' }, { key: 'brand.tagline', label: 'Tagline', type: 'text' }, { key: 'brand.logo', label: 'Logo (replaces the name in header & footer)', type: 'image' }] },
   { id: 'theme', title: 'Colours & fonts', fields: [{ key: 'theme.primary', label: 'Primary colour', type: 'color' }, { key: 'theme.accent', label: 'Accent colour', type: 'color' }, { key: 'theme.dark', label: 'Dark colour (footer, banners)', type: 'color' }, { key: 'theme.bg', label: 'Page background', type: 'color' }, { key: 'theme.soft', label: 'Soft section background', type: 'color' }, { key: 'theme.font_heading', label: 'Heading font', type: 'font' }, { key: 'theme.font_body', label: 'Body font', type: 'font' }, { key: 'theme.radius', label: 'Corner roundness (px)', type: 'range', min: 0, max: 24 }] },
   { id: 'header', title: 'Header', fields: [LINKS({ key: 'header.links', label: 'Menu links' }), { key: 'header.cta_label', label: 'Button text', type: 'text' }, { key: 'header.cta_href', label: 'Button link', type: 'text' }, { key: 'header.show_phone', label: 'Show phone number in header', type: 'bool' }, { key: 'header.sticky', label: 'Keep header fixed while scrolling', type: 'bool' }] },
@@ -171,7 +171,7 @@ function SiteSettings({ cfg, setCfg, ctx }) {
 
 // ------------------------------------------------------------------ blog
 /** Reviews sent from the website's review form: approve before they appear, reject, or delete. */
-function ReviewsTab({ canEdit, canDelete }) {
+export function ReviewsTab({ canEdit, canDelete }) {
   const toast = useToast();
   const [st, setSt] = useState('pending');
   const [d, setD] = useState(null);
@@ -208,7 +208,7 @@ function ReviewsTab({ canEdit, canDelete }) {
   );
 }
 
-function BlogTab({ ctx }) {
+export function BlogTab({ ctx }) {
   const toast = useToast();
   const [posts, setPosts] = useState(null);
   const { hidden: hiddenPosts, remove: removePost } = useUndoDelete('site-posts');
@@ -290,7 +290,7 @@ function useSectionHistory(page, setPage) {
 const when = (iso) => { try { return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); } catch { return iso; } };
 
 /** Publishing: what visitors see is the last published release; saves are a draft until Publish. */
-function PublishPanel({ status, dirty, onSaveFirst, onChanged, onDiscarded, onClose }) {
+export function PublishPanel({ status, dirty, onSaveFirst, onChanged, onDiscarded, onClose }) {
   const { can } = useAuth();
   const toast = useToast();
   const [label, setLabel] = useState('');
@@ -390,8 +390,6 @@ export default function WebsiteEditor() {
   const [pub, setPub] = useState(null); // publish status: live release, offline, unpublished changes
   const [pubOpen, setPubOpen] = useState(false);
   const canEdit = can('website', 'edit');
-  // the new visual editor is on trial: linked for every editor; a browser can hide the link with "agentify-visual-editor" set to 0
-  const visualTrial = (() => { try { return canEdit && localStorage.getItem('agentify-visual-editor') !== '0'; } catch { return canEdit; } })();
   const loadPub = useCallback(() => api.get('/api/site-admin/publish').then(setPub).catch(() => {}), []);
   useEffect(() => { loadPub(); }, [loadPub]);
 
@@ -489,7 +487,7 @@ export default function WebsiteEditor() {
   const actionBtns = (<>
         <button className="btn" disabled={!hist.canUndo} onClick={hist.undo} title="Undo (Ctrl+Z)">↶ Undo</button><button className="btn" disabled={!hist.canRedo} onClick={hist.redo} title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
         <button className="btn" onClick={openVersions}>🕘 History</button>
-        {visualTrial && <a className="btn" href="/website/visual" title="Trial of the new visual editor (same pages, same drafts)">Try the new editor</a>}
+        {canEdit && <a className="btn" href="/website" title="The new website studio (same pages, same drafts)">Open the new editor</a>}
         <a className="btn" href="/site" target="_blank" rel="noreferrer">View live site ↗</a>
         <button className="btn" disabled={!dirty || busy || !canEdit} onClick={saveDraft}>{busy ? 'Saving…' : dirty ? 'Save draft' : 'Saved'}</button>
         <button className={`btn ${dirty || pub?.changes || pub?.offline ? 'primary' : ''}`} onClick={() => setPubOpen(true)} title="Publish, preview link, earlier versions">

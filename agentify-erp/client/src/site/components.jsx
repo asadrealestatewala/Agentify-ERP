@@ -5,6 +5,7 @@ import { CalculatorTabs } from './ConstructionTools.jsx';
 import { useMemo } from 'react';
 import { Markdown, imgUrl, isInternal, priceText, useSite, waLink, MoneyBox, curCode, siteCopy, isPK, exampleAmount } from './siteCore.jsx';
 import { safeId, sectionCss } from '../../../shared/sectionStyle.js';
+import { DEMO_AGENTS, DEMO_LISTINGS, DEMO_POSTS } from './demoContent.js';
 
 /**
  * Inline editing. On the editor canvas each section is wrapped in this context; <Ed> then renders its text as an editable element
@@ -13,6 +14,11 @@ import { safeId, sectionCss } from '../../../shared/sectionStyle.js';
  */
 export const EditCtx = createContext(null);
 export const useEditing = () => !!useContext(EditCtx);
+/** Set by the website studio's canvas so blocks that hide themselves when empty stay visible (and selectable) while editing. */
+export const ShowEmptyCtx = createContext(false);
+/** On the editor canvas and in theme previews, data blocks with nothing to show yet fill with labelled sample cards. Visitors never see them. */
+const useSamples = () => useContext(ShowEmptyCtx);
+const SampleNote = ({ what }) => <p className="sample-note">Sample {what} for the preview. Your real {what} appear here automatically once you add them in the ERP; visitors never see these samples.</p>;
 export const postToEditor = (m) => window.parent.postMessage(m, window.location.origin);
 export function Ed({ as: Tag = 'span', value, path, className, children, ...rest }) {
   const ctx = useContext(EditCtx);
@@ -171,7 +177,7 @@ export function PropertyCard({ p, onEnquire }) {
     <article className="pcard">
       <Link to={`/site/property/${p.id}`} className="pcard-img" aria-label={p.title}>
         {p.cover ? <img src={imgUrl(p.cover)} alt={p.title} loading="lazy" /> : <Placeholder icon={p.type === 'Plots' ? '🌳' : p.type === 'Shops' || p.type === 'Offices' ? '🏢' : '🏠'} />}
-        <div className="tags">{p.featured && <Stars />}{p.purpose === 'Rent' && <span className="tag-rent">For rent</span>}{sold && <span className="tag-sold">Sold</span>}{reserved && <span className="tag-res">Reserved</span>}{p.ready && <span className="tag-ready">Ready</span>}</div>
+        <div className="tags">{p.sample && <span className="tag-sample">Sample</span>}{p.featured && <Stars />}{p.purpose === 'Rent' && <span className="tag-rent">For rent</span>}{sold && <span className="tag-sold">Sold</span>}{reserved && <span className="tag-res">Reserved</span>}{p.ready && <span className="tag-ready">Ready</span>}</div>
         {p.photos > 1 && <span className="photos">📷 {p.photos}</span>}
       </Link>
       <div className="pcard-body">
@@ -195,7 +201,7 @@ export function PropertyCard({ p, onEnquire }) {
 export function AgentCard({ a }) {
   return (
     <div className="acard">
-      <div className="av lg">{a.name.split(' ').map((x) => x[0]).join('').slice(0, 2)}</div>
+      {a.photo ? <img className="av lg av-img" src={imgUrl(a.photo)} alt="" loading="lazy" /> : <div className="av lg">{a.name.split(' ').map((x) => x[0]).join('').slice(0, 2)}</div>}
       <h4>{a.name}</h4>
       <div className="muted">{a.role === 'Sales Manager' ? 'Sales manager' : 'Listing agent'} · {a.listings} listing{a.listings === 1 ? '' : 's'}</div>
       <div className="acts">
@@ -293,30 +299,65 @@ const Head = ({ title, subtitle, href, hrefLabel = 'View all →' }) => {
   ) : null;
 };
 
+/** Small contact card for the "headline + enquiry form" hero: the company's phone and email above a short enquiry form (a CRM lead). */
+function HeroFormCard({ p }) {
+  const { config } = useSite();
+  const c = config.contact || {};
+  return (
+    <div className="hero-card">
+      {(c.phone || c.email) && <ul className="hero-card-contact">{c.phone && <li>📞 <a href={`tel:${c.phone}`}>{c.phone}</a></li>}{c.email && <li>✉️ <a href={`mailto:${c.email}`}>{c.email}</a></li>}</ul>}
+      <InquiryForm title={p.form_title || 'Talk to an agent'} kind="contact" compact />
+    </div>
+  );
+}
+
+/**
+ * Hero layouts: classic (headline over a photo, optional search), search (centred headline with a search panel),
+ * form (headline beside an enquiry form) and split (text beside a photo, no overlay). Pages saved before layouts existed
+ * have no `variant` and keep the classic look.
+ */
 function Hero({ p }) {
   const bg = imgUrl(p.image);
+  const v = ['search', 'form', 'split'].includes(p.variant) ? p.variant : 'classic';
+  const text = (<>
+    <Ed as="h1" value={p.headline} path="headline" />{p.subheadline && <Ed as="p" value={p.subheadline} path="subheadline" />}
+    {p.cta_label && <A href={p.cta_href} className="btn-p lg"><Ed value={p.cta_label} path="cta_label" /></A>}{p.cta_label && <LinkBtn path="cta_href" value={p.cta_href} />}
+  </>);
+  const search = p.show_search && <SearchBox initial={p.search_tab === 'Rent' ? { purpose: 'Rent' } : {}} />;
+  if (v === 'split') {
+    return (
+      <section className={`hero-split ${p.height || 'tall'}`}><div className="wrap hs-grid">
+        <div className="hs-text">{text}{search}</div>
+        <div className="hs-img"><ImgBtn path="image" label="Change image" />{bg ? <img src={bg} alt="" /> : <Placeholder icon="🏡" />}</div>
+      </div></section>
+    );
+  }
+  const o = Math.max(0, Math.min(90, Number(p.overlay ?? 55)));
+  const shade = v === 'classic' ? `rgba(4,36,34,${o / 100})` : `color-mix(in srgb, var(--s-dark) ${o}%, transparent)`;
   return (
-    <section className={`hero ${p.height || 'tall'}`} style={bg ? { backgroundImage: `linear-gradient(rgba(4,36,34,${(p.overlay ?? 55) / 100}), rgba(4,36,34,${(p.overlay ?? 55) / 100})), url(${bg})` } : undefined}>
+    <section className={`hero ${p.height || 'tall'} hv-${v}${p.align === 'center' || v === 'search' ? ' center' : ''}`} style={bg ? { backgroundImage: `linear-gradient(${shade}, ${shade}), url(${bg})` } : undefined}>
       <ImgBtn path="image" label="Change background" />
       <div className="wrap">
-        <Ed as="h1" value={p.headline} path="headline" />{p.subheadline && <Ed as="p" value={p.subheadline} path="subheadline" />}
-        {p.cta_label && <A href={p.cta_href} className="btn-p lg"><Ed value={p.cta_label} path="cta_label" /></A>}{p.cta_label && <LinkBtn path="cta_href" value={p.cta_href} />}
-        {p.show_search && <SearchBox />}
+        {v === 'form' ? <div className="hero-cols"><div className="hero-text">{text}</div><HeroFormCard p={p} /></div> : <>{text}{search}</>}
       </div>
     </section>
   );
 }
 
+/** Listing cards: the standard card, or "overlay" (title and price over the photo). */
 function Listings({ p }) {
   const params = { limit: p.limit || 8, purpose: p.purpose || undefined, featured: p.source === 'featured' ? 1 : undefined, project_id: p.source === 'project' ? p.project_id : undefined, type: p.source === 'type' ? p.property_type : undefined, sort: p.source === 'latest' ? undefined : undefined };
   let d = usePublic('/api/site/listings', params);
   const fallback = usePublic(p.source === 'featured' && d && d.data?.length === 0 ? '/api/site/listings' : null, { limit: p.limit || 8 });
   if (d && p.source === 'featured' && d.data.length === 0 && fallback) d = fallback;
+  const samples = useSamples();
+  const sample = samples && d && !d.data.length;
+  if (sample) d = { data: DEMO_LISTINGS.filter((x) => !p.purpose || x.purpose === p.purpose).concat(DEMO_LISTINGS).slice(0, Number(p.limit) || 8) };
   return (
     <section className="sec"><div className="wrap">
       <Head title={p.title} subtitle={p.subtitle} href={p.view_all_href} />
       {!d ? <div className="skeleton-row">{[1, 2, 3, 4].map((i) => <div key={i} className="skeleton" />)}</div> : !d.data.length ? <p className="muted">No properties to show yet.</p> : (
-        <div className={p.layout === 'carousel' ? 'carousel' : 'pgrid'}>{d.data.map((x) => <PropertyCard key={x.id} p={x} />)}</div>
+        <>{sample && <SampleNote what="listings" />}<div className={`${p.layout === 'carousel' ? 'carousel' : 'pgrid'}${p.card === 'overlay' ? ' card-overlay' : ''}${[3, 4].includes(Number(p.columns)) && p.layout !== 'carousel' ? ` cols-${Number(p.columns)}` : ''}`}>{d.data.map((x, i) => <PropertyCard key={`${x.id}-${i}`} p={x} />)}</div></>
       )}
     </div></section>
   );
@@ -329,17 +370,23 @@ function Projects({ p }) {
 
 const Stats = ({ p }) => <section className="stats"><div className="wrap">{(p.items || []).map((s, i) => <div key={i}><Ed as="b" value={s.value} path={`items.${i}.value`} /><Ed value={s.label} path={`items.${i}.label`} /></div>)}</div></section>;
 
-const Services = ({ p }) => (
-  <section className="sec"><div className="wrap"><Head title={p.title} />
-    <div className="svc">{(p.items || []).map((s, i) => <A key={i} href={s.href} className="svc-card"><span className="svc-ic">{s.icon}</span><Ed as="h4" value={s.title} path={`items.${i}.title`} /><Ed as="p" value={s.text} path={`items.${i}.text`} /><LinkBtn path={`items.${i}.href`} value={s.href} /></A>)}</div></div></section>
-);
+/** Service cards: plain cards, raised cards with round icons (they overlap the block above on wide screens), or numbered steps. */
+const Services = ({ p }) => {
+  const v = ['raised', 'steps'].includes(p.variant) ? p.variant : 'cards';
+  return (
+    <section className={`sec svc-sec svc-${v}${v === 'raised' && p.overlap ? ' overlap' : ''}`}><div className="wrap">{!(v === 'raised' && p.overlap) && <Head title={p.title} subtitle={p.subtitle} />}
+      <div className="svc">{(p.items || []).map((s, i) => <A key={i} href={s.href} className="svc-card"><span className="svc-ic">{v === 'steps' ? i + 1 : s.icon}</span><Ed as="h4" value={s.title} path={`items.${i}.title`} /><Ed as="p" value={s.text} path={`items.${i}.text`} />{v === 'raised' && s.href && <span className="svc-more">{p.link_label || 'Learn more'}</span>}<LinkBtn path={`items.${i}.href`} value={s.href} /></A>)}</div></div></section>
+  );
+};
 
 const Calculators = ({ p }) => <section className="sec soft"><div className="wrap"><Head title={p.title} subtitle={p.subtitle} href="/site/calculators" hrefLabel="Open full calculators →" /><CalculatorTabs /></div></section>;
 
 function Agents({ p }) {
-  const d = usePublic('/api/site/agents');
+  let d = usePublic('/api/site/agents');
+  const sample = useSamples() && d && !d.data.length;
+  if (sample) d = { data: DEMO_AGENTS };
   if (d && !d.data.length) return null;
-  return <section className="sec"><div className="wrap"><Head title={p.title} subtitle={p.subtitle} href="/site/agents" />{d && <div className="agrid">{d.data.slice(0, p.limit || 4).map((a) => <AgentCard key={a.id} a={a} />)}</div>}</div></section>;
+  return <section className="sec"><div className="wrap"><Head title={p.title} subtitle={p.subtitle} href="/site/agents" />{sample && <SampleNote what="agents" />}{d && <div className="agrid">{d.data.slice(0, p.limit || 4).map((a) => <AgentCard key={a.id} a={a} />)}</div>}</div></section>;
 }
 
 const Testimonials = ({ p }) => (
@@ -434,9 +481,11 @@ function Reviews({ p }) {
 }
 
 function Blog({ p }) {
-  const d = usePublic('/api/site/posts', { limit: p.limit || 3 });
+  let d = usePublic('/api/site/posts', { limit: p.limit || 3 });
+  const sample = useSamples() && d && !d.data.length;
+  if (sample) d = { data: DEMO_POSTS.slice(0, Number(p.limit) || 3) };
   if (d && !d.data.length) return null;
-  return <section className="sec"><div className="wrap"><Head title={p.title} href="/site/blog" />{d && <div className="bgrid">{d.data.map((x) => <PostCard key={x.id} p={x} />)}</div>}</div></section>;
+  return <section className="sec"><div className="wrap"><Head title={p.title} href="/site/blog" />{sample && <SampleNote what="articles" />}{d && <div className="bgrid">{d.data.map((x) => <PostCard key={x.id} p={x} />)}</div>}</div></section>;
 }
 
 function Cta({ p }) {
@@ -475,7 +524,9 @@ function Contact({ p }) {
   );
 }
 
-const Gallery = ({ p }) => <section className="sec"><div className="wrap"><Head title={p.title} /><div className="ggrid">{(p.images || []).map((x, idx) => ({ ...x, _i: idx })).filter((i) => i.src).map((i) => <figure key={i._i}><ImgBtn path={`images.${i._i}.src`} /><img src={imgUrl(i.src)} alt={i.caption || ''} loading="lazy" />{i.caption && <figcaption>{i.caption}</figcaption>}</figure>)}</div></div></section>;
+/** A gallery with no photos yet shows nothing to visitors (the editor still shows its title so it can be filled). */
+const Gallery = ({ p }) => (!useEditing() && !useContext(ShowEmptyCtx) && !(p.images || []).some((i) => i.src) ? null : <GalleryInner p={p} />);
+const GalleryInner = ({ p }) => <section className="sec"><div className="wrap"><Head title={p.title} /><div className="ggrid">{(p.images || []).map((x, idx) => ({ ...x, _i: idx })).filter((i) => i.src).map((i) => <figure key={i._i}><ImgBtn path={`images.${i._i}.src`} /><img src={imgUrl(i.src)} alt={i.caption || ''} loading="lazy" />{i.caption && <figcaption>{i.caption}</figcaption>}</figure>)}</div></div></section>;
 
 function Leadership({ p }) {
   const all = (p.members || []).filter((m) => m.name);
@@ -604,7 +655,7 @@ const MAP = { hero: Hero, listings: Listings, projects: Projects, stats: Stats, 
 export function SectionRenderer({ sections, wrap, editor, readonly }) {
   const list = sections || [];
   const css = useMemo(() => sectionCss(list, { keepHidden: !!editor }), [list, editor]);
-  return (
+  const body = (
     <>
       {css && <style>{css}</style>}
       {list.map((s, i) => {
@@ -614,4 +665,5 @@ export function SectionRenderer({ sections, wrap, editor, readonly }) {
       })}
     </>
   );
+  return editor ? <ShowEmptyCtx.Provider value>{body}</ShowEmptyCtx.Provider> : body;
 }

@@ -20,7 +20,7 @@ import Branding from './pages/Branding.jsx';
 import Goals from './pages/Goals.jsx';
 import WebsiteEditor from './pages/WebsiteEditor.jsx';
 const SiteApp = lazy(() => import('./site/SiteApp.jsx'));
-const WebsiteEditorNext = lazy(() => import('./pages/WebsiteEditorNext.jsx'));
+const WebsiteStudio = lazy(() => import('./pages/website/WebsiteStudio.jsx'));
 import { InstallmentsPage, ReceiptDetail, ReceiptForm, ReceiptList, Receivables } from './pages/Receipts.jsx';
 import { CustomerList, CustomerPortalAdmin, CustomerStatement } from './pages/Customers.jsx';
 import { AccountStatement, AccountingDashboard, BalanceSheet, ChartOfAccounts, IncomeStatement, Journals, Treasury } from './pages/Accounting.jsx';
@@ -83,6 +83,12 @@ function LibraryGuard({ children }) {
   return children;
 }
 const G = (module, el, action) => <Guard module={module} action={action}>{el}</Guard>;
+
+/** The website editor: the studio for people who can edit; the classic editor (which also has a read-only view) for the rest. */
+function WebsiteHome() {
+  const { can } = useAuth();
+  return can('website', 'edit') ? <Suspense fallback={<Loading />}><WebsiteStudio /></Suspense> : <WebsiteEditor />;
+}
 
 /** The home page: a free website account has no dashboard, so it opens on the website editor. */
 function Home() {
@@ -281,8 +287,9 @@ export default function App() {
         <Route path="my/tasks" element={<MyTasks />} />
         <Route path="content" element={G('content', <Content />)} />
         <Route path="customers/promos" element={G('customers', <Promos />, 'edit')} />
-        <Route path="website" element={G('website', <WebsiteEditor />)} />
-        <Route path="website/visual" element={G('website', <Suspense fallback={<Loading />}><WebsiteEditorNext /></Suspense>, 'edit')} />
+        <Route path="website" element={G('website', <WebsiteHome />)} />
+        <Route path="website/classic" element={G('website', <WebsiteEditor />)} />
+        <Route path="website/visual" element={<Navigate to="/website" replace />} />
         <Route path="website/seo" element={G('seo', <SeoManager />)} />
         <Route path="website/assistant" element={G('website', <BotKnowledge />)} />
         <Route path="notifications" element={<NotificationsPage />} />
