@@ -18,7 +18,7 @@
   "client/src/pages/SuperAdmin.jsx": 2,
   "client/src/pages/Tenders.jsx": 2,
   "client/src/pages/VendorPortal.jsx": 2,
-  "client/src/pages/WebsiteEditor.jsx": 10,
+  "client/src/pages/website/siteShared.jsx": 10,
   "client/src/site/Calculators.jsx": 1,
   "client/src/site/components.jsx": 1,
   "client/src/site/ConstructionTools.jsx": 17,

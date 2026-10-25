@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { api } from './api.js';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './components/Layout.jsx';
-import { Loading } from './components/ui.jsx';
+import { Card, Empty, Loading } from './components/ui.jsx';
 import { useAuth, useMeta } from './context.jsx';
 import Login from './pages/Login.jsx';
 import Billing from './pages/Billing.jsx';
@@ -18,7 +18,6 @@ import { DevUpdates, ProjectFinancials, ProjectList, ProjectUnits, ProjectWorksp
 import { SaleDetail, SaleForm, SaleList } from './pages/Sales.jsx';
 import Branding from './pages/Branding.jsx';
 import Goals from './pages/Goals.jsx';
-import WebsiteEditor from './pages/WebsiteEditor.jsx';
 const SiteApp = lazy(() => import('./site/SiteApp.jsx'));
 const WebsiteStudio = lazy(() => import('./pages/website/WebsiteStudio.jsx'));
 import { InstallmentsPage, ReceiptDetail, ReceiptForm, ReceiptList, Receivables } from './pages/Receipts.jsx';
@@ -84,10 +83,10 @@ function LibraryGuard({ children }) {
 }
 const G = (module, el, action) => <Guard module={module} action={action}>{el}</Guard>;
 
-/** The website editor: the studio for people who can edit; the classic editor (which also has a read-only view) for the rest. */
+/** The website studio is the only website editor. People who can only view get a short note instead of a read-only editor. */
 function WebsiteHome() {
   const { can } = useAuth();
-  return can('website', 'edit') ? <Suspense fallback={<Loading />}><WebsiteStudio /></Suspense> : <WebsiteEditor />;
+  return can('website', 'edit') ? <Suspense fallback={<Loading />}><WebsiteStudio /></Suspense> : <Card title="Website"><Empty icon="globe" title="You can view the website but not edit it" hint="Ask an administrator for website edit access to use the editor." action={<a className="btn" href="/site" target="_blank" rel="noreferrer">View the website</a>} /></Card>;
 }
 
 /** The home page: a free website account has no dashboard, so it opens on the website editor. */
@@ -288,7 +287,7 @@ export default function App() {
         <Route path="content" element={G('content', <Content />)} />
         <Route path="customers/promos" element={G('customers', <Promos />, 'edit')} />
         <Route path="website" element={G('website', <WebsiteHome />)} />
-        <Route path="website/classic" element={G('website', <WebsiteEditor />)} />
+        <Route path="website/classic" element={<Navigate to="/website" replace />} />
         <Route path="website/visual" element={<Navigate to="/website" replace />} />
         <Route path="website/seo" element={G('seo', <SeoManager />)} />
         <Route path="website/assistant" element={G('website', <BotKnowledge />)} />
