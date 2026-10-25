@@ -22,7 +22,7 @@ export function mdToHtml(text) {
   }).join('');
 }
 export const looksHtml = (s) => /<\/?(p|h[1-6]|div|ul|ol|figure|img|blockquote|strong|em|span|br)\b/i.test(String(s || ''));
-export const textOf = (html) => { const d = document.createElement('div'); d.innerHTML = html || ''; return (d.textContent || '').replace(/\s+/g, ' ').trim(); };
+export const textOf = (html) => { const d = new DOMParser().parseFromString(html || '', 'text/html').body; return (d.textContent || '').replace(/\s+/g, ' ').trim(); }; // inert: nothing in the text runs or loads
 
 const Btn = ({ title, on, active, children, ...p }) => <button type="button" className={`rte-btn ${active ? 'on' : ''}`} title={title} aria-label={title} onMouseDown={(e) => e.preventDefault()} onClick={on} {...p}>{children}</button>;
 

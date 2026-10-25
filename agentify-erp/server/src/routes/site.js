@@ -12,6 +12,7 @@ import { buildPlan } from '../../../shared/installmentPlan.js';
 import { botConfig, logChat, reply } from '../services/bot.js';
 import { cleanReview } from '../services/reviews.js';
 import { isHtml, outline, readingMinutes, sanitizeHtml } from '../services/richText.js';
+import { cleanForOutput } from '../services/siteValidate.js';
 
 /**
  * The company's own public website. No login: only published, customer-safe data leaves this router.
@@ -55,7 +56,7 @@ r.get('/bootstrap', (req, res) => {
   const site = publicSite({ preview });
   if (preview) res.set({ 'X-Robots-Tag': 'noindex, nofollow', 'Cache-Control': 'private, no-store' });
   if (site.offline) return res.json({ offline: true, company: { name: getSetting('company_name') } });
-  const cfg = site.config;
+  const cfg = cleanForOutput(site.config);
   const menu = site.pages.filter((p) => p.published && p.show_in_menu).sort((a, b) => a.sort_order - b.sort_order).map((p) => ({ slug: p.slug, title: p.title }));
   res.json({ config: { ...cfg, listing: { show_agent: cfg.listing.show_agent, per_page: cfg.listing.per_page } }, menu, company: { name: getSetting('company_name') }, ...(preview ? { preview: true } : {}),
     ...(viaCustomDomain(req) ? { workspace_url: workspaceUrl(req.tenant, req) } : {}) });
@@ -66,7 +67,7 @@ r.get('/pages/:slug', asyncH((req, res) => {
   const p = !site.offline && site.pages.find((x) => x.slug === req.params.slug && x.published);
   if (!p) throw notFound('Page not found');
   if (site.preview) res.set({ 'X-Robots-Tag': 'noindex, nofollow', 'Cache-Control': 'private, no-store' });
-  res.json({ slug: p.slug, title: p.title, sections: p.sections, seo_title: p.seo_title, seo_desc: p.seo_desc });
+  res.json({ slug: p.slug, title: p.title, sections: cleanForOutput(p.sections), seo_title: p.seo_title, seo_desc: p.seo_desc });
 }));
 
 // --- listings (Zameen-style search)
@@ -111,7 +112,7 @@ r.get('/listings/:id(\\d+)', asyncH((req, res) => {
   if (!p) throw notFound('This listing is no longer available');
   const images = all("SELECT kind,path,caption FROM media WHERE entity_type='property' AND entity_id=? AND kind IN ('cover','gallery','siteplan','map','dev') ORDER BY kind='cover' DESC, sort_order", p.id).map((m) => ({ kind: m.kind, url: img(m.path), caption: m.caption }));
   const similar = all(`${SELECT} WHERE ${VISIBLE} AND p.id<>? AND (p.city=? OR p.property_type=?) ORDER BY (p.property_type=?) DESC, (p.city=?) DESC, p.id DESC LIMIT 4`, p.id, p.city, p.property_type, p.property_type, p.city).map((x) => card(x, cfg));
-  res.json({ ...card(p, cfg), description: p.description, features: jparse(p.features, {}), amenities: jparse(p.amenities, []), images, videos: jparse(p.videos, []), lat: p.lat, lng: p.lng, address: p.address, block: p.block, plot_no: p.plot_no,
+  res.json({ ...card(p, cfg), description: cleanForOutput(p.description), features: jparse(p.features, {}), amenities: jparse(p.amenities, []), images, videos: jparse(p.videos, []), lat: p.lat, lng: p.lng, address: p.address, block: p.block, plot_no: p.plot_no,
     sector: p.sector, development_status: p.dev_status, installment_plan: cfg.calculators.installment, similar });
 }));
 
@@ -120,14 +121,14 @@ r.get('/projects', asyncH((req, res) => {
   const rows = all(`SELECT p.id,p.code,p.name,p.location,p.description,p.dev_status,p.kind,p.total_units,p.start_date,p.expected_completion, ${progressSql('p.id')} progress,
     (SELECT COUNT(*) FROM properties x WHERE x.project_id=p.id AND x.published=1 AND x.status IN ('available','featured')) available,
     (SELECT path FROM media WHERE entity_type='project' AND entity_id=p.id ORDER BY sort_order LIMIT 1) cover FROM projects p WHERE p.site_visible=1 ORDER BY p.site_featured DESC, p.name`);
-  res.json({ data: rows.map((p) => ({ ...p, cover: img(p.cover) })) });
+  res.json({ data: rows.map((p) => ({ ...p, description: cleanForOutput(p.description), cover: img(p.cover) })) });
 }));
 r.get('/projects/:id(\\d+)', asyncH((req, res) => {
   const cfg = visitorConfig(req);
   const p = get(`SELECT p.id,p.code,p.name,p.location,p.developer,p.description,p.total_land_area,p.land_unit,p.total_units,p.dev_status,p.kind,p.start_date,p.expected_completion, ${progressSql('p.id')} progress FROM projects p WHERE p.id=? AND p.site_visible=1`, req.params.id);
   if (!p) throw notFound('Project not found');
   const sch = scheduleFor(p.id, { scope: 'project', clientOnly: true });
-  res.json({ ...p, images: all("SELECT path,caption FROM media WHERE entity_type='project' AND entity_id=? ORDER BY sort_order", p.id).map((m) => ({ url: img(m.path), caption: m.caption })),
+  res.json({ ...p, description: cleanForOutput(p.description), images: all("SELECT path,caption FROM media WHERE entity_type='project' AND entity_id=? ORDER BY sort_order", p.id).map((m) => ({ url: img(m.path), caption: m.caption })),
     schedule: sch.tasks.length ? { summary: { actual_pct: sch.summary.actual_pct, planned_pct: sch.summary.planned_pct, health: sch.summary.health }, tasks: sch.tasks.filter((t) => !t.is_group).map((t) => ({ name: t.name, planned_start: t.planned_start, planned_end: t.planned_end, progress: t.progress, status: t.status })) } : null,
     listings: all(`${SELECT} WHERE ${VISIBLE} AND p.project_id=? ORDER BY p.id DESC LIMIT 24`, p.id).map((x) => card(x, cfg)) });
 }));
@@ -212,7 +213,7 @@ r.get('/metrics', (req, res) => res.json({
   listings: get(`SELECT COUNT(*) n FROM properties p WHERE ${VISIBLE}`).n,
   featured: get("SELECT COUNT(*) n FROM properties p WHERE p.published=1 AND p.status='featured'").n,
   for_rent: get(`SELECT COUNT(*) n FROM properties p WHERE ${VISIBLE} AND p.purpose='Rent'`).n,
-  sold: get("SELECT COUNT(*) n FROM properties WHERE status='sold'").n,
+  sold: get("SELECT COUNT(*) n FROM properties WHERE status='sold' AND published=1").n,
   projects: get('SELECT COUNT(*) n FROM projects WHERE site_visible=1').n,
   agents: get("SELECT COUNT(DISTINCT agent_id) n FROM properties p WHERE p.published=1 AND p.agent_id IS NOT NULL").n,
   articles: get('SELECT COUNT(*) n FROM site_posts WHERE published=1').n,

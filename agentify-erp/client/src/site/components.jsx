@@ -72,7 +72,8 @@ export function EdRich({ value, path }) {
   const [on, setOn] = useState(false);
   if (!ctx) return <Markdown text={value} />;
   const isHtml = /<\/?(p|h[2-4]|div|ul|ol|figure|img|blockquote|strong|em|span|br)\b/i.test(String(value || ''));
-  const tmp = document.createElement('div'); tmp.innerHTML = isHtml ? String(value) : mdToHtml(value);
+  // parsed in an inert document: nothing in stored text (an <img onerror>, a script) runs or loads while it is cleaned
+  const tmp = new DOMParser().parseFromString(isHtml ? String(value) : mdToHtml(value), 'text/html').body;
   const html = cleanRich(tmp);
   const commit = () => { const v = cleanRich(ref.current); if (v !== html) ctx.post({ t: 'edit', id: ctx.sid, path, value: v }); };
   const cmd = (c, arg) => { ref.current.focus(); document.execCommand(c, false, arg); };
