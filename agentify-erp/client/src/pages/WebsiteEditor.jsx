@@ -18,7 +18,7 @@ const setPath = (o, p, v) => { const ks = p.split('.'); const root = Array.isArr
 const uid = () => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 // ------------------------------------------------------------------ media picker
-function ImagePicker({ value, onChange }) {
+export function ImagePicker({ value, onChange }) {
   const toast = useToast();
   const { can } = useAuth();
   const [open, setOpen] = useState(false);
@@ -390,6 +390,8 @@ export default function WebsiteEditor() {
   const [pub, setPub] = useState(null); // publish status: live release, offline, unpublished changes
   const [pubOpen, setPubOpen] = useState(false);
   const canEdit = can('website', 'edit');
+  // the new visual editor is on trial: linked only when this browser has the switch "agentify-visual-editor" set to 1
+  const visualTrial = (() => { try { return canEdit && localStorage.getItem('agentify-visual-editor') === '1'; } catch { return false; } })();
   const loadPub = useCallback(() => api.get('/api/site-admin/publish').then(setPub).catch(() => {}), []);
   useEffect(() => { loadPub(); }, [loadPub]);
 
@@ -487,6 +489,7 @@ export default function WebsiteEditor() {
   const actionBtns = (<>
         <button className="btn" disabled={!hist.canUndo} onClick={hist.undo} title="Undo (Ctrl+Z)">↶ Undo</button><button className="btn" disabled={!hist.canRedo} onClick={hist.redo} title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
         <button className="btn" onClick={openVersions}>🕘 History</button>
+        {visualTrial && <a className="btn" href="/website/visual" title="Trial of the new visual editor (same pages, same drafts)">Try the new editor</a>}
         <a className="btn" href="/site" target="_blank" rel="noreferrer">View live site ↗</a>
         <button className="btn" disabled={!dirty || busy || !canEdit} onClick={saveDraft}>{busy ? 'Saving…' : dirty ? 'Save draft' : 'Saved'}</button>
         <button className={`btn ${dirty || pub?.changes || pub?.offline ? 'primary' : ''}`} onClick={() => setPubOpen(true)} title="Publish, preview link, earlier versions">

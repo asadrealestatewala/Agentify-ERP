@@ -20,6 +20,7 @@ import Branding from './pages/Branding.jsx';
 import Goals from './pages/Goals.jsx';
 import WebsiteEditor from './pages/WebsiteEditor.jsx';
 const SiteApp = lazy(() => import('./site/SiteApp.jsx'));
+const WebsiteEditorNext = lazy(() => import('./pages/WebsiteEditorNext.jsx'));
 import { InstallmentsPage, ReceiptDetail, ReceiptForm, ReceiptList, Receivables } from './pages/Receipts.jsx';
 import { CustomerList, CustomerPortalAdmin, CustomerStatement } from './pages/Customers.jsx';
 import { AccountStatement, AccountingDashboard, BalanceSheet, ChartOfAccounts, IncomeStatement, Journals, Treasury } from './pages/Accounting.jsx';
@@ -281,6 +282,7 @@ export default function App() {
         <Route path="content" element={G('content', <Content />)} />
         <Route path="customers/promos" element={G('customers', <Promos />, 'edit')} />
         <Route path="website" element={G('website', <WebsiteEditor />)} />
+        <Route path="website/visual" element={G('website', <Suspense fallback={<Loading />}><WebsiteEditorNext /></Suspense>, 'edit')} />
         <Route path="website/seo" element={G('seo', <SeoManager />)} />
         <Route path="website/assistant" element={G('website', <BotKnowledge />)} />
         <Route path="notifications" element={<NotificationsPage />} />

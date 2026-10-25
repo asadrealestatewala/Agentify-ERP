@@ -434,3 +434,10 @@ html[dir="rtl"] .input-group .addon { border-radius: 0 var(--radius, 8px) var(--
 .lde-field { display: grid; gap: 4px; margin-top: 8px; font-size: 12.5px; color: var(--muted); } .lde-field > span { display: flex; align-items: center; gap: 8px; }
 .lde-field .input, .lde-field textarea { width: 100%; height: auto; min-height: 34px; padding: 7px 10px; }
 .menu-pop { z-index: 400; }
+
+/* trial visual editor (Puck), pages/WebsiteEditorNext.jsx: full screen like the current editor */
+.pk-shell { position: fixed; inset: 0; z-index: 95; background: var(--bg); }
+.pk-actions { display: flex; gap: 8px; align-items: center; }
+.pk-actions .input { height: 34px; max-width: 220px; }
+.pk-field { display: flex; flex-direction: column; gap: 6px; }
+.pk-label { font-size: 12px; font-weight: 600; color: var(--text-2, #4b5563); }
