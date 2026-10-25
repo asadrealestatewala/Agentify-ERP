@@ -12,7 +12,7 @@ process.env.LOGIN_LIMIT = '1000';
 
 const { createApp } = await import('../src/index.js');
 const { get, all } = await import('../src/db.js');
-const { SITE_THEMES, THEME_BUILD_KEYS } = await import('../../shared/siteThemes.js');
+const { SITE_THEMES, THEME_BUILD_KEYS, themeById } = await import('../../shared/siteThemes.js');
 const { DEMO_PHOTOS, DEMO_NAMED } = await import('../../client/src/site/demoContent.js');
 const { SECTION_TYPE_NAMES } = await import('../../shared/sectionTypes.js');
 
@@ -119,4 +119,108 @@ test('header and footer looks only take the known values', async () => {
   assert.equal((await a.put('/api/site-admin/config', { ...cfg, header: { ...cfg.header, style: 'x" onmouseover="alert(1)' } })).status, 400);
   assert.equal((await a.put('/api/site-admin/config', { ...cfg, footer: { ...cfg.footer, style: 'neon' } })).status, 400);
   assert.equal((await a.put('/api/site-admin/config', { ...cfg, header: { ...cfg.header, style: 'dark', topbar: true }, footer: { ...cfg.footer, style: 'light' } })).status, 200);
+});
+
+// ---- the library: every theme, the two open-source adaptations, and the licence manifest
+const FONTS = ['Inter', 'Poppins', 'Roboto', 'Open Sans', 'Montserrat', 'Lato', 'Nunito', 'Playfair Display', 'Merriweather', 'DM Sans', 'Manrope', 'Raleway', 'Work Sans', 'Source Sans 3'];
+const PAGES_BEFORE = { skyline: ['home', 'about', 'sell', 'contact'], haven: ['home', 'how-it-works', 'contact'], maison: ['home', 'gallery', 'contact'], homestead: ['home', 'about', 'contact'] };
+
+test('the four original themes keep their ids and pages, and the two new themes are added', () => {
+  for (const [id, slugs] of Object.entries(PAGES_BEFORE)) {
+    const t = themeById(id);
+    assert.ok(t, `${id} is still in the library`);
+    assert.deepEqual(t.pages.map((p) => p.slug), slugs, `${id} keeps its pages`);
+    assert.equal(t.origin, 'original');
+    assert.equal(t.source, undefined);
+  }
+  assert.deepEqual(SITE_THEMES.slice(0, 4).map((t) => t.id), ['skyline', 'haven', 'maison', 'homestead'], 'the original order is unchanged');
+  assert.deepEqual(['horizon', 'urban'].map((id) => !!themeById(id)), [true, true]);
+  assert.equal(new Set(SITE_THEMES.map((t) => t.id)).size, SITE_THEMES.length, 'theme ids are unique');
+  assert.ok(themeById('horizon').pages.length >= 6 && themeById('urban').pages.length >= 8, 'the new themes are complete multi-page themes');
+});
+
+test('every theme has valid design tokens, unique pages, known fonts and real sample pictures', () => {
+  for (const t of SITE_THEMES) {
+    assert.ok(t.name && t.kind && t.tagline && t.best, `${t.id} is described`);
+    assert.ok(['original', 'adaptation'].includes(t.origin), `${t.id} says where it comes from`);
+    for (const k of ['primary', 'accent', 'dark', 'bg', 'soft']) assert.match(t.design.theme[k], /^#[0-9a-f]{6}$/i, `${t.id} ${k}`);
+    assert.ok(FONTS.includes(t.design.theme.font_heading) && FONTS.includes(t.design.theme.font_body), `${t.id} fonts are in the editor's list`);
+    assert.ok(Number.isFinite(t.design.theme.radius));
+    assert.ok(['light', 'dark'].includes(t.design.footer.style));
+    const slugs = t.pages.map((p) => p.slug);
+    assert.equal(new Set(slugs).size, slugs.length, `${t.id} page slugs are unique`);
+    assert.equal(slugs[0], 'home');
+    for (const p of t.pages) {
+      assert.match(p.slug, /^[a-z0-9-]{1,40}$/); assert.ok(p.title && p.blocks.length, `${t.id}/${p.slug}`);
+      for (const bk of p.blocks) {
+        assert.ok(SECTION_TYPE_NAMES.includes(bk.type), `${t.id}/${p.slug}: ${bk.type}`);
+        for (const k of Object.keys(bk.props)) assert.ok(!/^(html|script|onclick|style)$/i.test(k) || k === 'html', `${t.id}/${p.slug}: ${k}`);
+        if (bk.props.demo) assert.ok(DEMO_NAMED[bk.props.demo]);
+      }
+    }
+    // every internal link points at a page of this theme or at a built-in site route
+    const mine = new Set(slugs);
+    const text = JSON.stringify(t.pages);
+    for (const m of text.matchAll(/\/site\/p\/([a-z0-9-]+)/g)) assert.ok(mine.has(m[1]), `${t.id} links to a page it does not have: ${m[1]}`);
+  }
+});
+
+test('open-source adaptations record their source, licence and what was (not) copied; originals record none', () => {
+  for (const t of SITE_THEMES.filter((x) => x.origin === 'adaptation')) {
+    for (const k of ['name', 'url', 'license', 'copyright', 'reviewed', 'used', 'copied', 'assets']) assert.ok(t.source?.[k], `${t.id} source.${k}`);
+    assert.equal(t.source.license, 'MIT');
+    assert.match(t.source.url, /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/);
+    assert.match(t.source.copied, /^Nothing\./, 'the manifest says no source code or assets were copied');
+  }
+  assert.deepEqual(SITE_THEMES.filter((t) => t.origin === 'adaptation').map((t) => t.id), ['horizon', 'urban']);
+});
+
+test('the theme source manifest lists every theme, its licence and its source', () => {
+  const doc = fs.readFileSync(new URL('../../docs/website-themes/THEME_SOURCES.md', import.meta.url), 'utf8');
+  for (const t of SITE_THEMES) {
+    assert.ok(doc.includes(`\`${t.id}\``), `${t.id} is in the manifest`);
+    if (t.source) for (const v of [t.source.url, t.source.license, t.source.copyright]) assert.ok(doc.includes(v), `${t.id}: ${v}`);
+  }
+});
+
+test('shipped sample pictures are real images', () => {
+  for (const src of [...DEMO_PHOTOS, ...Object.values(DEMO_NAMED)]) {
+    const head = fs.readFileSync(new URL(`../../client/public${src}`, import.meta.url)).subarray(0, 3);
+    assert.deepEqual([...head], [0xff, 0xd8, 0xff], `${src} is a JPEG`);
+  }
+});
+
+test('every theme installs as a draft: nothing goes live, nothing existing is lost, and the shared definition is never changed', async () => {
+  const a = await admin();
+  const frozen = JSON.stringify(SITE_THEMES);
+  for (const t of SITE_THEMES) {
+    const liveBefore = JSON.stringify((await anon('/api/site/pages/home')).sections);
+    const homeBefore = get("SELECT * FROM site_pages WHERE slug='home'");
+    const pagesBefore = all('SELECT slug FROM site_pages ORDER BY id').map((p) => p.slug);
+    const r = await a.post(`/api/site-admin/themes/${t.id}/install`, { design: true, pages: t.pages.map((p) => ({ slug: p.slug, mode: p.slug === 'home' ? 'replace' : 'add', sections: sectionsOf(t, p.slug) })) });
+    assert.equal(r.status, 200, `${t.id}: ${JSON.stringify(r.data)}`);
+    // the replaced home is in history, previous pages are all still there, the public site is unchanged until Publish
+    assert.equal(get('SELECT sections FROM site_page_versions WHERE page_id=? AND label=? ORDER BY id DESC LIMIT 1', homeBefore.id, `Before the ${t.name} theme`).sections, homeBefore.sections, `${t.id}: old home kept in history`);
+    for (const slug of pagesBefore) assert.ok(get('SELECT 1 FROM site_pages WHERE slug=?', slug), `${t.id}: ${slug} still exists`);
+    assert.equal(JSON.stringify((await anon('/api/site/pages/home')).sections), liveBefore, `${t.id}: visitors see no change before Publish`);
+    assert.equal((await a.get('/api/site-admin/config')).data.active_theme, t.id);
+    for (const p of t.pages) { // every installed page has its blocks (a taken address gets the theme's copy beside it)
+      const row = get('SELECT sections FROM site_pages WHERE slug=?', pagesBefore.includes(p.slug) && p.slug !== 'home' ? `${p.slug}-${t.id}` : p.slug);
+      assert.equal(JSON.parse(row.sections).length, p.blocks.length, `${t.id}/${p.slug}`);
+    }
+    assert.equal((await a.post('/api/site-admin/draft/discard', {})).status, 200); // back to the live website for the next theme
+  }
+  assert.equal(JSON.stringify(SITE_THEMES), frozen, 'installing never changes the shared theme definitions');
+});
+
+test('a theme page with an unknown block or an unsafe picture or link is refused', async () => {
+  const a = await admin();
+  const horizon = themeById('horizon');
+  const good = sectionsOf(horizon, 'contact');
+  for (const bad of [
+    [...good, { id: 'bad1', type: 'script', props: {} }],
+    [{ id: 'bad2', type: 'hero', props: { headline: 'x', image: 'javascript:alert(1)' } }],
+    [{ id: 'bad3', type: 'cta', props: { headline: 'x', image: 'data:text/html,<script>alert(1)</script>' } }],
+    [{ id: 'bad4', type: 'hero', props: { headline: 'x', cta_href: 'javascript:alert(1)' } }],
+  ]) assert.equal((await a.post('/api/site-admin/themes/horizon/install', { design: false, pages: [{ slug: 'contact', mode: 'add', sections: bad }] })).status, 400);
 });
