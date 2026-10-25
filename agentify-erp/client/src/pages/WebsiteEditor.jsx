@@ -390,8 +390,8 @@ export default function WebsiteEditor() {
   const [pub, setPub] = useState(null); // publish status: live release, offline, unpublished changes
   const [pubOpen, setPubOpen] = useState(false);
   const canEdit = can('website', 'edit');
-  // the new visual editor is on trial: linked only when this browser has the switch "agentify-visual-editor" set to 1
-  const visualTrial = (() => { try { return canEdit && localStorage.getItem('agentify-visual-editor') === '1'; } catch { return false; } })();
+  // the new visual editor is on trial: linked for every editor; a browser can hide the link with "agentify-visual-editor" set to 0
+  const visualTrial = (() => { try { return canEdit && localStorage.getItem('agentify-visual-editor') !== '0'; } catch { return canEdit; } })();
   const loadPub = useCallback(() => api.get('/api/site-admin/publish').then(setPub).catch(() => {}), []);
   useEffect(() => { loadPub(); }, [loadPub]);
 

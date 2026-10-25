@@ -14,7 +14,7 @@ import { toPuck, fromPuck } from '../../../shared/puckAdapter.js';
 /**
  * Trial of the Puck visual editor (stage 2 of the website builder plan). It edits the same pages as the current editor
  * (site_pages through /api/site-admin, so the same validation, versions, draft and Publish apply) and renders the same
- * blocks as the public website. Off by default: it is only linked when localStorage "agentify-visual-editor" is "1".
+ * blocks as the public website. Linked from the current editor for every editor (a browser hides the link with localStorage "agentify-visual-editor" = "0").
  */
 
 const opts = (list) => list.map((o) => (typeof o === 'object' ? { label: String(o.label ?? o.value), value: o.value } : { label: String(o), value: o }));
