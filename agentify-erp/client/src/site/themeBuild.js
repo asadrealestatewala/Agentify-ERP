@@ -1,0 +1,56 @@
+// Turns a theme from the library (shared/siteThemes.js) into ready-to-save pages and a site configuration.
+// Blocks get their full default settings, fresh ids, and photos from the workspace's own published listings where the
+// theme asks for one. Nothing here saves anything: the editor previews the result, and installing goes through the server.
+import { SITE_THEMES, THEME_BUILD_KEYS } from '../../../shared/siteThemes.js';
+import { SECTION_TYPES } from './siteCore.jsx';
+import { api } from '../api.js';
+
+export { SITE_THEMES };
+const clone = (x) => JSON.parse(JSON.stringify(x));
+let n = 0;
+const uid = () => `t${Date.now().toString(36)}${(n++).toString(36)}`;
+
+/** Up to 12 photos from the workspace's published listings (featured first), to fill theme pictures. */
+export async function listingPhotos() {
+  try {
+    const seen = new Set(), out = [];
+    for (const q of [{ featured: 1, limit: 12 }, { limit: 24 }]) {
+      const r = await api.get('/api/site/listings', q);
+      for (const p of r?.data || []) if (p.cover && !seen.has(p.cover)) { seen.add(p.cover); out.push(p.cover); }
+      if (out.length >= 12) break;
+    }
+    return out.slice(0, 12);
+  } catch { return []; }
+}
+
+/** One theme block as a stored section. */
+export function themeSection(block, photos = []) {
+  const T = SECTION_TYPES[block.type];
+  const raw = { ...(block.props || {}) };
+  const photo = raw.photo, many = raw.photos, anchor = raw.anchor;
+  THEME_BUILD_KEYS.forEach((k) => delete raw[k]);
+  const props = { ...clone(T?.defaults || {}), ...clone(raw) };
+  if (photo !== undefined && photos.length) {
+    const src = photos[photo % photos.length];
+    if (block.type === 'hero' || block.type === 'imagetext' || block.type === 'cta') props.image = src;
+  }
+  if (block.type === 'gallery') props.images = photos.slice(0, many || 6).map((src) => ({ src, caption: '' }));
+  const s = { id: uid(), type: block.type, props };
+  if (anchor) s.style = { anchor };
+  return s;
+}
+
+/** All pages of a theme, ready to preview or install. */
+export const themePages = (theme, photos = []) => theme.pages.map((p) => ({ slug: p.slug, title: p.title, show_in_menu: !!p.show_in_menu, sections: p.blocks.map((bk) => themeSection(bk, photos)) }));
+
+/** The site configuration with the theme's design applied (colours, fonts, header and footer look). */
+export function themeConfig(cfg, theme) {
+  const d = theme.design;
+  return {
+    ...cfg,
+    theme: { ...(cfg.theme || {}), ...d.theme },
+    header: { ...(cfg.header || {}), ...d.header },
+    footer: { ...(cfg.footer || {}), ...d.footer },
+    active_theme: theme.id,
+  };
+}

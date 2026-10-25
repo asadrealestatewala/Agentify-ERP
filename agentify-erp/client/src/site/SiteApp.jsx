@@ -10,15 +10,24 @@ import { Markdown, SECTION_TYPES, SiteProvider, withPreview, fullPrice, imgUrl, 
 import { getRegion } from '../format.js';
 import './site.css';
 
+/** Header looks a theme can choose: white (default), dark, or see-through over the first block. */
+export const HEADER_STYLES = ['light', 'dark', 'transparent'];
 const SOCIAL_ICON = { Facebook: 'f', Instagram: '◎', YouTube: '▶', WhatsApp: '✆', 'X (Twitter)': '𝕏', Twitter: '𝕏', LinkedIn: 'in', TikTok: '♪', Website: '🌐', Other: '🔗' };
 
 export function Header() {
   const { config, menu, preview } = useSite();
   const [open, setOpen] = useState(false);
-  const h = config.header, b = config.brand;
+  const h = config.header, b = config.brand, c = config.contact || {};
+  const hs = HEADER_STYLES.includes(h.style) ? h.style : 'light';
   const links = [...h.links, ...menu.filter((m) => !h.links.some((l) => l.href.endsWith(`/p/${m.slug}`))).map((m) => ({ label: m.title, href: `/site/p/${m.slug}` }))];
   return (
-    <header className={`s-header ${h.sticky ? 'sticky' : ''}`}>
+    <header className={`s-header hs-${hs} ${h.sticky && hs !== 'transparent' ? 'sticky' : ''}${h.topbar ? ' has-topbar' : ''}`}>
+      {h.topbar && (c.phone || c.email || c.hours || (config.social || []).length > 0) && (
+        <div className="s-topbar"><div className="wrap">
+          <span className="tb-info">{c.phone && <a href={`tel:${c.phone}`}>📞 {c.phone}</a>}{c.email && <a href={`mailto:${c.email}`}>✉️ {c.email}</a>}{c.hours && <span>🕘 {c.hours}</span>}</span>
+          <span className="tb-social">{(config.social || []).filter((s) => safeHref(s.url)).map((s, i) => <a key={i} href={s.url} target="_blank" rel="noreferrer" aria-label={s.platform} title={s.platform}>{SOCIAL_ICON[s.platform] || '🔗'}</a>)}</span>
+        </div></div>
+      )}
       <div className="wrap row">
         <Link to="/site" className="brand" aria-label={b.name}>{b.logo ? <img src={imgUrl(b.logo)} alt={b.name} /> : <><span className="mark">⌂</span><span><b>{b.name}</b>{b.tagline && <small>{b.tagline}</small>}</span></>}</Link>
         <nav className={`nav ${open ? 'open' : ''}`} onClick={() => setOpen(false)} aria-label="Main">
@@ -41,7 +50,7 @@ export function Footer() {
   const wa = c.whatsapp;
   const map = c.address && f.show_map !== false ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}` : '';
   return (
-    <footer className="s-footer">
+    <footer className={`s-footer ${f.style === 'light' ? 'fs-light' : ''}`}>
       {f.show_cta !== false && f.cta_title && (
         <div className="fcta"><div className="wrap">
           <div><h3>{f.cta_title}</h3>{f.cta_text && <p>{f.cta_text}</p>}</div>

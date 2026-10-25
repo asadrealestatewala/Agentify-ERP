@@ -9,6 +9,7 @@ import { asyncH, bad, notFound, jparse, now, HttpError } from '../util.js';
 import { siteConfig } from './site.js';
 import { validateSiteConfig, validateSections } from '../services/siteValidate.js';
 import { defaultConfig, defaultPages } from '../services/siteDefaults.js';
+import { SITE_THEMES, themeById } from '../../../shared/siteThemes.js';
 import { buildKnowledge, reply } from '../services/bot.js';
 import rateLimit from 'express-rate-limit';
 import { generateSiteDraft, BUSINESS_TYPES, STYLES, TONES } from '../services/siteAi.js';
@@ -204,6 +205,57 @@ r.post('/pages/:id(\\d+)/reset', can('website', 'delete'), asyncH((req, res) => 
   if (!p || !d) throw bad('Only the starter pages (home, about, contact) can be reset');
   run('UPDATE site_pages SET sections=?, updated_at=? WHERE id=?', JSON.stringify(d.sections), now(), p.id);
   res.json({ ok: true });
+}));
+
+// ---- theme library: install a theme's design and pages as a draft. Nothing is overwritten silently: the editor says
+// which pages change, a replaced page keeps its current layout in its version history first, a page whose address is
+// taken can be added beside it (hidden), and visitors see nothing until Publish.
+r.get('/themes', can('website', 'view'), (req, res) => res.json({ active: siteConfig().active_theme || null, themes: SITE_THEMES.map((t) => ({ id: t.id, name: t.name, pages: t.pages.map((p) => ({ slug: p.slug, title: p.title, exists: !!get('SELECT 1 FROM site_pages WHERE slug=?', p.slug) })) })) }));
+r.post('/themes/:id/install', can('website', 'edit'), asyncH((req, res) => {
+  const t = themeById(req.params.id);
+  if (!t) throw notFound();
+  const { design, pages = [] } = req.body || {};
+  if (!Array.isArray(pages) || pages.length > t.pages.length) throw bad('Choose the pages to install');
+  const known = new Map(t.pages.map((p) => [p.slug, p]));
+  const seen = new Set();
+  for (const p of pages) {
+    if (!p || !known.has(p.slug)) throw bad(`“${String(p?.slug || '').slice(0, 40)}” is not a page of the ${t.name} theme`);
+    if (seen.has(p.slug)) throw bad('Each page can be chosen once'); seen.add(p.slug);
+    if (!['replace', 'add', 'skip'].includes(p.mode)) throw bad('Choose replace, add or skip for each page');
+    if (p.mode !== 'skip') { if (!Array.isArray(p.sections)) throw bad('Sections must be a list'); validateSections(p.sections); }
+  }
+  let cfg = null;
+  if (design) {
+    const cur = siteConfig();
+    cfg = { ...cur, theme: { ...(cur.theme || {}), ...t.design.theme }, header: { ...(cur.header || {}), ...t.design.header }, footer: { ...(cur.footer || {}), ...t.design.footer }, active_theme: t.id };
+    validateSiteConfig(cfg);
+  }
+  if (!cfg && !pages.some((p) => p.mode !== 'skip')) throw bad('Nothing to install: choose the design or at least one page');
+  const done = tx(() => {
+    const out = [];
+    for (const p of pages) {
+      if (p.mode === 'skip') continue;
+      const json = JSON.stringify(p.sections);
+      const cur = get('SELECT * FROM site_pages WHERE slug=?', p.slug);
+      if (cur && p.mode === 'replace') {
+        snapshot(cur.id, cur.title, cur.sections, `Before the ${t.name} theme`, req.user.id);
+        run('UPDATE site_pages SET sections=?, updated_at=? WHERE id=?', json, now(), cur.id);
+        snapshot(cur.id, cur.title, json, `${t.name} theme`, req.user.id);
+        out.push({ slug: cur.slug, id: cur.id, action: 'replaced' });
+      } else {
+        let slug = p.slug, k = 2;
+        if (cur) { slug = `${p.slug}-${t.id}`; while (get('SELECT 1 FROM site_pages WHERE slug=?', slug)) slug = `${p.slug}-${t.id}-${k++}`; }
+        const title = cur ? `${known.get(p.slug).title} (${t.name})` : known.get(p.slug).title;
+        const id = Number(run('INSERT INTO site_pages(slug,title,sections,published,sort_order,show_in_menu,updated_at) VALUES(?,?,?,?,?,?,?)', slug, title, json, cur ? 0 : 1, (get('SELECT COALESCE(MAX(sort_order),0) m FROM site_pages').m) + 1, !cur && known.get(p.slug).show_in_menu ? 1 : 0, now()).lastInsertRowid);
+        snapshot(id, title, json, `${t.name} theme`, req.user.id);
+        out.push({ slug, id, action: 'added', hidden: !!cur });
+      }
+    }
+    if (cfg) setSetting('site_config', JSON.stringify(cfg));
+    return out;
+  });
+  audit(req, 'Installed website theme', 'website', null, `${t.name}: ${[cfg ? 'design' : '', ...done.map((d) => `${d.slug} ${d.action}`)].filter(Boolean).join(', ')}`);
+  res.json({ ok: true, design: !!cfg, pages: done });
 }));
 
 // ---- blog posts
