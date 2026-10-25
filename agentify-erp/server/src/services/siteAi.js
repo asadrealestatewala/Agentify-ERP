@@ -7,13 +7,14 @@ import { bad } from '../util.js';
 import { completeJson, activeProvider } from '../integrations/ai.js';
 import { getSetting } from '../db.js';
 import { SITE_FONTS, checkLink } from './siteValidate.js';
+import { SITE_ICON_IDS } from '../../../shared/siteIcons.js';
 
 const clip = (v, n) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 const S = (n) => ['s', n], L = ['l'], B = ['b'], E = (...o) => ['e', o], N = (a, b) => ['n', a, b], LIST = (max, spec) => ['list', max, spec];
 /** Blocks the AI may write, with the options it may set. Anything else it sends is dropped. */
 export const AI_BLOCKS = {
   hero: { headline: S(110), subheadline: S(260), cta_label: S(36), cta_href: L, show_search: B, height: E('tall', 'medium') },
-  services: { title: S(70), items: LIST(6, { icon: S(4), title: S(50), text: S(180), href: L }) },
+  services: { title: S(70), items: LIST(6, { icon: E(...SITE_ICON_IDS), title: S(50), text: S(180), href: L }) },
   listings: { title: S(70), subtitle: S(140), source: E('featured', 'latest'), limit: N(4, 12), layout: E('grid', 'carousel') },
   projects: { title: S(70), subtitle: S(140), limit: N(1, 9) },
   calculators: { title: S(70), subtitle: S(140) },
@@ -31,7 +32,7 @@ export const AI_BLOCKS = {
 };
 const DESCRIBE = {
   hero: 'top banner: headline, subheadline, optional cta_label and cta_href, show_search (property search box, for property sellers), height',
-  services: 'cards: items [{icon (one emoji), title, text, href}]',
+  services: `cards: items [{icon (one of: ${SITE_ICON_IDS.filter((i) => i !== 'dot').join(', ')}), title, text, href}]`,
   listings: 'live property listings from the CRM: title, subtitle, source (featured|latest), limit, layout (grid|carousel)',
   projects: 'live project cards from the CRM: title, subtitle, limit',
   calculators: 'installment and construction cost calculators: title, subtitle',
@@ -138,7 +139,7 @@ Allowed fonts: ${SITE_FONTS.join(', ')}
 Return JSON exactly like:
 {"theme":{"primary":"#0f766e","accent":"#f59e0b","dark":"#0a3d3a","soft":"#f4f7f6","font_heading":"Poppins","font_body":"Inter","radius":12},
  "seo":{"title":"...up to 60 characters","description":"...up to 150 characters"},
- "sections":[{"type":"hero","props":{"headline":"...","subheadline":"...","show_search":true,"height":"tall"}}, {"type":"services","props":{"title":"...","items":[{"icon":"🏡","title":"...","text":"...","href":"/site/properties"}]}}]}`;
+ "sections":[{"type":"hero","props":{"headline":"...","subheadline":"...","show_search":true,"height":"tall"}}, {"type":"services","props":{"title":"...","items":[{"icon":"residential","title":"...","text":"...","href":"/site/properties"}]}}]}`;
 }
 
 export async function generateSiteDraft(rawBrief) {

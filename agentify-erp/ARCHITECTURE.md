@@ -117,6 +117,7 @@ site_posts(slug, body markdown, cover, tags, published)
 * `/api/site/*` is public, rate-limited, honeypot-protected and returns only published data — never commission, cost or drafts. Listing agent contact details appear when `listing.show_agent` is on. `POST /api/site/inquiry` reuses the CRM ingestion (round-robin agent, manager notification).
 * `/api/site-admin/*` needs the `website` module permission (Sales Manager: view/create/edit). Sales Agents publish their own properties through `/api/properties` (`owns`/`canPublish`, setting `agents_can_publish`).
 * Client: `client/src/site/` (SPA mounted at `/site/*`, theme via CSS variables + Google font injection, section renderers keyed by `SECTION_TYPES`) and `pages/WebsiteEditor.jsx` (schema-driven forms from the same `SECTION_TYPES`, live `SitePreview`).
+* Website icons: one approved list of semantic ids (`shared/siteIcons.js`) drawn as Tabler outline icons by `client/src/site/SiteIcon.jsx`; pages store ids, legacy emoji are mapped at render time and normalised on save. Rules and how to add an icon: `docs/website-icons.md`.
 
 ## 14. Mobile / PWA
 

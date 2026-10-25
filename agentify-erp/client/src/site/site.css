@@ -384,3 +384,19 @@
   .s-header.nav-many.has-topbar .nav { top: 104px; }
 }
 @media (max-width: 1180px) { .s-header.has-topbar .nav { top: 104px; } }
+
+/* ---- Website icons (SiteIcon.jsx, Tabler outline icons, 1.75 stroke, currentColor). Sizes: inline ~1.15em, controls 22px, cards 36px. */
+.site .sicon { display: inline-block; flex-shrink: 0; vertical-align: middle; }
+.site .sicon-inline { width: 1.15em; height: 1.15em; vertical-align: -0.2em; margin-inline-end: 2px; }
+.site .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.site .ph .sicon { color: color-mix(in srgb, var(--s-primary) 55%, var(--mut)); }
+.site .pfacts > span { display: inline-flex; align-items: center; gap: 4px; } .site .pfacts .sicon-inline { margin: 0; color: var(--mut); } .site .pfacts .inst .sicon-inline { color: inherit; }
+.site .ploc .sicon-inline, .site .jbody .muted .sicon-inline { color: var(--s-primary); }
+.site .pagent .ic { color: var(--s-primary); }
+.s-footer .fcontact li > .sicon-inline { width: 18px; height: 18px; margin: 2px 0 0; opacity: .85; }
+.site .cdetails li .sicon-inline, .site .hero-card-contact .sicon-inline, .site .mem-contact .sicon-inline { color: var(--s-primary); }
+/* Service cards: the icon sits in a softly tinted tile in the theme's primary colour; raised cards keep their round badge. */
+.site .svc-cards .svc-ic { width: 60px; height: 60px; display: grid; place-items: center; border-radius: min(var(--s-radius), 16px); background: color-mix(in srgb, var(--s-primary) 10%, transparent); color: var(--s-primary); margin-bottom: 14px; }
+.site .svc-raised .svc-ic { color: var(--s-primary); }
+.site .svc-cards .svc-ic:empty, .site .svc-raised .svc-ic:empty { display: none; }
+.site .portal-card .portal-ic { width: 60px; height: 60px; display: grid; place-items: center; border-radius: min(var(--s-radius), 16px); background: color-mix(in srgb, var(--s-primary) 10%, transparent); color: var(--s-primary); font-size: 0; }

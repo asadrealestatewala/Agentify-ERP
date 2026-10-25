@@ -13,6 +13,7 @@ import { Header, Footer } from '../../site/SiteApp.jsx';
 import { SITE_THEMES, listingPhotos, themeConfig, themePages } from '../../site/themeBuild.js';
 import { BlogTab, FieldRow, ImagePicker, LINKS, PublishPanel, ReviewsTab, SITE_GROUPS, getPath, setPath } from './siteShared.jsx';
 import { toPuck, fromPuck } from '../../../../shared/puckAdapter.js';
+import IconPicker from './IconPicker.jsx';
 
 /**
  * The website editor ("Website studio"): one place for the whole website, laid out like a site editor.
@@ -36,7 +37,7 @@ const DEVICES = [['desktop', 'Desktop', 1280, '🖥'], ['tablet', 'Tablet', 768,
 
 // ---------------------------------------------------------------- block fields in Puck's terms
 const opts = (list) => list.map((o) => (typeof o === 'object' ? { label: String(o.label ?? o.value), value: o.value } : { label: String(o), value: o }));
-const summary = (item) => String(Object.values(item || {}).find((v) => typeof v === 'string' && v.trim()) || 'Item').slice(0, 40);
+const summary = (item) => String([item?.title, item?.name, item?.label, item?.q].find((v) => typeof v === 'string' && v.trim()) || Object.values(item || {}).find((v) => typeof v === 'string' && v.trim()) || 'Item').slice(0, 40);
 const box = (label, node) => <div className="pk-field"><span className="pk-label">{label}</span>{node}</div>;
 
 function puckField(f, ctx) {
@@ -50,6 +51,7 @@ function puckField(f, ctx) {
     case 'project': return { type: 'select', label, options: [{ label: 'Choose a project', value: '' }, ...ctx.projects.map((p) => ({ label: p.name, value: p.id }))] };
     case 'ptype': return { type: 'select', label, options: [{ label: 'Any type', value: '' }, ...opts(ctx.ptypes)] };
     case 'image': return { type: 'custom', label, render: ({ value, onChange }) => box(label, <ImagePicker value={value || ''} onChange={onChange} />) };
+    case 'icon': return { type: 'custom', label, render: ({ value, onChange }) => box(label, <IconPicker value={value || ''} onChange={onChange} label={label} />) };
     case 'rich': return { type: 'custom', label, render: ({ value, onChange }) => box(label, <RichEditor value={value || ''} onChange={onChange} minHeight={180} />) };
     case 'color': return { type: 'custom', label, render: ({ value, onChange }) => box(label, <input type="color" value={/^#[0-9a-f]{6}$/i.test(value || '') ? value : '#000000'} onChange={(e) => onChange(e.target.value)} />) };
     case 'lines': return { type: 'custom', label, render: ({ value, onChange }) => box(label, <textarea className="textarea" rows={5} value={(value || []).join('\n')} onChange={(e) => onChange(e.target.value.split('\n').slice(0, 8))} />) };

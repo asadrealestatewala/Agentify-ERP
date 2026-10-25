@@ -8,6 +8,7 @@ import { CalculatorTabs } from './ConstructionTools.jsx';
 import { A, safeHref, AgentCard, InquiryForm, Placeholder, PostCard, ProjectCard, PropertyCard, SearchBox, SectionRenderer, usePublic } from './components.jsx';
 import { Markdown, SECTION_TYPES, SiteProvider, withPreview, fullPrice, imgUrl, priceText, useSite, useTitle, waLink, MoneyBox, minorOf, curCode, siteCopy, isPK, exampleAmount } from './siteCore.jsx';
 import { getRegion } from '../format.js';
+import SiteIcon, { Ic } from './SiteIcon.jsx';
 import './site.css';
 
 /** Header looks a theme can choose: white (default), dark, or see-through over the first block. */
@@ -24,7 +25,7 @@ export function Header() {
     <header className={`s-header hs-${hs} ${h.sticky && hs !== 'transparent' ? 'sticky' : ''}${h.topbar ? ' has-topbar' : ''}${links.length > 8 ? ' nav-many' : ''}`}>
       {h.topbar && (c.phone || c.email || c.hours || (config.social || []).length > 0) && (
         <div className="s-topbar"><div className="wrap">
-          <span className="tb-info">{c.phone && <a href={`tel:${c.phone}`}>📞 {c.phone}</a>}{c.email && <a href={`mailto:${c.email}`}>✉️ {c.email}</a>}{c.hours && <span>🕘 {c.hours}</span>}</span>
+          <span className="tb-info">{c.phone && <a href={`tel:${c.phone}`}><Ic n="phone" /> {c.phone}</a>}{c.email && <a href={`mailto:${c.email}`}><Ic n="email" /> {c.email}</a>}{c.hours && <span><Ic n="hours" /> {c.hours}</span>}</span>
           <span className="tb-social">{(config.social || []).filter((s) => safeHref(s.url)).map((s, i) => <a key={i} href={s.url} target="_blank" rel="noreferrer" aria-label={s.platform} title={s.platform}>{SOCIAL_ICON[s.platform] || '🔗'}</a>)}</span>
         </div></div>
       )}
@@ -35,7 +36,7 @@ export function Header() {
           <A href={h.cta_href || '/login'} className="btn-p sm mobile-only">{h.cta_label}</A>
         </nav>
         <div className="hright">
-          {h.show_phone && config.contact.phone && <a href={`tel:${config.contact.phone}`} className="hphone">📞 {config.contact.phone}</a>}
+          {h.show_phone && config.contact.phone && <a href={`tel:${config.contact.phone}`} className="hphone"><Ic n="phone" /> {config.contact.phone}</a>}
           {h.cta_label && <A href={h.cta_href || '/login'} className="btn-p sm desk-only">{h.cta_label}</A>}
           <button className="burger" aria-label="Menu" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? '✕' : '☰'}</button>
         </div>
@@ -55,8 +56,8 @@ export function Footer() {
         <div className="fcta"><div className="wrap">
           <div><h3>{f.cta_title}</h3>{f.cta_text && <p>{f.cta_text}</p>}</div>
           <div className="fcta-btns">
-            {c.phone && <a className="btn-p lg alt" href={`tel:${c.phone}`}>📞 Call {c.phone}</a>}
-            {wa && <a className="btn-o lg" href={waLink(wa, 'Hello, I would like to know more about your properties.')} target="_blank" rel="noreferrer">💬 WhatsApp us</a>}
+            {c.phone && <a className="btn-p lg alt" href={`tel:${c.phone}`}><Ic n="phone" /> Call {c.phone}</a>}
+            {wa && <a className="btn-o lg" href={waLink(wa, 'Hello, I would like to know more about your properties.')} target="_blank" rel="noreferrer"><Ic n="whatsapp" /> WhatsApp us</a>}
           </div>
         </div></div>
       )}
@@ -69,11 +70,11 @@ export function Footer() {
         {(f.columns || []).map((col, i) => <nav key={i} aria-label={col.title}><h5>{col.title}</h5><ul>{(col.links || []).map((l, j) => <li key={j}><A href={l.href}>{l.label}</A></li>)}</ul></nav>)}
         <div className="fcontact-col"><h5>Visit & contact</h5>
           <ul className="fcontact">
-            {c.address && <li><span aria-hidden="true">📍</span><span>{map ? <a href={map} target="_blank" rel="noreferrer">{c.address}</a> : c.address}</span></li>}
-            {c.phone && <li><span aria-hidden="true">📞</span><a href={`tel:${c.phone}`}>{c.phone}</a></li>}
-            {c.landline && <li><span aria-hidden="true">☎️</span><a href={`tel:${c.landline}`}>{c.landline}</a></li>}
-            {c.email && <li><span aria-hidden="true">✉️</span><a href={`mailto:${c.email}`}>{c.email}</a></li>}
-            {f.show_hours !== false && c.hours && <li><span aria-hidden="true">🕘</span><span>{c.hours}</span></li>}
+            {c.address && <li><Ic n="location" /><span>{map ? <a href={map} target="_blank" rel="noreferrer">{c.address}</a> : c.address}</span></li>}
+            {c.phone && <li><Ic n="phone" /><a href={`tel:${c.phone}`}>{c.phone}</a></li>}
+            {c.landline && <li><Ic n="landline" /><a href={`tel:${c.landline}`}>{c.landline}</a></li>}
+            {c.email && <li><Ic n="email" /><a href={`mailto:${c.email}`}>{c.email}</a></li>}
+            {f.show_hours !== false && c.hours && <li><Ic n="hours" /><span>{c.hours}</span></li>}
           </ul>
         </div>
       </div>
@@ -93,7 +94,7 @@ function SiteLayout() {
       <main id="site-main"><Outlet /></main>
       <Footer />
       <ChatBot />
-      {wa && <a className="wa-float" href={waLink(wa, 'Hello, I would like to know more about your properties.')} target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp">💬</a>}
+      {wa && <a className="wa-float" href={waLink(wa, 'Hello, I would like to know more about your properties.')} target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp"><SiteIcon name="whatsapp" size={28} /></a>}
     </>
   );
 }
@@ -218,11 +219,11 @@ function PropertyPage() {
       <div className="wrap pdetail">
         <div className="pmain">
           <div className="gallery2">
-            <button className="gmain" onClick={() => imgs.length && setLb(true)} aria-label="Open photo gallery">{imgs.length ? <img src={imgUrl(imgs[idx].url)} alt={p.title} /> : <Placeholder icon="🏠" label="Photos coming soon" />}{p.featured && <span className="featured-tag big">★ Featured</span>}{p.status === 'sold' && <span className="tag-sold big">Sold</span>}</button>
+            <button className="gmain" onClick={() => imgs.length && setLb(true)} aria-label="Open photo gallery">{imgs.length ? <img src={imgUrl(imgs[idx].url)} alt={p.title} /> : <Placeholder icon="residential" label="Photos coming soon" />}{p.featured && <span className="featured-tag big">★ Featured</span>}{p.status === 'sold' && <span className="tag-sold big">Sold</span>}</button>
             {imgs.length > 1 && <div className="gthumbs">{imgs.slice(0, 8).map((m, i) => <button key={i} className={i === idx ? 'on' : ''} onClick={() => setIdx(i)} aria-label={`Photo ${i + 1}`}><img src={imgUrl(m.url)} alt="" loading="lazy" />{i === 7 && imgs.length > 8 && <span>+{imgs.length - 8}</span>}</button>)}</div>}
           </div>
           <div className="phead">
-            <div><h1>{p.title}</h1><div className="ploc big">📍 {[p.location || p.area_name, p.city].filter(Boolean).join(', ')}</div></div>
+            <div><h1>{p.title}</h1><div className="ploc big"><Ic n="location" /> {[p.location || p.area_name, p.city].filter(Boolean).join(', ')}</div></div>
             <div className="pprice"><b>{priceText(p.price, p.purpose)}</b>{p.discount > 0 && <small className="was">{priceText(p.total_price)}</small>}<small>{fullPrice(p.price)}{p.purpose === 'Rent' ? ' / month' : ''}</small></div>
           </div>
           <div className="row gap"><button className="btn-s" onClick={share}>{copied ? '✓ Link copied' : '↗ Share'}</button><button className="btn-s" onClick={() => window.print()}>🖨 Print</button></div>
@@ -239,12 +240,12 @@ function PropertyPage() {
               <div className="agent-box">
                 <div className="row gap"><span className="av lg">{p.agent.name.split(' ').map((x) => x[0]).join('').slice(0, 2)}</span><div><small className="muted">Listing agent</small><h4><Link to={`/site/agent/${p.agent.id}`}>{p.agent.name}</Link></h4></div></div>
                 <div className="acts col">
-                  {p.agent.phone && <a className="btn-p" href={`tel:${p.agent.phone}`}>📞 Call {p.agent.phone}</a>}
-                  {p.agent.whatsapp && <a className="btn-s wa" href={waLink(p.agent.whatsapp, `Hi ${p.agent.name}, I'm interested in ${p.title} (${p.code}) — ${url}`)} target="_blank" rel="noreferrer">💬 WhatsApp</a>}
-                  {p.agent.email && <a className="btn-s" href={`mailto:${p.agent.email}?subject=${encodeURIComponent(`Enquiry: ${p.title} (${p.code})`)}`}>✉️ {p.agent.email}</a>}
+                  {p.agent.phone && <a className="btn-p" href={`tel:${p.agent.phone}`}><Ic n="phone" /> Call {p.agent.phone}</a>}
+                  {p.agent.whatsapp && <a className="btn-s wa" href={waLink(p.agent.whatsapp, `Hi ${p.agent.name}, I'm interested in ${p.title} (${p.code}) — ${url}`)} target="_blank" rel="noreferrer"><Ic n="whatsapp" /> WhatsApp</a>}
+                  {p.agent.email && <a className="btn-s" href={`mailto:${p.agent.email}?subject=${encodeURIComponent(`Enquiry: ${p.title} (${p.code})`)}`}><Ic n="email" /> {p.agent.email}</a>}
                 </div>
               </div>
-            ) : <div className="agent-box"><h4>Interested in this property?</h4><a className="btn-p" href={`tel:${config.contact.phone}`}>📞 Call us</a></div>}
+            ) : <div className="agent-box"><h4>Interested in this property?</h4><a className="btn-p" href={`tel:${config.contact.phone}`}><Ic n="phone" /> Call us</a></div>}
             <InquiryForm propertyId={p.id} title="Request details" agent={p.agent} compact />
           </div>
         </aside>
@@ -293,7 +294,7 @@ function ProjectPage() {
     <div>
       <Crumbs items={[{ label: 'Home', href: '/site' }, { label: 'Projects', href: '/site/projects' }, { label: p.name }]} />
       <div className="wrap sec">
-        <div className="phead"><div><h1>{p.name}</h1><div className="ploc big">📍 {p.location} · {p.dev_status}</div></div>{p.progress != null && <div className="pprice"><b>{p.progress}%</b><small>developed</small></div>}</div>
+        <div className="phead"><div><h1>{p.name}</h1><div className="ploc big"><Ic n="location" /> {p.location} · {p.dev_status}</div></div>{p.progress != null && <div className="pprice"><b>{p.progress}%</b><small>developed</small></div>}</div>
         {p.images.length > 0 && <div className="ggrid">{p.images.map((m, i) => <figure key={i}><img src={imgUrl(m.url)} alt={m.caption || p.name} loading="lazy" /></figure>)}</div>}
         <div className="box"><h3>About the project</h3><Markdown text={p.description} /><dl className="facts">{[['Developer', p.developer], ['Land area', p.total_land_area ? `${p.total_land_area} ${p.land_unit}` : null], ['Total units', p.total_units], ['Started', p.start_date], ['Expected completion', p.expected_completion]].filter(([, v]) => v).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}</dl></div>
         {p.schedule && (
@@ -323,7 +324,7 @@ function AgentPage() {
   return (
     <div className="wrap sec">
       <div className="agent-hero"><span className="av xl">{a.name.split(' ').map((x) => x[0]).join('').slice(0, 2)}</span><div><h1>{a.name}</h1><div className="muted">Listing agent · {a.listings.length} active listing(s)</div>
-        <div className="acts">{a.phone && <a className="btn-p" href={`tel:${a.phone}`}>📞 {a.phone}</a>}{a.whatsapp && <a className="btn-s wa" href={waLink(a.whatsapp)} target="_blank" rel="noreferrer">💬 WhatsApp</a>}{a.email && <a className="btn-s" href={`mailto:${a.email}`}>✉️ Email</a>}</div></div></div>
+        <div className="acts">{a.phone && <a className="btn-p" href={`tel:${a.phone}`}><Ic n="phone" /> {a.phone}</a>}{a.whatsapp && <a className="btn-s wa" href={waLink(a.whatsapp)} target="_blank" rel="noreferrer"><Ic n="whatsapp" /> WhatsApp</a>}{a.email && <a className="btn-s" href={`mailto:${a.email}`}><Ic n="email" /> Email</a>}</div></div></div>
       <h2>Listings by {a.name.split(' ')[0]}</h2><div className="pgrid">{a.listings.map((p) => <PropertyCard key={p.id} p={p} />)}</div>
     </div>
   );
