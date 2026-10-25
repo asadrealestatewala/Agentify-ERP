@@ -6,6 +6,7 @@ import { BackLink, Card, Check, ChipSelect, CurrencyInput, Field, Loading, Selec
 import { api, fileUrl } from '../api.js';
 import { useAuth, useFetch, useLookups, useToast } from '../context.jsx';
 import { money, getRegion } from '../format.js';
+import ListingAiWriter from '../components/ListingAiWriter.jsx';
 
 const PK_UNITS = ['Marla', 'Kanal', 'Sq Ft', 'Sq Yards', 'Sq Meter'];
 const UNIT_LABEL = { sqft: 'Sq Ft', sqm: 'Sq M', acre: 'Acre', hectare: 'Hectare', marla: 'Marla', kanal: 'Kanal' };
@@ -46,10 +47,42 @@ export default function PropertyForm() {
   const [video, setVideo] = useState('');
   const [errors, setErrors] = useState({});
   const [busy, setBusy] = useState(false);
+  const [aiMode, setAiMode] = useState(null); // AI writer drawer: 'titles' | 'description' | 'rewrite'
+  const [sel, setSel] = useState(null); // last text selection in the title or description fields, for "Rewrite selection"
+  const [aiUndo, setAiUndo] = useState(null); // { field, value } before the last AI change
+  const [baseline, setBaseline] = useState(null);
 
   useEffect(() => {
-    if (existing.data) { setF({ ...emptyForm(), ...existing.data, features: existing.data.features || {}, amenities: existing.data.amenities || [], videos: existing.data.videos || [] }); setMedia(existing.data.media || []); }
+    if (existing.data) { const loaded = { ...emptyForm(), ...existing.data, features: existing.data.features || {}, amenities: existing.data.amenities || [], videos: existing.data.videos || [] }; setF(loaded); setBaseline(JSON.stringify(loaded)); setMedia(existing.data.media || []); }
   }, [existing.data]);
+  // unsaved changes: warn before the tab closes or the person leaves with Cancel
+  useEffect(() => { if (!editing) setBaseline(JSON.stringify(f)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const dirty = baseline !== null && JSON.stringify(f) !== baseline;
+  useEffect(() => {
+    if (!dirty || busy) return undefined;
+    const h = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', h);
+    return () => window.removeEventListener('beforeunload', h);
+  }, [dirty, busy]);
+  const LIMIT = { title: 140, short_desc: 200, description: 20000 };
+  const trackSel = (field) => (e) => {
+    const { selectionStart: start, selectionEnd: end, value } = e.target;
+    setSel(end > start ? { field, start, end, text: value.slice(start, end) } : null);
+  };
+  /** Apply AI text to the form only. Returns false when the selected text changed since it was sent. */
+  const applyAi = (field, value, how) => {
+    const cur = String(f[field] ?? '');
+    let next = value;
+    if (how === 'append') next = cur ? `${cur.trimEnd()}\n\n${value}` : value;
+    if (how === 'selection') {
+      if (!sel || sel.field !== field || cur.slice(sel.start, sel.end) !== sel.text) { toast('That text has changed since you selected it. Select it again and rewrite.', 'err'); return false; }
+      next = cur.slice(0, sel.start) + value + cur.slice(sel.end);
+      setSel(null);
+    }
+    setAiUndo({ field, value: cur });
+    set(field, next.slice(0, LIMIT[field]));
+    return true;
+  };
 
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const feat = (k, v) => setF((x) => ({ ...x, features: { ...x.features, [k]: v } }));
@@ -168,9 +201,16 @@ export default function PropertyForm() {
         </Section>
 
         <Section icon="note" title="Ad information" hint="Title and description shown to buyers">
-          <Field label="Property title" required error={err('title')}><input className="input" value={f.title ?? ''} onChange={(e) => set('title', e.target.value)} placeholder="e.g. 10 Marla corner plot in Expert Residency" maxLength={140} /></Field>
-          <Field label="Short description"><input className="input" value={f.short_desc ?? ''} onChange={(e) => set('short_desc', e.target.value)} maxLength={200} /></Field>
-          <Field label="Full description"><textarea className="textarea" rows={6} value={f.description ?? ''} onChange={(e) => set('description', e.target.value)} placeholder="Describe the property, its features, area, surroundings…" /></Field>
+          <div className="row wrap" style={{ gap: 6 }}>
+            <button type="button" className="btn sm" onClick={() => setAiMode('titles')}><Icon name="bolt" size={14} /> Suggest titles</button>
+            <button type="button" className="btn sm" onClick={() => setAiMode('description')}><Icon name="bolt" size={14} /> Draft descriptions</button>
+            <button type="button" className="btn sm" disabled={!sel} title={sel ? undefined : 'Select text in the title or a description first'} onMouseDown={(e) => e.preventDefault()} onClick={() => setAiMode('rewrite')}><Icon name="bolt" size={14} /> Rewrite selection</button>
+            {aiUndo && <button type="button" className="btn sm ghost" onClick={() => { set(aiUndo.field, aiUndo.value); setAiUndo(null); }}>Undo AI change</button>}
+            <span className="muted">AI suggestions change this form only. Save to keep them; review and publishing stay as they are.</span>
+          </div>
+          <Field label="Property title" required error={err('title')}><input className="input" dir="auto" onSelect={trackSel('title')} value={f.title ?? ''} onChange={(e) => set('title', e.target.value)} placeholder="e.g. 10 Marla corner plot in Expert Residency" maxLength={140} /></Field>
+          <Field label="Short description"><input className="input" dir="auto" onSelect={trackSel('short_desc')} value={f.short_desc ?? ''} onChange={(e) => set('short_desc', e.target.value)} maxLength={200} /></Field>
+          <Field label="Full description"><textarea className="textarea" dir="auto" onSelect={trackSel('description')} rows={6} value={f.description ?? ''} onChange={(e) => set('description', e.target.value)} placeholder="Describe the property, its features, area, surroundings…" /></Field>
         </Section>
 
         <Section icon="image" title="Images & videos" hint="Photos, plans and videos. The cover is shown first.">
@@ -205,12 +245,18 @@ export default function PropertyForm() {
           {editing && <div className="row wrap">Current: <StatusBadge status={existing.data.status} /> <span className="pill grey">{existing.data.review_state}</span> <span className={`pill ${existing.data.published ? 'green' : 'grey'}`}>{existing.data.published ? 'Live on website' : 'Not on website'}</span></div>}
         </Section>
         <div className="sticky-bar">
-          <Link className="btn" to={editing ? `/properties/${id}` : '/properties'}>Cancel</Link>
+          <Link className="btn" to={editing ? `/properties/${id}` : '/properties'} onClick={(e) => { if (dirty && !window.confirm('Leave without saving your changes?')) e.preventDefault(); }}>Cancel</Link>
           <button className="btn" disabled={busy || locked && false} onClick={() => save()}>{editing ? 'Save changes' : 'Save draft'}</button>
           {can('properties', 'approve') && <button className="btn primary" disabled={busy} onClick={() => save('publish')}>Save & publish</button>}
           {can('properties', 'approve') && <button className="btn success" disabled={busy} onClick={() => save('feature')}>Save & feature</button>}
         </div>
       </div>
+      {aiMode && <ListingAiWriter mode={aiMode} form={aiForm(f)} propertyId={editing ? Number(id) : null} selection={sel} current={{ title: f.title, short_desc: f.short_desc, description: f.description }}
+        onApply={applyAi} onClose={() => setAiMode(null)} />}
     </div>
   );
 }
+
+/** The listing facts the AI writer may use from the unsaved form (no contacts, agent, file numbers or coordinates). */
+const aiForm = (f) => Object.fromEntries(['title', 'purpose', 'property_type', 'project_id', 'block', 'sector', 'city', 'area_name', 'location', 'area_size', 'unit', 'total_price', 'discount',
+  'installment_available', 'ready_possession', 'features', 'amenities', 'dev_status', 'short_desc', 'description'].map((k) => [k, f[k]]).filter(([, v]) => v !== undefined));
