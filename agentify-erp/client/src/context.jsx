@@ -1,3 +1,4 @@
+import { bindUser } from './fieldLocation.js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from './api.js';
 
@@ -63,7 +64,7 @@ export function AppProviders({ children }) {
     loginMfa: async (mfa_token, code) => { const u = await api.post('/api/auth/login/mfa', { mfa_token, code }); setUser(u); if (!u.portal) await loadMeta(); return u; },
     /** Adopt a session the server already created (accepting an invitation signs the user in). */
     adopt: async (u) => { setUser(u); if (!u.portal) await loadMeta(); return u; },
-    logout: async () => { try { await api.post('/api/auth/logout'); } finally { setUser(null); setMeta(null); } },
+    logout: async () => { bindUser(null); try { await api.post('/api/auth/logout'); } finally { setUser(null); setMeta(null); } },
     can: (module, action = 'view') => !!user && !user.portal && (user.isSuper || user.perms.includes(`${module}:${action}`)),
   }), [user, refreshUser, loadMeta]);
 

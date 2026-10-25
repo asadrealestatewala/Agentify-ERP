@@ -15,11 +15,13 @@ import { BillingBanner, VerifyBanner } from '../pages/Billing.jsx';
 import Announcements from './Announcements.jsx';
 import { getRegion } from '../format.js';
 import { t } from '../i18n.js';
+import { FieldSharingBadge } from '../pages/FieldLocation.jsx';
+import { bindUser } from '../fieldLocation.js';
 
 // [label, path, perm module (view)]
 const NAV = [
   { label: 'Dashboard', icon: 'dashboard', to: '/', module: 'dashboard' },
-  { label: 'My Space', icon: 'user', always: true, children: [['My Profile', '/my/profile'], ['My Attendance', '/my/attendance'], ['My Leave', '/my/leave'], ['My Payroll', '/my/payroll'], ['My Tasks', '/my/tasks'], ['Security', '/my/security'], ['Install the app', '/my/install-app']] },
+  { label: 'My Space', icon: 'user', always: true, children: [['My Profile', '/my/profile'], ['My Attendance', '/my/attendance'], ['My Leave', '/my/leave'], ['My Payroll', '/my/payroll'], ['My Tasks', '/my/tasks'], ['My Location', '/my/location', 'field:me'], ['Field Coverage', '/field', 'field:team'], ['Security', '/my/security'], ['Install the app', '/my/install-app']] },
   { label: 'Content Calendar', icon: 'calendar', to: '/content', module: 'content' },
   { label: 'CRM', icon: 'users', module: 'crm', children: [
     ['Contacts', '/contacts'], ['Leads', '/leads'], ['Smart Lists', '/smart-lists'], ['Sales Pipeline', '/pipeline'], ['Tasks', '/tasks'], ['Notes', '/notes'],
@@ -82,6 +84,8 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
   const [open, setOpen] = useState(() => { try { return JSON.parse(localStorage.getItem('nav-open')) || {}; } catch { return {}; } });
   const { meta } = useMeta();
   const ent = useFetch('/api/billing/status').data;
+  const fieldMe = useFetch('/api/field/me').data; // missing (error) when the plan has no field module: both links stay hidden
+  const fieldOk = (spec) => (spec === 'field:me' ? !!fieldMe && (fieldMe.settings.enabled || fieldMe.status.location) : spec === 'field:team' ? !!fieldMe?.can_view_team : true);
   const products = ent?.products || null; // null while loading: show everything rather than flicker
   const hasProduct = (pr) => !pr || !products || products.includes(pr);
   useEffect(() => {
@@ -100,7 +104,7 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
     if (!hasProduct(g.product)) return null;
     if (g.flag && !getRegion().config.flags?.[g.flag]) return null;
     if (!g.children) return g;
-    const kids = (g.always ? g.children : g.children.filter((c) => ok(c[2], g.module))).filter((c) => hasProduct(PRODUCT_PATHS[c[1]])).filter((c) => !siteOnly || SITE_ONLY_PATHS.has(c[1]));
+    const kids = (g.always ? g.children.filter((c) => fieldOk(c[2])) : g.children.filter((c) => ok(c[2], g.module))).filter((c) => hasProduct(PRODUCT_PATHS[c[1]])).filter((c) => !siteOnly || SITE_ONLY_PATHS.has(c[1]));
     return kids.length ? { ...g, children: kids } : null;
   }).filter(Boolean);
   // upgrade path: the product a workspace does not have yet, for people who manage billing
@@ -205,6 +209,8 @@ export default function Layout() {
   const { meta } = useMeta();
   const { user } = useAuth();
   useEffect(() => { localStorage.setItem('sidebar-collapsed', collapsed ? '1' : '0'); }, [collapsed]);
+  // location sharing belongs to this signed-in user only: a different user, or leaving the workspace, ends it
+  useEffect(() => { bindUser(user.id); return () => bindUser(null); }, [user.id]);
   const demo = useMemo(() => meta?.settings?.demo_data === '1', [meta]);
   const ok = useAllowed();
   const [palette, setPalette] = useState(false);
@@ -225,6 +231,7 @@ export default function Layout() {
           <GlobalSearch />
           <button className="btn sm ghost no-print palette-btn" onClick={() => setPalette(true)} title="Command palette (Ctrl+K)" aria-label="Open command palette"><Icon name="command" size={14} /><span className="kbd-hint">Ctrl K</span></button>
           <div className="grow" />
+          <FieldSharingBadge />
           <Link to="/notifications" className="muted nowrap no-print" style={{ fontSize: 12 }}>{user.role}</Link>
           <Appearance />
           <NotificationBell />

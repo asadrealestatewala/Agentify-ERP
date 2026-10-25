@@ -32,5 +32,14 @@
   "nav.hrm": "الموارد البشرية",
   "nav.website": "الموقع الإلكتروني",
   "nav.reports": "التقارير",
-  "nav.settings": "الإعدادات"
+  "nav.settings": "الإعدادات",
+  "field.sharing_now": "مشاركة الموقع جارية",
+  "field.stop": "إيقاف المشاركة",
+  "field.share_once": "مشاركة موقعي مرة واحدة",
+  "field.share_foreground": "المشاركة أثناء فتح التطبيق",
+  "field.withdraw": "سحب الموافقة وحذف موقعي",
+  "field.accept": "قرأت هذا وأوافق على مشاركة موقعي عندما أختار ذلك",
+  "field.my_location": "موقعي",
+  "field.coverage": "التغطية الميدانية",
+  "field.stop_short": "إيقاف"
 }
