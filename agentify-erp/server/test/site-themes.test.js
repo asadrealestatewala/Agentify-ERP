@@ -36,8 +36,8 @@ const anon = async (u) => (await fetch(base + u, { headers: { 'X-Requested-With'
 // (the editor also merges the block defaults)
 const sectionsOf = (theme, slug) => theme.pages.find((p) => p.slug === slug).blocks.map((b, i) => {
   const props = Object.fromEntries(Object.entries(b.props).filter(([k]) => !THEME_BUILD_KEYS.includes(k)));
-  if (b.props.photo !== undefined && ['hero', 'imagetext', 'cta'].includes(b.type)) props.image = DEMO_NAMED[b.props.demo] || DEMO_PHOTOS[b.props.photo % DEMO_PHOTOS.length];
-  if (b.type === 'gallery') props.images = DEMO_PHOTOS.map((src) => ({ src, caption: '' }));
+  if (b.props.photo !== undefined && ['hero', 'imagetext', 'cta'].includes(b.type)) props.image = (theme.samplePhotos ? null : DEMO_NAMED[b.props.demo]) || (theme.samplePhotos || DEMO_PHOTOS)[b.props.photo % (theme.samplePhotos || DEMO_PHOTOS).length];
+  if (b.type === 'gallery') props.images = (theme.samplePhotos || DEMO_PHOTOS).slice(0, b.props.photos || 6).map((src) => ({ src, caption: '' }));
   return { id: `${theme.id}-${slug}-${i}`, type: b.type, props };
 });
 
@@ -170,7 +170,7 @@ test('open-source adaptations record their source, licence and what was (not) co
     for (const k of ['name', 'url', 'license', 'copyright', 'reviewed', 'used', 'copied', 'assets']) assert.ok(t.source?.[k], `${t.id} source.${k}`);
     assert.equal(t.source.license, 'MIT');
     assert.match(t.source.url, /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+$/);
-    assert.match(t.source.copied, /^Nothing\./, 'the manifest says no source code or assets were copied');
+    assert.match(t.source.copied, t.samplePhotos ? /^No source code/ : /^Nothing\./, 'the manifest says what was copied: no code, and photos only where the theme ships them');
   }
   assert.deepEqual(SITE_THEMES.filter((t) => t.origin === 'adaptation').map((t) => t.id), ['horizon', 'urban']);
 });
@@ -184,7 +184,7 @@ test('the theme source manifest lists every theme, its licence and its source', 
 });
 
 test('shipped sample pictures are real images', () => {
-  for (const src of [...DEMO_PHOTOS, ...Object.values(DEMO_NAMED)]) {
+  for (const src of [...DEMO_PHOTOS, ...Object.values(DEMO_NAMED), ...SITE_THEMES.flatMap((t) => t.samplePhotos || [])]) {
     const head = fs.readFileSync(new URL(`../../client/public${src}`, import.meta.url)).subarray(0, 3);
     assert.deepEqual([...head], [0xff, 0xd8, 0xff], `${src} is a JPEG`);
   }

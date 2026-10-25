@@ -49,8 +49,8 @@ const { THEME_BUILD_KEYS } = await import('../../shared/siteThemes.js');
 
 const sectionsOf = (theme, slug) => theme.pages.find((p) => p.slug === slug).blocks.map((b, i) => {
   const props = Object.fromEntries(Object.entries(b.props).filter(([k]) => !THEME_BUILD_KEYS.includes(k)));
-  if (b.props.photo !== undefined && ['hero', 'imagetext', 'cta'].includes(b.type)) props.image = DEMO_NAMED[b.props.demo] || DEMO_PHOTOS[b.props.photo % DEMO_PHOTOS.length];
-  if (b.type === 'gallery') props.images = DEMO_PHOTOS.map((src) => ({ src, caption: '' }));
+  if (b.props.photo !== undefined && ['hero', 'imagetext', 'cta'].includes(b.type)) props.image = (theme.samplePhotos ? null : DEMO_NAMED[b.props.demo]) || (theme.samplePhotos || DEMO_PHOTOS)[b.props.photo % (theme.samplePhotos || DEMO_PHOTOS).length];
+  if (b.type === 'gallery') props.images = (theme.samplePhotos || DEMO_PHOTOS).slice(0, b.props.photos || 6).map((src) => ({ src, caption: '' }));
   return { id: `${theme.id}-${slug}-${i}`, type: b.type, props };
 });
 const installAll = (a, id) => { const t = SITE_THEMES.find((x) => x.id === id); return a.post(`/api/site-admin/themes/${id}/install`, { design: true, pages: t.pages.map((p) => ({ slug: p.slug, mode: p.slug === 'home' ? 'replace' : 'add', sections: sectionsOf(t, p.slug) })) }); };

@@ -7,9 +7,9 @@ and `server/test/site-themes.test.js` checks that the two agree.
 Two kinds of theme appear in the Themes tab:
 
 * **Agentify Original**: designed by Agentify. Layout patterns are common to real estate sites; no code, artwork or text comes from any other theme or project.
-* **Open-source adaptation**: an Agentify design (built from Agentify's own blocks) that takes its general visual direction from an open-source project. The source and its licence are recorded below and shown in the library. **Nothing is imported**: no source code, photos, text, logos, fonts or demo content.
+* **Open-source adaptation**: an Agentify design (built from Agentify's own blocks) that takes its general visual direction from an open-source project. The source and its licence are recorded below and shown in the library. **No source code, text, logos, fonts or demo content is imported.** The only imported assets are the ten Horizon Estate demo photos listed under `horizon`.
 
-## Why nothing is imported
+## Why no code is imported
 
 The reference projects are Next.js applications. Agentify renders every website itself with its own blocks, so a Next.js app cannot be installed, embedded or run beside it, and its code would add nothing to a theme, which is a list of blocks plus colours and fonts. The references were read for layout and mood only.
 
@@ -36,10 +36,12 @@ Sample photos shipped for previews (`client/public/site/theme-*.jpg`) were suppl
 | Code licence | MIT, Copyright (c) 2026 Horizon Estate Project Contributors |
 | Asset licences | Sample photography of the project is under the Unsplash License; the Manrope font is SIL Open Font License 1.1; Lucide icons are ISC. The project states that photos and mock imagery are not covered by the MIT licence. |
 | Used | General visual direction only: architectural minimalism, a black, white and champagne palette, editorial type, generous white space, and a page list of collection, developments, advisors, about and contact. |
-| Copied | Nothing. No source code, photos, text, logos or fonts. |
-| Assets used in the theme | None from the project. Playfair Display and Manrope come from Agentify's own font list (both SIL Open Font License 1.1). Preview photos are Agentify's sample photos. |
-| Attribution | Not required by the MIT licence because no code was copied. The licence is recorded here anyway. |
-| Modifications | Not applicable. The theme is an original composition of Agentify blocks. |
+| Copied | No source code, text, logos or fonts. Ten villa and home photos only (source commit `8a73a32`), approved by the product owner on 2026-10-25. |
+| Assets used in the theme | `client/public/site/horizon-*.jpg`: dusk-villa, beach-house, white-villa, cliff-villa, pool-house, island-retreat, mountain-lodge, ocean-breeze, hillside-home, jungle-home (from the project's `public/images/hero` and `properties`). Resized to 1600px wide and recompressed. Playfair Display and Manrope come from Agentify's own font list (both SIL Open Font License 1.1). |
+| Not copied | Agent portraits, journal, service and office photos, the floor plan and the project's showcase screenshots. |
+| Photo notice | Photos are under the Unsplash License as stated in the project's ASSETS.md; the project gives no per-photo credit, and says some are synthesized renders. They are sample pictures for the editor and preview, saved into a company's own draft pages on install and meant to be replaced. |
+| Attribution | Not required by the MIT licence because no code was copied; the source and photo licence are recorded here. |
+| Modifications | Photos resized and recompressed. The theme itself is an original composition of Agentify blocks. |
 
 ### `urban` Urban Living
 

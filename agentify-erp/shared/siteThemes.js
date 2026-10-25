@@ -13,7 +13,7 @@
  *
  * Wording is a prompt for the company to rewrite. Nothing invents figures, customers, reviews or partners: numbers come
  * from the ERP (live numbers block), reviews only from approved visitor reviews, photos from the workspace's own listings (or the sample photos
- * in client/public/site/theme-*.jpg until it has some).
+ * in client/public/site/theme-*.jpg until it has some). A theme may carry its own `samplePhotos` (Horizon Luxury does).
  *
  * Shared by the editor (preview and install) and the server (install checks which pages a theme may write).
  */
@@ -204,13 +204,14 @@ export const SITE_THEMES = [
       copyright: 'Copyright (c) 2026 Horizon Estate Project Contributors',
       reviewed: '2026-10-25',
       used: 'General visual direction only: architectural minimalism, black and champagne palette, editorial type, generous white space, a page list of collection, developments, advisors, about and contact.',
-      copied: 'Nothing. No source code, photos, text, logos or fonts were copied. Fonts are Agentify\'s own list (Playfair Display and Manrope, both SIL Open Font License 1.1).',
-      assets: 'Sample photos of the source (Unsplash License) are not used. Agentify\'s own sample photos fill the preview.',
+      copied: 'No source code, text, logos or fonts. Ten demo photos of homes and villas (not people) were copied, resized and kept as sample pictures (see assets). Fonts are Agentify\'s own list (Playfair Display and Manrope, both SIL Open Font License 1.1).',
+      assets: 'Ten photos from public/images/hero and public/images/properties, licensed under the Unsplash License (free for commercial use, no attribution required) as stated in the source\'s ASSETS.md. The source calls them demonstration photos to be replaced before a commercial launch; here they are sample pictures that each company replaces with its own. Per-photo credits are not given by the source. Agent portraits, journal, service and office photos, floor plans and screenshots were not used.',
     },
     name: 'Horizon Luxury',
     kind: 'Luxury and developers',
     tagline: 'Architectural and calm: a full-width hero, a curated collection, developments with progress, advisors and private viewings.',
     best: 'Premium agencies, luxury brokers and developers with signature projects',
+    samplePhotos: ['/site/horizon-dusk-villa.jpg', '/site/horizon-beach-house.jpg', '/site/horizon-white-villa.jpg', '/site/horizon-cliff-villa.jpg', '/site/horizon-pool-house.jpg', '/site/horizon-island-retreat.jpg', '/site/horizon-mountain-lodge.jpg', '/site/horizon-ocean-breeze.jpg', '/site/horizon-hillside-home.jpg', '/site/horizon-jungle-home.jpg'],
     design: {
       theme: { primary: '#0a0a0a', accent: '#c5a880', dark: '#0a0a0a', bg: '#ffffff', soft: '#f6f6f4', font_heading: 'Playfair Display', font_body: 'Manrope', radius: 0 },
       header: { style: 'light', topbar: false, sticky: true },

@@ -26,15 +26,15 @@ export async function listingPhotos() {
 }
 
 /** One theme block as a stored section. */
-export function themeSection(block, photos = []) {
+export function themeSection(block, photos = [], theme = null) {
   const T = SECTION_TYPES[block.type];
   const raw = { ...(block.props || {}) };
   const photo = raw.photo, many = raw.photos, anchor = raw.anchor, demo = raw.demo;
   THEME_BUILD_KEYS.forEach((k) => delete raw[k]);
   const props = { ...clone(T?.defaults || {}), ...clone(raw) };
-  const own = photos.length > 0, pics = own ? photos : DEMO_PHOTOS;
+  const own = photos.length > 0, pics = own ? photos : theme?.samplePhotos || DEMO_PHOTOS;
   if (photo !== undefined) {
-    const src = !own && DEMO_NAMED[demo] ? DEMO_NAMED[demo] : pics[photo % pics.length];
+    const src = !own && !theme?.samplePhotos && DEMO_NAMED[demo] ? DEMO_NAMED[demo] : pics[photo % pics.length];
     if (block.type === 'hero' || block.type === 'imagetext' || block.type === 'cta') props.image = src;
   }
   if (block.type === 'gallery') props.images = pics.slice(0, many || 6).map((src) => ({ src, caption: '' }));
@@ -44,7 +44,7 @@ export function themeSection(block, photos = []) {
 }
 
 /** All pages of a theme, ready to preview or install. */
-export const themePages = (theme, photos = []) => theme.pages.map((p) => ({ slug: p.slug, title: p.title, show_in_menu: !!p.show_in_menu, sections: p.blocks.map((bk) => themeSection(bk, photos)) }));
+export const themePages = (theme, photos = []) => theme.pages.map((p) => ({ slug: p.slug, title: p.title, show_in_menu: !!p.show_in_menu, sections: p.blocks.map((bk) => themeSection(bk, photos, theme)) }));
 
 /** The site configuration with the theme's design applied (colours, fonts, header and footer look). */
 export function themeConfig(cfg, theme) {
