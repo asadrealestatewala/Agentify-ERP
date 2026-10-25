@@ -19,7 +19,7 @@ import { t } from '../i18n.js';
 // [label, path, perm module (view)]
 const NAV = [
   { label: 'Dashboard', icon: 'dashboard', to: '/', module: 'dashboard' },
-  { label: 'My Space', icon: 'user', always: true, children: [['My Profile', '/my/profile'], ['My Attendance', '/my/attendance'], ['My Leave', '/my/leave'], ['My Payroll', '/my/payroll'], ['My Tasks', '/my/tasks'], ['Security', '/my/security'], ['Install the app', '/my/install-app']] },
+  { label: 'My Space', icon: 'user', always: true, children: [['My Profile', '/my/profile'], ['My Attendance', '/my/attendance'], ['My Leave', '/my/leave'], ['My Payroll', '/my/payroll'], ['My Tasks', '/my/tasks'], ['My Onboarding', '/my/onboarding'], ['Security', '/my/security'], ['Install the app', '/my/install-app']] },
   { label: 'Content Calendar', icon: 'calendar', to: '/content', module: 'content' },
   { label: 'CRM', icon: 'users', module: 'crm', children: [
     ['Contacts', '/contacts'], ['Leads', '/leads'], ['Smart Lists', '/smart-lists'], ['Sales Pipeline', '/pipeline'], ['Tasks', '/tasks'], ['Notes', '/notes'],
@@ -50,7 +50,7 @@ const NAV = [
     ['Vendors', '/vendors'], ['Tenders & Bids', '/vendors/tenders'], ['Vendor Ledger', '/vendors/ledger'], ['Purchases', '/vendors/purchases'], ['Credit Book', '/vendors/credit-book'] ] },
   { label: 'HRM', icon: 'briefcase', module: 'hrm', children: [
     ['Employees', '/hrm/employees'], ['Employee Documents', '/hrm/documents'], ['Salary', '/hrm/salary'], ['Bonuses', '/hrm/bonuses'], ['Attendance', '/hrm/attendance'],
-    ['Leave', '/hrm/leave'], ['Assets Library', '/assets'], ['Recruitment', '/hrm/recruitment'], ['HR Reports', '/hrm/reports'] ] },
+    ['Leave', '/hrm/leave'], ['Onboarding', '/hrm/onboarding'], ['Assets Library', '/assets'], ['Recruitment', '/hrm/recruitment'], ['HR Reports', '/hrm/reports'] ] },
   { label: 'Website', icon: 'globe', module: 'website', children: [
     ['Website Editor', '/website'], ['SEO Manager', '/website/seo', 'seo'], ['Website Assistant', '/website/assistant', 'website'], ['Add Property', '/properties/new', 'properties:create'], ['Featured Properties', '/properties/featured'] ] },
   { label: 'Reports', icon: 'chart', module: 'reports', children: [
