@@ -11,7 +11,7 @@ import { FONTS, SECTION_TYPES, SiteProvider } from '../../site/siteCore.jsx';
 import { SectionRenderer, ShowEmptyCtx } from '../../site/components.jsx';
 import { Header, Footer } from '../../site/SiteApp.jsx';
 import { SITE_THEMES, listingPhotos, themeConfig, themePages } from '../../site/themeBuild.js';
-import { BlogTab, FieldRow, ImagePicker, LINKS, PublishPanel, ReviewsTab, SITE_GROUPS, getPath, setPath } from '../WebsiteEditor.jsx';
+import { BlogTab, FieldRow, ImagePicker, LINKS, PublishPanel, ReviewsTab, SITE_GROUPS, getPath, setPath } from './siteShared.jsx';
 import { toPuck, fromPuck } from '../../../../shared/puckAdapter.js';
 
 /**
@@ -374,7 +374,6 @@ export default function WebsiteStudio() {
                 <>
                   <div className="st-side-h"><h2>Design</h2><p>Customise your website: pages, theme, colours, fonts and menus. Changes are drafts until you publish.</p></div>
                   <nav className="st-menu">{SIDE_MENU.map(([k, l, ic]) => <button key={k} type="button" onClick={() => { setView(k); setPreview(null); }}><span className="ic" aria-hidden="true">{ic}</span><span className="grow">{l}</span><span aria-hidden="true">›</span></button>)}</nav>
-                  <a className="st-classic" href="/website/classic">Open the classic editor</a>
                 </>
               )}
               {view === 'edit' && (

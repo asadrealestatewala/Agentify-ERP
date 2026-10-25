@@ -388,20 +388,6 @@ export default function SiteApp() {
   );
 }
 
-/** Non-routed renderer used by the editor's live preview. */
-export function SitePreview({ config, sections, device }) {
-  return (
-    <SiteProvider override={{ config }}>
-      <div className={`preview-frame ${device}`} onClickCapture={(e) => { if (e.target.closest('a')) e.preventDefault(); }}>
-        <Header />
-        <SectionRenderer sections={sections} />
-        <Footer />
-      </div>
-    </SiteProvider>
-  );
-}
-
-
 /**
  * The visual editor's canvas: the real website rendered inside an iframe whose width is the chosen device, so the
  * generated @media rules respond exactly as they will for visitors. It receives the draft over postMessage and sends back
