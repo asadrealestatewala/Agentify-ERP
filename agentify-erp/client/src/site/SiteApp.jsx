@@ -21,7 +21,7 @@ export function Header() {
   const hs = HEADER_STYLES.includes(h.style) ? h.style : 'light';
   const links = [...h.links, ...menu.filter((m) => !h.links.some((l) => l.href.endsWith(`/p/${m.slug}`))).map((m) => ({ label: m.title, href: `/site/p/${m.slug}` }))];
   return (
-    <header className={`s-header hs-${hs} ${h.sticky && hs !== 'transparent' ? 'sticky' : ''}${h.topbar ? ' has-topbar' : ''}`}>
+    <header className={`s-header hs-${hs} ${h.sticky && hs !== 'transparent' ? 'sticky' : ''}${h.topbar ? ' has-topbar' : ''}${links.length > 8 ? ' nav-many' : ''}`}>
       {h.topbar && (c.phone || c.email || c.hours || (config.social || []).length > 0) && (
         <div className="s-topbar"><div className="wrap">
           <span className="tb-info">{c.phone && <a href={`tel:${c.phone}`}>📞 {c.phone}</a>}{c.email && <a href={`mailto:${c.email}`}>✉️ {c.email}</a>}{c.hours && <span>🕘 {c.hours}</span>}</span>

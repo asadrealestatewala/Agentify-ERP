@@ -373,3 +373,14 @@
 .site .sample-note { margin: -6px 0 14px; padding: 8px 12px; border: 1px dashed color-mix(in srgb, var(--s-primary) 45%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--s-primary) 6%, #fff); color: var(--ink); font-size: 13px; }
 .site .tags .tag-sample { background: #fff; color: #1f2937; border: 1px dashed #9ca3af; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
 .site img.av.av-img { width: 88px; height: 88px; object-fit: cover; object-position: top; display: block; margin: 0 auto 10px; }
+
+/* a long menu (a theme adds pages to an existing menu) collapses into the menu button on all but very wide screens, so links never run under the phone number or the logo */
+@media (max-width: 1500px) {
+  .site .s-header.nav-many .desk-only { display: none !important; } .site .s-header.nav-many .mobile-only, .site .s-header.nav-many .btn-p.mobile-only, .s-header.nav-many .nav .mobile-only { display: inline-flex; justify-content: center; }
+  .s-header.nav-many .nav { position: absolute; top: 68px; left: 0; right: 0; background: #fff; flex-direction: column; padding: 8px 14px 16px; border-bottom: 1px solid var(--line); display: none; box-shadow: 0 14px 24px rgba(0,0,0,.08); z-index: 60; } .s-header.nav-many .nav.open { display: flex; } .s-header.nav-many .nav a { padding: 12px; }
+  .site .s-header.nav-many .burger { display: block; } .s-header.nav-many .hphone { display: none; }
+  .s-header.nav-many.hs-dark .nav, .s-header.nav-many.hs-transparent .nav { background: var(--s-dark); }
+  .s-header.nav-many.hs-dark .burger, .s-header.nav-many.hs-transparent .burger { background: transparent; color: #fff; border-color: rgba(255,255,255,.35); }
+  .s-header.nav-many.has-topbar .nav { top: 104px; }
+}
+@media (max-width: 1180px) { .s-header.has-topbar .nav { top: 104px; } }

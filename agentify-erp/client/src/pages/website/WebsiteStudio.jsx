@@ -167,20 +167,41 @@ function PagesPanel({ pages, pageId, onOpen, onNew, canCreate }) {
   );
 }
 
+/** A small picture of a theme drawn from its own design settings (colours, header look, corner roundness), so every theme has a thumbnail without any image file. */
+function ThemeThumb({ theme }) {
+  const d = theme.design, t = d.theme, r = Math.min(Number(t.radius) || 0, 14);
+  const dark = d.header?.style === 'dark', see = d.header?.style === 'transparent';
+  return (
+    <span className="st-thumb" style={{ background: t.bg, '--r': `${r}px`, fontFamily: `'${t.font_body}', sans-serif` }} aria-hidden="true">
+      <span className="st-thumb-hero" style={{ background: `linear-gradient(135deg, ${t.dark}, ${t.primary})` }}>
+        <span className="st-thumb-head" style={{ background: see ? 'transparent' : dark ? t.dark : '#fff' }}><i style={{ background: see || dark ? '#fff' : t.dark }} /><u style={{ background: see || dark ? '#fff8' : '#0003' }} /><u style={{ background: see || dark ? '#fff8' : '#0003' }} /></span>
+        <b style={{ fontFamily: `'${t.font_heading}', serif` }}>Aa</b>
+        <span className="st-thumb-btn" style={{ background: t.accent }} />
+      </span>
+      <span className="st-thumb-cards">{[0, 1, 2].map((i) => <i key={i} style={{ background: t.soft }}><em style={{ background: i === 1 ? t.accent : t.primary }} /></i>)}</span>
+      <span className="st-thumb-foot" style={{ background: d.footer?.style === 'light' ? t.soft : t.dark }} />
+    </span>
+  );
+}
+
+const originLabel = (t) => t.origin === 'adaptation' ? `Open-source adaptation · ${t.source?.license || ''}` : 'Agentify Original';
+
 function ThemesPanel({ active, onPreview, previewing }) {
   return (
     <div className="stack" style={{ gap: 12 }}>
       {SITE_THEMES.map((t) => (
-        <button key={t.id} type="button" className={`st-theme ${previewing === t.id ? 'on' : ''}`} onClick={() => onPreview(t)}>
-          <span className="st-theme-sw" aria-hidden="true">{['primary', 'accent', 'dark', 'soft'].map((k) => <i key={k} style={{ background: t.design.theme[k] }} />)}</span>
+        <button key={t.id} type="button" className={`st-theme ${previewing === t.id ? 'on' : ''}`} onClick={() => onPreview(t)} aria-label={`Preview the ${t.name} theme`}>
+          <ThemeThumb theme={t} />
           <span className="grow">
             <b>{t.name}{active === t.id && <em className="st-pill">Installed</em>}</b>
-            <small className="st-kind">{t.kind} · {t.design.theme.font_heading}</small>
+            <small className="st-kind">{t.kind} · {t.pages.length} {t.pages.length === 1 ? 'page' : 'pages'} · {t.design.theme.font_heading}</small>
+            <span className="st-swatches" aria-hidden="true">{['primary', 'accent', 'dark', 'soft'].map((k) => <i key={k} style={{ background: t.design.theme[k] }} />)}</span>
             <small>{t.tagline}</small>
+            <span className={`st-origin ${t.origin === 'adaptation' ? 'ad' : ''}`}>{originLabel(t)}</span>
           </span>
         </button>
       ))}
-      <p className="st-note">Every theme is built from the normal blocks, so you can change any text, photo, colour or font after installing it. Photos come from your own listings; replace them with your own pictures.</p>
+      <p className="st-note">Every theme is built from the normal blocks, so you can change any text, photo, colour or font after installing it. Photos come from your own listings; replace them with your own pictures. Sample listings, agents and articles appear in the editor and preview only, never to visitors.</p>
     </div>
   );
 }
@@ -261,6 +282,7 @@ function InstallDialog({ theme, built, onClose, onDone }) {
       {!info ? <Loading /> : (
         <div className="stack">
           <p className="muted" style={{ margin: 0 }}>Choose what to install. Visitors keep seeing your current website until you press Publish. A page you replace keeps its current layout in its version history, and “Discard unpublished changes” in Publish takes everything back to the live website.</p>
+          {theme.origin === 'adaptation' && <p className="st-source">{theme.name} is an Agentify design that takes its general direction from the open-source project <a href={theme.source.url} target="_blank" rel="noreferrer">{theme.source.name}</a> ({theme.source.license} licence). No code, photos or text were copied from it.</p>}
           <Toggle value={design} onChange={setDesign} label={`Use the theme's colours, fonts, header and footer (${theme.design.theme.font_heading} / ${theme.design.theme.font_body})`} />
           <table className="table"><thead><tr><th>Page</th><th>On your website now</th><th>What to do</th></tr></thead><tbody>
             {info.pages.map((p) => (

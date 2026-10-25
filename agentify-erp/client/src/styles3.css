@@ -464,6 +464,16 @@ html[dir="rtl"] .input-group .addon { border-radius: 0 var(--radius, 8px) var(--
 .st-theme:hover { background: rgba(255,255,255,.08); } .st-theme.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
 .st-theme b { display: flex; align-items: center; gap: 8px; font-size: 15px; color: #fff; } .st-theme small { display: block; color: var(--st-mut); font-size: 12.5px; line-height: 1.45; margin-top: 4px; } .st-theme .st-kind { color: #d6d6d6; margin-top: 2px; }
 .st-theme-sw { display: grid; grid-template-columns: 1fr 1fr; width: 46px; height: 46px; border-radius: 8px; overflow: hidden; flex-shrink: 0; border: 1px solid rgba(255,255,255,.15); } .st-theme-sw i { display: block; }
+.st-theme { align-items: flex-start; flex-direction: column; } .st-theme .grow { width: 100%; }
+.st-thumb { display: flex; flex-direction: column; width: 100%; height: 132px; border-radius: var(--r, 6px); overflow: hidden; border: 1px solid rgba(255,255,255,.15); flex-shrink: 0; }
+.st-thumb-hero { position: relative; flex: 1 1 56%; display: flex; flex-direction: column; justify-content: flex-end; padding: 8px 10px; gap: 6px; }
+.st-thumb-hero b { color: #fff; font-size: 26px; line-height: 1; font-weight: 700; } .st-thumb-btn { width: 34px; height: 8px; border-radius: var(--r, 4px); }
+.st-thumb-head { position: absolute; top: 0; left: 0; right: 0; height: 15px; display: flex; align-items: center; gap: 6px; padding: 0 8px; } .st-thumb-head i { width: 18px; height: 5px; border-radius: 2px; margin-right: auto; } .st-thumb-head u { width: 14px; height: 3px; border-radius: 2px; }
+.st-thumb-cards { display: flex; gap: 5px; padding: 6px 8px; flex: 0 0 32%; } .st-thumb-cards i { flex: 1; border-radius: var(--r, 3px); position: relative; overflow: hidden; } .st-thumb-cards em { position: absolute; left: 4px; right: 4px; bottom: 4px; height: 4px; border-radius: 2px; }
+.st-thumb-foot { height: 8px; flex: 0 0 8px; }
+.st-swatches { display: flex; gap: 4px; margin-top: 6px; } .st-swatches i { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(255,255,255,.3); }
+.st-origin { display: inline-block; margin-top: 8px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.1); color: #e8e8e8; } .st-origin.ad { background: rgba(197,168,128,.2); color: #e6cfa6; }
+.st-source { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--soft, #f4f6f5); font-size: 13px; }
 .st-pill { font-style: normal; font-size: 11px; font-weight: 600; background: var(--primary); color: #fff; border-radius: 999px; padding: 1px 8px; }
 .st-note { color: var(--st-mut); font-size: 13px; line-height: 1.5; margin: 4px 0 0; }
 .st-link { color: #cfe1ff !important; font-size: 13.5px; }
