@@ -11,14 +11,14 @@ export const DEMO_NAMED = {
 
 const L = (id, title, purpose, price, cover, extra) => ({ id: `sample-${id}`, sample: true, title, purpose, price, cover, city: 'Your city', area_name: 'Sample area', type: 'Houses', ...extra });
 export const DEMO_LISTINGS = [
-  L(1, 'Modern family home with garden', 'Sell', 45000000, DEMO_PHOTOS[0], { area: 10, unit: 'Marla', bedrooms: 4, bathrooms: 4, featured: true, installment: true }),
+  L(1, 'Modern family home with garden', 'Sell', 45000000, DEMO_PHOTOS[0], { area: 2700, unit: 'sq ft', bedrooms: 4, bathrooms: 4, featured: true, installment: true }),
   L(2, 'Bright apartment near the park', 'Rent', 120000, DEMO_PHOTOS[2], { area: 1450, unit: 'sq ft', bedrooms: 3, bathrooms: 2, type: 'Apartments' }),
-  L(3, 'Corner house, ready to move in', 'Sell', 32000000, DEMO_PHOTOS[0], { area: 7, unit: 'Marla', bedrooms: 3, bathrooms: 3, ready: true }),
-  L(4, 'Family home close to schools', 'Rent', 95000, DEMO_PHOTOS[2], { area: 5, unit: 'Marla', bedrooms: 3, bathrooms: 2 }),
-  L(5, 'Spacious villa with garage', 'Sell', 68000000, DEMO_PHOTOS[0], { area: 1, unit: 'Kanal', bedrooms: 5, bathrooms: 6, featured: true }),
-  L(6, 'Townhouse in a gated community', 'Sell', 27500000, DEMO_PHOTOS[2], { area: 5, unit: 'Marla', bedrooms: 3, bathrooms: 3, installment: true }),
+  L(3, 'Corner house, ready to move in', 'Sell', 32000000, DEMO_PHOTOS[0], { area: 1900, unit: 'sq ft', bedrooms: 3, bathrooms: 3, ready: true }),
+  L(4, 'Family home close to schools', 'Rent', 95000, DEMO_PHOTOS[2], { area: 1350, unit: 'sq ft', bedrooms: 3, bathrooms: 2 }),
+  L(5, 'Spacious villa with garage', 'Sell', 68000000, DEMO_PHOTOS[0], { area: 5400, unit: 'sq ft', bedrooms: 5, bathrooms: 6, featured: true }),
+  L(6, 'Townhouse in a gated community', 'Sell', 27500000, DEMO_PHOTOS[2], { area: 1500, unit: 'sq ft', bedrooms: 3, bathrooms: 3, installment: true }),
   L(7, 'Studio flat for young professionals', 'Rent', 55000, DEMO_PHOTOS[0], { area: 600, unit: 'sq ft', bedrooms: 1, bathrooms: 1, type: 'Apartments' }),
-  L(8, 'Plot in a developing block', 'Sell', 9500000, null, { area: 10, unit: 'Marla', type: 'Plots', bedrooms: null, bathrooms: null }),
+  L(8, 'Plot in a developing block', 'Sell', 9500000, null, { area: 2700, unit: 'sq ft', type: 'Plots', bedrooms: null, bathrooms: null }),
 ];
 
 export const DEMO_AGENTS = [
