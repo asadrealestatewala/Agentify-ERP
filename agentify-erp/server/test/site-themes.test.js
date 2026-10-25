@@ -12,7 +12,8 @@ process.env.LOGIN_LIMIT = '1000';
 
 const { createApp } = await import('../src/index.js');
 const { get, all } = await import('../src/db.js');
-const { SITE_THEMES } = await import('../../shared/siteThemes.js');
+const { SITE_THEMES, THEME_BUILD_KEYS } = await import('../../shared/siteThemes.js');
+const { DEMO_PHOTOS, DEMO_NAMED } = await import('../../client/src/site/demoContent.js');
 const { SECTION_TYPE_NAMES } = await import('../../shared/sectionTypes.js');
 
 let server, base;
@@ -31,8 +32,14 @@ async function admin() {
   return { get: (u) => call('GET', u), post: (u, b) => call('POST', u, b || {}), put: (u, b) => call('PUT', u, b) };
 }
 const anon = async (u) => (await fetch(base + u, { headers: { 'X-Requested-With': 'ERP' } })).json();
-// what the editor sends: each theme block as a section (the editor also merges the block defaults)
-const sectionsOf = (theme, slug) => theme.pages.find((p) => p.slug === slug).blocks.map((b, i) => ({ id: `${theme.id}-${slug}-${i}`, type: b.type, props: Object.fromEntries(Object.entries(b.props).filter(([k]) => !['photo', 'photos', 'anchor'].includes(k))) }));
+// what the editor sends for a workspace without listing photos: each theme block as a section, pictures from the sample photos
+// (the editor also merges the block defaults)
+const sectionsOf = (theme, slug) => theme.pages.find((p) => p.slug === slug).blocks.map((b, i) => {
+  const props = Object.fromEntries(Object.entries(b.props).filter(([k]) => !THEME_BUILD_KEYS.includes(k)));
+  if (b.props.photo !== undefined && ['hero', 'imagetext', 'cta'].includes(b.type)) props.image = DEMO_NAMED[b.props.demo] || DEMO_PHOTOS[b.props.photo % DEMO_PHOTOS.length];
+  if (b.type === 'gallery') props.images = DEMO_PHOTOS.map((src) => ({ src, caption: '' }));
+  return { id: `${theme.id}-${slug}-${i}`, type: b.type, props };
+});
 
 test('every theme uses only known blocks, has a home page and a valid design', () => {
   assert.ok(SITE_THEMES.length >= 4);
@@ -42,6 +49,14 @@ test('every theme uses only known blocks, has a home page and a valid design', (
     assert.match(t.design.theme.primary, /^#[0-9a-f]{6}$/i);
     assert.ok(['light', 'dark', 'transparent'].includes(t.design.header.style));
   }
+});
+
+test('sample photos ship with the app and every named sample a theme asks for exists', () => {
+  for (const src of [...DEMO_PHOTOS, ...Object.values(DEMO_NAMED)]) {
+    assert.match(src, /^\/site\/[\w.-]+$/); // the page validator accepts /site/<file>
+    assert.ok(fs.statSync(new URL(`../../client/public${src}`, import.meta.url)).size > 1000, src);
+  }
+  for (const t of SITE_THEMES) for (const p of t.pages) for (const b of p.blocks) if (b.props.demo) assert.ok(DEMO_NAMED[b.props.demo], `${t.id}/${p.slug}: ${b.props.demo}`);
 });
 
 test('installing a theme is a draft: replaced pages keep their old layout in history, taken addresses get a hidden copy', async () => {

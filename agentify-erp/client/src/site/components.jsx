@@ -5,6 +5,7 @@ import { CalculatorTabs } from './ConstructionTools.jsx';
 import { useMemo } from 'react';
 import { Markdown, imgUrl, isInternal, priceText, useSite, waLink, MoneyBox, curCode, siteCopy, isPK, exampleAmount } from './siteCore.jsx';
 import { safeId, sectionCss } from '../../../shared/sectionStyle.js';
+import { DEMO_AGENTS, DEMO_LISTINGS, DEMO_POSTS } from './demoContent.js';
 
 /**
  * Inline editing. On the editor canvas each section is wrapped in this context; <Ed> then renders its text as an editable element
@@ -15,6 +16,9 @@ export const EditCtx = createContext(null);
 export const useEditing = () => !!useContext(EditCtx);
 /** Set by the website studio's canvas so blocks that hide themselves when empty stay visible (and selectable) while editing. */
 export const ShowEmptyCtx = createContext(false);
+/** On the editor canvas and in theme previews, data blocks with nothing to show yet fill with labelled sample cards. Visitors never see them. */
+const useSamples = () => useContext(ShowEmptyCtx);
+const SampleNote = ({ what }) => <p className="sample-note">Sample {what} for the preview. Your real {what} appear here automatically once you add them in the ERP; visitors never see these samples.</p>;
 export const postToEditor = (m) => window.parent.postMessage(m, window.location.origin);
 export function Ed({ as: Tag = 'span', value, path, className, children, ...rest }) {
   const ctx = useContext(EditCtx);
@@ -173,7 +177,7 @@ export function PropertyCard({ p, onEnquire }) {
     <article className="pcard">
       <Link to={`/site/property/${p.id}`} className="pcard-img" aria-label={p.title}>
         {p.cover ? <img src={imgUrl(p.cover)} alt={p.title} loading="lazy" /> : <Placeholder icon={p.type === 'Plots' ? '🌳' : p.type === 'Shops' || p.type === 'Offices' ? '🏢' : '🏠'} />}
-        <div className="tags">{p.featured && <Stars />}{p.purpose === 'Rent' && <span className="tag-rent">For rent</span>}{sold && <span className="tag-sold">Sold</span>}{reserved && <span className="tag-res">Reserved</span>}{p.ready && <span className="tag-ready">Ready</span>}</div>
+        <div className="tags">{p.sample && <span className="tag-sample">Sample</span>}{p.featured && <Stars />}{p.purpose === 'Rent' && <span className="tag-rent">For rent</span>}{sold && <span className="tag-sold">Sold</span>}{reserved && <span className="tag-res">Reserved</span>}{p.ready && <span className="tag-ready">Ready</span>}</div>
         {p.photos > 1 && <span className="photos">📷 {p.photos}</span>}
       </Link>
       <div className="pcard-body">
@@ -197,7 +201,7 @@ export function PropertyCard({ p, onEnquire }) {
 export function AgentCard({ a }) {
   return (
     <div className="acard">
-      <div className="av lg">{a.name.split(' ').map((x) => x[0]).join('').slice(0, 2)}</div>
+      {a.photo ? <img className="av lg av-img" src={imgUrl(a.photo)} alt="" loading="lazy" /> : <div className="av lg">{a.name.split(' ').map((x) => x[0]).join('').slice(0, 2)}</div>}
       <h4>{a.name}</h4>
       <div className="muted">{a.role === 'Sales Manager' ? 'Sales manager' : 'Listing agent'} · {a.listings} listing{a.listings === 1 ? '' : 's'}</div>
       <div className="acts">
@@ -346,11 +350,14 @@ function Listings({ p }) {
   let d = usePublic('/api/site/listings', params);
   const fallback = usePublic(p.source === 'featured' && d && d.data?.length === 0 ? '/api/site/listings' : null, { limit: p.limit || 8 });
   if (d && p.source === 'featured' && d.data.length === 0 && fallback) d = fallback;
+  const samples = useSamples();
+  const sample = samples && d && !d.data.length;
+  if (sample) d = { data: DEMO_LISTINGS.filter((x) => !p.purpose || x.purpose === p.purpose).concat(DEMO_LISTINGS).slice(0, Number(p.limit) || 8) };
   return (
     <section className="sec"><div className="wrap">
       <Head title={p.title} subtitle={p.subtitle} href={p.view_all_href} />
       {!d ? <div className="skeleton-row">{[1, 2, 3, 4].map((i) => <div key={i} className="skeleton" />)}</div> : !d.data.length ? <p className="muted">No properties to show yet.</p> : (
-        <div className={`${p.layout === 'carousel' ? 'carousel' : 'pgrid'}${p.card === 'overlay' ? ' card-overlay' : ''}${[3, 4].includes(Number(p.columns)) && p.layout !== 'carousel' ? ` cols-${Number(p.columns)}` : ''}`}>{d.data.map((x) => <PropertyCard key={x.id} p={x} />)}</div>
+        <>{sample && <SampleNote what="listings" />}<div className={`${p.layout === 'carousel' ? 'carousel' : 'pgrid'}${p.card === 'overlay' ? ' card-overlay' : ''}${[3, 4].includes(Number(p.columns)) && p.layout !== 'carousel' ? ` cols-${Number(p.columns)}` : ''}`}>{d.data.map((x, i) => <PropertyCard key={`${x.id}-${i}`} p={x} />)}</div></>
       )}
     </div></section>
   );
@@ -375,9 +382,11 @@ const Services = ({ p }) => {
 const Calculators = ({ p }) => <section className="sec soft"><div className="wrap"><Head title={p.title} subtitle={p.subtitle} href="/site/calculators" hrefLabel="Open full calculators →" /><CalculatorTabs /></div></section>;
 
 function Agents({ p }) {
-  const d = usePublic('/api/site/agents');
+  let d = usePublic('/api/site/agents');
+  const sample = useSamples() && d && !d.data.length;
+  if (sample) d = { data: DEMO_AGENTS };
   if (d && !d.data.length) return null;
-  return <section className="sec"><div className="wrap"><Head title={p.title} subtitle={p.subtitle} href="/site/agents" />{d && <div className="agrid">{d.data.slice(0, p.limit || 4).map((a) => <AgentCard key={a.id} a={a} />)}</div>}</div></section>;
+  return <section className="sec"><div className="wrap"><Head title={p.title} subtitle={p.subtitle} href="/site/agents" />{sample && <SampleNote what="agents" />}{d && <div className="agrid">{d.data.slice(0, p.limit || 4).map((a) => <AgentCard key={a.id} a={a} />)}</div>}</div></section>;
 }
 
 const Testimonials = ({ p }) => (
@@ -472,9 +481,11 @@ function Reviews({ p }) {
 }
 
 function Blog({ p }) {
-  const d = usePublic('/api/site/posts', { limit: p.limit || 3 });
+  let d = usePublic('/api/site/posts', { limit: p.limit || 3 });
+  const sample = useSamples() && d && !d.data.length;
+  if (sample) d = { data: DEMO_POSTS.slice(0, Number(p.limit) || 3) };
   if (d && !d.data.length) return null;
-  return <section className="sec"><div className="wrap"><Head title={p.title} href="/site/blog" />{d && <div className="bgrid">{d.data.map((x) => <PostCard key={x.id} p={x} />)}</div>}</div></section>;
+  return <section className="sec"><div className="wrap"><Head title={p.title} href="/site/blog" />{sample && <SampleNote what="articles" />}{d && <div className="bgrid">{d.data.map((x) => <PostCard key={x.id} p={x} />)}</div>}</div></section>;
 }
 
 function Cta({ p }) {
@@ -644,7 +655,7 @@ const MAP = { hero: Hero, listings: Listings, projects: Projects, stats: Stats, 
 export function SectionRenderer({ sections, wrap, editor, readonly }) {
   const list = sections || [];
   const css = useMemo(() => sectionCss(list, { keepHidden: !!editor }), [list, editor]);
-  return (
+  const body = (
     <>
       {css && <style>{css}</style>}
       {list.map((s, i) => {
@@ -654,4 +665,5 @@ export function SectionRenderer({ sections, wrap, editor, readonly }) {
       })}
     </>
   );
+  return editor ? <ShowEmptyCtx.Provider value>{body}</ShowEmptyCtx.Provider> : body;
 }

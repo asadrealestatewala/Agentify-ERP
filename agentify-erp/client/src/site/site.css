@@ -369,3 +369,7 @@
 /* blocks that reach into the block above must not be clipped by the content-visibility optimisation */
 .site .sb:has(.svc-raised.overlap) { content-visibility: visible; contain: none; }
 .s-header .nav { justify-content: safe center; } /* a long menu starts after the logo instead of running under it */
+/* Sample cards (editor canvas and theme previews only) */
+.site .sample-note { margin: -6px 0 14px; padding: 8px 12px; border: 1px dashed color-mix(in srgb, var(--s-primary) 45%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--s-primary) 6%, #fff); color: var(--ink); font-size: 13px; }
+.site .tags .tag-sample { background: #fff; color: #1f2937; border: 1px dashed #9ca3af; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
+.site img.av.av-img { width: 88px; height: 88px; object-fit: cover; object-position: top; display: block; margin: 0 auto 10px; }

@@ -7,7 +7,8 @@
  * agency); they are original and copy no code, artwork or text from any commercial theme.
  *
  * Wording is a prompt for the company to rewrite. Nothing invents figures, customers, reviews or partners: numbers come
- * from the ERP (live numbers block), reviews only from approved visitor reviews, photos from the workspace's own listings.
+ * from the ERP (live numbers block), reviews only from approved visitor reviews, photos from the workspace's own listings (or the sample photos
+ * in client/public/site/theme-*.jpg until it has some).
  *
  * Shared by the editor (preview and install) and the server (install checks which pages a theme may write).
  */
@@ -127,7 +128,7 @@ export const SITE_THEMES = [
       { slug: 'home', title: 'Home', blocks: [
         b('hero', { headline: 'The Residence', subheadline: 'Describe the property in one sentence: where it is and what makes it special.', align: 'center', show_search: false, height: 'tall', overlay: 35, cta_label: 'Book a private viewing', cta_href: '#viewing', photo: 0 }),
         b('stats', { items: [{ value: '—', label: 'Bedrooms' }, { value: '—', label: 'Bathrooms' }, { value: '—', label: 'Living area' }, { value: '—', label: 'Plot size' }] }),
-        b('imagetext', { title: 'The home', text: 'Describe the rooms, the light, the finishes and how it feels to live here.', image_side: 'right', photo: 1 }),
+        b('imagetext', { title: 'The home', text: 'Describe the rooms, the light, the finishes and how it feels to live here.', image_side: 'right', photo: 1, demo: 'house' }),
         b('imagetext', { title: 'The neighbourhood', text: 'Schools, parks, shops and travel times that matter to buyers.', image_side: 'left', photo: 2 }),
         b('gallery', { title: 'Gallery', photos: 6 }),
         b('booking', { title: 'Book a private viewing', subtitle: 'Choose a day and time. We will confirm by phone.', anchor: 'viewing' }),
@@ -165,7 +166,7 @@ export const SITE_THEMES = [
           { icon: '📄', title: 'Clear paperwork', text: 'Explain how you help with documents and payments.', href: '/site/p/about' },
         ] }),
         b('listings', { title: 'Featured properties', source: 'featured', limit: 8, layout: 'carousel', view_all_href: '/site/properties' }),
-        b('imagetext', { title: 'Meet your agent', text: 'Introduce the lead agent or founder: experience, areas covered and how to reach them.', image_side: 'left', button_label: 'Contact me', button_href: '/site/p/contact', photo: 1 }),
+        b('imagetext', { title: 'Meet your agent', text: 'Introduce the lead agent or founder: experience, areas covered and how to reach them.', image_side: 'left', button_label: 'Contact me', button_href: '/site/p/contact', photo: 1, demo: 'agent-2' }),
         b('agents', { title: 'Our team', limit: 4 }),
         b('blog', { title: 'News and guides', limit: 3 }),
         b('reviews', { title: 'Client reviews' }),
@@ -189,4 +190,4 @@ export const SITE_THEMES = [
 export const themeById = (id) => SITE_THEMES.find((t) => t.id === id) || null;
 
 /** Keys a theme block may carry that are instructions to the builder, not block settings. */
-export const THEME_BUILD_KEYS = ['photo', 'photos', 'anchor'];
+export const THEME_BUILD_KEYS = ['photo', 'photos', 'anchor', 'demo'];
