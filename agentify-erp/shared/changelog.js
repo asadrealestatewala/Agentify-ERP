@@ -4,9 +4,28 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
-    version: 'v1.25', date: '2026-10-26', title: 'Optional QR connection for WhatsApp',
+    version: 'v1.28', date: '2026-10-26', title: 'Optional QR connection for WhatsApp',
     items: [
       { text: 'Workspaces can link a number by scanning a QR code instead of the official connection, when your Agentify administrator has switched this on. It is unofficial, so WhatsApp can ban the number; you must tick a warning to switch it on, and you can switch it off any time.', where: 'Settings > WhatsApp > QR connection' },
+    ],
+  },
+  {
+    version: 'v1.27', date: '2026-10-26', title: 'New versions now announce themselves in your notifications',
+    items: [
+      { text: 'Whenever Agentify ERP is updated, everyone on your team gets one notification in the bell with a link to What\'s new, so nobody misses a new feature. It appears once per version and stays until you read it.', where: 'Notifications (bell); Menu > What\'s new' },
+      { text: 'Super Admin console users get the same notice, with its own read state for each person.', where: 'Super Admin console > Alerts' },
+    ],
+  },
+  {
+    version: 'v1.26', date: '2026-10-26', title: 'Property map shows the street map again',
+    items: [
+      { text: 'Fixed the property map showing "Access blocked" instead of the street map. Matches for a typed location are now a clean list, one per line, with repeats merged.', where: 'Properties > Add or edit property > Location' },
+    ],
+  },
+  {
+    version: 'v1.25', date: '2026-10-26', title: 'Android app download is live',
+    items: [
+      { text: 'The Android app (APK) is rebuilt for current Android versions and ready to download from the Download app buttons on the website and in your workspace. This is a test build for installing directly on a phone; the Google Play version comes later.', where: 'Download app' },
     ],
   },
   {

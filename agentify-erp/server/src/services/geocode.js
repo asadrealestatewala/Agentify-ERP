@@ -87,7 +87,8 @@ export async function geocode(query, country = '') {
 
 const pad = (bb, d) => [bb[0] - d, bb[1] + d, bb[2] - d, bb[3] + d];
 const viewbox = (bb) => `${r6(bb[2])},${r6(bb[1])},${r6(bb[3])},${r6(bb[0])}`; // left,top,right,bottom
-const dedupe = (list) => { const seen = new Set(); return list.filter((c) => { const k = `${c.lat.toFixed(4)},${c.lng.toFixed(4)}`; if (seen.has(k)) return false; seen.add(k); return true; }); };
+// Same place twice: OpenStreetMap returns one road as several pieces with the same name, so equal labels and equal spots are merged (first, best ranked, kept).
+const dedupe = (list) => { const seen = new Set(); return list.filter((c) => { const keys = [`${c.lat.toFixed(4)},${c.lng.toFixed(4)}`, c.label.toLowerCase()]; if (keys.some((k) => seen.has(k))) return false; keys.forEach((k) => seen.add(k)); return true; }); };
 
 /**
  * `parts` run from specific to general as the form lists them (address, location, area, city) but are not trusted to be in that order

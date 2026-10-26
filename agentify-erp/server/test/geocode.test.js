@@ -34,6 +34,7 @@ before(() => new Promise((res) => {
     const J = (x) => new Response(JSON.stringify(x), { status: 200 });
     if (mode === 'down') return new Response('x', { status: 503 });
     if (mode === 'none') return J([]);
+    if (mode === 'pieces' && /Lahore|piece/.test(sp.get('q'))) return J([row('Chakri Road', 33.5, 73.0, 'road', [33.5, 33.5, 73, 73], { road: 'Chakri Road' }), row('Chakri Road', 33.51, 73.01, 'road', [33.5, 33.5, 73, 73], { road: 'Chakri Road' }), row('Rawalpindi', 33.6, 73.05, 'city', [33.4, 33.8, 72.9, 73.2])]);
     const q = sp.get('q');
     if (q === 'Rawalpindi') return J([row('Rawalpindi', 33.6, 73.05, 'city', [33.4, 33.8, 72.9, 73.2])]);
     if (q === 'dhamial road') return J([row('Dhamial Road', 33.554, 73.024, 'road', [33.55, 33.56, 73.02, 73.03], { road: 'Dhamial Road', suburb: 'Dhamial' })]);
@@ -82,6 +83,13 @@ test('street search finds the anchor, then looks for the street inside it, whate
   assert.ok(r.results.some((x) => x.label.startsWith('Dhamial Road')), 'the wider road stays a clickable candidate');
   const bounded = seen.filter((x) => x.bounded === '1');
   assert.ok(bounded.length >= 1 && bounded[0].viewbox, 'specific pieces are searched inside the anchor area only');
+});
+
+test('the same road returned in several pieces is listed once', async () => {
+  mode = 'pieces';
+  const r = await geocodeParts(['Chakri Road piece', 'Lahore'], 'PK');
+  mode = 'ok';
+  assert.equal(new Set(r.results.map((x) => x.label.toLowerCase())).size, r.results.length);
 });
 
 test('approximate only when nothing specific matched inside the area', async () => {

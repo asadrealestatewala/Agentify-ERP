@@ -3,6 +3,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 // Map with a draggable pin for the property editor. Dragging the pin (or clicking the map) reports the new position.
+// OpenStreetMap's tile servers refuse requests that carry no Referer (their usage policy). The app sends 'no-referrer' by default
+// (helmet), so the tile images ask for the origin to be sent. Only the site's address is sent, never the page path.
 // The pin is drawn with CSS in the workspace's primary colour, so no marker image files are needed.
 const pinIcon = () => L.divIcon({ className: 'prop-pin', html: '<span></span>', iconSize: [28, 28], iconAnchor: [14, 28] });
 
@@ -15,7 +17,7 @@ export default function PropertyMap({ lat, lng, onMove, height = 260 }) {
 
   useEffect(() => {
     const m = L.map(el.current, { scrollWheelZoom: false }).setView([lat, lng], 17);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors' }).addTo(m);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, referrerPolicy: 'origin', attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors' }).addTo(m);
     const mk = L.marker([lat, lng], { draggable: true, icon: pinIcon(), keyboard: true, title: 'Drag to the exact spot' }).addTo(m);
     const report = (p) => cb.current?.(Math.round(p.lat * 1e6) / 1e6, Math.round(p.lng * 1e6) / 1e6);
     mk.on('dragend', () => report(mk.getLatLng()));
