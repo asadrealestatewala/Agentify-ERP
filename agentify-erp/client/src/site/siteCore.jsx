@@ -68,7 +68,7 @@ export function SiteProvider({ children, override }) {
     link.href = `https://fonts.googleapis.com/css2?${fonts.map((f) => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:wght@400;500;600;700`).join('&')}&display=swap`;
     return undefined;
   }, [config?.theme?.font_heading, config?.theme?.font_body]); // eslint-disable-line
-  const value = useMemo(() => (config ? { config, menu: state?.menu || [], preview: !!override, draft: !!state?.preview, workspaceUrl: state?.workspace_url || '' } : null), [config, state, override]);
+  const value = useMemo(() => (config ? { config, menu: state?.menu || [], preview: !!override, draft: !!state?.preview, workspaceUrl: state?.workspace_url || '', portals: state?.portals || { customer_label: 'Customer portal', vendor: false } } : null), [config, state, override]);
   if (err) return <div className="site-error">The website could not be loaded: {err}</div>;
   if (state?.offline) return <div className="site-offline" role="status"><h1>{state.company?.name || 'This website'}</h1><p>This website is not available at the moment. Please check back soon.</p></div>;
   if (!value) return <div className="center-box"><span className="spinner" /></div>;

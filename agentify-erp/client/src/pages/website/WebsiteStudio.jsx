@@ -130,7 +130,7 @@ const STYLE_EXTRA = [
 const PANEL_FIELDS = {
   identity: [...groupFields('brand'), ...groupFields('contact'), ...groupFields('social')],
   styles: [...groupFields('theme'), ...STYLE_EXTRA],
-  navigation: [LINKS({ key: 'header.links', label: 'Header menu links' }), { key: 'header.cta_label', label: 'Header button text', type: 'text' }, { key: 'header.cta_href', label: 'Header button link', type: 'text' }, { key: 'header.show_phone', label: 'Show the phone number in the header', type: 'bool' }, ...groupFields('footer')],
+  navigation: [LINKS({ key: 'header.links', label: 'Header menu links' }), { key: 'header.cta_label', label: 'Header button text', type: 'text' }, { key: 'header.cta_href', label: 'Header button link', type: 'text' }, { key: 'header.show_phone', label: 'Show the phone number in the header', type: 'bool' }, { key: 'header.signin', label: 'Show a Sign in menu (staff, customer and vendor portals) in the header and footer', type: 'bool' }, ...groupFields('footer')],
 };
 const SETTINGS_GROUPS = ['seo', 'listing', 'bot', 'calc'];
 

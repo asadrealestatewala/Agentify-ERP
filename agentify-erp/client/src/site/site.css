@@ -400,3 +400,21 @@
 .site .svc-raised .svc-ic { color: var(--s-primary); }
 .site .svc-cards .svc-ic:empty, .site .svc-raised .svc-ic:empty { display: none; }
 .site .portal-card .portal-ic { width: 60px; height: 60px; display: grid; place-items: center; border-radius: min(var(--s-radius), 16px); background: color-mix(in srgb, var(--s-primary) 10%, transparent); color: var(--s-primary); font-size: 0; }
+
+/* Sign in menu: staff, customer and vendor doors, in the header (desktop dropdown, mobile list in the burger menu) and the footer */
+.s-header .signin { position: relative; }
+.s-header .signin-btn { font: inherit; font-weight: 600; font-size: 14px; padding: 7px 12px; border-radius: calc(var(--s-radius) - 2px); border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; white-space: nowrap; }
+.s-header .signin-btn:hover { background: var(--s-soft); color: var(--s-primary); }
+.s-header.hs-dark .signin-btn, .s-header.hs-transparent .signin-btn { color: #fff; border-color: rgba(255,255,255,.4); }
+.s-header.hs-dark .signin-btn:hover, .s-header.hs-transparent .signin-btn:hover { background: rgba(255,255,255,.12); color: #fff; }
+.s-header .signin-pop { position: absolute; right: 0; top: calc(100% + 8px); min-width: 230px; background: #fff; border: 1px solid var(--line); border-radius: var(--s-radius); box-shadow: 0 14px 28px rgba(0,0,0,.14); padding: 6px; z-index: 80; display: flex; flex-direction: column; }
+.s-header .signin-pop a { display: flex; flex-direction: column; padding: 9px 12px; border-radius: 8px; color: var(--ink) !important; text-decoration: none !important; }
+.s-header .signin-pop a:hover { background: var(--s-soft); }
+.s-header .signin-pop b { font-size: 14px; font-weight: 600; } .s-header .signin-pop small { color: var(--mut); font-size: 12.5px; }
+.s-header .signin-m { display: none; }
+@media (max-width: 1180px) {
+  .s-header .nav .signin-m { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .s-header .signin-m > span { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--mut); padding: 4px 12px; }
+  .s-header.hs-dark .signin-m, .s-header.hs-transparent .signin-m { border-top-color: rgba(255,255,255,.2); }
+  .s-header.hs-dark .signin-m > span, .s-header.hs-transparent .signin-m > span { color: rgba(255,255,255,.7); }
+}

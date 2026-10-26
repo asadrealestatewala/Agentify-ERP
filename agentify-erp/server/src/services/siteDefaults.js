@@ -34,7 +34,7 @@ export const LEGACY_CONFIG = {
   theme: { primary: '#0f766e', accent: '#f59e0b', dark: '#0a3d3a', bg: '#ffffff', soft: '#f4f7f6', font_heading: 'Poppins', font_body: 'Inter', radius: 12 },
   header: {
     links: [{ label: 'Buy', href: '/site/properties?purpose=Sell' }, { label: 'Rent', href: '/site/properties?purpose=Rent' }, { label: 'Projects', href: '/site/projects' }, { label: 'Calculators', href: '/site/calculators' }, { label: 'Agents', href: '/site/agents' }, { label: 'Blog', href: '/site/blog' }, { label: 'About', href: '/site/p/about' }, { label: 'Contact', href: '/site/p/contact' }],
-    cta_label: 'Sign in', cta_href: '/login', sticky: true, show_phone: true,
+    cta_label: 'Sign in', cta_href: '/login', sticky: true, show_phone: true, signin: true,
   },
   footer: {
     about: 'Expert Marketing & Developers plans, builds and sells residential and commercial communities with transparent installment plans and on-site progress you can follow online.',

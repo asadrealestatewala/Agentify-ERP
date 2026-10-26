@@ -15,10 +15,41 @@ import './site.css';
 export const HEADER_STYLES = ['light', 'dark', 'transparent'];
 const SOCIAL_ICON = { Facebook: 'f', Instagram: '◎', YouTube: '▶', WhatsApp: '✆', 'X (Twitter)': '𝕏', Twitter: '𝕏', LinkedIn: 'in', TikTok: '♪', Website: '🌐', Other: '🔗' };
 
+/** The sign-in pages this workspace has: staff, customers and (where the workspace has them) vendors. */
+function signInDoors(portals) {
+  return [
+    { label: 'Staff sign-in', href: '/login', hint: 'Employees and agents' },
+    { label: portals?.customer_label || 'Customer portal', href: '/portal/login', hint: 'Payments, receipts and documents' },
+    ...(portals?.vendor ? [{ label: 'Vendor portal', href: '/vendor/login', hint: 'Ledger, tenders and bids' }] : []),
+  ];
+}
+const isSignInLink = (href) => /^\/(login|portal|vendor)(\/|$)/.test(String(href || ''));
+
+function SignInMenu() {
+  const { portals } = useSite();
+  const [open, setOpen] = useState(false);
+  const box = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const off = (e) => { if (e.type === 'keydown' ? e.key === 'Escape' : !box.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', off); document.addEventListener('keydown', off);
+    return () => { document.removeEventListener('mousedown', off); document.removeEventListener('keydown', off); };
+  }, [open]);
+  return (
+    <div className="signin desk-only" ref={box}>
+      <button type="button" className="signin-btn" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(!open)}>Sign in <span aria-hidden="true">▾</span></button>
+      {open && <div className="signin-pop" onClick={() => setOpen(false)}>{signInDoors(portals).map((d) => <A key={d.href} href={d.href}><b>{d.label}</b><small>{d.hint}</small></A>)}</div>}
+    </div>
+  );
+}
+
 export function Header() {
-  const { config, menu, preview } = useSite();
+  const { config, menu, preview, portals } = useSite();
   const [open, setOpen] = useState(false);
   const h = config.header, b = config.brand, c = config.contact || {};
+  const showSignIn = h.signin !== false;
+  // a header button that already points at a sign-in page is replaced by the menu instead of showing two
+  const showCta = !!h.cta_label && !(showSignIn && isSignInLink(h.cta_href || '/login'));
   const hs = HEADER_STYLES.includes(h.style) ? h.style : 'light';
   const links = [...h.links, ...menu.filter((m) => !h.links.some((l) => l.href.endsWith(`/p/${m.slug}`))).map((m) => ({ label: m.title, href: `/site/p/${m.slug}` }))];
   return (
@@ -33,11 +64,13 @@ export function Header() {
         <Link to="/site" className="brand" aria-label={b.name}>{b.logo ? <img src={imgUrl(b.logo)} alt={b.name} /> : <><span className="mark">⌂</span><span><b>{b.name}</b>{b.tagline && <small>{b.tagline}</small>}</span></>}</Link>
         <nav className={`nav ${open ? 'open' : ''}`} onClick={() => setOpen(false)} aria-label="Main">
           {links.map((l, i) => <A key={i} href={l.href}>{l.label}</A>)}
-          <A href={h.cta_href || '/login'} className="btn-p sm mobile-only">{h.cta_label}</A>
+          {showCta && <A href={h.cta_href || '/login'} className="btn-p sm mobile-only">{h.cta_label}</A>}
+          {showSignIn && <div className="signin-m mobile-only" role="group" aria-label="Sign in"><span>Sign in</span>{signInDoors(portals).map((d) => <A key={d.href} href={d.href}>{d.label}</A>)}</div>}
         </nav>
         <div className="hright">
           {h.show_phone && config.contact.phone && <a href={`tel:${config.contact.phone}`} className="hphone"><Ic n="phone" /> {config.contact.phone}</a>}
-          {h.cta_label && <A href={h.cta_href || '/login'} className="btn-p sm desk-only">{h.cta_label}</A>}
+          {showSignIn && <SignInMenu />}
+          {showCta && <A href={h.cta_href || '/login'} className="btn-p sm desk-only">{h.cta_label}</A>}
           <button className="burger" aria-label="Menu" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? '✕' : '☰'}</button>
         </div>
       </div>
@@ -46,7 +79,7 @@ export function Header() {
 }
 
 export function Footer() {
-  const { config } = useSite();
+  const { config, portals } = useSite();
   const f = config.footer, b = config.brand, c = config.contact;
   const wa = c.whatsapp;
   const map = c.address && f.show_map !== false ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.address)}` : '';
@@ -68,6 +101,7 @@ export function Footer() {
           {f.show_social && <div className="social">{(config.social || []).filter((s) => safeHref(s.url)).map((s, i) => <a key={i} href={s.url} target="_blank" rel="noreferrer" aria-label={s.platform} title={s.platform}>{SOCIAL_ICON[s.platform] || '🔗'}</a>)}</div>}
         </div>
         {(f.columns || []).map((col, i) => <nav key={i} aria-label={col.title}><h5>{col.title}</h5><ul>{(col.links || []).map((l, j) => <li key={j}><A href={l.href}>{l.label}</A></li>)}</ul></nav>)}
+        {config.header.signin !== false && <nav className="fsignin" aria-label="Sign in"><h5>Sign in</h5><ul>{signInDoors(portals).map((d) => <li key={d.href}><A href={d.href}>{d.label}</A></li>)}</ul></nav>}
         <div className="fcontact-col"><h5>Visit & contact</h5>
           <ul className="fcontact">
             {c.address && <li><Ic n="location" /><span>{map ? <a href={map} target="_blank" rel="noreferrer">{c.address}</a> : c.address}</span></li>}
