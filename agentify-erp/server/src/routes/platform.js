@@ -21,6 +21,7 @@ import { verifyWebhook } from '../services/mailbox.js';
 import { recordWebhook, applyEvent } from '../services/emailLog.js';
 import { verifySignature, applyBillingEvent, setSubscription, listSubmissions, approveSubmission, rejectSubmission, tenantByProviderIds } from '../services/billing.js';
 import * as stripe from '../services/stripe.js';
+import { handlePlatformWebhook, settlePlatformCheckout } from '../services/platformGateways.js';
 import { stripeConfig, getSetting } from '../services/platformConfig.js';
 import { selectableRegions, listCountries } from '../regions/index.js';
 import { GLOBAL_CRM_COPY } from '../regions/marketingCopy.js';
@@ -163,6 +164,13 @@ r.post('/webhooks/resend', asyncH((req, res) => {
   if (!recordWebhook(id, 'resend', type, /received/.test(type) ? { from: String(ev.data?.from || '').slice(0, 200), subject: String(ev.data?.subject || '').slice(0, 200) } : null)) return res.json({ ok: true, duplicate: true });
   if (ev.data?.email_id && type.startsWith('email.') && !/received/.test(type)) applyEvent(ev.data.email_id, type, ev.created_at || new Date().toISOString());
   res.json({ ok: true });
+}));
+/** Plan-payment gateways (PayPal, Tap, ...): the call-back only prompts a check with the provider; nothing activates on its word. */
+r.post('/pay/webhook/:provider', asyncH(async (req, res) => res.sendStatus(await handlePlatformWebhook(req.params.provider, req))));
+r.get('/pay/return/:provider/:token', asyncH(async (req, res) => {
+  const token = String(req.params.token).replace(/[^a-f0-9]/g, '');
+  try { await settlePlatformCheckout(token); } catch { /* the billing page keeps showing "confirming"; the webhook retries */ }
+  res.redirect(`/settings/billing?gw=${token}`);
 }));
 r.post('/billing/webhook/stripe', asyncH((req, res) => {
   if (!stripe.verifyWebhook(req.rawBody, req.headers['stripe-signature'])) throw new HttpError(401, 'Invalid signature');

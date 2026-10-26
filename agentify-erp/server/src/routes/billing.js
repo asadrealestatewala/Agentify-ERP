@@ -6,6 +6,7 @@ import { billingState, planCatalog, usage, lockMessage, PRODUCTS, MODULES } from
 import { startCardCheckout, openCardPortal, availableMethods, submitLocalPayment, submissionsFor, invoicesFor, providerName } from '../services/billing.js';
 import { quote, listAddons, tenantAddons, refundsFor } from '../services/commerce.js';
 import { audit } from '../audit.js';
+import { startPlatformCheckout, platformCheckoutStatus } from '../services/platformGateways.js';
 import { recordServerEvent } from '../services/analytics.js';
 import { platformDb, logTenantEvent } from '../platform.js';
 
@@ -46,6 +47,20 @@ r.post('/checkout', can('settings', 'edit'), asyncH(async (req, res) => {
   audit(req, 'Started checkout', 'billing', null, `${req.body?.plan} / ${req.body?.interval || 'month'}`);
   res.json(out);
 }));
+
+/** Pay for one period through a connected online gateway (PayPal, Tap, ...). The plan activates only after the server confirms the payment with the provider. */
+r.post('/gateway-checkout', can('settings', 'edit'), asyncH(async (req, res) => {
+  if (req.tenant.is_legacy) throw bad('This workspace is not billed');
+  const b = req.body || {};
+  const out = await startPlatformCheckout(req, { provider: b.provider, plan: b.plan, interval: b.interval, coupon: b.coupon || null, addons: b.addons || [] });
+  audit(req, 'Started online plan payment', 'billing', null, `${b.provider} ${b.plan} / ${b.interval || 'month'}`);
+  res.json(out);
+}));
+r.get('/gateway-checkout/:token', can('settings', 'view'), (req, res) => {
+  const k = platformCheckoutStatus(req.tenant.id, String(req.params.token));
+  if (!k) return res.status(404).json({ error: 'Payment not found' });
+  res.json({ ...k, status: ['paid', 'paid_test'].includes(k.status) ? k.status : ['failed', 'mismatch'].includes(k.status) ? 'failed' : k.status === 'needs_review' ? 'received' : 'pending' });
+});
 
 /** "I paid by Raast / Easypaisa / JazzCash / SadaPay / NayaPay": recorded for the operator to confirm. */
 r.post('/manual-payment', can('settings', 'edit'), asyncH(async (req, res) => {

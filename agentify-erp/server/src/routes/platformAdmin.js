@@ -20,6 +20,7 @@ import { getMaintenance, setMaintenance, recentErrors } from '../services/mainte
 import { reportList, runReport, exportReport, savedViews, saveView, deleteView, reconcile } from '../services/platformReports.js';
 import { stripeView, saveStripe, stripeConfig, STRIPE_MODES, audit, getSetting, setSetting } from '../services/platformConfig.js';
 import { testConnection } from '../services/stripe.js';
+import { platformGatewayList, savePlatformGateway, setPlatformGatewayEnabled, removePlatformGateway, platformCheckouts } from '../services/platformGateways.js';
 import { LOCAL_METHODS } from '../services/billing.js';
 import { runBackup, listBackups, backupDir } from '../services/backup.js';
 import { dashboard, health, listNotifications, markRead, search, generateNotifications } from '../services/platformMetrics.js';
@@ -112,6 +113,13 @@ r.post('/settings/stripe/test', requireOperator, need('billing.configure'), asyn
   if (out.ok && out.livemode !== (mode === 'live')) return res.json({ ok: false, error: `This key is a ${out.livemode ? 'live' : 'test'} key but is saved as ${mode}` });
   res.json({ mode, ...out });
 }));
+
+// ---- Other online gateways for plan payments (PayPal, Tap, ...). Keys are write-only; Stripe subscriptions have their own tab above.
+const gwOrigin = (req) => `${req.protocol}://${req.get('host')}`;
+r.get('/settings/gateways', requireOperator, need('billing.configure'), (req, res) => res.json({ gateways: platformGatewayList(gwOrigin(req)), payments: platformCheckouts() }));
+r.put('/settings/gateways/:id', requireOperator, need('billing.configure'), asyncH(async (req, res) => { await savePlatformGateway(req.params.id, req.body || {}, req.operator.email); res.json({ gateways: platformGatewayList(gwOrigin(req)), payments: platformCheckouts() }); }));
+r.post('/settings/gateways/:id/enabled', requireOperator, need('billing.configure'), asyncH((req, res) => { setPlatformGatewayEnabled(req.params.id, !!req.body?.enabled, req.operator.email); res.json({ gateways: platformGatewayList(gwOrigin(req)), payments: platformCheckouts() }); }));
+r.delete('/settings/gateways/:id', requireOperator, need('billing.configure'), asyncH((req, res) => { removePlatformGateway(req.params.id, req.operator.email); res.json({ gateways: platformGatewayList(gwOrigin(req)), payments: platformCheckouts() }); }));
 
 // ---- Local payment accounts (Raast, Easypaisa, JazzCash, SadaPay, NayaPay, bank)
 const accountView = (a) => ({ id: a.id, method: a.method, label: LOCAL_METHODS[a.method] || a.method, account: a.account, account_name: a.account_name, note: a.note, active: !!a.active, sort_order: a.sort_order });

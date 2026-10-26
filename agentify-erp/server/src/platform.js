@@ -44,6 +44,12 @@ CREATE TABLE IF NOT EXISTS tenants(
 CREATE TABLE IF NOT EXISTS billing_events(
   id INTEGER PRIMARY KEY, provider TEXT NOT NULL, event_id TEXT NOT NULL, tenant_id INTEGER REFERENCES tenants(id) ON DELETE SET NULL, type TEXT NOT NULL,
   payload TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(provider, event_id));
+-- online one-time period payments (PayPal, Tap, ...) for plan subscriptions; confirmed with the provider, then approved like a manual payment
+CREATE TABLE IF NOT EXISTS platform_checkouts(
+  id INTEGER PRIMARY KEY, token TEXT NOT NULL UNIQUE, provider TEXT NOT NULL, tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, plan TEXT NOT NULL, interval TEXT NOT NULL,
+  quote TEXT NOT NULL, amount INTEGER NOT NULL, currency TEXT NOT NULL, minor_amount INTEGER NOT NULL, sandbox INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'created',
+  external_id TEXT, payment_ref TEXT, submission_id INTEGER, error TEXT, created_by TEXT, return_origin TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_platform_checkouts_ext ON platform_checkouts(provider, external_id);
 CREATE TABLE IF NOT EXISTS invoices(
   id INTEGER PRIMARY KEY, tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, provider_invoice_id TEXT, amount INTEGER NOT NULL, currency TEXT NOT NULL,
   status TEXT NOT NULL, hosted_url TEXT, period_start TEXT, period_end TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(tenant_id, provider_invoice_id));

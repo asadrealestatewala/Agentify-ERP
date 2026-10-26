@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Card, Empty, Field, Loading, Modal, PageHead, ProgressBar, StatusBadge } from '../components/ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useFetch, useToast } from '../context.jsx';
@@ -66,6 +66,7 @@ function PayModal({ data, plan, interval, onClose, onDone }) {
   const pay = async () => {
     setBusy(true);
     try {
+      if (m.kind === 'gateway') { const out = await api.post('/api/billing/gateway-checkout', { provider: m.id, plan, interval }); window.location.assign(out.url); return; }
       if (m.kind === 'online') { const out = await api.post('/api/billing/checkout', { plan, interval }); window.location.assign(out.url); return; }
       await api.post('/api/billing/manual-payment', { plan, interval, method, reference, note, coupon: coupon.trim() || null, addons: chosen });
       toast('Payment submitted. We will confirm it shortly.', 'ok'); onDone();
@@ -73,7 +74,7 @@ function PayModal({ data, plan, interval, onClose, onDone }) {
   };
   return (
     <Modal title={`Pay for ${p.name}`} onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || (m.kind === 'transfer' && (reference.trim().length < 6 || !q))} onClick={pay}>{busy ? 'Please wait…' : m.kind === 'online' ? 'Continue to secure payment' : 'I have paid'}</button></>}>
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || (m.kind === 'transfer' && (reference.trim().length < 6 || !q))} onClick={pay}>{busy ? 'Please wait…' : m.kind !== 'transfer' ? 'Continue to secure payment' : 'I have paid'}</button></>}>
       <div className="stack">
         <Field label="Payment method"><select className="input" value={method} onChange={(e) => setMethod(e.target.value)}>{data.methods.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select></Field>
         {m.kind === 'transfer' && !!data.addons?.length && (
@@ -93,7 +94,7 @@ function PayModal({ data, plan, interval, onClose, onDone }) {
             <div className="muted" style={{ fontSize: 12 }}>Prices include any applicable taxes. The setup fee is charged once.</div>
           </div>
         )}
-        {m.kind === 'online' ? <div className="muted">You will pay on a secure card page run by our payment provider. We never see or store your card number.</div> : q && (
+        {m.kind !== 'transfer' ? <div className="muted">You will pay on a secure page run by our payment provider{m.kind === 'gateway' ? `${m.test_mode ? ' (test mode: no real money, your plan will not change)' : ''}. This pays for one ${interval === 'year' ? 'year' : 'month'}; pay again to renew` : ''}. We never see or store your card number.</div> : q && (
           <>
             <div className="alert info">Send <b>{fmtMoney(q.total, 'PKR')}</b> by {m.label} to <b>{m.account}</b>{m.account_name ? ` (${m.account_name})` : ''}{m.note ? `. ${m.note}` : ''}. Then enter the transaction ID from your receipt. Your plan starts when we confirm the money arrived.</div>
             <Field label="Transaction ID / reference" required><input className="input" value={reference} onChange={(e) => setReference(e.target.value)} /></Field>
@@ -130,6 +131,13 @@ export default function Billing() {
   const [busy, setBusy] = useState('');
   const [manual, setManual] = useState(null);
   const [paying, setPaying] = useState(null);
+  const [sp, setSp] = useSearchParams();
+  const gw = sp.get('gw');
+  const gwStatus = useFetch(gw ? `/api/billing/gateway-checkout/${gw}` : null);
+  useEffect(() => {
+    if (!gw || !gwStatus.data || ['paid', 'paid_test', 'failed'].includes(gwStatus.data.status)) { if (gwStatus.data?.status === 'paid') reload(); return undefined; }
+    const t = setTimeout(gwStatus.reload, 3000); return () => clearTimeout(t);
+  }, [gw, gwStatus.data]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!data) return <Loading />;
   // no online or local method configured: ask the server for its instructions (contact us / bank transfer)
   const choose = async (plan) => {
@@ -150,6 +158,13 @@ export default function Billing() {
   return (
     <div>
       <PageHead title="Plan & billing" sub={`${PRODUCT_LABEL[data.product] || ''} · your plan, usage and invoices`} />
+      {sp.get('cancelled') === '1' && <div className="alert warn row between">You cancelled the online payment. Nothing was charged. <button className="btn sm" onClick={() => setSp({}, { replace: true })}>Dismiss</button></div>}
+      {gw && gwStatus.data && (() => {
+        const st = gwStatus.data.status;
+        const [tone, text] = st === 'paid' ? ['ok', 'Payment received. Your plan is active.'] : st === 'paid_test' ? ['info', 'Test payment confirmed. No real money moved and your plan did not change.']
+          : st === 'received' ? ['info', 'We received your payment and are activating your plan. This page will update shortly.'] : st === 'failed' ? ['err', 'The online payment could not be confirmed. If money left your account, please contact us.'] : ['info', 'Confirming your payment with the provider. You do not need to pay again.'];
+        return <div className={`alert ${tone} row between`}><span>{text}</span><button className="btn sm" onClick={() => setSp({}, { replace: true })}>Dismiss</button></div>;
+      })()}
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', marginBottom: 16 }}>
         <Card title="Current plan">
           <div className="stack">

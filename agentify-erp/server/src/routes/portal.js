@@ -17,6 +17,7 @@ import { receiptCopiesPdf } from '../services/receiptSheet.js';
 import { receiptRecord } from '../services/customers.js';
 import { claimStateByInstallment, dues, ownClaims, proofSent, submitClaim } from '../services/claims.js';
 import { uploader } from './helpers.js';
+import { createCheckout, ownCheckout, portalGateways } from '../services/gateways.js';
 
 /**
  * Customer portal. Every query is keyed on req.user.contact_id — the id never comes from the client,
@@ -217,6 +218,9 @@ r.post('/payment-claims', slipUp.single('slip'), asyncH((req, res) => {
   res.status(201).json(submitClaim(req, req.body || {}, req.file ? `claims/${req.file.filename}` : null));
 }));
 r.get('/payment-claims', asyncH((req, res) => res.json(ownClaims(mine(req)))));
+r.get('/pay-online', asyncH((_req, res) => res.json(portalGateways())));
+r.post('/pay-online', asyncH(async (req, res) => res.status(201).json(await createCheckout(req, req.body || {}))));
+r.get('/pay-online/:token', asyncH((req, res) => res.json(ownCheckout(mine(req), String(req.params.token)))));
 r.get('/dues', asyncH((req, res) => res.json(dues(mine(req)))));
 r.post('/payment-claims/:id(\\d+)/proof-sent', asyncH((req, res) => { proofSent(req, Number(req.params.id)); res.json({ ok: true }); }));
 r.get('/pay-to', asyncH((_req, res) => {
