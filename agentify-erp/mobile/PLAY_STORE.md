@@ -11,7 +11,7 @@ The Android app is a Capacitor shell that opens https://agentifyerp.co. Web chan
 - The in-app "Download for Android" APK card is hidden inside the store app (Play does not allow an app to offer a second way to install itself).
 - How the existing features reach the phone: Capacitor's WebView client already handles the geolocation prompt, camera/microphone requests, the file chooser (uploads, camera capture) and Back (the web `backNav.js` keeps its pop-up/home logic).
 
-## Build the signed bundle (on a PC with JDK 17+ and Android SDK 35)
+## Build the signed bundle (on a PC with JDK 21 and Android SDK 35)
 ```
 cd mobile && npm install && npx cap sync android
 cd android
