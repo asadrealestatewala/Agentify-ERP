@@ -9,6 +9,7 @@ const load = () => (pending ||= api.get('/api/auth/brand').then((b) => { cached 
 /** Company name of the workspace being viewed. Falls back to the product name until it loads. */
 export function useBrand() {
   const [brand, setBrand] = useState(cached);
-  useEffect(() => { if (!cached) load().then((b) => b && setBrand(b)); }, []);
-  return { name: brand?.name || 'Agentify ERP', demo_logins: brand?.demo_logins || [], sso: brand?.sso || [] };
+  const [done, setDone] = useState(!!cached);
+  useEffect(() => { if (!cached) load().then((b) => { if (b) setBrand(b); setDone(true); }); }, []);
+  return { name: brand?.name || 'Agentify ERP', demo_logins: brand?.demo_logins || [], sso: brand?.sso || [], workspace: !!brand?.workspace, logo: brand?.logo || '', staff_path: brand?.staff_path || 'staff', loaded: done };
 }

@@ -403,7 +403,7 @@
 
 /* Sign in menu: staff, customer and vendor doors, in the header (desktop dropdown, mobile list in the burger menu) and the footer */
 .s-header .signin { position: relative; }
-.s-header .signin-btn { font: inherit; font-weight: 600; font-size: 14px; padding: 7px 12px; border-radius: calc(var(--s-radius) - 2px); border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; white-space: nowrap; }
+.s-header .signin-btn { display: inline-block; text-decoration: none !important; font: inherit; font-weight: 600; font-size: 14px; padding: 7px 12px; border-radius: calc(var(--s-radius) - 2px); border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; white-space: nowrap; }
 .s-header .signin-btn:hover { background: var(--s-soft); color: var(--s-primary); }
 .s-header.hs-dark .signin-btn, .s-header.hs-transparent .signin-btn { color: #fff; border-color: rgba(255,255,255,.4); }
 .s-header.hs-dark .signin-btn:hover, .s-header.hs-transparent .signin-btn:hover { background: rgba(255,255,255,.12); color: #fff; }

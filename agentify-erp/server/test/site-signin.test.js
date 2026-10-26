@@ -47,3 +47,18 @@ test('every workspace website offers sign-in, with only the portals its product 
   assert.equal(co.portals.customer_label, 'Client portal');
   assert.equal(co.portals.vendor, true);
 });
+
+test('the public sign-in menu has no staff door; staff get an unlisted link set in Settings', async () => {
+  const b = (await call('reco.erp.test', 'GET', '/api/auth/brand')).data;
+  assert.equal(b.workspace, true);
+  assert.equal(b.staff_path, 'staff', 'default');
+  const boot = (await call('reco.erp.test', 'GET', '/api/site/bootstrap')).data;
+  assert.equal(JSON.stringify(boot).includes('staff'), false, 'the public site never carries the staff link');
+  const l = await call('reco.erp.test', 'POST', '/api/auth/login', { identifier: 'owner@reco.test', password: 'Tenant@12345' });
+  const h = { cookie: l.cookie };
+  assert.equal((await call('reco.erp.test', 'PUT', '/api/settings/system', { staff_login_path: 'login' }, h)).status, 400);
+  assert.equal((await call('reco.erp.test', 'PUT', '/api/settings/system', { staff_login_path: 'x' }, h)).status, 400);
+  assert.equal((await call('reco.erp.test', 'PUT', '/api/settings/system', { staff_login_path: '/Team-Door' }, h)).status, 200);
+  assert.equal((await call('reco.erp.test', 'GET', '/api/auth/brand')).data.staff_path, 'team-door');
+  assert.equal((await call('erp.test', 'GET', '/api/auth/brand')).data.workspace, undefined, 'the platform host has no workspace brand');
+});
