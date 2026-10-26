@@ -15,7 +15,7 @@ import rateLimit from 'express-rate-limit';
 import { writeListingText, LANGUAGES, TONES, REWRITE_GOALS, RTL_LANGUAGES } from '../services/listingAi.js';
 import { activeProvider } from '../integrations/ai.js';
 import { currentTenant } from '../context.js';
-import { geocode } from '../services/geocode.js';
+import { geocodeParts } from '../services/geocode.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -192,9 +192,10 @@ const aiWriterLimit = rateLimit({ windowMs: 60 * 60_000, limit: Number(process.e
 const geocodeLimit = rateLimit({ windowMs: 60_000, limit: Number(process.env.GEOCODE_LIMIT) || 30, standardHeaders: true, legacyHeaders: false,
   keyGenerator: (req) => `${currentTenant()?.id ?? 'legacy'}:${req.user.id}`, message: { error: 'Too many location searches. Please wait a minute and try again.' } });
 r.get('/geocode', canWrite, geocodeLimit, asyncH(async (req, res) => {
-  const q = String(req.query.q ?? '').trim();
-  if (q.length < 2) throw bad('Type a location first');
-  try { res.json(await geocode(q, currentRegion().config.region)); }
+  // `p` repeats, most specific first (address, location, area, city); a single `q` still works
+  const parts = [req.query.p, req.query.q].flat().filter((x) => typeof x === 'string').map((x) => x.trim()).filter((x) => x.length >= 2);
+  if (!parts.length) throw bad('Type a location first');
+  try { res.json(await geocodeParts(parts, currentRegion().config.region)); }
   catch { res.status(502).json({ error: 'The map search is not available right now. Enter the latitude and longitude by hand, or try again in a moment.' }); }
 }));
 r.get('/ai-writer', canWrite, (_req, res) => res.json({ languages: LANGUAGES, tones: TONES, goals: REWRITE_GOALS, rtl: RTL_LANGUAGES, connected: !!activeProvider(getSetting('ai_default', null)) }));

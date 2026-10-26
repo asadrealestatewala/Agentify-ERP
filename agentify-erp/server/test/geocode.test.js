@@ -19,7 +19,7 @@ process.env.LOGIN_LIMIT = '1000';
 process.env.SIGNUP_LIMIT = '1000';
 
 const { createApp } = await import('../src/index.js');
-const { geocode, cleanQuery } = await import('../src/services/geocode.js');
+const { geocode, geocodeParts, cleanQuery } = await import('../src/services/geocode.js');
 let server, port;
 const realFetch = globalThis.fetch;
 const seen = [];
@@ -31,6 +31,7 @@ before(() => new Promise((res) => {
     seen.push({ u, ua: opts.headers?.['User-Agent'] });
     if (mode === 'down') return new Response('x', { status: 503 });
     if (mode === 'none') return new Response('[]', { status: 200 });
+    if (mode === 'city' && !/^Rawalpindi$/.test(new URL(u).searchParams.get('q'))) return new Response('[]', { status: 200 });
     return new Response(JSON.stringify([{ display_name: 'Islamabad, Pakistan', lat: '33.6938118', lon: '73.0651511' }, { display_name: 'Bad', lat: '999', lon: '1' }]), { status: 200 });
   };
   server = createApp().listen(0, () => { port = server.address().port; res(); });
@@ -63,6 +64,19 @@ const call = (host, method, url, body, headers = {}) => new Promise((resolve, re
   req.on('error', reject); if (data) req.write(data); req.end();
 });
 
+test('geocodeParts drops the most specific text until something is found and says so', async () => {
+  mode = 'city';
+  const r = await geocodeParts(['Dhamial Rawalpindi', 'Chakri Road', 'chakri road', 'Rawalpindi'], 'PK');
+  assert.equal(r.approximate, true);
+  assert.equal(r.query, 'Rawalpindi');
+  assert.equal(r.results.length, 1);
+  assert.deepEqual((await geocodeParts([' ', 'x'])).results, []);
+  mode = 'ok';
+  const exact = await geocodeParts(['Saddar Bazaar', 'Rawalpindi'], 'PK');
+  assert.equal(exact.approximate, false);
+  assert.equal(exact.query, 'Saddar Bazaar, Rawalpindi');
+});
+
 test('property geocode route needs a signed-in editor and reports provider problems clearly', async () => {
   const su = await call('erp.test', 'POST', '/api/platform/signup', { accept_terms: true, slug: 'geo', company_name: 'Geo Realty', admin_name: 'Owner', admin_email: 'owner@geo.test', admin_password: 'Tenant@12345', region: 'PK' });
   assert.equal(su.status, 201, JSON.stringify(su.data));
@@ -71,7 +85,7 @@ test('property geocode route needs a signed-in editor and reports provider probl
   const l = await call(host, 'POST', '/api/auth/login', { identifier: 'owner@geo.test', password: 'Tenant@12345' });
   assert.equal(l.status, 200, JSON.stringify(l.data));
   const c = { cookie: l.cookie };
-  const ok = await call(host, 'GET', '/api/properties/geocode?q=Gulberg%20Lahore', null, c);
+  const ok = await call(host, 'GET', '/api/properties/geocode?p=Gulberg&p=Lahore', null, c);
   assert.equal(ok.status, 200, JSON.stringify(ok.data));
   assert.equal(ok.data.results[0].lat, 33.693812);
   assert.match(seen.at(-1).u, /countrycodes=pk/);

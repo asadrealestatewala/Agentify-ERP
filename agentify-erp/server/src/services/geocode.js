@@ -44,3 +44,24 @@ export async function geocode(query, country = '') {
   cache.set(key, { at: Date.now(), results });
   return { results, cached: false };
 }
+
+/**
+ * Searches from the most specific text to the least. `parts` run from specific to general, e.g. [address, location, area, city].
+ * Duplicates are dropped; if the whole text finds nothing the most specific part is dropped and it tries again, down to the last
+ * part (usually the city), so a street Nominatim does not know still lands in the right town. `approximate` says the pin is only
+ * as precise as the shorter text. At most 4 searches per call.
+ */
+export async function geocodeParts(parts, country = '') {
+  const seen = new Set();
+  const list = (Array.isArray(parts) ? parts : []).map(cleanQuery).filter((x) => {
+    const k = x.toLowerCase();
+    if (x.length < 2 || seen.has(k)) return false;
+    seen.add(k); return true;
+  }).slice(0, 6);
+  for (let i = 0, tries = 0; i < list.length && tries < 4; i++, tries++) {
+    const q = list.slice(i).join(', ');
+    const { results } = await geocode(q, country);
+    if (results.length) return { results, query: q, approximate: i > 0 };
+  }
+  return { results: [], query: list.join(', '), approximate: false };
+}
