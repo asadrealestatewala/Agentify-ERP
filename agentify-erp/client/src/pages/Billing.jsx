@@ -4,6 +4,7 @@ import { Card, Empty, Field, Loading, Modal, PageHead, ProgressBar, StatusBadge 
 import { api } from '../api.js';
 import { useAuth, useFetch, useToast } from '../context.jsx';
 import { dateTime } from '../format.js';
+import { inNativeApp } from '../installApp.js';
 
 const fmtMoney = (amount, currency) => new Intl.NumberFormat('en', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
 const price = (p, currency, interval) => {
@@ -19,7 +20,8 @@ export function BillingBanner() {
   const { can } = useAuth();
   const { data } = useFetch('/api/billing/status');
   if (!data) return null;
-  const manage = can('settings', 'view') ? <> <Link to="/settings/billing"><b>Choose a plan</b></Link></> : ' Ask an admin to choose a plan.';
+  const native = inNativeApp(); // store apps do not sell subscriptions: purchases happen on the website only
+  const manage = native ? ' Manage your subscription on the Agentify website.' : can('settings', 'view') ? <> <Link to="/settings/billing"><b>Choose a plan</b></Link></> : ' Ask an admin to choose a plan.';
   if (data.locked) return <div className="alert err no-print" role="alert" style={{ margin: '0 0 12px' }}>{data.message}{manage}</div>;
   if (data.status === 'past_due') return <div className="alert warn no-print" role="alert" style={{ margin: '0 0 12px' }}>Your last payment failed or your renewal is due. Pay by {data.grace_until} to keep editing.{manage}</div>;
   if (data.status === 'canceled') return <div className="alert warn no-print" style={{ margin: '0 0 12px' }}>Your subscription is cancelled and ends on {data.period_end}.{manage}</div>;
@@ -123,7 +125,25 @@ function CloseAccount({ slug }) {
   );
 }
 
-export default function Billing() {
+/** Inside the Android store app: shows the plan state and the account-closure request, with no purchase or upgrade controls. */
+function NativeBilling() {
+  const { data } = useFetch('/api/billing');
+  if (!data) return <Loading />;
+  return (
+    <>
+      <PageHead title="Plan & Billing" sub="Your subscription" />
+      <Card title="Your plan">
+        <p style={{ marginTop: 0 }}>Plan: <b>{data.plan || 'None'}</b> · Status: <b>{data.status}</b>{data.period_end ? <> · Renews or ends: <b>{data.period_end}</b></> : null}</p>
+        <p className="muted" style={{ marginBottom: 0 }}>Subscriptions are bought and managed on the Agentify website, not in this app. Sign in there with the same account to change plan, add modules or pay an invoice.</p>
+      </Card>
+      <CloseAccount slug={data.slug} />
+    </>
+  );
+}
+
+export default function Billing() { return inNativeApp() ? <NativeBilling /> : <BillingPage />; }
+
+function BillingPage() {
   const { can } = useAuth();
   const toast = useToast();
   const { data, reload } = useFetch('/api/billing');

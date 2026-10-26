@@ -4,6 +4,15 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.23', date: '2026-10-26', title: 'Android app for Google Play, privacy policy and account deletion',
+    items: [
+      { text: 'Paying workspaces can download the Android app (Google Play when it is live, or the direct file) from the Download app button and the Install the app page. The public website has a Download our app page too.', where: 'My Space > Install the app; website footer' },
+      { text: 'A full draft Privacy Policy that covers the apps, and a public Delete your account page that works without signing in.', where: 'Website footer > Legal; /delete-account' },
+      { text: 'Inside the Android app, subscriptions are not sold: Plan & Billing shows your plan and the account closure request, and buying or changing a plan happens on the website.', where: 'Android app > Plan & Billing' },
+      { text: 'The Super Admin can paste the Google Play link once the listing exists, and the buttons appear everywhere at once.', where: 'Super Admin console > Website builder > Mobile app' },
+    ],
+  },
+  {
     version: 'v1.22', date: '2026-10-26', title: 'Street-level location search and a draggable map pin',
     items: [
       { text: 'Location search now narrows down to the street or colony: it finds the city or area first, then looks for each street or colony you typed inside it, whichever box you typed it in, and also tries common alternate spellings. The search shows several matches you can click, in English, marked as street or area.', where: 'Properties > Add or edit property > Location' },

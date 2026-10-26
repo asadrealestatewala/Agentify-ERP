@@ -10,6 +10,7 @@ import Flag from '../components/Flag.jsx';
 import { BRANDS } from './brandIcons.js';
 import { track, consent, setConsent, browserOptOut, configureGa4, attributionFields, onConsentChange } from './analytics.js';
 import { setRegion } from '../format.js';
+import { useInstallApp, APK_URL, setPlayUrl, inNativeApp } from '../installApp.js';
 import { MortgageCalculator, PurchaseCostCalculator, UnitConverter } from '../site/RegionCalculators.jsx';
 import '../site/site.css';
 import '../pages/landing.css';
@@ -214,9 +215,9 @@ function Footer({ info, onCookies }) {
         {!!social.length && <p>{social.map(([k, v]) => <a key={k} href={v} target="_blank" rel="noreferrer noopener" style={{ marginRight: 12, textTransform: 'capitalize' }}>{k}</a>)}</p>}
       </div>
       <div><h4>Products</h4><Link to="/real-estate">Real Estate Brokerage</Link><Link to="/construction">Construction Management</Link><Link to="/pricing">Pricing</Link></div>
-      <div><h4>Company</h4><Link to="/contact">Book a demo</Link><Link to="/signup">Start free trial</Link><Link to="/login">Sign in</Link></div>
+      <div><h4>Company</h4><Link to="/contact">Book a demo</Link><Link to="/signup">Start free trial</Link><Link to="/login">Sign in</Link><Link to="/download-app">Download the app</Link></div>
       <div><h4>Country</h4><CountrySwitch /></div>
-      <div><h4>Legal</h4>{info.content.legal.map((d) => <Link key={d.slug} to={`/legal/${d.slug}`}>{d.title}</Link>)}<button className="llink" onClick={onCookies}>Cookie settings</button></div>
+      <div><h4>Legal</h4>{info.content.legal.map((d) => <Link key={d.slug} to={`/legal/${d.slug}`}>{d.title}</Link>)}<Link to="/delete-account">Delete your account</Link><button className="llink" onClick={onCookies}>Cookie settings</button></div>
     </div><div style={{ width: '100%', marginTop: 18 }}>© {new Date().getFullYear()} {c.brand}</div></div></footer>
   );
 }
@@ -670,6 +671,49 @@ function Contact({ info }) {
   );
 }
 
+/** Public account and data deletion request: required by app stores, works without signing in. Nothing is deleted until the owner is contacted. */
+function DeleteAccount({ info }) {
+  useTitle(`Delete your account | ${info.content.brand}`, 'Ask us to delete your account and data.');
+  const [f, setF] = useState({ email: '', workspace: '', reason: '', website: '' });
+  const [err, setErr] = useState(''); const [done, setDone] = useState(false); const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const submit = async (e) => { e.preventDefault(); setErr(''); setBusy(true); try { await api.post('/api/platform/deletion-request', f); setDone(true); } catch (x) { setErr(x.message); } finally { setBusy(false); } };
+  return (
+    <section><div className="lwrap" style={{ maxWidth: 640 }}>
+      <div className="lsh"><h1 style={{ fontSize: 36 }}>Delete your account</h1>
+        <p>Ask us to close a workspace and delete its data, or to delete your personal data. We first confirm with the account owner by email, so nothing is deleted by mistake, then delete the data within the time stated in our <Link to="/legal/privacy">Privacy Policy</Link>. Records we must keep by law (such as invoices) are kept.</p>
+        <p>If you are an employee or user of a company, ask your company administrator: they control the workspace data. Workspace owners can also request this in the app under Plan &amp; Billing. Export your data first if you may need it.</p></div>
+      {done ? <div className="lok">Thank you. We have your request. If an account matches, we will email {f.email} to confirm before anything is deleted.</div> : (
+        <form className="lform" onSubmit={submit} noValidate>
+          {err && <div className="lerr" role="alert">{err}</div>}
+          <label>Email address of the account<input type="email" required value={f.email} onChange={set('email')} autoComplete="email" /></label>
+          <label>Workspace address <span className="lhint">optional, e.g. yourcompany.agentifyerp.co</span><input value={f.workspace} onChange={set('workspace')} /></label>
+          <label>Anything we should know <span className="lhint">optional</span><textarea rows={3} value={f.reason} onChange={set('reason')} /></label>
+          <label className="lhp" aria-hidden>Website<input tabIndex={-1} autoComplete="off" value={f.website} onChange={set('website')} /></label>
+          <button className="lbtn p" disabled={busy}>{busy ? 'Sending…' : 'Request deletion'}</button>
+        </form>)}
+    </div></section>
+  );
+}
+
+/** Public "Download our app" page: Google Play (when the listing is set) and the direct Android file; iPhone and desktop use the browser install. */
+function DownloadApp({ info }) {
+  useTitle(`Download the app | ${info.content.brand}`, 'Get the Android app or install it from your browser.');
+  const app = useInstallApp();
+  const play = info.content.android_store_url;
+  return (
+    <section><div className="lwrap" style={{ maxWidth: 640, textAlign: 'center' }}>
+      <div className="lsh"><h1 style={{ fontSize: 36 }}>Download our app</h1><p>Use {info.content.brand} on your phone: leads, follow-ups, property visits and your team in your pocket. Sign in with your workspace account.</p></div>
+      <div style={{ display: 'grid', gap: 12, justifyItems: 'center' }}>
+        {play && <a className="lbtn p" href={play} target="_blank" rel="noreferrer">Get it on Google Play</a>}
+        <a className={play ? 'lbtn' : 'lbtn p'} href={APK_URL} download="agentify-erp.apk">Download for Android (direct file)</a>
+        {app.canPrompt && <button type="button" className="lbtn" onClick={app.install}>Install from this browser</button>}
+        <p className="lmini">iPhone and iPad: open this site in Safari, tap Share, then Add to Home Screen. Android direct file: Android may ask you to allow installs from your browser once. Paying workspaces can also find the app inside the workspace under My Space.</p>
+      </div>
+    </div></section>
+  );
+}
+
 /** Very small, safe renderer for the legal documents: ## headings, - lists and paragraphs; no HTML is ever injected. */
 function Doc({ text }) {
   const blocks = [];
@@ -891,6 +935,8 @@ function page(path, info) {
   if (p === '/contact') return <Contact info={info} />;
   if (p === '/signup') return <Signup info={info} />;
   if (p === '/login') return <FindWorkspace info={info} />;
+  if (p === '/delete-account') return <DeleteAccount info={info} />;
+  if (p === '/download-app') return <DownloadApp info={info} />;
   const legal = p.match(/^\/legal\/([a-z-]+)$/);
   if (legal) return <Legal key={legal[1]} info={info} slug={legal[1]} />;
   return <Navigate to="/" replace />;
@@ -911,11 +957,13 @@ export default function MarketingSite() {
     window.addEventListener('message', h); window.parent.postMessage({ t: 'landing-ready' }, window.location.origin);
     return () => window.removeEventListener('message', h);
   }, [editor]);
-  useEffect(() => { api.get('/api/platform/marketing').then((d) => { setInfo(d); configureGa4(d.ga4_id); }).catch((e) => setErr(e.message)); }, []);
+  useEffect(() => { api.get('/api/platform/marketing').then((d) => { setInfo(d); setPlayUrl(d.content.android_store_url); configureGa4(d.ga4_id); }).catch((e) => setErr(e.message)); }, []);
   useEffect(() => { if (!browserOptOut() && !consent()) setBanner(true); return onConsentChange(() => {}); }, []);
   useEffect(() => { if (editor) return; window.scrollTo(0, 0); track('page_view'); }, [loc.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   if (err) return <div className="lp"><div className="lwrap" style={{ padding: 40 }}><div className="lerr">{err}</div><button className="lbtn" onClick={() => nav(0)}>Try again</button></div></div>;
   if (!info) return <Loading />;
+  // The store app is for signing in: the sales pages and prices stay on the website (subscriptions are not sold inside the app)
+  if (inNativeApp() && ['/', '/preview', '/pricing', '/real-estate', '/construction'].includes(loc.pathname)) return <Navigate to="/login" replace />;
   // The glow-dark interactive home page ('/', also kept at /preview). It brings its own header and footer.
   if (loc.pathname === '/' || loc.pathname === '/preview') {
     return (

@@ -10,7 +10,7 @@ import { need, auditContext } from '../services/platformAccess.js';
 import { audit } from '../services/platformConfig.js';
 import { planCatalog, PLAN_SETTINGS, PRODUCTS, PLANS } from '../services/plans.js';
 import { submitReview, publicReviews, reviewPhoto } from '../services/reviews.js';
-import { publicContent, publicLegal, createDemoRequest, marketingContent, termsVersion } from '../services/marketing.js';
+import { publicContent, publicLegal, createDemoRequest, createDeletionRequest, marketingContent, termsVersion } from '../services/marketing.js';
 import { recordServerEvent, collect } from '../services/analytics.js';
 import { publicAnnouncements } from '../services/announcements.js';
 import { listAddons } from '../services/commerce.js';
@@ -225,6 +225,16 @@ r.get('/marketing', asyncH((req, res) => {
 }));
 r.get('/announcements', asyncH((req, res) => { mainOnly(req); res.json(publicAnnouncements()); }));
 r.get('/legal/:slug', asyncH((req, res) => { mainOnly(req); res.json(publicLegal(req.params.slug)); }));
+/** Public account-deletion request (required by app stores). A hidden field catches bots; the answer never says whether the account exists. */
+r.post('/deletion-request', publicLimiter, asyncH(async (req, res) => {
+  mainOnly(req);
+  const b = req.body || {};
+  if (b.website) return res.status(201).json({ ok: true });
+  const out = createDeletionRequest(b);
+  const to = process.env.SALES_EMAIL || process.env.BILLING_OPERATOR_EMAIL || marketingContent().contact_email;
+  if (to) await sendMail({ type: 'deletion_request', to, subject: `Account deletion request: ${out.email}`, ...layout({ brand: 'platform', heading: 'Account deletion request', lines: [`From: ${out.email}`, `Workspace: ${out.workspace || '—'}`, out.note || ''].filter(Boolean) }) }).catch(() => {});
+  res.status(201).json({ ok: true });
+}));
 /** Contact / demo request form. A hidden "website" field catches bots; nothing is sent to the visitor. */
 r.post('/demo-request', publicLimiter, asyncH(async (req, res) => {
   mainOnly(req);

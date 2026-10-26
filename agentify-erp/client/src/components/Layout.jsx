@@ -5,6 +5,7 @@ import { Avatar } from './ui.jsx';
 import Assistant from './Assistant.jsx';
 import Appearance from './Appearance.jsx';
 import GetAppButton from './GetAppButton.jsx';
+import { inNativeApp } from '../installApp.js';
 import CommandPalette from './CommandPalette.jsx';
 import OfflineBar from './OfflineBar.jsx';
 import { NotificationBell } from './Notifications.jsx';
@@ -111,7 +112,7 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
   }).filter(Boolean);
   // upgrade path: the product a workspace does not have yet, for people who manage billing
   const missing = products && !siteOnly && ok('settings') ? ['construction', 'real_estate'].filter((pr) => !products.includes(pr)) : [];
-  if (missing.length && !ent?.legacy) groups.push({ label: missing[0] === 'construction' ? 'Add Construction' : 'Add Real Estate', icon: 'plus', to: '/settings/billing' });
+  if (missing.length && !ent?.legacy && !inNativeApp()) groups.push({ label: missing[0] === 'construction' ? 'Add Construction' : 'Add Real Estate', icon: 'plus', to: '/settings/billing' });
   // longest-prefix match so /properties/new does not also light up /properties
   const allPaths = groups.flatMap((g) => g.children?.map((c) => c[1]) || []);
   const activePath = allPaths.filter((p) => loc.pathname === p || loc.pathname.startsWith(p + '/')).sort((a, b) => b.length - a.length)[0];
