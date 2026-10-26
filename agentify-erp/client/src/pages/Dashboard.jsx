@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import ActivationChecklist from '../components/ActivationChecklist.jsx';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarsChart, DonutChart, LinesChart } from '../components/Charts.jsx';
 import Icon from '../components/Icon.jsx';
@@ -88,7 +89,7 @@ function CashChart({ d }) {
 }
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const [range, setRange] = useState({ range: 'this_month' });
   const { data: d, loading, error } = useFetch('/api/dashboard', range);
   const today = useToday().data;
@@ -111,6 +112,7 @@ export default function Dashboard() {
           <Hero user={user} d={d} range={range} setRange={setRange} today={today} />
           <QuickActions />
           <Onboarding />
+          {can('settings', 'edit') && !user.own_scope && <ActivationChecklist />}
           <TrainingForYou />
           <div className="dtabs" role="tablist" aria-label="Dashboard sections">
             {tabs.map(([k, l, ic, tone]) => <button key={k} role="tab" aria-selected={active === k} className={`dtab ${active === k ? 'on' : ''}`} onClick={() => setTab(k)}><span className={`ic-tile ic-${tone}`}><Icon name={ic} size={13} /></span>{l}</button>)}

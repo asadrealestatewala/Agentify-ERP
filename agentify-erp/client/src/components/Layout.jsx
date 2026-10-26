@@ -62,7 +62,7 @@ const NAV = [
     ['Financial Reports', '/reports/Financial', 'accounting'], ['Vendor Reports', '/reports/Vendor', 'vendors'], ['Employee Reports', '/reports/Employee', 'hrm'], ['Commission Reports', '/reports/Sales'] ] },
   { label: 'Settings', icon: 'settings', module: 'settings', children: [
     ['Users', '/settings/users'], ['Integrations', '/settings/integrations'], ['Website Integrations', '/settings/website-integrations', 'website'], ['Plan & Billing', '/settings/billing'], ['Roles & Permissions', '/settings/roles'], ['Custom Fields', '/settings/custom-fields'], ['Property Settings', '/settings/property'],
-    ['Payment Methods', '/settings/payment-methods'], ['Payment Gateways', '/settings/payment-gateways'], ['Lead Stages', '/settings/lead-stages'], ['Categories & Lists', '/settings/categories'], ['Commission Rules', '/settings/commission-rules'], ['Receipts & Branding', '/settings/branding'], ['Notifications', '/settings/notifications'], ['System Settings', '/settings/system'], ['Audit Log', '/settings/audit'] ] },
+    ['Payment Methods', '/settings/payment-methods'], ['Payment Gateways', '/settings/payment-gateways'], ['Email', '/settings/email'], ['Lead Stages', '/settings/lead-stages'], ['Categories & Lists', '/settings/categories'], ['Commission Rules', '/settings/commission-rules'], ['Receipts & Branding', '/settings/branding'], ['Notifications', '/settings/notifications'], ['System Settings', '/settings/system'], ['Audit Log', '/settings/audit'] ] },
 ];
 
 /** Pages that belong to the Real Estate product only (the server refuses them for other workspaces too). */

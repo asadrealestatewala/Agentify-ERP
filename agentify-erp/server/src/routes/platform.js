@@ -18,6 +18,8 @@ import { issueVerification } from '../services/accessLinks.js';
 import { get, run } from '../db.js';
 import adminRoutes from './platformAdmin.js';
 import { verifyWebhook } from '../services/mailbox.js';
+import { applyProviderEvent } from '../services/tenantEmail.js';
+import { handleInbound } from '../services/emailInbound.js';
 import { recordWebhook, applyEvent } from '../services/emailLog.js';
 import { verifySignature, applyBillingEvent, setSubscription, listSubmissions, approveSubmission, rejectSubmission, tenantByProviderIds } from '../services/billing.js';
 import * as stripe from '../services/stripe.js';
@@ -156,13 +158,18 @@ r.post('/tenants/:id/status', requireOperator, need('workspaces.suspend'), async
  */
 /** Stripe: its own signature scheme; events we do not act on, or that name no known workspace, are acknowledged so Stripe stops retrying. */
 /** Resend webhooks (Svix-signed): delivery events update the sent log; a received e-mail is noted so the inbox can show it was seen. Idempotent by event id. */
-r.post('/webhooks/resend', asyncH((req, res) => {
+r.post('/webhooks/resend', asyncH(async (req, res) => {
   const secret = getSetting('resend_webhook_secret');
   if (!secret) throw new HttpError(503, 'The Resend signing secret is not saved yet');
   if (!verifyWebhook(req.rawBody, req.headers, secret)) throw new HttpError(401, 'Invalid signature');
   const ev = req.body || {}, type = String(ev.type || '').slice(0, 60), id = req.headers['svix-id'];
   if (!recordWebhook(id, 'resend', type, /received/.test(type) ? { from: String(ev.data?.from || '').slice(0, 200), subject: String(ev.data?.subject || '').slice(0, 200) } : null)) return res.json({ ok: true, duplicate: true });
-  if (ev.data?.email_id && type.startsWith('email.') && !/received/.test(type)) applyEvent(ev.data.email_id, type, ev.created_at || new Date().toISOString());
+  if (ev.data?.email_id && type.startsWith('email.') && !/received/.test(type)) {
+    applyEvent(ev.data.email_id, type, ev.created_at || new Date().toISOString());
+    // tenant mail: the workspace is found from our own record of the provider message id, never from the request
+    applyProviderEvent(ev.data.email_id, type, ev.created_at || new Date().toISOString(), { bounce_type: ev.data?.bounce?.type || ev.data?.bounce_type });
+  }
+  if (/received/.test(type) && ev.data?.email_id) await handleInbound(ev.data.email_id, ev.data);
   res.json({ ok: true });
 }));
 /** Plan-payment gateways (PayPal, Tap, ...): the call-back only prompts a check with the provider; nothing activates on its word. */

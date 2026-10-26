@@ -4,6 +4,14 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.14', date: '2026-10-26', title: 'Send email from your own address',
+    items: [
+      { text: 'Verify your company domain and create sender addresses so appointment reminders and follow-ups come from you. Only verified addresses can send.', where: 'Settings > Email' },
+      { text: 'See your monthly email allowance, what is used and waiting, when it resets, and the delivery status of every message. Unsubscribes, bounces and complaints are respected automatically.', where: 'Settings > Email' },
+      { text: 'A setup checklist on the dashboard ticks itself as you add your business details, first lead, team and follow-up, and Agentify sends a few helpful setup tips by email (you can switch them off).', where: 'Dashboard' },
+    ],
+  },
+  {
     version: 'v1.13', date: '2026-10-26', title: 'Online payments for your customers',
     items: [
       { text: 'Connect your own Stripe, PayPal or Tap account so customers can pay installments online from their portal. Receipts are created automatically once the payment is confirmed. Start in test mode.', where: 'Settings > Payment Gateways' },

@@ -35,11 +35,11 @@ export function tenantBrand() {
  * brand: 'platform' = Agentify's own identity (Super Admin and platform mail), 'tenant' = the workspace's company details,
  * omitted = tenant inside a workspace, platform outside one.
  */
-export function layout({ heading, lines = [], button, footer, brand }) {
+export function layout({ heading, lines = [], button, footer, brand, unsubscribe }) {
   const mode = brand || (currentTenant() ? 'tenant' : 'platform');
   const b = mode === 'platform' ? platformBrand() : tenantBrand();
   const contact = [b.address, b.phone, b.email, b.website].filter(Boolean);
-  const text = [heading, '', ...lines, ...(button ? ['', `${button.label}: ${button.url}`] : []), ...(footer ? ['', footer] : []), '', `- ${b.name}`, ...(b.tagline ? [b.tagline] : []), ...contact].join('\n');
+  const text = [heading, '', ...lines, ...(button ? ['', `${button.label}: ${button.url}`] : []), ...(footer ? ['', footer] : []), ...(unsubscribe ? ['', `Unsubscribe: ${unsubscribe.url}`] : []), '', `- ${b.name}`, ...(b.tagline ? [b.tagline] : []), ...contact].join('\n');
   const mark = mode === 'platform'
     ? `<span style="display:inline-block;width:28px;height:28px;line-height:28px;text-align:center;background:#fff;color:${TEAL};border-radius:8px;font-weight:bold;vertical-align:middle;margin-right:8px">A</span>`
     : '';
@@ -48,7 +48,7 @@ export function layout({ heading, lines = [], button, footer, brand }) {
 <div style="padding:24px"><h2 style="margin:0 0 16px">${escapeHtml(heading)}</h2>${lines.map((l) => `<p style="line-height:1.5">${escapeHtml(l)}</p>`).join('')}
 ${button ? `<p><a href="${escapeHtml(button.url)}" style="display:inline-block;background:${TEAL};color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none">${escapeHtml(button.label)}</a></p>` : ''}
 ${footer ? `<p style="color:#6b7280;font-size:13px">${escapeHtml(footer)}</p>` : ''}</div>
-<div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 24px;color:#6b7280;font-size:12px;line-height:1.6"><strong style="color:#374151">${escapeHtml(b.name)}</strong>${b.tagline ? `<br>${escapeHtml(b.tagline)}` : ''}${contact.map((c) => `<br>${escapeHtml(c)}`).join('')}${mode === 'tenant' ? '<br><span style="color:#9ca3af">Sent through Agentify ERP</span>' : ''}</div></div>`;
+<div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 24px;color:#6b7280;font-size:12px;line-height:1.6"><strong style="color:#374151">${escapeHtml(b.name)}</strong>${b.tagline ? `<br>${escapeHtml(b.tagline)}` : ''}${contact.map((c) => `<br>${escapeHtml(c)}`).join('')}${mode === 'tenant' ? '<br><span style="color:#9ca3af">Sent through Agentify ERP</span>' : ''}${unsubscribe ? `<br><a href="${escapeHtml(unsubscribe.url)}" style="color:#6b7280">${escapeHtml(unsubscribe.label || 'Unsubscribe')}</a>` : ''}</div></div>`;
   return { text, html };
 }
 

@@ -14,6 +14,7 @@ import { FinancePage } from './platform/Finance.jsx';
 import { AnalyticsPage, WebsitePage, DemoRequestsPage, AnnouncementsPage, IntegrationsPage, ReviewsPage } from './platform/Content.jsx';
 import LandingEditorPage from './platform/LandingEditor.jsx';
 import { MailboxPage, SentLogPage, MailboxSettingsPage } from './platform/Mailbox.jsx';
+import EmailOps from './platform/EmailOps.jsx';
 import { RegionsPage } from "./platform/Regions.jsx";
 import WhatsNew from './WhatsNew.jsx';
 import FreeSitesPage from './platform/FreeSites.jsx';
@@ -351,6 +352,7 @@ function ConsoleRoutes() {
         <Route path="announcements" element={<Allowed perm="dashboard.view"><AnnouncementsPage /></Allowed>} />
         <Route path="mailbox" element={<Allowed perm="mailbox.manage"><MailboxPage /></Allowed>} />
         <Route path="mailbox/sent" element={<Allowed perm="mailbox.manage"><SentLogPage /></Allowed>} />
+        <Route path="email" element={<Allowed perm="system.view"><EmailOps /></Allowed>} />
         <Route path="mailbox/settings" element={<Allowed perm="mailbox.manage"><MailboxSettingsPage /></Allowed>} />
         <Route path="regions" element={<Allowed perm="regions.support"><RegionsPage /></Allowed>} />
         <Route path="integrations" element={<Allowed perm="system.view"><IntegrationsPage /></Allowed>} />
