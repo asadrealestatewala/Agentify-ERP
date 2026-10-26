@@ -12,6 +12,7 @@
   "date_style": "YYYY-MM-DD",
   "time_style": "12h",
   "timezone": "America/Toronto",
+  "work_week": { "weekend": [0, 6], "note": "Default only; each workspace sets its own weekend in HR > Onboarding > Working calendar." },
   "units_system": "imperial",
   "area_units": [ "sqft", "sqm", "acre", "hectare" ],
   "default_area_unit": "sqft",

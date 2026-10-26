@@ -12,6 +12,7 @@
   "date_style": "DD-Mon-YYYY",
   "time_style": "12h",
   "timezone": "Asia/Karachi",
+  "work_week": { "weekend": [0], "note": "Default only (matches attendance: Sunday off); each workspace sets its own weekend in HR > Onboarding > Working calendar." },
   "units_system": "mixed",
   "area_units": [ "marla", "kanal", "sqft", "sqyd", "acre" ],
   "default_area_unit": "marla",

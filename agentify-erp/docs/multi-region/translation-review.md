@@ -7,7 +7,7 @@ French (`fr`, used for Canada/Quebec) and Arabic (`ar`, UAE) strings in `client/
 | `client/src/locales/fr.json` | Français (Canada) | — | — | needs review |
 | `client/src/locales/ar.json` | العربية (UAE) | — | — | needs review |
 
-Coverage today: sign-in and shared buttons. More screens move to `t('key', 'English default')` phase by phase; any missing key falls back to English, so a partial translation never breaks a screen.
+Coverage today: sign-in, shared buttons and the HR onboarding checklist screens (`onboarding.*` keys, machine-drafted, needs review). There is no Urdu (`ur`) locale file yet, so Urdu users see English on these screens. More screens move to `t('key', 'English default')` phase by phase; any missing key falls back to English, so a partial translation never breaks a screen.
 
 ## Arabic PDF text
 
