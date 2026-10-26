@@ -9,8 +9,18 @@ import { bridgeTwiml, verifyTwilioSignature } from './twilio.js';
 import { PORTALS, feedToken, publishedListings, feedXml, feedCsv } from './portals.js';
 import crypto from 'node:crypto';
 import { callSettings, addRecording, fetchRecording } from './calls.js';
+import { handleWebhook, settle } from '../services/gateways.js';
 
+function asyncSafe(fn) { return (req, res) => fn(req, res).catch(() => res.sendStatus(500)); }
 const r = Router();
+/** Online payments: the provider calls this when a customer pays; we then ask the provider (not the caller) what happened. */
+r.post('/pay/:provider', asyncSafe(async (req, res) => { const out = await handleWebhook(req.params.provider, req); res.sendStatus(out.status); }));
+/** Where the provider sends the customer's browser back to. It only prompts a check with the provider; it never marks anything paid by itself. */
+r.get('/pay/return/:provider/:token', asyncSafe(async (req, res) => {
+  const token = String(req.params.token).replace(/[^a-f0-9]/g, '');
+  try { await settle(token); } catch { /* the portal keeps showing "confirming" and the webhook will retry */ }
+  res.redirect(`/portal/payments?gw=${token}`);
+}));
 r.use(express.urlencoded({ extended: false, limit: '100kb' }));
 
 function verified(req) {

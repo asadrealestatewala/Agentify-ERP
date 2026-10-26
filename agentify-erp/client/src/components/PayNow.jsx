@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, Empty, Field, KV, Modal, StatusBadge } from './ui.jsx';
 import { api } from '../api.js';
 import { useFetch, useToast } from '../context.jsx';
@@ -17,6 +18,32 @@ async function sendProof(claim, toast) {
   if (!claim.wa_url) { toast('The company WhatsApp number is not set — please contact the accounts office.', 'err'); return; }
   window.open(claim.wa_url, '_blank', 'noopener');
   try { await api.post(`/api/portal/payment-claims/${claim.id}/proof-sent`); } catch { /* the chat still opened */ }
+}
+
+/** Shown when the customer returns from an online payment page (?gw=token): confirms with the server, which asks the provider. */
+export function OnlinePayBanner({ onPaid }) {
+  const [sp, setSp] = useSearchParams();
+  const token = sp.get('gw'), cancelled = sp.get('cancelled') === '1';
+  const [st, setSt] = useState(null);
+  useEffect(() => {
+    if (!token || cancelled) return undefined;
+    let stop = false, n = 0, t;
+    const tick = async () => {
+      try { const r = await api.get(`/api/portal/pay-online/${token}`); if (stop) return; setSt(r); if (r.status === 'paid' || r.status === 'paid_test') { onPaid?.(); return; } } catch { /* keep trying */ }
+      if (!stop && ++n < 20) t = setTimeout(tick, 3000);
+    };
+    tick();
+    return () => { stop = true; clearTimeout(t); };
+  }, [token, cancelled]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!token) return null;
+  const close = <button className="btn sm" onClick={() => setSp({}, { replace: true })}>Dismiss</button>;
+  if (cancelled) return <div className="alert warn row between">You cancelled the online payment. Nothing was charged. {close}</div>;
+  if (!st) return <div className="alert info">Checking your payment…</div>;
+  if (st.status === 'paid') return <div className="alert ok row between"><span>Payment of {money(st.amount)} received through {st.provider}. Your receipt is ready below.</span>{close}</div>;
+  if (st.status === 'paid_test') return <div className="alert info row between"><span>Test payment confirmed ({st.provider}). No real money moved and no receipt was created.</span>{close}</div>;
+  if (st.status === 'paid_pending_posting') return <div className="alert info row between"><span>We received your payment of {money(st.amount)}. Our accounts team is recording it; your receipt will appear shortly.</span>{close}</div>;
+  if (st.status === 'failed') return <div className="alert err row between"><span>The online payment could not be confirmed. If money left your account, please contact us with this reference: {st.token.slice(0, 8)}.</span>{close}</div>;
+  return <div className="alert info row between"><span>We are confirming your payment of {money(st.amount)} with {st.provider}. This usually takes a few seconds. You do not need to pay again.</span>{close}</div>;
 }
 
 /** Where to send the money, filtered to the chosen method. */
@@ -73,6 +100,11 @@ export function PayNowModal({ onClose, onDone, presetIds }) {
   const [slip, setSlip] = useState(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
+  const gws = useFetch('/api/portal/pay-online');
+  const payOnline = async (g) => {
+    setBusy(true);
+    try { const r = await api.post('/api/portal/pay-online', { provider: g.id, installment_ids: sel }); window.location.assign(r.url); } catch (er) { toast(er.message, 'err'); setBusy(false); }
+  };
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const online = ONLINE.includes(f.method);
   const toggle = (d) => {
@@ -117,6 +149,12 @@ export function PayNowModal({ onClose, onDone, presetIds }) {
         </div>
         <div>
           <div className="section-title" style={{ marginTop: 0 }}>2. How will you pay?</div>
+          {!!gws.data?.length && (
+            <div className="stack" style={{ marginBottom: 12 }}>
+              <div className="row wrap" style={{ gap: 8 }}>{gws.data.map((g) => (
+                <button type="button" key={g.id} className="btn primary" disabled={busy || !chosen.length} onClick={() => payOnline(g)}>Pay {chosen.length ? money(total) : ''} online with {g.label}{g.test_mode ? ' (test)' : ''}</button>))}</div>
+              <div className="muted" style={{ fontSize: 12 }}>You will be taken to a secure payment page. Your receipt appears here automatically once the payment is confirmed. Or pay by bank / wallet below and report it.</div>
+            </div>)}
           <div className="row wrap" style={{ gap: 6, marginBottom: 10 }}>{METHODS.map(([v, l]) => <button type="button" key={v} className={`btn sm ${f.method === v ? 'primary' : ''}`} onClick={() => setF({ ...f, method: v })}>{l}</button>)}</div>
           {f.method === 'Cash' ? <div className="muted">Pay at our office and ask for your receipt — no need to report it here.</div> : <PayTo method={f.method} />}
         </div>

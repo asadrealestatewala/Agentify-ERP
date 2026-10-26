@@ -9,7 +9,7 @@ import LedgerViewer from '../components/LedgerViewer.jsx';
 import { printPdf } from '../printPdf.js';
 import { NotificationBell, NotificationCentre } from '../components/Notifications.jsx';
 export function PortalNotifications() { return <div className="stack"><h2 style={{ fontSize: 20, margin: 0 }}>Notifications</h2><NotificationCentre /></div>; }
-import { DuesCard, MyPaymentReports, PayNowModal } from '../components/PayNow.jsx';
+import { DuesCard, MyPaymentReports, OnlinePayBanner, PayNowModal } from '../components/PayNow.jsx';
 import { ScheduleView } from '../components/Schedule.jsx';
 import { DocFooter, DocHeader } from '../components/DocBrand.jsx';
 import { useAuth, useFetch } from '../context.jsx';
@@ -174,6 +174,7 @@ export function PortalPayments() {
   return (
     <div className="stack">
       <div className="row between wrap"><h2 style={{ fontSize: 20, margin: 0 }}>Payments</h2><button className="btn primary" onClick={() => setPaying([])}>Pay now</button></div>
+      <OnlinePayBanner onPaid={() => setBump((n) => n + 1)} />
       <DuesCard refreshKey={bump} onPay={(ids) => setPaying(ids)} />
       <MyPaymentReports refreshKey={bump} onViewReceipt={(id) => { setOpen(id); setTimeout(() => document.querySelector('.print-doc')?.scrollIntoView({ behavior: 'smooth' }), 300); }} />
       <HowToPay />

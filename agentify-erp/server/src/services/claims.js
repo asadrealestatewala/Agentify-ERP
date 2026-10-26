@@ -188,11 +188,11 @@ export function syncSettings({ regenerate = false } = {}) {
 export const setAutoApprove = (on) => setSetting('payment_auto_approve', on ? '1' : '0');
 export const feedKeyOk = (k) => { const key = getSetting('payment_feed_key'); if (!key || !k) return false; const a = Buffer.from(String(k)), b = Buffer.from(key); return a.length === b.length && crypto.timingSafeEqual(a, b); };
 
-const depositAccount = (method) => {
+export const depositAccount = (method) => {
   const type = method === 'Cash' ? 'cash' : ['Bank Transfer', 'Cheque'].includes(method) ? 'bank' : 'online';
   return get('SELECT id FROM accounts WHERE subtype=? ORDER BY id LIMIT 1', type)?.id || get("SELECT id FROM accounts WHERE subtype='bank' ORDER BY id LIMIT 1")?.id;
 };
-const systemActor = () => { const u = get("SELECT u.id,u.name,r.name role FROM users u JOIN roles r ON r.id=u.role_id WHERE u.active=1 AND r.portal=0 AND r.name IN ('Finance Manager','Super Admin') ORDER BY (r.name='Finance Manager') DESC, u.id LIMIT 1"); return u ? { user: { ...u }, ip: 'payment-feed' } : null; };
+export const systemActor = () => { const u = get("SELECT u.id,u.name,r.name role FROM users u JOIN roles r ON r.id=u.role_id WHERE u.active=1 AND r.portal=0 AND r.name IN ('Finance Manager','Super Admin') ORDER BY (r.name='Finance Manager') DESC, u.id LIMIT 1"); return u ? { user: { ...u }, ip: 'payment-feed' } : null; };
 
 /** Does an arrived bank / wallet transaction match an open customer report (same transaction ID and amount)? */
 function matchFeedRow(f) {
