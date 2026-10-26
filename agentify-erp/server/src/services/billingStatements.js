@@ -84,6 +84,7 @@ function footer(doc) {
   const range = doc.bufferedPageRange();
   for (let i = 0; i < range.count; i += 1) {
     doc.switchToPage(range.start + i);
+    doc.page.margins.bottom = 0; // text below the bottom margin would otherwise open an empty extra page
     doc.font('Helvetica').fontSize(8).fillColor(GREY).text(`Questions about billing? Mail ${billingAddress()}   ·   Page ${i + 1} of ${range.count}`, 40, doc.page.height - 34, { width: doc.page.width - 80, align: 'center', lineBreak: false });
   }
 }
