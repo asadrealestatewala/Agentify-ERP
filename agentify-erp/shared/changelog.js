@@ -4,6 +4,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.25', date: '2026-10-26', title: 'Android app download is live',
+    items: [
+      { text: 'The Android app (APK) is rebuilt for current Android versions and ready to download from the Download app buttons on the website and in your workspace. This is a test build for installing directly on a phone; the Google Play version comes later.', where: 'Download app' },
+    ],
+  },
+  {
     version: 'v1.24', date: '2026-10-26', title: 'WhatsApp inbox for your customers\' chats',
     items: [
       { text: 'Connect your own WhatsApp Business number through your Botlinkd account (official WhatsApp Cloud API) and read and answer customer chats next to their CRM record. Chats are matched to contacts by phone number, can be assigned to an agent, closed, or turned into a lead.', where: 'WhatsApp; Settings > WhatsApp' },
