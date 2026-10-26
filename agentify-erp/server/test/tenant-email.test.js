@@ -436,6 +436,20 @@ test('threshold warnings fire once per level and period', async () => {
   assert.deepEqual(E.warnThresholds(tenantFresh(t), 'operational'), [90, 100]);
 });
 
+test('usage by plan: adds each workspace\'s used and allowance per plan, never counts unmetered ones, and leaks no mail content', async () => {
+  setLimits({ operational: { monthly: 10 }, marketing: { monthly: 20 } });
+  const t = mkTenant({ plan: 'growth' }); await readyTenant(t);
+  for (let i = 0; i < 8; i++) send(t, { idemKey: `bp${i}`, to: `bp${i}@x.test` });
+  const r = E.usageByPlan();
+  const row = r.workspaces.find((w) => w.id === t.id);
+  assert.equal(row.categories.operational.used, 8); assert.equal(row.categories.operational.allowance, 10); assert.equal(row.categories.operational.state, 'warning');
+  const g = r.by_plan.find((x) => x.plan === row.plan);
+  assert.ok(g.workspaces >= 1 && g.categories.operational.used_total >= 8 && g.categories.operational.allowance_total >= 10 && g.categories.operational.at_warning >= 1);
+  for (const x of r.workspaces.filter((w) => w.plan_name === 'Not metered')) assert.ok(!r.by_plan.find((p) => p.plan === x.plan)?.categories.operational.allowance_total, 'unmetered adds no allowance');
+  assert.ok(!JSON.stringify(r).includes('bp0@x.test'), 'no recipients or content');
+  assert.deepEqual(E.platformSummary().by_plan, r.by_plan);
+});
+
 test('tenant routes: staff see their own allowance; console summary hides tenant secrets; cross-tenant ids are refused', async () => {
   const t = mkTenant(); await readyTenant(t);
   const summary = E.platformSummary();

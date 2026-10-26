@@ -60,3 +60,6 @@ Additive only: new platform tables (`email_queue`, `email_topups`, `email_sender
 Live smoke test: Test connection; send a test email to yourself; Register webhook then use Resend's "Send test event" and watch Last event update; verify one domain in a test workspace; send one test message from it to your own address.
 
 Plan allowances (monthly per category, optional daily, 70/90/100 warning points, hard stop, top-ups) are edited in Super Admin > Plans; nothing is preset and a plan without an allowance cannot send tenant email.
+
+## Usage by plan and workspace
+`GET /api/platform/email/summary` also returns `by_plan` and `workspaces` (`usageByPlan` in `services/tenantEmail.js`): used vs allowance per category for each workspace's CURRENT period, and the same summed per plan. Periods start on each workspace's own anchor day, so plan totals mix periods. Unmetered workspaces are listed but add nothing to totals; used mail with no allowance set is shown separately. Counts only; no recipients or content.

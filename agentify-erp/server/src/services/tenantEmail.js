@@ -20,6 +20,7 @@ import { bad, HttpError } from '../util.js';
 import { all as tAll, get as tGet } from '../db.js';
 import { notify } from '../audit.js';
 import { replyAddressFor, inboundDomain } from './emailInbound.js';
+import { EMAIL_LOG_SCHEMA } from './emailLog.js';
 
 export const EMAIL_PLATFORM_SCHEMA = `
 CREATE TABLE IF NOT EXISTS email_queue(
@@ -42,7 +43,7 @@ CREATE TABLE IF NOT EXISTS email_topups(
   note TEXT, granted_by TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
 `;
 let ready = false;
-export const pdb = () => { const d = platformDb(); if (!ready || !d.__emailReady) { d.exec(EMAIL_PLATFORM_SCHEMA); d.__emailReady = true; ready = true; } return d; };
+export const pdb = () => { const d = platformDb(); if (!ready || !d.__emailReady) { d.exec(EMAIL_PLATFORM_SCHEMA); d.exec(EMAIL_LOG_SCHEMA); d.__emailReady = true; ready = true; } return d; };
 export const resetEmailSchemaFlag = () => { ready = false; };
 
 const iso = (ms) => new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
@@ -415,9 +416,40 @@ export function platformSummary(nowMs = Date.now()) {
       oldest_queued: d.prepare("SELECT MIN(next_attempt_at) v FROM email_queue WHERE status='queued'").get().v || null, paused_until: pausedUntilMs > nowMs ? new Date(pausedUntilMs).toISOString() : null },
     health: { accepted_30d: accepted30, bounced_30d: bounced, complained_30d: complained, bounce_rate: accepted30 ? +(bounced / accepted30).toFixed(4) : null, complaint_rate: accepted30 ? +(complained / accepted30).toFixed(4) : null },
     tenants,
+    ...usageByPlan(nowMs),
     recent_failures: d.prepare("SELECT id,tenant_id,category,to_addr,status,last_error,created_at FROM email_queue WHERE status IN ('failed','ambiguous') ORDER BY id DESC LIMIT 20").all(),
     service_mail_30d: n('SELECT COUNT(*) n FROM platform_email_log WHERE created_at>=?', since),
   };
+}
+
+/**
+ * Mail used against allowance for the CURRENT period of every workspace, and the same grouped by plan. Each workspace's period starts on its
+ * own anchor day, so totals add up periods that are not the same calendar month. Unmetered workspaces are listed but never counted.
+ */
+export function usageByPlan(nowMs = Date.now()) {
+  const plans = new Map(), workspaces = [];
+  for (const t of listTenants()) {
+    const a = allowanceSummary(t, nowMs);
+    const key = a.unmetered ? '_unmetered' : planIdFor(t) || '_none';
+    const row = { id: t.id, name: t.name, slug: t.slug, plan: key, plan_name: a.unmetered ? 'Not metered' : a.plan_name || 'No plan', status: a.send_state.ok ? 'active' : a.send_state.reason, period_resets_at: a.period.resets_at, categories: {} };
+    for (const c of METERED) {
+      const x = a.categories[c];
+      row.categories[c] = { used: x.used, allowance: x.monthly_allowance, percent: x.percent, state: x.state };
+    }
+    workspaces.push(row);
+    const g = plans.get(key) || { plan: key, plan_name: row.plan_name, workspaces: 0, categories: Object.fromEntries(METERED.map((c) => [c, { workspaces_with_allowance: 0, allowance_total: 0, used_total: 0, used_without_allowance: 0, at_warning: 0, exhausted: 0 }])) };
+    g.workspaces++;
+    if (!a.unmetered) for (const c of METERED) {
+      const x = a.categories[c], gc = g.categories[c];
+      if (x.monthly_allowance == null) { gc.used_without_allowance += x.used; continue; }
+      gc.workspaces_with_allowance++; gc.allowance_total += x.monthly_allowance; gc.used_total += x.used;
+      if (x.state === 'warning') gc.at_warning++;
+      if (x.state === 'exhausted' || x.state === 'daily_limit') gc.exhausted++;
+    }
+    plans.set(key, g);
+  }
+  workspaces.sort((a, b) => Math.max(...METERED.map((c) => b.categories[c].percent ?? -1)) - Math.max(...METERED.map((c) => a.categories[c].percent ?? -1)));
+  return { by_plan: [...plans.values()].sort((a, b) => b.workspaces - a.workspaces), workspaces };
 }
 
 /** Pull account usage from the provider's documented usage endpoint. The answer is kept as received; nothing is inferred. */
