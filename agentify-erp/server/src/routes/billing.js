@@ -10,6 +10,9 @@ import { startPlatformCheckout, platformCheckoutStatus } from '../services/platf
 import { recordServerEvent } from '../services/analytics.js';
 import { platformDb, logTenantEvent } from '../platform.js';
 import { marketingContent } from '../services/marketing.js';
+import multer from 'multer';
+import { keepContext } from '../context.js';
+import { paymentHistory, ledger, statementCsv, statementPdf, invoicePdf, ownInvoice, invoiceNumber, saveProof, sendProof, PROOF_MAX_BYTES } from '../services/billingStatements.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -34,7 +37,7 @@ r.get('/status', (req, res) => {
 
 r.get('/', can('settings', 'view'), (req, res) => res.json({ ...summary(req), invoices: req.tenant.is_legacy ? [] : invoicesFor(req.tenant.id), payments: req.tenant.is_legacy ? [] : submissionsFor(req.tenant.id),
   refunds: req.tenant.is_legacy ? [] : refundsFor(req.tenant.id), addons: listAddons({ activeOnly: true, product: req.tenant.product === 'bundle' ? null : req.tenant.product }),
-  my_addons: req.tenant.is_legacy ? [] : tenantAddons(req.tenant.id), card_portal: req.tenant.billing_provider === 'stripe' }));
+  my_addons: req.tenant.is_legacy ? [] : tenantAddons(req.tenant.id), card_portal: req.tenant.billing_provider === 'stripe', history: req.tenant.is_legacy ? [] : paymentHistory(req.tenant.id) }));
 
 /** Price for a plan, interval, coupon and add-ons, computed on the server (the same figure the payment is checked against). */
 r.post('/quote', can('settings', 'view'), asyncH((req, res) => {
@@ -72,6 +75,36 @@ r.post('/manual-payment', can('settings', 'edit'), asyncH(async (req, res) => {
   const out = await submitLocalPayment(req.tenant, req.user, req.body || {});
   audit(req, 'Submitted payment for confirmation', 'billing', out.id, `${req.body.method} ${req.body.plan}`);
   res.status(201).json(out);
+}));
+
+const proofUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: PROOF_MAX_BYTES, files: 1, fields: 5 } });
+/** Photo or PDF of the payment receipt, attached to a payment that is still waiting for confirmation. */
+r.post('/payments/:id/proof', can('settings', 'edit'), (req, res, next) => proofUpload.single('file')(req, res, keepContext((e) => (e ? next(bad(e.code === 'LIMIT_FILE_SIZE' ? 'The file is over 5 MB. Choose a smaller photo or PDF.' : 'The file could not be read')) : next()))), asyncH((req, res) => {
+  if (req.tenant.is_legacy) throw bad('This workspace is not billed');
+  const out = saveProof(req.tenant, req.user, req.params.id, req.file);
+  audit(req, 'Uploaded proof of payment', 'billing', out.id, out.proof);
+  res.status(201).json(out);
+}));
+r.get('/payments/:id/proof', can('settings', 'view'), (req, res) => sendProof(res, req.params.id, req.tenant.id));
+
+/** Statement of account: charges, payments and refunds with running balances, as CSV or PDF, for an optional date range. */
+r.get('/statement', can('settings', 'view'), asyncH(async (req, res) => {
+  if (req.tenant.is_legacy) throw bad('This workspace is not billed');
+  const l = ledger(req.tenant.id, { from: req.query.from, to: req.query.to });
+  const name = `statement-${req.tenant.slug}-${l.from || 'start'}-${l.to || new Date().toISOString().slice(0, 10)}`.replace(/[^\w.-]/g, '_');
+  if (req.query.format === 'csv') {
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8'); res.setHeader('Content-Disposition', `attachment; filename="${name}.csv"`); res.setHeader('X-Content-Type-Options', 'nosniff');
+    return res.send(statementCsv(req.tenant, l));
+  }
+  if (req.query.format && req.query.format !== 'pdf') throw bad('Format must be csv or pdf');
+  res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename="${name}.pdf"`); res.setHeader('X-Content-Type-Options', 'nosniff');
+  return res.send(await statementPdf(req.tenant, l));
+}));
+/** Receipt / invoice PDF for one of this workspace's invoices (card, bank, wallet or online gateway). */
+r.get('/invoices/:id/pdf', can('settings', 'view'), asyncH(async (req, res) => {
+  const inv = ownInvoice(req.tenant.id, req.params.id);
+  res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename="${invoiceNumber(inv)}.pdf"`); res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.send(await invoicePdf(req.tenant, inv));
 }));
 
 /**

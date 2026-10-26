@@ -221,8 +221,8 @@ export async function submitLocalPayment(tenant, user, { plan, interval = 'month
   return { id, amount, currency: 'PKR', status: 'pending', quote: q };
 }
 
-export const submissionsFor = (tenantId) => platformDb().prepare('SELECT id,plan,interval,method,amount,currency,reference,status,decision_note,created_at,decided_at FROM payment_submissions WHERE tenant_id=? ORDER BY id DESC LIMIT 20').all(tenantId);
-export const listSubmissions = (status) => platformDb().prepare(`SELECT s.*, t.slug, t.name tenant_name FROM payment_submissions s JOIN tenants t ON t.id=s.tenant_id ${status ? 'WHERE s.status=?' : ''} ORDER BY s.id DESC LIMIT 100`).all(...(status ? [status] : []));
+export const submissionsFor = (tenantId) => platformDb().prepare('SELECT id,plan,interval,method,amount,currency,reference,status,decision_note,created_at,decided_at,proof_name FROM payment_submissions WHERE tenant_id=? ORDER BY id DESC LIMIT 20').all(tenantId);
+export const listSubmissions = (status) => platformDb().prepare(`SELECT s.id,s.tenant_id,s.plan,s.interval,s.method,s.amount,s.currency,s.reference,s.note,s.submitted_by,s.status,s.decision_note,s.decided_at,s.created_at,s.coupon_code,s.discount_amount,s.setup_fee,s.proof_name,t.slug, t.name tenant_name FROM payment_submissions s JOIN tenants t ON t.id=s.tenant_id ${status ? 'WHERE s.status=?' : ''} ORDER BY s.id DESC LIMIT 100`).all(...(status ? [status] : []));
 
 /** Operator confirms the money arrived: activates the plan for one period (extending from the current period end if still active) and records an invoice. */
 export async function approveSubmission(id, decisionNote, decidedBy = null) {

@@ -161,6 +161,8 @@ export function platformDb() {
   const inv = new Set(pdb.prepare('PRAGMA table_info(invoices)').all().map((c) => c.name));
   if (!inv.has('one_time_amount')) pdb.exec('ALTER TABLE invoices ADD COLUMN one_time_amount INTEGER NOT NULL DEFAULT 0');
   if (!inv.has('plan')) pdb.exec('ALTER TABLE invoices ADD COLUMN plan TEXT');
+  const ps = new Set(pdb.prepare('PRAGMA table_info(payment_submissions)').all().map((c) => c.name));
+  for (const [c, def] of [['proof_file', 'TEXT'], ['proof_name', 'TEXT'], ['proof_type', 'TEXT'], ['proof_at', 'TEXT']]) if (!ps.has(c)) pdb.exec(`ALTER TABLE payment_submissions ADD COLUMN ${c} ${def}`);
   pdb.exec(PLATFORM_SCHEMA_2);
   for (const [c, def] of REGION_COLUMNS) if (!have.has(c)) pdb.exec(`ALTER TABLE tenants ADD COLUMN ${c} ${def}`);
   initRegions(pdb);

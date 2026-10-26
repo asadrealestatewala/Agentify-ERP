@@ -53,6 +53,48 @@ function useQuote(body) {
   return { q, err };
 }
 
+const sendProof = (id, file) => { const fd = new FormData(); fd.append('file', file); return api.upload(`/api/billing/payments/${id}/proof`, fd); };
+
+const PAY_TONE = { paid: 'active', pending: 'pending', rejected: 'failed' };
+const PAY_LABEL = { paid: 'Paid', pending: 'Waiting for confirmation', rejected: 'Not accepted' };
+function PaymentHistory({ rows, canEdit, onChange }) {
+  const toast = useToast();
+  if (!rows?.length) return null;
+  const attach = async (id, file) => { if (!file) return; try { await sendProof(id, file); toast('Receipt file added', 'ok'); onChange(); } catch (e) { toast(e.message, 'err'); } };
+  return (
+    <Card title="Payment history" flush style={{ marginTop: 16 }}>
+      <div className="table-wrap"><table className="t"><thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Reference</th><th>Status</th><th /></tr></thead>
+        <tbody>{rows.map((p) => (
+          <tr key={`${p.kind}-${p.id}`}>
+            <td>{dateTime(p.date)}</td><td>{fmtMoney(p.amount, p.currency)}{p.plan && <div className="muted">{p.plan}</div>}</td><td>{p.method}</td><td className="mono">{p.reference}</td>
+            <td><StatusBadge status={PAY_TONE[p.status] || 'pending'} label={PAY_LABEL[p.status] || p.status} />{p.note && <div className="muted">{p.note}</div>}</td>
+            <td className="right nowrap">
+              {p.invoice_id && <a className="btn sm" href={`/api/billing/invoices/${p.invoice_id}/pdf`}>Receipt PDF</a>}
+              {p.proof && <> <a className="btn sm" href={`/api/billing/payments/${p.id}/proof`} target="_blank" rel="noreferrer">Your file</a></>}
+              {canEdit && p.kind === 'payment' && p.status === 'pending' && <label className="btn sm" style={{ cursor: 'pointer' }}>{p.proof ? 'Replace file' : 'Add receipt file'}<input type="file" hidden accept="image/png,image/jpeg,image/webp,application/pdf" onChange={(e) => { attach(p.id, e.target.files?.[0]); e.target.value = ''; }} /></label>}
+            </td>
+          </tr>))}</tbody></table></div>
+    </Card>
+  );
+}
+
+function StatementCard({ currency }) {
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const q = (fmt) => `/api/billing/statement?format=${fmt}${from ? `&from=${from}` : ''}${to ? `&to=${to}` : ''}`;
+  return (
+    <Card title="Account statement" style={{ marginTop: 16 }}>
+      <p className="muted" style={{ marginTop: 0 }}>Every invoice, payment and refund with a running balance{currency ? ` in ${currency}` : ''}. Leave the dates empty for everything.</p>
+      <div className="row wrap" style={{ gap: 8, alignItems: 'end' }}>
+        <Field label="From"><input className="input" type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} /></Field>
+        <Field label="To"><input className="input" type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} /></Field>
+        <a className="btn" href={q('pdf')}>Download PDF</a>
+        <a className="btn" href={q('csv')}>Download CSV (Excel)</a>
+      </div>
+    </Card>
+  );
+}
+
 function PayModal({ data, plan, interval, onClose, onDone }) {
   const toast = useToast();
   const [method, setMethod] = useState(data.methods[0].id);
@@ -61,6 +103,7 @@ function PayModal({ data, plan, interval, onClose, onDone }) {
   const [coupon, setCoupon] = useState('');
   const [addons, setAddons] = useState({});
   const [busy, setBusy] = useState(false);
+  const [proof, setProof] = useState(null);
   const m = data.methods.find((x) => x.id === method);
   const p = data.plans.find((x) => x.id === plan);
   const chosen = Object.entries(addons).filter(([, n]) => n > 0).map(([id, quantity]) => ({ id, quantity }));
@@ -70,8 +113,10 @@ function PayModal({ data, plan, interval, onClose, onDone }) {
     try {
       if (m.kind === 'gateway') { const out = await api.post('/api/billing/gateway-checkout', { provider: m.id, plan, interval }); window.location.assign(out.url); return; }
       if (m.kind === 'online') { const out = await api.post('/api/billing/checkout', { plan, interval }); window.location.assign(out.url); return; }
-      await api.post('/api/billing/manual-payment', { plan, interval, method, reference, note, coupon: coupon.trim() || null, addons: chosen });
-      toast('Payment submitted. We will confirm it shortly.', 'ok'); onDone();
+      const made = await api.post('/api/billing/manual-payment', { plan, interval, method, reference, note, coupon: coupon.trim() || null, addons: chosen });
+      let attached = true;
+      if (proof) { try { await sendProof(made.id, proof); } catch (e) { attached = false; toast(`Your payment was sent, but the receipt file was not attached: ${e.message}. You can add it from Payment history.`, 'err'); } }
+      if (attached) toast('Payment submitted. We will confirm it shortly.', 'ok'); onDone();
     } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); }
   };
   return (
@@ -100,6 +145,7 @@ function PayModal({ data, plan, interval, onClose, onDone }) {
           <>
             <div className="alert info">Send <b>{fmtMoney(q.total, 'PKR')}</b> by {m.label} to <b>{m.account}</b>{m.account_name ? ` (${m.account_name})` : ''}{m.note ? `. ${m.note}` : ''}. Then enter the transaction ID from your receipt. Your plan starts when we confirm the money arrived.</div>
             <Field label="Transaction ID / reference" required><input className="input" value={reference} onChange={(e) => setReference(e.target.value)} /></Field>
+            <Field label="Photo or PDF of your payment receipt (optional)" hint="PNG, JPG, WEBP or PDF, up to 5 MB. It helps us confirm your payment faster."><input className="input" type="file" accept="image/png,image/jpeg,image/webp,application/pdf" onChange={(e) => setProof(e.target.files?.[0] || null)} /></Field>
             <Field label="Note (optional)"><input className="input" value={note} onChange={(e) => setNote(e.target.value)} /></Field>
           </>
         )}
@@ -240,9 +286,11 @@ function BillingPage() {
       {data.invoices?.length > 0 && (
         <Card title="Invoices & receipts" flush style={{ marginTop: 16 }}>
           <table className="t"><thead><tr><th>Date</th><th>Amount</th><th>Covers</th><th>Status</th><th /></tr></thead>
-            <tbody>{data.invoices.map((i) => <tr key={i.id}><td>{dateTime(i.created_at)}</td><td>{fmtMoney(i.amount, i.currency)}</td><td className="muted">{i.period_start ? `${i.period_start} → ${i.period_end}` : ''}</td><td><StatusBadge status={i.status === 'paid' ? 'active' : 'pending'} label={i.status} /></td><td className="right">{i.hosted_url && <a className="btn sm" href={i.hosted_url} target="_blank" rel="noreferrer">View</a>}</td></tr>)}</tbody></table>
+            <tbody>{data.invoices.map((i) => <tr key={i.id}><td>{dateTime(i.created_at)}</td><td>{fmtMoney(i.amount, i.currency)}</td><td className="muted">{i.period_start ? `${i.period_start} → ${i.period_end}` : ''}</td><td><StatusBadge status={i.status === 'paid' ? 'active' : 'pending'} label={i.status} /></td><td className="right"><a className="btn sm" href={`/api/billing/invoices/${i.id}/pdf`}>PDF</a>{i.hosted_url && <> <a className="btn sm" href={i.hosted_url} target="_blank" rel="noreferrer">View online</a></>}</td></tr>)}</tbody></table>
         </Card>
       )}
+      {data.plan !== 'legacy' && <PaymentHistory rows={data.history} canEdit={can('settings', 'edit')} onChange={reload} />}
+      {data.plan !== 'legacy' && (data.invoices?.length > 0 || data.history?.length > 0) && <StatementCard currency={data.invoices?.[0]?.currency} />}
       {data.refunds?.length > 0 && (
         <Card title="Refunds" flush style={{ marginTop: 16 }}>
           <table className="t"><tbody>{data.refunds.map((r) => <tr key={r.id}><td>{dateTime(r.created_at)}</td><td>{fmtMoney(r.amount, r.currency)}</td><td className="muted">{r.reason || ''}</td></tr>)}</tbody></table>

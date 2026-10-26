@@ -132,7 +132,7 @@ function Payments() {
             <tr key={s.id}>
               <td className="nowrap">{String(s.created_at).slice(0, 10)}</td><td><b>{s.tenant_name}</b><div className="muted">{s.slug}</div></td>
               <td style={{ textTransform: 'capitalize' }}>{s.plan} / {s.interval}</td><td>{s.method}</td><td className="mono nowrap">{s.currency} {Number(s.amount).toLocaleString()}</td>
-              <td className="mono">{s.reference}{s.note && <div className="muted">{s.note}</div>}</td><td><StatusBadge status={s.status} /></td>
+              <td className="mono">{s.reference}{s.note && <div className="muted">{s.note}</div>}{s.proof_name && <div><a href={`/api/platform/admin/payments/${s.id}/proof`} target="_blank" rel="noreferrer">Receipt file: {s.proof_name}</a></div>}</td><td><StatusBadge status={s.status} /></td>
               <td className="right nowrap">{s.status === 'pending' && <><button className="btn sm primary" onClick={() => setAsk({ s, act: 'approve' })}>Approve</button>{' '}<button className="btn sm" onClick={() => setAsk({ s, act: 'reject' })}>Reject</button></>}</td>
             </tr>
           ))}
