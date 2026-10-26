@@ -32,6 +32,7 @@ export function PlansPage() {
   const open = (p) => setEdit(p ? { ...p, isNew: false, allModules: p.modules == null, modules: p.modules || [], features: (p.features || []).join('\n'), setup_fee: { ...(p.setup_fee || {}) }, email: emailForm(p.email_limits), price: { PKR: { ...(p.price.PKR || {}) }, USD: { ...(p.price.USD || {}) } } }
     : { isNew: true, id: '', name: '', product: tab, description: '', seats: '', projects: '', properties: '', storage_mb: '', api_access: true, grace_days: 7, allModules: true, modules: [], features: '', highlight: false, trial_eligible: true, setup_fee: {}, email: emailForm(null), visible: true, active: true, price: { PKR: {}, USD: {} } });
   const nul = (v) => (v === '' || v == null ? null : v);
+  const emailText = (l) => (!l ? <span className="muted">Not set (sending paused)</span> : <>{['operational', 'marketing'].filter((k) => l[k]).map((k) => `${k === 'operational' ? 'Appointments' : 'Campaigns'} ${l[k].monthly == null ? 'no cap' : l[k].monthly}`).join(' · ') || 'Not set'}<div className="muted">warn {(l.thresholds || [70, 90, 100]).join('/')}% · {l.hard_stop === false ? 'overage allowed' : 'hard stop'}</div></>);
   const emailForm = (l) => ({ set: !!l, op_m: l?.operational?.monthly ?? '', op_d: l?.operational?.daily ?? '', mk_m: l?.marketing?.monthly ?? '', mk_d: l?.marketing?.daily ?? '', thresholds: (l?.thresholds || [70, 90, 100]).join(', '), hard_stop: l?.hard_stop !== false, topups: l?.topups !== false, op_on: !!l?.operational, mk_on: !!l?.marketing });
   const emailBody = (e) => (!e?.set ? null : { ...(e.op_on ? { operational: { monthly: nul(e.op_m), daily: nul(e.op_d) } } : {}), ...(e.mk_on ? { marketing: { monthly: nul(e.mk_m), daily: nul(e.mk_d) } } : {}),
     thresholds: String(e.thresholds).split(',').map((x) => Number(x.trim())).filter(Boolean), hard_stop: e.hard_stop, topups: e.topups });
@@ -64,12 +65,12 @@ export function PlansPage() {
           </div>
           <Card flush>
             {!shown.length ? <Empty title="No plans in this family yet" hint="Create one with New plan." /> : (
-            <div className="table-wrap"><table className="t"><thead><tr><th>Plan</th><th>Price (PKR)</th><th>Price (USD)</th><th>Setup fee</th><th>Users</th><th>Projects</th><th>Properties</th><th>Storage</th><th>API</th><th>Subscribers</th><th>Status</th><th /></tr></thead><tbody>
+            <div className="table-wrap"><table className="t"><thead><tr><th>Plan</th><th>Price (PKR)</th><th>Price (USD)</th><th>Setup fee</th><th>Users</th><th>Projects</th><th>Properties</th><th>Storage</th><th>API</th><th>Email per month</th><th>Subscribers</th><th>Status</th><th /></tr></thead><tbody>
               {shown.map((p) => (
                 <tr key={p.id}>
                   <td><b>{p.name}</b>{p.highlight && <StatusBadge status="active" label="Recommended" />}<div className="muted mono">{p.id}</div>{p.description && <div className="muted">{p.description}</div>}</td>
                   <td className="nowrap">{priceText(p.price, 'PKR')}</td><td className="nowrap">{priceText(p.price, 'USD')}</td><td className="nowrap">{moneyMap(p.setup_fee)}</td>
-                  <td>{limitText(p.seats)}</td><td>{limitText(p.projects)}</td><td>{limitText(p.properties)}</td><td>{p.storage_mb == null ? 'Unlimited' : `${n0(p.storage_mb)} MB`}</td><td>{p.api_access ? 'Yes' : 'No'}</td>
+                  <td>{limitText(p.seats)}</td><td>{limitText(p.projects)}</td><td>{limitText(p.properties)}</td><td>{p.storage_mb == null ? 'Unlimited' : `${n0(p.storage_mb)} MB`}</td><td>{p.api_access ? 'Yes' : 'No'}</td><td className="nowrap">{emailText(p.email_limits)}</td>
                   <td>{p.subscribers}</td>
                   <td>{p.active ? <StatusBadge status="active" label={p.visible ? 'On sale' : 'On sale (hidden)'} /> : <StatusBadge status="inactive" label="Retired" />}{!p.trial_eligible && <div className="muted">No trial</div>}</td>
                   <td className="right"><button className="btn sm" onClick={() => open(p)}>Edit</button></td>
@@ -123,6 +124,7 @@ export function PlansPage() {
           </div>
           <h4 style={{ margin: '12px 0 6px' }}>Email allowance (per workspace, per usage period)</h4>
           <Toggle value={edit.email.set} onChange={(v) => setEdit({ ...edit, email: { ...edit.email, set: v } })} label="This plan includes tenant email sending" />
+          {!edit.email.set && <p className="muted" style={{ margin: '4px 0 0' }}>Nothing is preset. Until you set allowances here, workspaces on this plan cannot send tenant email.</p>}
           {edit.email.set && <>
             <p className="muted" style={{ fontSize: 12.5 }}>Counted per recipient when the provider accepts a message. Empty = unlimited for a category that is switched on. Account and security email is never counted. Periods are monthly from the workspace's start date and do not reset when the plan changes.</p>
             <div className="pa-grid3" style={{ marginBottom: 0 }}>

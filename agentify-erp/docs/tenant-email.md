@@ -47,3 +47,16 @@ Checklist (Dashboard) computed from real data and remembered once complete: veri
 
 ## Rollback
 Additive only: new platform tables (`email_queue`, `email_topups`, `email_sender_domains`, `email_senders`, `email_unmatched_events`, `email_inbound`), new columns `plans.email_limits`, `tenants.email_prefs`, new tenant tables (`email_suppressions`, `email_consents`, `activation_progress`). Reverting the code leaves them unused. To stop sending, empty the queue (`UPDATE email_queue SET status='cancelled', quota_state='released' WHERE status IN ('queued','ambiguous')`) or remove the Resend key.
+
+## Connecting Resend (Super Admin console > Tenant email)
+1. Paste the API key under Integrations > Email (stored encrypted with `ERP_SECRETS_KEY`, shown only as its last 4 characters). Use a key with **full access**: a send-only key cannot manage domains, webhooks or usage, and the panel says so.
+2. **Test connection** checks domains, webhooks and usage separately and stores the result.
+3. **Register webhook** creates `https://<console host>/api/platform/webhooks/resend` at Resend for `email.sent, delivered, delivery_delayed, bounced, complained, failed, suppressed, received` and stores the returned signing secret encrypted. Only a public https host is accepted. If Resend does not return the secret, paste it from the Resend dashboard into Integrations (events are refused until it is saved). Webhooks are Svix-verified; the workspace is always found from our own message record.
+4. **Send a test email to me** is the only real send in the panel, to the signed-in operator's own address.
+5. Inbound replies need a reply domain with inbound email enabled at Resend (`email.received` webhook, full message fetched from `/emails/receiving/:id`). Choosing that domain is a follow-up.
+
+**Verified with recorded-shape HTTP only** (stubbed fetch checking method, path, headers, body): send, domain list, webhook list/create, error mapping, restricted-key detection. **Not verified against a real account:** domain create/verify, usage response shape (`GET /usage` is shown exactly as returned), webhook delivery and `signing_secret` in the create response, inbound receiving.
+
+Live smoke test: Test connection; send a test email to yourself; Register webhook then use Resend's "Send test event" and watch Last event update; verify one domain in a test workspace; send one test message from it to your own address.
+
+Plan allowances (monthly per category, optional daily, 70/90/100 warning points, hard stop, top-ups) are edited in Super Admin > Plans; nothing is preset and a plan without an allowance cannot send tenant email.
