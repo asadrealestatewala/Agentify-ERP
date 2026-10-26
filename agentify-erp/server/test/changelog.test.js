@@ -28,3 +28,12 @@ test('changelog: package versions match the app version', () => {
     assert.equal(JSON.parse(readFileSync(new URL(f, import.meta.url))).version, want, f);
   }
 });
+
+test("changelog: tenant entries never mention platform administration", async () => {
+  const { tenantChangelog } = await import('../../shared/changelog.js');
+  const bad = /super\s*admin|console|platform|agentify administrator|resend|botlinkd key/i;
+  for (const r of tenantChangelog()) {
+    assert.ok(!bad.test(r.title), `${r.version} title is for the platform: ${r.title}`);
+    for (const it of r.items) assert.ok(!bad.test(`${it.text} ${it.where || ''}`), `${r.version} tenant item mentions platform admin: ${it.text}`);
+  }
+});

@@ -1,19 +1,27 @@
 // The single source of truth for the product version and the "What's new" page.
 // Version key: vMAJOR.MINOR. Every shipped update adds an entry at the TOP and the version goes up by one minor
 // step (v1.0 -> v1.1 -> v1.2). A big release moves to the next major (v2.0). The app version is the first entry.
+// Items are for the workspace (tenant) by default. Mark platform-only items (Super Admin console, integrations keys,
+// billing/inbox operations) with `audience: 'platform'`; they never show in a workspace. See "What's new audiences" in CLAUDE.md.
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
+  {
+    version: 'v1.35', date: '2026-10-27', title: "What's new now shows each audience only its own updates",
+    items: [
+      { text: "Workspaces see only updates that concern their own work; console administration updates appear only here, in the console What's new and Alerts. A version with nothing for workspaces sends them no notification.", audience: 'platform', where: "Super Admin console > Dashboard > What's new" },
+    ],
+  },
   {
     version: 'v1.34', date: '2026-10-27', title: 'WhatsApp templates: start a chat or write after 24 hours',
     items: [
       { text: 'WhatsApp only lets a business start a chat, or write again after 24 hours of silence, with a template WhatsApp has approved. You can now list the templates from your Botlinkd account, and send one to one person from the inbox (New chat with a template, or Send a template when the window is closed). Limits, do-not-message blocks and the consent tick still apply.', where: 'Settings > WhatsApp > Message templates, and the WhatsApp inbox' },
-      { text: 'The console WhatsApp test can now send an approved template, and explains that "customer service window is closed" means the keys work but a template is needed.', where: 'Super Admin console > Integrations > WhatsApp (Botlinkd) > Change keys' },
+      { text: 'The console WhatsApp test can now send an approved template, and explains that "customer service window is closed" means the keys work but a template is needed.', audience: 'platform', where: 'Super Admin console > Integrations > WhatsApp (Botlinkd) > Change keys' },
     ],
   },
   {
     version: 'v1.33', date: '2026-10-26', title: 'Clearer place to add the WhatsApp keys',
     items: [
-      { text: 'The WhatsApp (Botlinkd) and QR gateway cards now have a highlighted "Add keys" button, and tell you plainly when your console role cannot change integrations.', where: 'Super Admin console > Integrations' },
+      { text: 'The WhatsApp (Botlinkd) and QR gateway cards now have a highlighted "Add keys" button, and tell you plainly when your console role cannot change integrations.', audience: 'platform', where: 'Super Admin console > Integrations' },
     ],
   },
   {
@@ -26,7 +34,7 @@ export const CHANGELOG = [
     version: 'v1.31', date: '2026-10-26', title: 'Payment receipts by email from billing@agentifyerp.co',
     items: [
       { text: 'Every time a payment is recorded for your workspace (card, bank or wallet transfer) you get one email titled "Payment received successfully" with the amount, plan, date and reference. Billing emails now come from billing@agentifyerp.co, and you can reply or write there with any billing question.', where: 'Your inbox' },
-      { text: 'The Agentify administrator can see every receipt sent, send one again, and read and answer billing mail.', where: 'Super Admin console > Billing & Payments > Billing mail & receipts' },
+      { text: 'The Agentify administrator can see every receipt sent, send one again, and read and answer billing mail.', audience: 'platform', where: 'Super Admin console > Billing & Payments > Billing mail & receipts' },
     ],
   },
   {
@@ -41,22 +49,22 @@ export const CHANGELOG = [
     items: [
       { text: 'Creating a workspace now needs a 6-digit code we email to the owner, so only a real mailbox the person can read can start a workspace. Temporary and disposable email services, and domains that cannot receive mail, are refused.', where: 'Sign-up page' },
       { text: 'Administrators can ask for an emailed code after the password: for every sign-in, or only when someone signs in from a new browser. People who use an authenticator app keep using that.', where: 'My Space > Security > Email sign-in code' },
-      { text: 'When your account is signed in from an address and browser we have not seen before, you get an email with the time, address and browser, and a button to change your password. The same goes for Agentify console users.', where: 'Your inbox' },
+      { text: 'When your account is signed in from an address and browser we have not seen before, you get an email with the time, address and browser, and a button to change your password.', where: 'Your inbox' },
       { text: 'Staff invitations and users added by an administrator also refuse disposable email addresses.', where: 'Settings > Users' },
-      { text: 'The Agentify administrator can switch each rule on or off, add their own blocked domains, allow a domain the list gets wrong, and try an address to see if it would be accepted.', where: 'Super Admin console > Security & Access > Email safety' },
+      { text: 'The Agentify administrator can switch each rule on or off, add their own blocked domains, allow a domain the list gets wrong, and try an address to see if it would be accepted.', audience: 'platform', where: 'Super Admin console > Security & Access > Email safety' },
     ],
   },
   {
     version: 'v1.28', date: '2026-10-26', title: 'Optional QR connection for WhatsApp',
     items: [
-      { text: 'Workspaces can link a number by scanning a QR code instead of the official connection, when your Agentify administrator has switched this on. It is unofficial, so WhatsApp can ban the number; you must tick a warning to switch it on, and you can switch it off any time.', where: 'Settings > WhatsApp > QR connection' },
+      { text: 'Where your plan allows it, you can link a number by scanning a QR code instead of the official connection. It is unofficial, so WhatsApp can ban the number; you must tick a warning to switch it on, and you can switch it off any time.', where: 'Settings > WhatsApp > QR connection' },
     ],
   },
   {
     version: 'v1.27', date: '2026-10-26', title: 'New versions now announce themselves in your notifications',
     items: [
-      { text: 'Whenever Agentify ERP is updated, everyone on your team gets one notification in the bell with a link to What\'s new, so nobody misses a new feature. It appears once per version and stays until you read it.', where: 'Notifications (bell); Menu > What\'s new' },
-      { text: 'Super Admin console users get the same notice, with its own read state for each person.', where: 'Super Admin console > Alerts' },
+      { text: 'Whenever Agentify ERP gets a new feature for you, everyone on your team gets one notification in the bell with a link to What\'s new, so nobody misses a new feature. It appears once per version and stays until you read it.', where: 'Notifications (bell); Menu > What\'s new' },
+      { text: 'Console users get the same notice, with its own read state for each person.', audience: 'platform', where: 'Super Admin console > Alerts' },
     ],
   },
   {
@@ -76,7 +84,7 @@ export const CHANGELOG = [
     items: [
       { text: 'Connect your own WhatsApp Business number through your Botlinkd account (official WhatsApp Cloud API) and read and answer customer chats next to their CRM record. Chats are matched to contacts by phone number, can be assigned to an agent, closed, or turned into a lead.', where: 'WhatsApp; Settings > WhatsApp' },
       { text: 'Built to protect your number: replies are one-to-one and possible for 24 hours after the customer\'s last message, there is no bulk sending, STOP and similar words block a customer until they write START, and each person and each day and month is capped.', where: 'WhatsApp' },
-      { text: 'Available when your plan includes it. Your Agentify administrator switches WhatsApp on per plan or per workspace.', where: 'Settings > WhatsApp' },
+      { text: 'Available when your plan includes it.', where: 'Settings > WhatsApp' },
     ],
   },
   {
@@ -85,7 +93,7 @@ export const CHANGELOG = [
       { text: 'Paying workspaces can download the Android app (Google Play when it is live, or the direct file) from the Download app button and the Install the app page. The public website has a Download our app page too.', where: 'My Space > Install the app; website footer' },
       { text: 'A full draft Privacy Policy that covers the apps, and a public Delete your account page that works without signing in.', where: 'Website footer > Legal; /delete-account' },
       { text: 'Inside the Android app, subscriptions are not sold: Plan & Billing shows your plan and the account closure request, and buying or changing a plan happens on the website.', where: 'Android app > Plan & Billing' },
-      { text: 'The Super Admin can paste the Google Play link once the listing exists, and the buttons appear everywhere at once.', where: 'Super Admin console > Website builder > Mobile app' },
+      { text: 'The Super Admin can paste the Google Play link once the listing exists, and the buttons appear everywhere at once.', audience: 'platform', where: 'Super Admin console > Website builder > Mobile app' },
     ],
   },
   {
@@ -110,28 +118,28 @@ export const CHANGELOG = [
   {
     version: 'v1.19', date: '2026-10-26', title: 'See email use by plan and workspace',
     items: [
-      { text: 'Two new tables show how much email each plan and each workspace has used against its allowance in the current period, with warning and used-up markers.', where: 'Super Admin console > Mailbox > Tenant email' },
+      { text: 'Two new tables show how much email each plan and each workspace has used against its allowance in the current period, with warning and used-up markers.', audience: 'platform', where: 'Super Admin console > Mailbox > Tenant email' },
     ],
   },
   {
     version: 'v1.18', date: '2026-10-26', title: 'Tenant email page opens again',
     items: [
-      { text: 'Fixed the Tenant email page showing a blank screen after the last update, so the Resend connection tools (test, webhook, test email) work again.', where: 'Super Admin console > Mailbox > Tenant email' },
+      { text: 'Fixed the Tenant email page showing a blank screen after the last update, so the Resend connection tools (test, webhook, test email) work again.', audience: 'platform', where: 'Super Admin console > Mailbox > Tenant email' },
     ],
   },
   {
     version: 'v1.17', date: '2026-10-26', title: 'Resend setup reuses what you already have',
     items: [
-      { text: 'Registering the Resend webhook now finds one already at your address and uses it instead of making a second. Missing events are added and your own extra events are kept, and the panel says which of the three happened.', where: 'Super Admin console > Tenant email > Resend connection' },
-      { text: 'Save the webhook signing secret straight from the panel if Resend does not hand it over. It is stored encrypted and never shown again; you can rotate it in Resend first.', where: 'Super Admin console > Tenant email > Resend connection' },
-      { text: 'Domains you already verified at Resend are listed with sending and receiving status and are never re-created. Reply detection stays off until you choose the reply address.', where: 'Super Admin console > Tenant email' },
+      { text: 'Registering the Resend webhook now finds one already at your address and uses it instead of making a second. Missing events are added and your own extra events are kept, and the panel says which of the three happened.', audience: 'platform', where: 'Super Admin console > Tenant email > Resend connection' },
+      { text: 'Save the webhook signing secret straight from the panel if Resend does not hand it over. It is stored encrypted and never shown again; you can rotate it in Resend first.', audience: 'platform', where: 'Super Admin console > Tenant email > Resend connection' },
+      { text: 'Domains you already verified at Resend are listed with sending and receiving status and are never re-created. Reply detection stays off until you choose the reply address.', audience: 'platform', where: 'Super Admin console > Tenant email' },
     ],
   },
   {
     version: 'v1.16', date: '2026-10-26', title: 'Connect Resend from the console',
     items: [
-      { text: 'Super Admins can test the Resend connection (domains, webhooks, usage), register the delivery webhook in one click, and send a test email to themselves. The API key stays encrypted and is never shown.', where: 'Super Admin console > Tenant email' },
-      { text: 'The plan list now shows each plan\'s monthly email allowance, warning points and stop behaviour at a glance. Nothing is preset: a plan with no allowance cannot send tenant email.', where: 'Super Admin console > Plans' },
+      { text: 'Super Admins can test the Resend connection (domains, webhooks, usage), register the delivery webhook in one click, and send a test email to themselves. The API key stays encrypted and is never shown.', audience: 'platform', where: 'Super Admin console > Tenant email' },
+      { text: 'The plan list now shows each plan\'s monthly email allowance, warning points and stop behaviour at a glance. Nothing is preset: a plan with no allowance cannot send tenant email.', audience: 'platform', where: 'Super Admin console > Plans' },
     ],
   },
   {
@@ -162,7 +170,7 @@ export const CHANGELOG = [
   {
     version: 'v1.12', date: '2026-10-26', title: "What's new in the Super Admin console",
     items: [
-      { text: "The Super Admin console has the same What's new page and shows the current version.", where: "Super Admin console > Dashboard > What's new" },
+      { text: "The Super Admin console has the same What's new page and shows the current version.", audience: 'platform', where: "Super Admin console > Dashboard > What's new" },
     ],
   },
   {
@@ -243,3 +251,8 @@ export const CHANGELOG = [
 ];
 
 export const APP_VERSION = CHANGELOG[0].version;
+
+/** Items a workspace user may see. Releases with none are dropped. */
+export const tenantChangelog = (log = CHANGELOG) => log
+  .map((r) => ({ ...r, items: r.items.filter((i) => i.audience !== 'platform') }))
+  .filter((r) => r.items.length);
