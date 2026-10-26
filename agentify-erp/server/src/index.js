@@ -31,6 +31,8 @@ import assistant from './routes/assistant.js';
 import site from './routes/site.js';
 import siteAdmin from './routes/siteAdmin.js';
 import staff from './routes/staff.js';
+import field from './routes/field.js';
+import { purgeFieldLocations } from './services/fieldLocation.js';
 import insights from './routes/insights.js';
 import tenders from './routes/tenders.js';
 import listings from './routes/listings.js';
@@ -146,6 +148,7 @@ export function createApp() {
   app.use('/api/website-integrations', websiteIntegrations);
   app.use('/api/goals', goals);
   app.use('/api/staff', staff);
+  app.use('/api/field', field);
   app.use('/api/insights', insights);
   app.use('/api/tenders', tenders);
   app.use('/api/listings', listings);
@@ -235,7 +238,7 @@ console.log(`[boot] entry=${entryFile || '<none>'} argv1=${process.argv[1] || '<
 if (isMain) {
   const port = Number(process.env.PORT) || 4000;
   createApp().listen(port, () => console.log(`Expert ERP API listening on http://localhost:${port}`));
-  const tick = () => { try { forEachTenant(() => { runReminders(); runOnboardingReminders(); runGoalReminders(); contentReminders(); }); markJob('tenant-jobs'); } catch (e) { markJob('tenant-jobs', e); } };
+  const tick = () => { try { forEachTenant(() => { runReminders(); runOnboardingReminders(); runGoalReminders(); contentReminders(); purgeFieldLocations(); }); markJob('tenant-jobs'); } catch (e) { markJob('tenant-jobs', e); } };
   tick();
   scheduleBackups();
   setInterval(tick, 30 * 60 * 1000).unref(); // goal nudges are once-per-day via dedupe keys

@@ -49,6 +49,7 @@ export const MODULES = {
   construction: { label: 'Construction management', product: 'construction', paths: ['/construction'] },
   accounting: { label: 'Accounting & finance', paths: ['/accounting'] },
   hrm: { label: 'HR & payroll', paths: ['/hrm'] },
+  field: { label: 'Field agents & coverage', paths: ['/field'] },
   tenders: { label: 'Tenders & vendor portal', paths: ['/tenders', '/vendor'] },
   marketing: { label: 'Content & promotions', paths: ['/content', '/promos'] },
   website: { label: 'Website builder & SEO', paths: ['/site-admin', '/seo'] },

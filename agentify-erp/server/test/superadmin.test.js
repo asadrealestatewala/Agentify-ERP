@@ -193,6 +193,8 @@ test('entitlements: per-workspace overrides and module access are enforced by th
   const ws = login.cookie;
   const acc = await call('acme.erp.test', 'GET', '/api/accounting/accounts', null, { cookie: ws });
   assert.equal(acc.status, 402); assert.equal(acc.data.code, 'module_not_in_plan');
+  const field = await call('acme.erp.test', 'GET', '/api/field/team', null, { cookie: ws });
+  assert.equal(field.status, 402, 'field coverage follows the plan modules too'); assert.equal(field.data.module, 'field');
   assert.notEqual((await call('acme.erp.test', 'GET', '/api/hrm/employees', null, { cookie: ws })).status, 402, 'included module still works');
   await adm('PUT', `/workspaces/${acme.id}/entitlements`, { clear: true, reason: 'Pilot over' });
   assert.notEqual((await call('acme.erp.test', 'GET', '/api/accounting/accounts', null, { cookie: ws })).status, 402);

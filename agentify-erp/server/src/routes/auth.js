@@ -1,3 +1,4 @@
+import { stopSharing } from '../services/fieldLocation.js';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import rateLimit from 'express-rate-limit';
@@ -129,6 +130,7 @@ r.post('/invite/accept', linkLimiter, asyncH((req, res) => {
 
 r.post('/logout', requireAuth, asyncH((req, res) => {
   audit(req, 'Logout', 'user', req.user.id);
+  stopSharing(req.user.id); // signing out always ends location sharing
   res.clearCookie('erp_token');
   res.json({ ok: true });
 }));

@@ -30,6 +30,7 @@ import { AuditLog, CategorySettings, CommissionRules, CustomFields, LeadStages, 
 import { PortalDashboard, PortalDevelopment, PortalDocuments, PortalLayout, PortalNotifications, PortalOffers, PortalPayments, PortalProperty, PortalConstruction } from './pages/Portal.jsx';
 import Security from './pages/Security.jsx';
 import { MyAttendance, MyLeave, MyPayroll, MyProfile, MyTasks } from './pages/MySpace.jsx';
+import { MyLocation, FieldCoverage } from './pages/FieldLocation.jsx';
 import InstallApp from './pages/InstallApp.jsx';
 import TrainingLibrary from './pages/TrainingLibrary.jsx';
 import { AttendanceBoard, Assets, LeaveBoard } from './pages/HrExtras.jsx';
@@ -287,6 +288,8 @@ export default function App() {
         <Route path="my/leave" element={<MyLeave />} />
         <Route path="my/payroll" element={<MyPayroll />} />
         <Route path="my/tasks" element={<MyTasks />} />
+        <Route path="my/location" element={<MyLocation />} />
+        <Route path="field" element={<FieldCoverage />} />
         <Route path="my/onboarding" element={<MyOnboarding />} />
         <Route path="content" element={G('content', <Content />)} />
         <Route path="customers/promos" element={G('customers', <Promos />, 'edit')} />
