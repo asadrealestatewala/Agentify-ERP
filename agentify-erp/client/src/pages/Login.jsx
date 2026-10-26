@@ -71,8 +71,8 @@ export default function Login({ portal = false, vendor = false, staff = false })
             {brand.demo_logins.map(({ role: r, email: e }) => <button type="button" key={e} onClick={() => { setId(e); setPw('Demo@12345'); }}>{r} — {e}</button>)}
           </div>
         )}
-        {vendor && <div className="demo-box"><b>Demo vendors</b><button type="button" onClick={() => { setId('abc.bricks@example.com'); setPw('Demo@12345'); }}>ABC Bricks — abc.bricks@example.com</button><button type="button" onClick={() => { setId('wood@example.com'); setPw('Demo@12345'); }}>Expert Wood Suppliers — wood@example.com</button></div>}
-        {portal && !vendor && <div className="demo-box"><b>Demo customer</b><button type="button" onClick={() => { setId('m.ali@example.com'); setPw('Demo@12345'); }}>m.ali@example.com / Demo@12345</button></div>}
+        {vendor && brand.demo_logins.length > 0 && <div className="demo-box"><b>Demo vendors</b><button type="button" onClick={() => { setId('abc.bricks@example.com'); setPw('Demo@12345'); }}>ABC Bricks — abc.bricks@example.com</button><button type="button" onClick={() => { setId('wood@example.com'); setPw('Demo@12345'); }}>Expert Wood Suppliers — wood@example.com</button></div>}
+        {portal && !vendor && brand.demo_logins.length > 0 && <div className="demo-box"><b>Demo customer</b><button type="button" onClick={() => { setId('m.ali@example.com'); setPw('Demo@12345'); }}>m.ali@example.com / Demo@12345</button></div>}
       </form>
     </div>
   );
