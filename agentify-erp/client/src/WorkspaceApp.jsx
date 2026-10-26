@@ -36,6 +36,7 @@ import InstallApp from './pages/InstallApp.jsx';
 import TrainingLibrary from './pages/TrainingLibrary.jsx';
 import { AttendanceBoard, Assets, LeaveBoard } from './pages/HrExtras.jsx';
 import { MyOnboarding, OnboardingDetail, OnboardingHome } from './pages/Onboarding.jsx';
+import WhatsNew from './pages/WhatsNew.jsx';
 import Content from './pages/Content.jsx';
 import Promos from './pages/Promos.jsx';
 import PlotMap from './pages/PlotMap.jsx';
@@ -288,6 +289,7 @@ export default function App() {
         <Route path="my/profile" element={<MyProfile />} />
         <Route path="my/security" element={<Security />} />
         <Route path="my/install-app" element={<InstallApp />} />
+        <Route path="whats-new" element={<WhatsNew />} />
         <Route path="my/attendance" element={<MyAttendance />} />
         <Route path="my/leave" element={<MyLeave />} />
         <Route path="my/payroll" element={<MyPayroll />} />

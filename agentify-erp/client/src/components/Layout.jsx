@@ -17,11 +17,13 @@ import { getRegion } from '../format.js';
 import { t } from '../i18n.js';
 import { FieldSharingBadge } from '../pages/FieldLocation.jsx';
 import { bindUser } from '../fieldLocation.js';
+import { APP_VERSION } from '../../../shared/changelog.js';
 
 // [label, path, perm module (view)]
 const NAV = [
   { label: 'Dashboard', icon: 'dashboard', to: '/', module: 'dashboard' },
   { label: 'My Space', icon: 'user', always: true, children: [['My Profile', '/my/profile'], ['My Attendance', '/my/attendance'], ['My Leave', '/my/leave'], ['My Payroll', '/my/payroll'], ['My Tasks', '/my/tasks'], ['My Onboarding', '/my/onboarding'], ['My Location', '/my/location', 'field:me'], ['Field Coverage', '/field', 'field:team'], ['Security', '/my/security'], ['Install the app', '/my/install-app']] },
+  { label: "What's new", icon: 'bolt', to: '/whats-new', always: true },
   { label: 'Content Calendar', icon: 'calendar', to: '/content', module: 'content' },
   { label: 'CRM', icon: 'users', module: 'crm', children: [
     ['Contacts', '/contacts'], ['Leads', '/leads'], ['Smart Lists', '/smart-lists'], ['Sales Pipeline', '/pipeline'], ['Tasks', '/tasks'], ['Notes', '/notes'],
@@ -147,6 +149,7 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
         </div>
         <button className="icon-btn" style={{ background: '#22345a', color: '#cbd5e1' }} onClick={logout} title="Sign out" aria-label="Sign out"><Icon name="logout" size={15} /></button>
       </div>
+      <Link to="/whats-new" className="side-version" style={{ display: 'block', padding: '6px 14px', fontSize: 11, color: 'var(--navy-text)' }} title="What's new">{brand.name} {APP_VERSION}</Link>
       {meta?.settings?.demo_data === '1' && null}
     </aside>
   );
