@@ -68,6 +68,10 @@ import dashboard from './routes/dashboard.js';
 import misc from './routes/misc.js';
 import portal from './routes/portal.js';
 import gateways from './routes/gateways.js';
+import emailRoutes from './routes/email.js';
+import emailPublic from './routes/emailPublic.js';
+import { runEmailQueue, syncProviderUsage } from './services/tenantEmail.js';
+import { runActivation } from './services/activation.js';
 import pub from './routes/public.js';
 import integrationApi from './routes/integrationApi.js';
 import websiteIntegrations from './routes/websiteIntegrations.js';
@@ -121,6 +125,7 @@ export function createApp() {
   }, apiAccessGuard, validateInput, pub);
 
   // Integration API v1: per-connection keys in the Authorization header, its own error format; before staff sign-in and CSRF
+  app.use('/api/unsubscribe', emailPublic);
   app.use('/api/v1', integrationApi);
   app.use('/embed', embed);
 
@@ -172,6 +177,7 @@ export function createApp() {
   app.use('/api/push', push);
   app.use('/api/assistant', assistant);
   app.use('/api/gateways', gateways);
+  app.use('/api/email', emailRoutes);
   app.use('/api/portal', portal);
   app.use('/api/settings', settings);
   app.use('/api/agents', agents);
@@ -255,8 +261,11 @@ if (isMain) {
   // visit reminders (an hour before, and a nudge when nobody checked in) and location retention; de-duplicated
   const visitTick = () => { try { forEachTenant(() => runVisitReminders()); markJob('visit-reminders'); } catch (e) { markJob('visit-reminders', e); } };
   setInterval(visitTick, 5 * 60 * 1000).unref();
+  // tenant e-mail: the durable queue is drained every 20 seconds; provider usage is read hourly
+  const emailTick = () => runEmailQueue().then(() => markJob('email-queue')).catch((e) => markJob('email-queue', e));
+  setInterval(emailTick, 20 * 1000).unref();
   // platform-wide: daily metric snapshot (for period comparisons) and super-admin alerts
-  const platformTick = () => { try { snapshot(); generateNotifications(null, true); markJob('platform-jobs'); } catch (e) { console.error('[platform jobs]', e); markJob('platform-jobs', e); }
+  const platformTick = () => { syncProviderUsage().catch(() => {}); runActivation().then(() => markJob('activation')).catch((e) => markJob('activation', e)); try { snapshot(); generateNotifications(null, true); markJob('platform-jobs'); } catch (e) { console.error('[platform jobs]', e); markJob('platform-jobs', e); }
     // trial expiry, reminders and renewals (idempotent; safe to run as often as you like)
     runLifecycle().then((r) => markJob('lifecycle', r.errors.length ? new Error(`${r.errors.length} workspace(s) failed`) : null)).catch((e) => { console.error('[lifecycle]', e); markJob('lifecycle', e); sendAlert(`Lifecycle job failed: ${e.message}`); }); };
   setTimeout(platformTick, 5000).unref();

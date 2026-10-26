@@ -33,6 +33,7 @@ import { caps as meetingCaps } from '../integrations/meetings.js';
 import { listRegions, setRegionStatus, setRegionFlag, saveRule, reviewRule, listRules, ruleAudit, saveFx, listFx } from '../regions/admin.js';
 import { subscriptionHistory } from '../services/subscriptions.js';
 import mailboxRoutes from './platformMailbox.js';
+import emailRoutes from './platformEmail.js';
 import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite } from '../services/platformStaff.js';
 import { freeSitesConfig, saveFreeSites, checkFreeSitesDns } from '../services/freeSites.js';
@@ -382,6 +383,7 @@ r.put('/meetings-settings', requireOperator, need('system.manage'), asyncH((req,
 }));
 // ---- Mailbox: read, reply and send company e-mail, the sent log and its settings (Platform Owner and Super Admin only)
 r.use('/mailbox', requireOperator, need('mailbox.manage'), mailboxRoutes);
+r.use('/email', requireOperator, emailRoutes);
 // ---- Announcements and release notes, integrations, running version
 r.get('/announcements', requireOperator, need('dashboard.view'), (_req, res) => res.json({ items: listAnnouncements(), version: versionInfo() }));
 r.post('/announcements', requireOperator, need('content.manage'), asyncH((req, res) => {

@@ -55,6 +55,7 @@ import Documents from './pages/Documents.jsx';
 import Integrations from './pages/Integrations.jsx';
 import WebsiteIntegrations from './pages/WebsiteIntegrations.jsx';
 import PaymentGateways from './pages/PaymentGateways.jsx';
+import EmailSettings from './pages/EmailSettings.jsx';
 import Dialer from './pages/Dialer.jsx';
 import Appointments from './pages/Appointments.jsx';
 import AIStudio from './pages/AIStudio.jsx';
@@ -202,6 +203,7 @@ export default function App() {
         <Route path="training" element={<TrainingLibrary />} />
         <Route path="settings/integrations" element={G('crm', <Integrations />)} />
         <Route path="settings/payment-gateways" element={G('settings', <PaymentGateways />)} />
+        <Route path="settings/email" element={G('settings', <EmailSettings />)} />
         <Route path="settings/website-integrations" element={G('website', <WebsiteIntegrations />)} />
         {/* Construction */}
         <Route path="construction" element={G('construction', <ConstructionOverview />)} />

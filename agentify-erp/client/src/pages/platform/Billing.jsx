@@ -29,13 +29,16 @@ export function PlansPage() {
   const [tab, setTab] = useState('real_estate');
   const load = useCallback(() => api.get(`${A}/plans`).then((x) => { setD(x); setSettings({ ...x.settings, trial_reminder_days: days(x.settings.trial_reminder_days), renewal_reminder_days: days(x.settings.renewal_reminder_days) }); }).catch((e) => setErr(e.message)), []);
   useEffect(() => { load(); }, [load]);
-  const open = (p) => setEdit(p ? { ...p, isNew: false, allModules: p.modules == null, modules: p.modules || [], features: (p.features || []).join('\n'), setup_fee: { ...(p.setup_fee || {}) }, price: { PKR: { ...(p.price.PKR || {}) }, USD: { ...(p.price.USD || {}) } } }
-    : { isNew: true, id: '', name: '', product: tab, description: '', seats: '', projects: '', properties: '', storage_mb: '', api_access: true, grace_days: 7, allModules: true, modules: [], features: '', highlight: false, trial_eligible: true, setup_fee: {}, visible: true, active: true, price: { PKR: {}, USD: {} } });
+  const open = (p) => setEdit(p ? { ...p, isNew: false, allModules: p.modules == null, modules: p.modules || [], features: (p.features || []).join('\n'), setup_fee: { ...(p.setup_fee || {}) }, email: emailForm(p.email_limits), price: { PKR: { ...(p.price.PKR || {}) }, USD: { ...(p.price.USD || {}) } } }
+    : { isNew: true, id: '', name: '', product: tab, description: '', seats: '', projects: '', properties: '', storage_mb: '', api_access: true, grace_days: 7, allModules: true, modules: [], features: '', highlight: false, trial_eligible: true, setup_fee: {}, email: emailForm(null), visible: true, active: true, price: { PKR: {}, USD: {} } });
   const nul = (v) => (v === '' || v == null ? null : v);
+  const emailForm = (l) => ({ set: !!l, op_m: l?.operational?.monthly ?? '', op_d: l?.operational?.daily ?? '', mk_m: l?.marketing?.monthly ?? '', mk_d: l?.marketing?.daily ?? '', thresholds: (l?.thresholds || [70, 90, 100]).join(', '), hard_stop: l?.hard_stop !== false, topups: l?.topups !== false, op_on: !!l?.operational, mk_on: !!l?.marketing });
+  const emailBody = (e) => (!e?.set ? null : { ...(e.op_on ? { operational: { monthly: nul(e.op_m), daily: nul(e.op_d) } } : {}), ...(e.mk_on ? { marketing: { monthly: nul(e.mk_m), daily: nul(e.mk_d) } } : {}),
+    thresholds: String(e.thresholds).split(',').map((x) => Number(x.trim())).filter(Boolean), hard_stop: e.hard_stop, topups: e.topups });
   const save = async () => {
     const body = { name: edit.name, product: edit.product, description: edit.description, seats: nul(edit.seats), projects: nul(edit.projects), properties: nul(edit.properties), storage_mb: nul(edit.storage_mb), api_access: edit.api_access,
       grace_days: edit.grace_days, modules: edit.allModules ? null : edit.modules, features: String(edit.features || '').split('\n').map((x) => x.trim()).filter(Boolean), highlight: edit.highlight, trial_eligible: edit.trial_eligible,
-      setup_fee: edit.setup_fee, visible: edit.visible, active: edit.active, price: edit.price };
+      setup_fee: edit.setup_fee, email_limits: emailBody(edit.email), visible: edit.visible, active: edit.active, price: edit.price };
     try { await api.put(`${A}/plans/${encodeURIComponent(edit.id.trim().toLowerCase())}`, body); toast('Plan saved'); setEdit(null); load(); } catch (e) { toast(e.message, 'err'); }
   };
   const saveSettings = async () => {
@@ -118,6 +121,21 @@ export function PlansPage() {
             <Field label="Grace days after a failed payment"><TextInput type="number" value={edit.grace_days} onChange={(v) => setEdit({ ...edit, grace_days: v })} /></Field>
             <Field label="Website / partner API"><Toggle value={edit.api_access} onChange={(v) => setEdit({ ...edit, api_access: v })} label="Included" /></Field>
           </div>
+          <h4 style={{ margin: '12px 0 6px' }}>Email allowance (per workspace, per usage period)</h4>
+          <Toggle value={edit.email.set} onChange={(v) => setEdit({ ...edit, email: { ...edit.email, set: v } })} label="This plan includes tenant email sending" />
+          {edit.email.set && <>
+            <p className="muted" style={{ fontSize: 12.5 }}>Counted per recipient when the provider accepts a message. Empty = unlimited for a category that is switched on. Account and security email is never counted. Periods are monthly from the workspace's start date and do not reset when the plan changes.</p>
+            <div className="pa-grid3" style={{ marginBottom: 0 }}>
+              <Field label="Appointments and receipts"><Toggle value={edit.email.op_on} onChange={(v) => setEdit({ ...edit, email: { ...edit.email, op_on: v } })} label="Included" /></Field>
+              <Field label="Monthly allowance"><TextInput type="number" disabled={!edit.email.op_on} value={edit.email.op_m} onChange={(v) => setEdit({ ...edit, email: { ...edit.email, op_m: v } })} /></Field>
+              <Field label="Daily limit (optional)"><TextInput type="number" disabled={!edit.email.op_on} value={edit.email.op_d} onChange={(v) => setEdit({ ...edit, email: { ...edit.email, op_d: v } })} /></Field>
+              <Field label="Campaigns and sequences"><Toggle value={edit.email.mk_on} onChange={(v) => setEdit({ ...edit, email: { ...edit.email, mk_on: v } })} label="Included" /></Field>
+              <Field label="Monthly allowance"><TextInput type="number" disabled={!edit.email.mk_on} value={edit.email.mk_m} onChange={(v) => setEdit({ ...edit, email: { ...edit.email, mk_m: v } })} /></Field>
+              <Field label="Daily limit (optional)"><TextInput type="number" disabled={!edit.email.mk_on} value={edit.email.mk_d} onChange={(v) => setEdit({ ...edit, email: { ...edit.email, mk_d: v } })} /></Field>
+              <Field label="Warn at (%)" hint="Comma separated"><TextInput value={edit.email.thresholds} onChange={(v) => setEdit({ ...edit, email: { ...edit.email, thresholds: v } })} /></Field>
+              <Field label="When the allowance is used"><Toggle value={edit.email.hard_stop} onChange={(v) => setEdit({ ...edit, email: { ...edit.email, hard_stop: v } })} label="Stop sending (otherwise allow overage)" /></Field>
+              <Field label="Top-ups"><Toggle value={edit.email.topups} onChange={(v) => setEdit({ ...edit, email: { ...edit.email, topups: v } })} label="Support can add extra messages" /></Field>
+            </div></>}
           <h4 style={{ margin: '12px 0 6px' }}>Modules</h4>
           <Toggle value={edit.allModules} onChange={(v) => setEdit({ ...edit, allModules: v })} label="All modules of this product included" />
           {!edit.allModules && <div className="pa-grid2" style={{ marginTop: 8 }}>{modulesFor(edit.product).map(([k, m]) => (
