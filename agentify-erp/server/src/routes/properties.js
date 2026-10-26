@@ -15,6 +15,7 @@ import rateLimit from 'express-rate-limit';
 import { writeListingText, LANGUAGES, TONES, REWRITE_GOALS, RTL_LANGUAGES } from '../services/listingAi.js';
 import { activeProvider } from '../integrations/ai.js';
 import { currentTenant } from '../context.js';
+import { geocodeParts } from '../services/geocode.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -187,6 +188,16 @@ r.delete('/:id(\\d+)', can('properties', 'delete'), asyncH((req, res) => {
 const canWrite = (req, _res, next) => (hasPerm(req.user, 'properties', 'edit') || hasPerm(req.user, 'properties', 'create') ? next() : next(forbidden('You do not have permission to edit properties')));
 const aiWriterLimit = rateLimit({ windowMs: 60 * 60_000, limit: Number(process.env.PROPERTY_AI_LIMIT) || 40, standardHeaders: true, legacyHeaders: false,
   keyGenerator: (req) => `${currentTenant()?.id ?? 'legacy'}:${req.user.id}`, message: { error: 'You have used the AI writer many times this hour. Please try again later.' } });
+// ---- Find coordinates from a typed place: suggestions only, the editor fills the fields and the person saves as usual.
+const geocodeLimit = rateLimit({ windowMs: 60_000, limit: Number(process.env.GEOCODE_LIMIT) || 30, standardHeaders: true, legacyHeaders: false,
+  keyGenerator: (req) => `${currentTenant()?.id ?? 'legacy'}:${req.user.id}`, message: { error: 'Too many location searches. Please wait a minute and try again.' } });
+r.get('/geocode', canWrite, geocodeLimit, asyncH(async (req, res) => {
+  // `p` repeats, most specific first (address, location, area, city); a single `q` still works
+  const parts = [req.query.p, req.query.q].flat().filter((x) => typeof x === 'string').map((x) => x.trim()).filter((x) => x.length >= 2);
+  if (!parts.length) throw bad('Type a location first');
+  try { res.json(await geocodeParts(parts, currentRegion().config.region)); }
+  catch { res.status(502).json({ error: 'The map search is not available right now. Enter the latitude and longitude by hand, or try again in a moment.' }); }
+}));
 r.get('/ai-writer', canWrite, (_req, res) => res.json({ languages: LANGUAGES, tones: TONES, goals: REWRITE_GOALS, rtl: RTL_LANGUAGES, connected: !!activeProvider(getSetting('ai_default', null)) }));
 r.post('/ai-writer', canWrite, aiWriterLimit, asyncH(async (req, res) => {
   const pid = Number(req.body?.property_id) || null;

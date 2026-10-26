@@ -68,7 +68,7 @@ export default function BotKnowledge() {
       {tab === 'kb' && (
         <Card flush>
           {!(kb.data || []).length ? <Empty icon="file" title="No written answers yet" hint="Add the questions customers ask most: documents needed, payment plans, possession dates, site visits…" /> : (
-            <table className="table"><thead><tr><th>Question / topic</th><th>Category</th><th>Answer</th><th>Status</th><th /></tr></thead>
+            <table className="t"><thead><tr><th>Question / topic</th><th>Category</th><th>Answer</th><th>Status</th><th /></tr></thead>
               <tbody>{kb.data.map((k) => (
                 <tr key={k.id}><td className="cell-main">{k.title}</td><td>{k.category}</td><td className="muted" style={{ maxWidth: 380 }}>{k.content.slice(0, 120)}{k.content.length > 120 ? '…' : ''}</td>
                   <td><span className={`pill ${k.active ? 'green' : 'grey'}`}>{k.active ? 'Active' : 'Off'}</span></td>
@@ -93,7 +93,7 @@ export default function BotKnowledge() {
       {tab === 'chats' && (
         <Card title="Recent conversations" flush>
           {!(chats.data?.rows || []).length ? <Empty icon="users" title="No conversations yet" /> : (
-            <table className="table"><thead><tr><th>When</th><th>Visitor asked</th><th>Assistant said</th><th /></tr></thead>
+            <table className="t"><thead><tr><th>When</th><th>Visitor asked</th><th>Assistant said</th><th /></tr></thead>
               <tbody>{chats.data.rows.map((r) => <tr key={r.id}><td className="nowrap muted">{date(r.created_at)}</td><td>{r.message}</td><td className="muted" style={{ maxWidth: 420 }}>{(r.answer || '').slice(0, 130)}{(r.answer || '').length > 130 ? '…' : ''}</td><td>{r.matched ? <span className="pill green">Answered</span> : <span className="pill amber">Missed</span>}{r.contact_id ? <> <a className="pill blue" href={`/contacts/${r.contact_id}`}>Lead</a></> : null}</td></tr>)}</tbody></table>
           )}
         </Card>

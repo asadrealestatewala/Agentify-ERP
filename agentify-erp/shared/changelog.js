@@ -4,6 +4,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.21', date: '2026-10-26', title: 'Latitude, longitude and map fill in as you type',
+    items: [
+      { text: 'As you type the City, Area, Location and Address, the map finds the place and drops the pin on it, and the GPS latitude and longitude fill in by themselves. Find on map does it on demand, other matches are offered, and you are told when nothing is found. Coordinates you typed yourself are never replaced automatically.', where: 'Properties > Add or edit property > Location' },
+    ],
+  },
+  {
     version: 'v1.20', date: '2026-10-26', title: 'Tidier Lead conversion tables',
     items: [
       { text: 'The By source and By owner tables now have a header row and aligned columns for Leads, Responded, Appointment and Won. Each rate shows the percentage with the count underneath, and "No data" when there is nothing to measure yet.', where: 'CRM > Lead Conversion' },

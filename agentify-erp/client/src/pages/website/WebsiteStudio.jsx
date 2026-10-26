@@ -286,7 +286,7 @@ function InstallDialog({ theme, built, onClose, onDone }) {
           <p className="muted" style={{ margin: 0 }}>Choose what to install. Visitors keep seeing your current website until you press Publish. A page you replace keeps its current layout in its version history, and “Discard unpublished changes” in Publish takes everything back to the live website.</p>
           {theme.origin === 'adaptation' && <p className="st-source">{theme.name} is an Agentify design that takes its general direction from the open-source project <a href={theme.source.url} target="_blank" rel="noreferrer">{theme.source.name}</a> ({theme.source.license} licence). No code, photos or text were copied from it.</p>}
           <Toggle value={design} onChange={setDesign} label={`Use the theme's colours, fonts, header and footer (${theme.design.theme.font_heading} / ${theme.design.theme.font_body})`} />
-          <table className="table"><thead><tr><th>Page</th><th>On your website now</th><th>What to do</th></tr></thead><tbody>
+          <table className="t"><thead><tr><th>Page</th><th>On your website now</th><th>What to do</th></tr></thead><tbody>
             {info.pages.map((p) => (
               <tr key={p.slug}><td><b>{p.title}</b><div className="muted" style={{ fontSize: 12 }}>{p.slug === 'home' ? '/site' : `/site/p/${p.slug}`}</div></td>
                 <td>{p.exists ? 'A page with this address exists' : 'New page'}</td>

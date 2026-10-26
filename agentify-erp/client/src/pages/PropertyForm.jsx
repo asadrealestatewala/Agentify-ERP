@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
 import { FileUploader, ImageUploader } from '../components/Uploaders.jsx';
@@ -51,9 +51,12 @@ export default function PropertyForm() {
   const [sel, setSel] = useState(null); // last text selection in the title or description fields, for "Rewrite selection"
   const [aiUndo, setAiUndo] = useState(null); // { field, value } before the last AI change
   const [baseline, setBaseline] = useState(null);
+  const typedCoords = useRef(false); // true once the person typed (or the record already holds) coordinates: automatic search then never overwrites them
+  const geoSeq = useRef(0);
+  const [geo, setGeo] = useState({ busy: false, msg: '', kind: '', options: [] });
 
   useEffect(() => {
-    if (existing.data) { const loaded = { ...emptyForm(), ...existing.data, features: existing.data.features || {}, amenities: existing.data.amenities || [], videos: existing.data.videos || [] }; setF(loaded); setBaseline(JSON.stringify(loaded)); setMedia(existing.data.media || []); }
+    if (existing.data) { const loaded = { ...emptyForm(), ...existing.data, features: existing.data.features || {}, amenities: existing.data.amenities || [], videos: existing.data.videos || [] }; setF(loaded); setBaseline(JSON.stringify(loaded)); setMedia(existing.data.media || []); if (loaded.lat && loaded.lng) typedCoords.current = true; }
   }, [existing.data]);
   // unsaved changes: warn before the tab closes or the person leaves with Cancel
   useEffect(() => { if (!editing) setBaseline(JSON.stringify(f)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -85,6 +88,35 @@ export default function PropertyForm() {
   };
 
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
+  const setCoord = (k, v) => { typedCoords.current = true; setGeo((g) => (g.msg ? { ...g, msg: '', options: [] } : g)); set(k, v); };
+  // Looks the typed place up on the map, most specific text first (address, location, area, city). Automatic searches (while typing, after a pause)
+  // only fill coordinates the person has not typed; the Find on map button always replaces them.
+  const geoParts = [f.address, f.location, f.area_name, f.city].map((x) => String(x ?? '').trim()).filter((x) => x.length >= 2);
+  const geoKey = geoParts.join('|');
+  const lastGeoKey = useRef('');
+  const findOnMap = async (auto) => {
+    if (!geoParts.length) { if (!auto) setGeo({ busy: false, msg: 'Type a location or address first.', kind: 'err', options: [] }); return; }
+    if (auto && typedCoords.current) return;
+    lastGeoKey.current = geoKey;
+    const seq = ++geoSeq.current;
+    setGeo({ busy: true, msg: '', kind: '', options: [] });
+    try {
+      const { results, approximate } = await api.get(`/api/properties/geocode?${geoParts.map((x) => `p=${encodeURIComponent(x)}`).join('&')}`);
+      if (seq !== geoSeq.current) return;
+      if (auto && typedCoords.current) { setGeo({ busy: false, msg: '', kind: '', options: [] }); return; }
+      if (!results.length) { setGeo({ busy: false, msg: 'No place found for that text. Try a nearby landmark or a different spelling, or enter the latitude and longitude by hand.', kind: 'err', options: [] }); return; }
+      const top = results[0];
+      setF((x) => ({ ...x, lat: top.lat, lng: top.lng }));
+      setGeo({ busy: false, msg: `${approximate ? 'Only the wider area was found, so the pin is approximate. ' : ''}Coordinates filled from the map: ${top.label}. Check the pin and adjust if needed.`, kind: approximate ? 'warn' : 'ok', options: results.slice(1) });
+    } catch (e) {
+      if (seq === geoSeq.current) setGeo({ busy: false, msg: e.message || 'The map search is not available right now. Enter the latitude and longitude by hand.', kind: 'err', options: [] });
+    }
+  };
+  useEffect(() => {
+    if (!geoKey || typedCoords.current || geoKey === lastGeoKey.current) return undefined;
+    const t = setTimeout(() => findOnMap(true), 800);
+    return () => clearTimeout(t);
+  }, [geoKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const feat = (k, v) => setF((x) => ({ ...x, features: { ...x.features, [k]: v } }));
   const pk = getRegion().config.region === 'PK';
   const groupOf = (label) => getRegion().config.property_types?.find((t) => t.label === label)?.group;
@@ -158,11 +190,17 @@ export default function PropertyForm() {
             <Field label="Area / society"><input className="input" value={f.area_name ?? ''} onChange={(e) => set('area_name', e.target.value)} /></Field>
             <Field label="Location" className="full"><input className="input" value={f.location ?? ''} onChange={(e) => set('location', e.target.value)} placeholder="Search or type a location" /></Field>
             <Field label="Address" className="full"><input className="input" value={f.address ?? ''} onChange={(e) => set('address', e.target.value)} /></Field>
-            <Field label="GPS latitude" error={err('lat')}><input className="input" type="number" step="any" value={f.lat ?? ''} onChange={(e) => set('lat', e.target.value)} placeholder="31.4504" /></Field>
-            <Field label="GPS longitude" error={err('lng')}><input className="input" type="number" step="any" value={f.lng ?? ''} onChange={(e) => set('lng', e.target.value)} placeholder="73.1350" /></Field>
+            <Field label="GPS latitude" error={err('lat')}><input className="input" type="number" step="any" value={f.lat ?? ''} onChange={(e) => setCoord('lat', e.target.value)} placeholder="31.4504" /></Field>
+            <Field label="GPS longitude" error={err('lng')}><input className="input" type="number" step="any" value={f.lng ?? ''} onChange={(e) => setCoord('lng', e.target.value)} placeholder="73.1350" /></Field>
           </div>
+          <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap', margin: '4px 0 10px' }}>
+            <button type="button" className="btn" disabled={geo.busy} onClick={() => findOnMap(false)}><Icon name="map" size={14} /> {geo.busy ? 'Finding…' : 'Find on map'}</button>
+            <span className="muted" style={{ fontSize: 13 }}>Fills latitude and longitude from City, Area, Location and Address as you type. You can still change them.</span>
+          </div>
+          {geo.msg && <div className={`alert ${geo.kind === 'err' ? 'err' : geo.kind === 'warn' ? 'warn' : 'ok'}`} role="status" style={{ marginBottom: 10 }}>{geo.msg}</div>}
+          {geo.options.length > 0 && <div className="muted" style={{ marginBottom: 10, fontSize: 13 }}>Other matches: {geo.options.map((o, i) => <button key={i} type="button" className="btn sm ghost" style={{ margin: '2px 4px' }} onClick={() => { setF((x) => ({ ...x, lat: o.lat, lng: o.lng })); setGeo((g) => ({ ...g, msg: `Coordinates set to: ${o.label}.`, options: [] })); }}>{o.label.split(',').slice(0, 3).join(',')}</button>)}</div>}
           {mapSrc ? (<div><iframe title="Map" src={mapSrc} style={{ width: '100%', height: 200, border: '1px solid var(--border)', borderRadius: 8 }} loading="lazy" /><a href={`https://www.google.com/maps?q=${f.lat},${f.lng}`} target="_blank" rel="noreferrer" className="muted">Open in Google Maps ↗</a></div>)
-            : <div className="dropzone" style={{ cursor: 'default' }}><Icon name="map" size={20} /><div>Enter GPS coordinates to preview the map location.</div></div>}
+            : <div className="dropzone" style={{ cursor: 'default' }}><Icon name="map" size={20} /><div>Type a location above, or enter GPS coordinates, to preview the map location.</div></div>}
         </Section>
 
         <Section icon="dollar" title="Price & area" hint="Size, price and payment options">

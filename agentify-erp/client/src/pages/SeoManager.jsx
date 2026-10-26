@@ -92,7 +92,7 @@ export default function SeoManager() {
 
       <Card title="Pages & blog posts" flush>
         {!rows.length ? <Empty icon="file" title="No pages yet" /> : (
-          <table className="table"><thead><tr><th>Page</th><th>SEO title</th><th>Description</th><th>Status</th><th /></tr></thead>
+          <table className="t"><thead><tr><th>Page</th><th>SEO title</th><th>Description</th><th>Status</th><th /></tr></thead>
             <tbody>{rows.map((r) => (
               <tr key={`${r.kind}${r.id}`}>
                 <td><div className="cell-main">{r.title}</div><div className="cell-sub">{r.kind === 'post' ? 'Blog post' : 'Page'} · <a href={r.url} target="_blank" rel="noreferrer">{r.url}</a>{!r.published && ' · draft'}</div></td>
