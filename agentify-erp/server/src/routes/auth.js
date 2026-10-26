@@ -12,6 +12,8 @@ import { clientConfig } from '../regions/runtime.js';
 import { PROVIDERS as OAUTH, authorizeUrl, redirectUri, signState, configuredProviders } from '../services/oauthApps.js';
 import { redeemLoginCode } from '../services/oauthFlow.js';
 import { currentTenant } from '../context.js';
+import { liveConfig } from '../services/siteRelease.js';
+import { staffLoginPath } from '../services/staffLogin.js';
 import { requestPasswordReset, resetPassword, inviteInfo, acceptInvite, sendVerification, verifyEmail } from '../services/accessLinks.js';
 
 const r = Router();
@@ -153,7 +155,14 @@ function demoLogins() {
 }
 // region settings of this workspace (formats, units, terms, flags); the browser applies them before it renders any amount
 r.get('/region', (_req, res) => res.json(clientConfig(currentTenant())));
-r.get('/brand', (_req, res) => res.json({ name: getSetting('company_name', '') || 'Agentify ERP', demo_logins: demoLogins(), ...(ssoList().length ? { sso: ssoList() } : {}) }));
+r.get('/brand', (_req, res) => {
+  const workspace = !!currentTenant();
+  let logo = '';
+  if (workspace) { try { logo = liveConfig().brand?.logo || ''; } catch { /* no website yet */ } }
+  res.json({ name: getSetting('company_name', '') || 'Agentify ERP', demo_logins: demoLogins(), ...(ssoList().length ? { sso: ssoList() } : {}),
+    // a company's own sign-in page: its brand and the unlisted staff link, never the product's marketing
+    ...(workspace ? { workspace: true, logo, staff_path: staffLoginPath() } : {}) });
+});
 
 const ssoList = () => configuredProviders().filter((p) => ['google', 'apple'].includes(p));
 // Sign in with Google / Apple: existing staff accounts only (no account is created here), and two-step sign-in still applies.

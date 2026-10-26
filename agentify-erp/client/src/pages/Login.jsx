@@ -8,9 +8,11 @@ import { useBrand } from '../brand.js';
 import { t, getLanguage, chooseLanguage } from '../i18n.js';
 import { getRegion } from '../format.js';
 
-export default function Login({ portal = false, vendor = false }) {
+export default function Login({ portal = false, vendor = false, staff = false }) {
   const { login, loginMfa, adopt } = useAuth();
   const brand = useBrand();
+  // on a company's own address the page speaks for that company, never for the Agentify product
+  const own = brand.workspace;
   const nav = useNavigate();
   const [sp] = useSearchParams();
   const next = sp.get('next') || '';
@@ -38,11 +40,11 @@ export default function Login({ portal = false, vendor = false }) {
   return (
     <div className="auth2">
       <div className="auth2-copy">
-        <div className="brand"><div className="brand-mark"><Icon name="home" size={18} stroke={2.2} /></div><div className="brand-name">{brand.name}<small>{vendor ? 'Vendor portal' : portal ? 'Customer portal' : 'ERP'}</small></div></div>
-        <div className="eyebrow"><i />{vendor ? 'Vendor portal' : portal ? 'Customer portal' : 'One connected system'}</div>
-        <h1>{vendor ? <>Your payments, ledger and new contracts — <em>in one calm place.</em></> : portal ? <>Your property, payments and progress — <em>in one calm place.</em></> : <>From lead to ledger, <em>in one calm place.</em></>}</h1>
-        <p>{vendor ? 'Sign in to see what you have been paid and what is still due, download your ledger, view your registration and bid on contracts the company announces.' : portal ? 'Sign in to see your purchased properties, installment schedule, receipts and the latest site updates.' : 'CRM, inventory, projects, installments, receipts, vendors, HR and accounting — all working together, on your desk and in your pocket.'}</p>
-        <div className="auth2-feats">{FEATS.map(([ic, tone, l]) => <div key={l} className="auth2-feat"><span className={`ic-tile sm ic-${tone}`}><Icon name={ic} size={15} /></span>{l}</div>)}</div>
+        <div className="brand">{own && brand.logo ? <img src={/^(https?:|data:|\/)/.test(brand.logo) ? brand.logo : `/uploads/${brand.logo}`} alt="" style={{ height: 40, maxWidth: 160, objectFit: 'contain' }} /> : <div className="brand-mark"><Icon name="home" size={18} stroke={2.2} /></div>}<div className="brand-name">{brand.name}<small>{vendor ? 'Vendor portal' : portal ? 'Customer portal' : own ? '' : 'ERP'}</small></div></div>
+        <div className="eyebrow"><i />{vendor ? 'Vendor portal' : portal ? 'Customer portal' : staff ? 'Team sign in' : own ? 'Welcome' : 'One connected system'}</div>
+        <h1>{vendor ? <>Your payments, ledger and new contracts — <em>in one calm place.</em></> : portal ? <>Your property, payments and progress — <em>in one calm place.</em></> : own ? (staff ? <>Welcome back, <em>team.</em></> : <>Welcome to <em>{brand.name}.</em></>) : <>From lead to ledger, <em>in one calm place.</em></>}</h1>
+        <p>{vendor ? 'Sign in to see what you have been paid and what is still due, download your ledger, view your registration and bid on contracts the company announces.' : portal ? 'Sign in to see your purchased properties, installment schedule, receipts and the latest site updates.' : own ? (staff ? `Sign in to the ${brand.name} workspace.` : 'Customers and partners can reach their own portal below. Sign in with the email and password you were given.') : 'CRM, inventory, projects, installments, receipts, vendors, HR and accounting — all working together, on your desk and in your pocket.'}</p>
+        {!(own && !portal) && <div className="auth2-feats">{FEATS.map(([ic, tone, l]) => <div key={l} className="auth2-feat"><span className={`ic-tile sm ic-${tone}`}><Icon name={ic} size={15} /></span>{l}</div>)}</div>}
       </div>
       <form className="auth2-card stack" onSubmit={submit}>
         <div><h2>{vendor ? t('auth.vendor_sign_in', 'Vendor sign in') : portal ? t('auth.customer_sign_in', 'Customer sign in') : t('auth.sign_in', 'Sign in')}</h2><div className="muted" style={{ marginTop: 4 }}>{vendor ? 'Use the e-mail address you registered with the company.' : portal ? 'Use the email or phone number registered with us.' : 'Welcome back. Enter your work email and password.'}</div></div>
@@ -53,8 +55,8 @@ export default function Login({ portal = false, vendor = false }) {
         <Field label={t('auth.password', 'Password')}><input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" required /></Field>
         </>}
         <button className="btn primary" disabled={busy}>{busy ? t('auth.signing_in', 'Signing in…') : mfa ? t('auth.verify', 'Verify') : t('auth.sign_in', 'Sign in')}</button>
-        {!vendor && <div className="center muted"><Link to="/forgot-password">{t('auth.forgot', 'Forgot password?')}</Link>{!portal && <> · <Link to="/signup">{t('auth.create_workspace', 'Create a workspace')}</Link></>}</div>}
-        <div className="center muted">{portal ? <><Link to="/login">{t('auth.staff_sign_in', 'Staff sign in')}</Link> · {vendor ? <Link to="/portal/login">Customer portal</Link> : <Link to="/vendor/login">Vendor portal</Link>}</> : <><Link to="/portal/login">Customer portal →</Link> · <Link to="/vendor/login">Vendor portal →</Link></>}</div>
+        {!vendor && <div className="center muted"><Link to="/forgot-password">{t('auth.forgot', 'Forgot password?')}</Link>{!portal && !own && <> · <Link to="/signup">{t('auth.create_workspace', 'Create a workspace')}</Link></>}</div>}
+        <div className="center muted">{portal ? <>{!own && <><Link to="/login">{t('auth.staff_sign_in', 'Staff sign in')}</Link> · </>}{vendor ? <Link to="/portal/login">Customer portal</Link> : <Link to="/vendor/login">Vendor portal</Link>}</> : <><Link to="/portal/login">Customer portal →</Link> · <Link to="/vendor/login">Vendor portal →</Link></>}</div>
         {!portal && !vendor && !mfa && brand.sso.length > 0 && (
           <div className="stack" style={{ marginTop: 4 }}>
             <div className="center muted" style={{ fontSize: 13 }}>or continue with</div>

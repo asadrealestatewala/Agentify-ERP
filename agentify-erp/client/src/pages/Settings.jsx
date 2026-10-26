@@ -226,6 +226,7 @@ export function SystemSettings() {
         <Card title="Company"><div className="form-grid">
           <Field label="Company name"><input className="input" disabled={ro} value={f.company_name || ''} onChange={(e) => set('company_name', e.target.value)} /></Field>
           <Field label="Logo URL"><input className="input" disabled={ro} value={f.logo_url || ''} onChange={(e) => set('logo_url', e.target.value)} /></Field>
+          <Field label="Staff sign-in link" hint={`Your team signs in at ${window.location.origin}/${f.staff_login_path || 'staff'}. It is not shown on your public website. Leave empty for the default (staff).`}><input className="input" disabled={ro} placeholder="staff" value={f.staff_login_path || ''} onChange={(e) => set('staff_login_path', e.target.value)} /></Field>
           <Field label="Phone"><input className="input" disabled={ro} value={f.company_phone || ''} onChange={(e) => set('company_phone', e.target.value)} /></Field>
           <Field label="Email"><input className="input" disabled={ro} value={f.company_email || ''} onChange={(e) => set('company_email', e.target.value)} /></Field>
           <Field label="Address" className="full"><input className="input" disabled={ro} value={f.company_address || ''} onChange={(e) => set('company_address', e.target.value)} /></Field>

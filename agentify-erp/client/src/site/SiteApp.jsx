@@ -15,10 +15,9 @@ import './site.css';
 export const HEADER_STYLES = ['light', 'dark', 'transparent'];
 const SOCIAL_ICON = { Facebook: 'f', Instagram: '◎', YouTube: '▶', WhatsApp: '✆', 'X (Twitter)': '𝕏', Twitter: '𝕏', LinkedIn: 'in', TikTok: '♪', Website: '🌐', Other: '🔗' };
 
-/** The sign-in pages this workspace has: staff, customers and (where the workspace has them) vendors. */
+/** The sign-in pages the public may see: customers and (where the workspace has them) vendors. Staff use their own unlisted link. */
 function signInDoors(portals) {
   return [
-    { label: 'Staff sign-in', href: '/login', hint: 'Employees and agents' },
     { label: portals?.customer_label || 'Customer portal', href: '/portal/login', hint: 'Payments, receipts and documents' },
     ...(portals?.vendor ? [{ label: 'Vendor portal', href: '/vendor/login', hint: 'Ledger, tenders and bids' }] : []),
   ];
@@ -29,16 +28,18 @@ function SignInMenu() {
   const { portals } = useSite();
   const [open, setOpen] = useState(false);
   const box = useRef(null);
+  const doors = signInDoors(portals);
   useEffect(() => {
     if (!open) return undefined;
     const off = (e) => { if (e.type === 'keydown' ? e.key === 'Escape' : !box.current?.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', off); document.addEventListener('keydown', off);
     return () => { document.removeEventListener('mousedown', off); document.removeEventListener('keydown', off); };
   }, [open]);
+  if (doors.length === 1) return <A href={doors[0].href} className="signin-btn desk-only">{doors[0].label}</A>;
   return (
     <div className="signin desk-only" ref={box}>
       <button type="button" className="signin-btn" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(!open)}>Sign in <span aria-hidden="true">▾</span></button>
-      {open && <div className="signin-pop" onClick={() => setOpen(false)}>{signInDoors(portals).map((d) => <A key={d.href} href={d.href}><b>{d.label}</b><small>{d.hint}</small></A>)}</div>}
+      {open && <div className="signin-pop" onClick={() => setOpen(false)}>{doors.map((d) => <A key={d.href} href={d.href}><b>{d.label}</b><small>{d.hint}</small></A>)}</div>}
     </div>
   );
 }

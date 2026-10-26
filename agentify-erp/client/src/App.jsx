@@ -5,6 +5,7 @@ import { api } from './api.js';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Loading } from './components/ui.jsx';
 import { useAuth } from './context.jsx';
+import StaffGate from './pages/StaffGate.jsx';
 import Login from './pages/Login.jsx';
 import { AcceptInvite, ForgotPassword, ResetPassword, Signup, VerifyEmail } from './pages/AuthPages.jsx';
 import MarketingSite from './marketing/Marketing.jsx';
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/forgot-password" element={<MainGate fallback={<ForgotPassword />} />} />
         <Route path="/reset-password/:token" element={<MainGate fallback={<ResetPassword />} />} />
         <Route path="/invite/:token" element={<MainGate fallback={<AcceptInvite />} />} />
+        <Route path="/:slug" element={<StaffGate />} />
         <Route path="*" element={<Navigate to={loc.pathname.startsWith('/portal') ? `/portal/login?next=${encodeURIComponent(loc.pathname)}` : loc.pathname.startsWith('/vendor') ? `/vendor/login?next=${encodeURIComponent(loc.pathname)}` : '/login'} replace />} />
       </Routes>
     );

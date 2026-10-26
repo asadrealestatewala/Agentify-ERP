@@ -96,13 +96,13 @@
  },
  "/api/settings/system": {
   "status": 200,
-  "sha": "a239d17371eef612",
-  "bytes": 1592
+  "sha": "235015bb80579636",
+  "bytes": 1614
  },
  "/api/auth/brand": {
   "status": 200,
-  "sha": "1c7f8f7c47c15aef",
-  "bytes": 784
+  "sha": "1b0d99980208db44",
+  "bytes": 832
  },
  "/api/sales/5": {
   "status": 200,
