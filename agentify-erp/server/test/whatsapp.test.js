@@ -27,6 +27,8 @@ const A = await import('../src/services/whatsappAccess.js');
 const B = await import('../src/integrations/botlinkd.js');
 const Int = await import('../src/services/integrations.js');
 const { setSetting } = await import('../src/services/platformConfig.js');
+const Q = await import('../src/services/whatsappQr.js');
+const G = await import('../src/integrations/qrGateway.js');
 const db = await import('../src/db.js');
 
 let server, port;
@@ -296,4 +298,90 @@ test('HTTP: staff routes need permissions, an own-scope agent sees only their co
   assert.equal(as(a, () => db.get('SELECT lead_source s FROM contacts WHERE id=?', created.data.contact_id).s), 'WhatsApp');
   assert.equal((await call(host, 'POST', `/api/whatsapp/threads/${theirs}/create-lead`, { name: 'Zainab Khan' }, ha)).status, 400, 'already linked');
   void agentId;
+});
+
+// ------------------------------------------------------------------ optional QR mode (unofficial, opt-in)
+const gw = { created: [], deleted: [], sent: [], status: 'qr', qr: 'data:image/png;base64,iVBORw0KGgo=', number: '447700900555', fail: false,
+  async health() { return {}; },
+  async createSession(x) { if (gw.fail) throw B.classifyError('boom', 500); gw.created.push(x); return {}; },
+  async getSession() { return { status: gw.status, qr_image: gw.qr, number: gw.number }; },
+  async deleteSession(id) { gw.deleted.push(id); return {}; },
+  async sendText(m) { gw.sent.push(m); return { ref: `gw_${gw.sent.length}` }; } };
+G.setQrGateway(gw);
+const qrPlatform = (on) => { setSetting('whatsapp_qr_enabled', on ? '1' : null); setSetting('whatsapp_qr_gateway_url', on ? 'https://gw.example.test' : null); setSetting('whatsapp_qr_gateway_token', on ? 'gatewaytoken-123456' : null, { secret: true }); };
+
+test('QR mode: unavailable until the platform AND the workspace switch it on with a ticked risk acknowledgement', async () => {
+  turnOn(); qrPlatform(false);
+  const t = mkTenant();
+  as(t, () => { assert.equal(Q.qrView().allowed, false); assert.throws(() => Q.enableQr(staff(t), { acknowledge: true }), /not switched on for this platform/); });
+  qrPlatform(true);
+  as(t, () => {
+    assert.equal(Q.qrView().allowed, true);
+    assert.equal(Q.qrView().active, false, 'allowed is not active');
+    assert.throws(() => Q.enableQr(staff(t), {}), /Tick the box/);
+    assert.throws(() => Q.enableQr(staff(t), { acknowledge: 'yes' }), /Tick the box/);
+    assert.match(Q.qrView().risk_text, /ban/);
+    Q.enableQr(staff(t), { acknowledge: true });
+    assert.equal(Q.qrView().accepted, true);
+    assert.equal(W.connectionView('').mode, 'cloud', 'still the official mode until a session is started');
+  });
+});
+
+test('QR mode: session, QR image, linked number, inbound over the signed webhook and one-to-one replies through the gateway only', async () => {
+  turnOn(); qrPlatform(true); gw.created.length = 0; gw.sent.length = 0; fake.sent.length = 0; gw.status = 'qr';
+  const t = mkTenant();
+  await as(t, async () => {
+    const u = staff(t);
+    Q.enableQr(u, { acknowledge: true });
+    await Q.startQr(u, 'https://w.erp.test');
+    assert.equal(gw.created.length, 1);
+    assert.match(gw.created[0].webhookUrl, /^https:\/\/w\.erp\.test\/api\/hooks\/whatsapp\/[0-9a-f]{48}$/);
+    assert.ok(gw.created[0].secret.length >= 32);
+    let s = await Q.qrStatus(); assert.equal(s.state, 'qr'); assert.ok(s.qr_image.startsWith('data:image/png'));
+    gw.qr = 'javascript:alert(1)'; assert.equal((await Q.qrStatus()).qr_image, null, 'only PNG/JPEG data images are shown');
+    gw.status = 'connected'; s = await Q.qrStatus(); assert.equal(s.state, 'connected'); assert.equal(s.number, '447700900555');
+    const v = W.connectionView('');
+    assert.equal(v.mode, 'qr'); assert.equal(v.state, 'connected');
+    assert.ok(!JSON.stringify(v).includes(gw.created[0].secret), 'the session secret never leaves the server');
+  });
+  const cfg = as(t, () => Q.qrConfig());
+  const hook2 = (payload, secret) => { const raw = JSON.stringify(payload); return call(`${t.slug}.erp.test`, 'POST', `/api/hooks/whatsapp/${cfg.webhook_token}`, null, secret ? { 'X-Signature': B.signBody(secret, raw) } : {}, raw); };
+  assert.equal((await hook2(inbound('923005550001', 'hello', 'q1'))).status, 401, 'the QR webhook is always signed');
+  assert.equal((await hook2(inbound('923005550001', 'hello', 'q1'), cfg.signing_secret)).status, 200);
+  await as(t, async () => {
+    const th = db.get('SELECT * FROM wa_threads');
+    await W.sendReply(staff(t), th.id, 'Thanks for writing');
+    assert.equal(gw.sent.length, 1); assert.equal(gw.sent[0].to, '923005550001');
+    assert.equal(fake.sent.length, 0, 'nothing went through Botlinkd');
+    db.run('UPDATE wa_threads SET last_inbound_at=? WHERE id=?', new Date(Date.now() - 30 * 3600_000).toISOString(), th.id);
+    await assert.rejects(() => W.sendReply(staff(t), th.id, 'late'), /24-hour/, 'the same reply window applies in QR mode');
+    gw.status = 'disconnected'; await Q.qrStatus();
+    db.run('UPDATE wa_threads SET last_inbound_at=? WHERE id=?', new Date().toISOString(), th.id);
+    await assert.rejects(() => W.sendReply(staff(t), th.id, 'x'), /not linked right now/);
+    await Q.disconnectQr(staff(t), { forget: true });
+    assert.deepEqual(gw.deleted, [cfg.session_id]);
+    assert.equal(Q.qrView().accepted, false); assert.equal(W.connectionView('').mode, 'cloud');
+  });
+  assert.equal((await hook2(inbound('923005550001', 'again', 'q2'), cfg.signing_secret)).status, 404, 'the old address stops working');
+});
+
+test('QR mode: a failing gateway is reported, the console stores its token encrypted and tests with a health check only, agents cannot switch it on', async () => {
+  turnOn(); qrPlatform(false);
+  await Int.configure('whatsapp_qr', { gateway_url: 'https://gw.example.test/', token: 'gatewaytoken-123456', enabled: true }, 'op@test');
+  const item = Int.registry().find((i) => i.id === 'whatsapp_qr');
+  assert.equal(item.configured, true); assert.ok(!JSON.stringify(item).includes('gatewaytoken-123456'));
+  assert.equal((await Int.test('whatsapp_qr', 'op@test', {})).ok, true);
+  await assert.rejects(() => Int.configure('whatsapp_qr', { gateway_url: 'http://insecure.test' }, 'op@test'), /https/);
+  const t = mkTenant();
+  gw.fail = true;
+  await as(t, async () => { Q.enableQr(staff(t), { acknowledge: true }); await assert.rejects(() => Q.startQr(staff(t), 'https://w.erp.test'), /could not start a session/); });
+  gw.fail = false;
+  const host = `${t.slug}.erp.test`;
+  const role = as(t, () => db.get("SELECT id FROM roles WHERE name='Sales Agent'").id);
+  as(t, () => { const hash = db.get('SELECT password_hash h FROM users LIMIT 1').h; db.run('INSERT INTO users(name,email,password_hash,role_id,created_at) VALUES(?,?,?,?,?)', 'Sam Seller', 'sam@qr.test', hash, role, '2026-01-01 00:00:00'); });
+  const lg = await call(host, 'POST', '/api/auth/login', { identifier: 'sam@qr.test', password: 'Tenant@12345' });
+  assert.equal((await call(host, 'POST', '/api/whatsapp/qr/enable', { acknowledge: true }, { cookie: lg.cookie })).status, 403);
+  assert.equal((await call(host, 'GET', '/api/whatsapp/qr/status', null, { cookie: lg.cookie })).status, 403);
+  assert.equal((await call(host, 'GET', '/api/whatsapp/qr/status', null, await login(t))).status, 200);
+  qrPlatform(true);
 });

@@ -30,3 +30,16 @@ No bulk send and no automated outbound message at all (not even a STOP confirmat
 * Inbound media is stored as a placeholder; outbound media, templates, delivery ticks, and starting a conversation are not built.
 * Opt-out keywords are English only. Consent law per country (opt-in evidence, quiet hours) needs legal input.
 * The chat polls every 10 s (no websocket).
+
+## Optional QR mode (v1.25, off by default, unofficial)
+Botlinkd has no QR/session API (confirmed on its FAQ). QR linking therefore needs a **separate gateway service** that runs a WhatsApp Web session; none is bundled, chosen or bought here. WhatsApp can restrict or ban numbers linked this way and nobody can reverse that.
+
+Switches (all default OFF): Console > Integrations > "WhatsApp QR gateway" (gateway https address, bearer token, master switch) AND the workspace's WhatsApp entitlement AND the workspace owner switching it on in Settings > WhatsApp with a ticked risk acknowledgement (stored with who and when). Switching a workspace off unlinks and forgets the session; the official connection is used again.
+
+Gateway contract (`server/src/integrations/qrGateway.js`), requests carry `Authorization: Bearer <token>`:
+- `POST /sessions` `{session_id, webhook_url, webhook_secret}` → 2xx
+- `GET /sessions/{id}` → `{status: qr|connecting|connected|disconnected, qr_image?: data:image/png;base64,…, number?}`
+- `DELETE /sessions/{id}`; `POST /sessions/{id}/messages` `{to, text}` → `{id?}`; `GET /health`
+- The gateway POSTs customer messages to `webhook_url` in the `message.received` JSON shape above with header `X-Signature` = HMAC-SHA256(webhook_secret, raw body) (hex). The QR webhook is always signed.
+
+Everything else is shared with the official mode: inbox, 24-hour reply rule, no bulk or automated sending, STOP blocking, per-person/daily/monthly limits. Tested with a fake gateway only; no real gateway or WhatsApp session has been run.

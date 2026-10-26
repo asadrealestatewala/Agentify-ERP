@@ -17,6 +17,7 @@ import { currentTenant } from '../context.js';
 import { whatsappAccess, REASON_TEXT } from './whatsappAccess.js';
 import { currentAssignment, logHumanResponse } from './leadFlow.js';
 import { submitLead } from './leads.js';
+import { mode as waMode, qrConfig, qrSend, qrView, QR } from './whatsappQr.js';
 
 export const PROVIDER = 'botlinkd';
 export const WINDOW_HOURS = 24;
@@ -36,9 +37,11 @@ export function connectionView(baseUrl) {
   const acc = whatsappAccess(t);
   const info = (() => { try { return JSON.parse(row?.public_info || '{}'); } catch { return {}; } })();
   const lastIn = get("SELECT MAX(created_at) at FROM wa_messages WHERE direction='in'")?.at || null;
+  const qr = qrView(), viaQr = qr.active;
   return {
+    mode: viaQr ? 'qr' : 'cloud', qr,
     access: { enabled: acc.enabled, reason: acc.reason, message: acc.reason ? REASON_TEXT[acc.reason] || 'WhatsApp is not available.' : null, monthly: acc.monthly, daily: acc.daily },
-    configured: !!cfg, state: !cfg ? 'not_configured' : row?.status || 'configured',
+    configured: viaQr ? true : !!cfg, state: viaQr ? qr.state : !cfg ? 'not_configured' : row?.status || 'configured',
     keys: cfg ? { appkey: mask(cfg.appkey), authkey: mask(cfg.authkey) } : null,
     number: info.number || null, signing_secret_saved: !!cfg?.signing_secret, connected_at: row?.connected_at || null, last_test_at: row?.last_test_at || null, last_error: row?.last_error || null,
     webhook_url: cfg && baseUrl ? `${baseUrl}/api/hooks/whatsapp/${cfg.webhook_token}` : null,
@@ -135,11 +138,12 @@ function ensureThread(waId, name) {
  * workspace's secret path token, and, when a signing secret is saved, a valid HMAC over the exact bytes.
  */
 export function receiveWebhook(token, rawBody, headers, payload) {
-  const cfg = integrationConfig(PROVIDER);
-  if (!cfg?.webhook_token || !token) return { status: 404, body: { ok: false } };
-  const a = Buffer.from(String(token)), b = Buffer.from(cfg.webhook_token);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return { status: 404, body: { ok: false } };
-  if (cfg.signing_secret && !verifySignature(cfg.signing_secret, rawBody, headers)) { logIntegration(PROVIDER, 'webhook', 'rejected', 'signature did not match'); return { status: 401, body: { ok: false } }; }
+  const same = (c) => { if (!c?.webhook_token || !token) return false; const a = Buffer.from(String(token)), b = Buffer.from(c.webhook_token); return a.length === b.length && crypto.timingSafeEqual(a, b); };
+  // the address's secret token picks the connection: the official Botlinkd one or the optional QR one
+  const prov = same(integrationConfig(PROVIDER)) ? PROVIDER : same(qrConfig()) ? QR : null;
+  if (!prov) return { status: 404, body: { ok: false } };
+  const cfg = integrationConfig(prov);
+  if (cfg.signing_secret && !verifySignature(cfg.signing_secret, rawBody, headers)) { logIntegration(prov, 'webhook', 'rejected', 'signature did not match'); return { status: 401, body: { ok: false } }; }
   if (!whatsappAccess(currentTenant()).enabled) return { status: 200, body: { ok: true } }; // not entitled: acknowledge, store nothing
   if (payload?.event !== 'message.received') return { status: 200, body: { ok: true } };
   const waId = cleanNumber(payload?.data?.sender?.wa_id);
@@ -165,7 +169,7 @@ export function receiveWebhook(token, rawBody, headers, payload) {
     const to = stored.thread.assigned_to ? [stored.thread.assigned_to] : managers();
     notify(to, 'whatsapp', 'New WhatsApp message', `${name || stored.thread.display_name || `+${waId}`}: ${body.slice(0, 80)}`, `/whatsapp?thread=${stored.thread.id}`);
   }
-  if (stored) { markTested(PROVIDER, true); }
+  if (stored) { markTested(prov, true); }
   return { status: 200, body: { ok: true } }; // no "reply" field: Botlinkd sends nothing back to the customer
 }
 
@@ -176,8 +180,10 @@ export async function sendReply(user, threadId, text) {
   const body = String(text ?? '').replace(/\r\n/g, '\n').trim();
   if (!body) throw bad('Type a message first.');
   if (body.length > MAX_TEXT) throw bad(`Keep a WhatsApp message under ${MAX_TEXT} characters.`);
+  const viaQr = waMode() === 'qr' && !!qrConfig(), prov = viaQr ? QR : PROVIDER;
   const cfg = integrationConfig(PROVIDER);
-  if (!cfg) throw bad('WhatsApp is not connected. Add your Botlinkd keys in Settings > WhatsApp.');
+  if (!viaQr && !cfg) throw bad('WhatsApp is not connected. Add your Botlinkd keys in Settings > WhatsApp.');
+  if (viaQr && integrationRow(QR)?.status !== 'connected') throw bad('The QR connection is not linked right now. Open Settings > WhatsApp and scan the QR code again.');
   const acc = whatsappAccess(currentTenant());
   if (!acc.enabled) throw bad(REASON_TEXT[acc.reason] || 'WhatsApp is not available.');
   if (optedOut(t.wa_id)) throw new HttpError(409, 'This customer asked not to be messaged on WhatsApp.');
@@ -189,10 +195,10 @@ export async function sendReply(user, threadId, text) {
   if (acc.monthly != null && u.month >= acc.monthly) throw new HttpError(429, 'The monthly WhatsApp limit for this workspace is used up.');
   const at = utcNow();
   let ref = null, err = null;
-  try { ref = (await whatsappProvider().sendText({ appkey: cfg.appkey, authkey: cfg.authkey, to: t.wa_id, message: body })).ref; }
+  try { ref = (viaQr ? await qrSend(t.wa_id, body) : await whatsappProvider().sendText({ appkey: cfg.appkey, authkey: cfg.authkey, to: t.wa_id, message: body })).ref; }
   catch (e) { err = e.kind ? e : classifyError(e.message, e.status); }
   const id = Number(run('INSERT INTO wa_messages(thread_id,direction,type,body,status,provider_ref,user_id,error,created_at) VALUES(?,?,?,?,?,?,?,?,?)', t.id, 'out', 'text', body, err ? 'failed' : 'sent', ref, user.id, err ? err.message : null, at).lastInsertRowid);
-  if (err) { markTested(PROVIDER, false, err.message); logIntegration(PROVIDER, 'send', 'error', `${err.kind}: ${err.message}`, user.id); }
+  if (err) { markTested(prov, false, err.message); logIntegration(prov, 'send', 'error', `${err.kind}: ${err.message}`, user.id); }
   else {
     run('UPDATE wa_threads SET last_message_at=?, last_preview=?, unread=0, assigned_to=COALESCE(assigned_to,?) WHERE id=?', at, `You: ${body}`.slice(0, 120), user.id, t.id);
     if (t.contact_id) {

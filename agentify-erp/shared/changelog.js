@@ -4,6 +4,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.28', date: '2026-10-26', title: 'Optional QR connection for WhatsApp',
+    items: [
+      { text: 'Workspaces can link a number by scanning a QR code instead of the official connection, when your Agentify administrator has switched this on. It is unofficial, so WhatsApp can ban the number; you must tick a warning to switch it on, and you can switch it off any time.', where: 'Settings > WhatsApp > QR connection' },
+    ],
+  },
+  {
     version: 'v1.27', date: '2026-10-26', title: 'New versions now announce themselves in your notifications',
     items: [
       { text: 'Whenever Agentify ERP is updated, everyone on your team gets one notification in the bell with a link to What\'s new, so nobody misses a new feature. It appears once per version and stays until you read it.', where: 'Notifications (bell); Menu > What\'s new' },

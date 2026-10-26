@@ -12,6 +12,7 @@ import { setMailConfig, setMailLogger, sendMail, layout } from './mailer.js';
 import { logSent } from './emailLog.js';
 import { listBackups } from './backup.js';
 import { bad, HttpError } from '../util.js';
+import { qrGateway } from '../integrations/qrGateway.js';
 import { whatsappProvider, cleanNumber, classifyError } from '../integrations/botlinkd.js';
 import { cleanWhatsappLimits } from './whatsappLimits.js';
 import { PROVIDERS as OAUTH, appCreds, saveAppCreds, clearAppCreds, testAppCreds } from './oauthApps.js';
@@ -82,6 +83,11 @@ export function registry() {
       settings: { appkey: mask(getSetting('botlinkd_appkey')), authkey: mask(getSetting('botlinkd_authkey')), platform_id: getSetting('botlinkd_platform_id') || '', enabled: getSetting('whatsapp_enabled') === '1', default_limits: (() => { try { return JSON.parse(getSetting('whatsapp_default_limits') || 'null'); } catch { return null; } })() },
       test: lastTest('botlinkd'),
       note: 'Every workspace connects its own Botlinkd account (its own keys and number) in Settings > WhatsApp; chats of different workspaces are never mixed. The keys saved here are the platform\'s own and are used for the test message only. Switching WhatsApp on does not give any workspace access: turn it on per plan, or per workspace, or as the platform default below.' },
+    { id: 'whatsapp_qr', name: 'WhatsApp QR gateway (unofficial, optional)', category: 'Messaging', purpose: 'Lets a workspace link a number by scanning a QR code instead of the official Botlinkd connection. Off by default.',
+      configured: !!(getSetting('whatsapp_qr_gateway_url') && getSetting('whatsapp_qr_gateway_token')),
+      settings: { gateway_url: getSetting('whatsapp_qr_gateway_url') || '', token: mask(getSetting('whatsapp_qr_gateway_token')), enabled: getSetting('whatsapp_qr_enabled') === '1' },
+      test: lastTest('whatsapp_qr'),
+      note: 'Unofficial: WhatsApp can ban numbers linked this way, and nobody can reverse a ban. Botlinkd does not offer QR, so this needs a separate gateway service that follows the contract in docs/whatsapp.md. Even when this switch is on, each workspace must switch QR on itself and tick a risk acknowledgement.' },
     { id: 'sms', name: 'SMS provider', category: 'Messaging', purpose: 'Text reminders to customers.', configured: false, settings: {}, test: null, available: false,
       note: 'No provider adapter is installed yet. Workspaces with their own Twilio account can send texts from the dialer.' },
   ];
@@ -102,6 +108,10 @@ export async function configure(id, b, actor) {
     if (b.platform_id !== undefined) { const v = String(b.platform_id || '').trim(); if (v && !/^[A-Za-z0-9_.\-]{3,40}$/.test(v)) throw bad('The platform identifier is letters, digits and - _ . only (3 to 40 characters)'); setSetting('botlinkd_platform_id', v || null, { by: actor }); }
     if (b.enabled !== undefined) setSetting('whatsapp_enabled', b.enabled ? '1' : null, { by: actor });
     if (b.default_limits !== undefined) { const l = cleanWhatsappLimits(b.default_limits); setSetting('whatsapp_default_limits', l ? JSON.stringify(l) : null, { by: actor }); }
+  } else if (id === 'whatsapp_qr') {
+    if (b.gateway_url !== undefined) { const v = String(b.gateway_url || '').trim(); if (v && !/^https:\/\/[^\s/]+\.[^\s/]+/i.test(v)) throw bad('The gateway address must start with https://'); setSetting('whatsapp_qr_gateway_url', v || null, { by: actor }); }
+    if (b.token) { const v = String(b.token).trim(); if (v.length < 12 || /\s/.test(v)) throw bad('The gateway token looks wrong (at least 12 characters, no spaces)'); setSetting('whatsapp_qr_gateway_token', v, { secret: true, by: actor }); }
+    if (b.enabled !== undefined) setSetting('whatsapp_qr_enabled', b.enabled ? '1' : null, { by: actor });
   } else if (id === 'ga4') {
     const v = String(b.measurement_id || '').trim().toUpperCase();
     if (v && !/^G-[A-Z0-9]{4,16}$/.test(v)) throw bad('A GA4 measurement ID looks like G-XXXXXXXXXX');
@@ -119,6 +129,7 @@ export async function configure(id, b, actor) {
 export async function disconnect(id, actor) {
   if (id === 'email') { setSetting('resend_api_key', null); setSetting('mail_from', null); setSetting('resend_webhook_secret', null); setSetting('mail_reply_to', null); }
   else if (id === 'botlinkd') { setSetting('botlinkd_appkey', null); setSetting('botlinkd_authkey', null); }
+  else if (id === 'whatsapp_qr') { setSetting('whatsapp_qr_gateway_url', null); setSetting('whatsapp_qr_gateway_token', null); setSetting('whatsapp_qr_enabled', null); }
   else if (id === 'ga4') setSetting('ga4_measurement_id', null);
   else if (id === 'alerts') setSetting('alerts_webhook_url', null);
   else if (id.startsWith('oauth_') && OAUTH[id.slice(6)]) clearAppCreds(id.slice(6));
@@ -143,6 +154,9 @@ export async function test(id, actor, { to, number } = {}) {
       if (!num) throw new Error('Enter the number to send the test to, in international form, digits only. Botlinkd has no read-only check, so the test sends one real message.');
       try { await whatsappProvider().sendText({ appkey, authkey, to: num, message: 'Agentify ERP: WhatsApp connection test. No reply is needed.' }); } catch (e) { throw classifyError(e.message, e.status); }
       outcome = 'success'; detail = `Botlinkd accepted a test message for ${num.slice(0, 3)}…${num.slice(-2)}`;
+    } else if (id === 'whatsapp_qr') {
+      try { await qrGateway().health(); } catch (e) { throw new Error(`The gateway did not answer its health check: ${e.message}`); }
+      outcome = 'success'; detail = 'The gateway answered its health check. No message was sent.';
     } else if (id === 'stripe') {
       const r = await testConnection(stripeConfig().secret_key);
       if (!r.ok) throw new Error(r.error);
