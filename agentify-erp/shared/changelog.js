@@ -4,6 +4,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.12', date: '2026-10-26', title: "What's new in the Super Admin console",
+    items: [
+      { text: "The Super Admin console has the same What's new page and shows the current version.", where: "Super Admin console > Dashboard > What's new" },
+    ],
+  },
+  {
     version: 'v1.11', date: '2026-10-26', title: "What's new page and version numbers",
     items: [
       { text: "A What's new page lists every update with its version number. The current version is shown at the bottom of the menu.", where: "Menu > What's new" },
