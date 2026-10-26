@@ -6,7 +6,7 @@ import TwoFactor from '../components/TwoFactor.jsx';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Workspaces, WorkspaceDetail, Expiry, FILTERS } from './SuperAdmin.jsx';
 import AdminShell, { PageTitle, Allowed } from './platform/AdminShell.jsx';
-import { AdminsPage, SessionsPage, LoginsPage, AuditPage, MaintenancePage } from './platform/Security.jsx';
+import { AdminsPage, SessionsPage, LoginsPage, AuditPage, MaintenancePage, EmailSafetyPage } from './platform/Security.jsx';
 import { ReportsPage, ReconciliationPage } from './platform/Reports.jsx';
 import { Dashboard, HealthPage, NotificationsPage, SetupPage } from './platform/Dashboard.jsx';
 import { PlansPage, TransactionsPage, SubscriptionHistoryPage } from './platform/Billing.jsx';
@@ -366,6 +366,7 @@ function ConsoleRoutes() {
         <Route path="admins" element={<Allowed perm="admins.manage"><AdminsPage /></Allowed>} />
         <Route path="security" element={page('Two-factor sign-in', 'Protect your console account with an authenticator app.', <TwoFactor base={`${A}/2fa`} />)} />
         <Route path="security/sessions" element={<SessionsPage />} />
+        <Route path="security/email" element={<Allowed perm="system.view"><EmailSafetyPage /></Allowed>} />
         <Route path="security/logins" element={<Allowed perm="audit.view"><LoginsPage /></Allowed>} />
         <Route path="maintenance" element={<Allowed perm="system.view"><MaintenancePage /></Allowed>} />
         <Route path="backups" element={<Allowed perm="system.view">{page('Backups', null, <Backups />)}</Allowed>} />

@@ -131,6 +131,7 @@ const USER_ACTIONS = [
   ['verify-email', 'Mark email as confirmed'],
   ['resend-verify', 'Resend confirmation email'],
   ['disable-2fa', 'Turn off two-factor sign-in'],
+  ['disable-login-otp', 'Turn off the workspace email sign-in code'],
   ['sign-out', 'Sign out everywhere'],
 ];
 
@@ -157,7 +158,7 @@ export function WorkspaceDetail({ id, onClose, onChanged }) {
     const out = await post(`${A}/workspaces/${id}/users/${u.id}/${action}`, { email: act === 'reset-email' }, null);
     if (!out) return;
     if (out.link) setModal({ kind: 'link', user: u, ...out });
-    else toast({ 'verify-email': 'Email marked as confirmed', 'resend-verify': out.email_sent ? 'Confirmation email sent' : 'Email not sent (no mail key): link printed in the server window', 'disable-2fa': 'Two-factor sign-in turned off', 'sign-out': 'Signed out everywhere', activate: 'User can sign in again', deactivate: 'User deactivated' }[act] || 'Done');
+    else toast({ 'verify-email': 'Email marked as confirmed', 'resend-verify': out.email_sent ? 'Confirmation email sent' : 'Email not sent (no mail key): link printed in the server window', 'disable-2fa': 'Two-factor sign-in turned off', 'disable-login-otp': 'Email sign-in code turned off for this workspace', 'sign-out': 'Signed out everywhere', activate: 'User can sign in again', deactivate: 'User deactivated' }[act] || 'Done');
   };
 
   if (!d) return <Drawer title="Workspace" onClose={onClose} size="lg"><Loading /></Drawer>;

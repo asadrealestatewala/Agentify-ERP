@@ -315,6 +315,9 @@ CREATE TABLE IF NOT EXISTS auth_tokens(
 CREATE INDEX IF NOT EXISTS idx_auth_tokens_kind ON auth_tokens(kind, email);
 -- email-address confirmation links (a separate table: auth_tokens.kind has a CHECK that older databases cannot change)
 CREATE TABLE IF NOT EXISTS verify_tokens(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, token_hash TEXT UNIQUE NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL);
+-- browsers/addresses each person has signed in from, so a sign-in from somewhere new can be flagged (services/loginAlerts.js)
+CREATE TABLE IF NOT EXISTS login_devices(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, device_hash TEXT NOT NULL, ip TEXT NOT NULL, user_agent TEXT, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, UNIQUE(user_id, device_hash, ip));
+CREATE TABLE IF NOT EXISTS login_alerts(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, ip TEXT, created_at TEXT NOT NULL);
 -- training videos: the library of finished videos and which roles may watch each one
 CREATE TABLE IF NOT EXISTS training_library(
   id INTEGER PRIMARY KEY, title TEXT NOT NULL, description TEXT, category TEXT NOT NULL DEFAULT 'System overview', path TEXT NOT NULL, mime TEXT, size INTEGER NOT NULL DEFAULT 0,

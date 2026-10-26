@@ -9,7 +9,7 @@ import { t, getLanguage, chooseLanguage } from '../i18n.js';
 import { getRegion } from '../format.js';
 
 export default function Login({ portal = false, vendor = false, staff = false }) {
-  const { login, loginMfa, adopt } = useAuth();
+  const { login, loginMfa, loginOtp, resendOtp, adopt } = useAuth();
   const brand = useBrand();
   // on a company's own address the page speaks for that company, never for the Agentify product
   const own = brand.workspace;
@@ -21,6 +21,8 @@ export default function Login({ portal = false, vendor = false, staff = false })
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [mfa, setMfa] = useState(null);
+  const [otp, setOtp] = useState(null); // { token, hint } while the emailed code is awaited
+  const [note, setNote] = useState('');
   const [code, setCode] = useState('');
   // returning from Google or Apple: trade the one-time code for a session
   useEffect(() => {
@@ -32,8 +34,12 @@ export default function Login({ portal = false, vendor = false, staff = false })
   const submit = async (e) => {
     e.preventDefault(); setBusy(true); setErr('');
     const done = () => nav(portal ? (new RegExp(vendor ? '^/vendor(/|$)' : '^/portal(/|$)').test(next) && !next.includes('//') ? next : '/portal') : '/', { replace: true });
-    try { const u = await (mfa ? loginMfa(mfa, code) : login(id, pw, portal)); if (u.mfa_required) { setMfa(u.mfa_token); setCode(''); } else done(); } catch (er) { setErr(er.message); if (mfa && /expired/i.test(er.message)) setMfa(null); } finally { setBusy(false); }
+    try {
+      const u = await (mfa ? loginMfa(mfa, code) : otp ? loginOtp(otp.token, code) : login(id, pw, portal));
+      if (u.mfa_required) { setMfa(u.mfa_token); setCode(''); } else if (u.otp_required) { setOtp({ token: u.otp_token, hint: u.email_hint }); setCode(''); } else done();
+    } catch (er) { setErr(er.message); if (mfa && /expired/i.test(er.message)) setMfa(null); if (otp && /sign-in expired/i.test(er.message)) setOtp(null); } finally { setBusy(false); }
   };
+  const again = async () => { setErr(''); setNote(''); try { await resendOtp(otp.token); setNote('A new code is on its way.'); } catch (er) { setErr(er.message); } };
   const FEATS = portal
     ? (vendor ? [['wallet', 'green', 'Payments & balance'], ['history', 'blue', 'Account ledger'], ['file', 'violet', 'Open contracts & bids'], ['badge', 'orange', 'Your registration']] : [['building', 'violet', 'Your properties'], ['wallet', 'green', 'Installments & receipts'], ['hardhat', 'orange', 'Site progress'], ['file', 'blue', 'Documents & offers']])
     : [['users', 'blue', 'Leads & CRM'], ['badge', 'violet', 'Sales & bookings'], ['wallet', 'green', 'Accounts & vouchers'], ['briefcase', 'orange', 'HR & attendance']];
@@ -50,14 +56,16 @@ export default function Login({ portal = false, vendor = false, staff = false })
         <div><h2>{vendor ? t('auth.vendor_sign_in', 'Vendor sign in') : portal ? t('auth.customer_sign_in', 'Customer sign in') : t('auth.sign_in', 'Sign in')}</h2><div className="muted" style={{ marginTop: 4 }}>{vendor ? 'Use the e-mail address you registered with the company.' : portal ? 'Use the email or phone number registered with us.' : 'Welcome back. Enter your work email and password.'}</div></div>
         {(getRegion().config.languages || []).length > 1 && <label className="muted" style={{ fontSize: 13 }}>{t('lang.label', 'Language')}: <select className="input" style={{ width: 'auto', display: 'inline-block' }} value={getLanguage()} onChange={(e) => chooseLanguage(e.target.value)}>{getRegion().config.languages.map((l) => <option key={l} value={l}>{{ en: 'English', fr: 'Français', ar: 'العربية' }[l] || l}</option>)}</select></label>}
         {err && <div className="alert err" role="alert">{err}</div>}
-        {mfa ? <Field label="Authenticator code" hint="Open your authenticator app and enter the 6-digit code, or use a recovery code."><input className="input" autoFocus inputMode="text" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required /></Field> : <>
+        {note && <div className="alert ok" role="status">{note}</div>}
+        {otp ? <><Field label="Code from your email" hint={`We sent a 6-digit code to ${otp.hint}. It expires in 10 minutes.`}><input className="input" autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} required /></Field>
+          <button type="button" className="btn ghost" onClick={again}>Send a new code</button></> : mfa ? <Field label="Authenticator code" hint="Open your authenticator app and enter the 6-digit code, or use a recovery code."><input className="input" autoFocus inputMode="text" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required /></Field> : <>
         <Field label={portal ? t('auth.email_or_phone', 'Email or phone') : t('auth.email', 'Email')}><input className="input" autoFocus value={id} onChange={(e) => setId(e.target.value)} autoComplete="username" required /></Field>
         <Field label={t('auth.password', 'Password')}><input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" required /></Field>
         </>}
-        <button className="btn primary" disabled={busy}>{busy ? t('auth.signing_in', 'Signing in…') : mfa ? t('auth.verify', 'Verify') : t('auth.sign_in', 'Sign in')}</button>
+        <button className="btn primary" disabled={busy}>{busy ? t('auth.signing_in', 'Signing in…') : mfa || otp ? t('auth.verify', 'Verify') : t('auth.sign_in', 'Sign in')}</button>
         {!vendor && <div className="center muted"><Link to="/forgot-password">{t('auth.forgot', 'Forgot password?')}</Link>{!portal && !own && <> · <Link to="/signup">{t('auth.create_workspace', 'Create a workspace')}</Link></>}</div>}
         <div className="center muted">{portal ? <>{!own && <><Link to="/login">{t('auth.staff_sign_in', 'Staff sign in')}</Link> · </>}{vendor ? <Link to="/portal/login">Customer portal</Link> : <Link to="/vendor/login">Vendor portal</Link>}</> : <><Link to="/portal/login">Customer portal →</Link> · <Link to="/vendor/login">Vendor portal →</Link></>}</div>
-        {!portal && !vendor && !mfa && brand.sso.length > 0 && (
+        {!portal && !vendor && !mfa && !otp && brand.sso.length > 0 && (
           <div className="stack" style={{ marginTop: 4 }}>
             <div className="center muted" style={{ fontSize: 13 }}>or continue with</div>
             <div className="row" style={{ justifyContent: 'center', gap: 10 }}>

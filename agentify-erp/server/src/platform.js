@@ -61,6 +61,14 @@ CREATE TABLE IF NOT EXISTS payment_submissions(
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pay_sub_ref ON payment_submissions(method, lower(reference)) WHERE status<>'rejected';
 -- platform-level configuration edited from the admin console; secret values are stored encrypted (services/platformConfig.js)
 CREATE TABLE IF NOT EXISTS platform_settings(key TEXT PRIMARY KEY, value TEXT, secret INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL DEFAULT (datetime('now')), updated_by TEXT);
+-- one-time email codes (signup proof of mailbox, workspace sign-in): only an HMAC of the code is stored (services/emailOtp.js)
+CREATE TABLE IF NOT EXISTS email_otps(
+  id INTEGER PRIMARY KEY, purpose TEXT NOT NULL, email TEXT NOT NULL, tenant_id INTEGER, user_id INTEGER, code_hash TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0, ip TEXT, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE INDEX IF NOT EXISTS idx_email_otps_lookup ON email_otps(purpose, email, tenant_id, id);
+-- the Super Admin's own list of email domains to refuse (or always accept) on top of the built-in disposable list
+CREATE TABLE IF NOT EXISTS email_domain_rules(
+  domain TEXT PRIMARY KEY, action TEXT NOT NULL CHECK(action IN ('block','allow')), note TEXT, created_by TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
 -- where customers send money for the local methods (Raast, Easypaisa, JazzCash, SadaPay, NayaPay, bank)
 CREATE TABLE IF NOT EXISTS payment_accounts(
   id INTEGER PRIMARY KEY, method TEXT NOT NULL, account TEXT NOT NULL, account_name TEXT, note TEXT, active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0,

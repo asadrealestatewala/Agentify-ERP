@@ -15,6 +15,8 @@ import { recordServerEvent, collect } from '../services/analytics.js';
 import { publicAnnouncements } from '../services/announcements.js';
 import { listAddons } from '../services/commerce.js';
 import { issueVerification } from '../services/accessLinks.js';
+import { assertEmailAllowed, signupCodeRequired } from '../services/disposableEmail.js';
+import { sendCode, checkCode, canEmailCodes, signupProof, signupProofValid, consumeSignupProof } from '../services/emailOtp.js';
 import { get, run } from '../db.js';
 import adminRoutes from './platformAdmin.js';
 import { verifyWebhook } from '../services/mailbox.js';
@@ -51,7 +53,7 @@ r.get('/site', (req, res) => {
   const landing = isMultiTenant() && onPlatformHost(req);
   if (!landing) return res.json({ landing: false, multi_tenant: isMultiTenant() });
   const methods = [...new Set(platformDb().prepare('SELECT method FROM payment_accounts WHERE active=1 ORDER BY sort_order, id').all().map((a) => a.method))];
-  res.json({ landing: true, regions: [...selectableRegions(platformDb()).values()].map((p) => ({ code: p.code, name: p.name, currency: p.currency, sub_region_label: p.sub_region_label, sub_regions: p.sub_regions, languages: p.languages })), countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, base_domain: BASE_DOMAIN, free_sites: { open: freeSitesOpen(), domain: freeSitesOpen() ? sitesDomain() : null }, trial_days: PLAN_SETTINGS.default_trial_days, plans: planCatalog(), products: PRODUCTS, addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })), local_methods: methods, cards: stripe.stripeConfigured() });
+  res.json({ landing: true, regions: [...selectableRegions(platformDb()).values()].map((p) => ({ code: p.code, name: p.name, currency: p.currency, sub_region_label: p.sub_region_label, sub_regions: p.sub_regions, languages: p.languages })), countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, base_domain: BASE_DOMAIN, free_sites: { open: freeSitesOpen(), domain: freeSitesOpen() ? sitesDomain() : null }, trial_days: PLAN_SETTINGS.default_trial_days, plans: planCatalog(), products: PRODUCTS, addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })), local_methods: methods, cards: stripe.stripeConfigured(), signup_email_code: signupCodeNeeded() });
 });
 
 /** Approximate country and city of the visitor, for the marketing headline only (see services/geo.js). Never blocks the page. */
@@ -100,6 +102,25 @@ r.get('/google-identity', asyncH((req, res) => {
 /** The web server asks this before it issues an HTTPS certificate for a host name (Caddy on-demand TLS "ask"). */
 r.get('/domain-check', (req, res) => res.sendStatus(mayIssueCertificate(req.query.domain) ? 200 : 404));
 
+/** The signup form asks for a code only when the platform can really email one (otherwise there is nothing to type). */
+const signupCodeNeeded = () => signupCodeRequired() && canEmailCodes();
+const codeLimiter = rateLimit({ windowMs: 60 * 60_000, limit: Number(process.env.SIGNUP_CODE_LIMIT) || 30, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many codes asked for from this address. Try again later.' } });
+/** Step 1 of signup: refuse throw-away addresses, then email a 6-digit code to the one typed. */
+r.post('/signup/email-code', codeLimiter, asyncH(async (req, res) => {
+  if (!isMultiTenant()) throw new HttpError(404, 'Workspace signup is switched off on this server.');
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  await assertEmailAllowed(email);
+  if (!signupCodeNeeded()) return res.json({ required: false });
+  const out = await sendCode({ purpose: 'signup', email, ip: req.ip, heading: 'Confirm your email address', intro: 'Enter this code on the Agentify ERP signup page to confirm your email address.' });
+  res.json({ required: true, ...out });
+}));
+/** Step 2: the right code returns a single-use proof that the signup form sends along with the rest. */
+r.post('/signup/verify-code', codeLimiter, asyncH((req, res) => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const row = checkCode({ purpose: 'signup', email, code: req.body?.code });
+  res.json({ proof: signupProof(email, row.id) });
+}));
+
 /** Self-serve signup: creates the workspace (own database + uploads), its base configuration and the first admin. */
 r.post('/signup', signupLimiter, asyncH(async (req, res) => {
   if (!isMultiTenant()) throw new HttpError(404, 'Workspace signup is switched off: this server is running in single-company mode. Start it with ERP_BASE_DOMAIN=localhost (run-agentify-erp.bat does this).');
@@ -112,6 +133,11 @@ r.post('/signup', signupLimiter, asyncH(async (req, res) => {
     if (!t || t.purpose !== 'google-signup' || !t.email) throw bad('Your Google sign-in expired. Choose Continue with Google again.');
     google = t;
   }
+  // not through Google: refuse throw-away addresses and ask for proof that the mailbox is theirs
+  if (!google) {
+    await assertEmailAllowed(b.admin_email);
+    if (signupCodeNeeded() && !signupProofValid(b.email_proof, b.admin_email)) throw bad('Confirm your email address with the code we email you, then try again.');
+  }
   const free = b.product === 'website';
   if (free) {
     if (!freeSitesOpen()) throw new HttpError(403, 'Free websites are not open yet.');
@@ -122,25 +148,28 @@ r.post('/signup', signupLimiter, asyncH(async (req, res) => {
     slug: b.slug, name: b.company_name, adminName: String(b.admin_name || (google && google.name) || '').trim() || 'Admin', adminEmail: google ? google.email : b.admin_email, adminPassword: google ? crypto.randomBytes(24).toString('base64url') : b.admin_password,
     timezone: b.timezone || 'Asia/Karachi', currency: b.currency || 'PKR', region: b.region || 'PK', sub_region: b.sub_region || null, language: b.language || null, demo: !free && b.sample_data === true && String(b.region || 'PK').toUpperCase() !== 'PK', product: free ? 'website' : b.product || 'real_estate', trialPolicy: !free,
   });
+  if (!google && signupCodeNeeded()) consumeSignupProof(b.email_proof);
   // which version of the Terms the owner accepted (0 = the unpublished template) and when
   platformDb().prepare('UPDATE tenants SET terms_version=?, terms_accepted_at=? WHERE id=?').run(termsVersion(), new Date().toISOString(), tenant.id);
   const url = urlFor(tenant.slug, req);
   const origin = url || `${req.protocol}://${req.get('host')}`;
   // the owner confirms the address with the link in the welcome email; until then they cannot invite others (stops the form being used to mail strangers)
   let ownerId = null;
+  const proved = !!google || signupCodeNeeded(); // Google, or the emailed code, already proved the mailbox
   const token = withTenant(tenant, () => {
     const owner = get('SELECT id FROM users WHERE lower(email)=lower(?)', tenant.owner_email);
     ownerId = owner.id;
-    run('UPDATE users SET email_verified=?, contact_id=NULL WHERE id=?', google ? 1 : 0, owner.id);
-    return google ? null : issueVerification(owner.id);
+    // a code confirmed at signup already proved the mailbox; the welcome email then needs no confirm step
+    run('UPDATE users SET email_verified=?, contact_id=NULL WHERE id=?', proved ? 1 : 0, owner.id);
+    return proved ? null : issueVerification(owner.id);
   });
   const siteUrl = publicSiteUrl(tenant, req);
-  const mail = layout({ brand: 'platform', heading: free ? `Your free website ${tenant.name} is ready to build` : `Your ${tenant.name} workspace is ready`, lines: [free ? `Your website will be public at ${siteUrl} once you publish it. Publishing needs a confirmed email address.` : '', google ? `You signed up with Google as ${tenant.owner_email}, so there is nothing to confirm. Sign in with Google any time, or use Forgot password to set a password.` : `Confirm ${tenant.owner_email} with the button below, then sign in to start setting up your company.`, tenant.trial_ends_at ? `Your ${PLAN_SETTINGS.default_trial_days}-day free trial runs until ${tenant.trial_ends_at.slice(0, 10)} (UTC).` : tenant.trial_note ? `${tenant.trial_note}. Choose a plan in Settings > Plan & Billing to start.` : ''].filter(Boolean), button: google ? { label: 'Open your workspace', url: origin } : { label: 'Confirm email and open workspace', url: `${origin}/verify-email/${token}` } });
+  const mail = layout({ brand: 'platform', heading: free ? `Your free website ${tenant.name} is ready to build` : `Your ${tenant.name} workspace is ready`, lines: [free ? `Your website will be public at ${siteUrl} once you publish it. Publishing needs a confirmed email address.` : '', google ? `You signed up with Google as ${tenant.owner_email}, so there is nothing to confirm. Sign in with Google any time, or use Forgot password to set a password.` : proved ? `${tenant.owner_email} is confirmed. Sign in to start setting up your company.` : `Confirm ${tenant.owner_email} with the button below, then sign in to start setting up your company.`, tenant.trial_ends_at ? `Your ${PLAN_SETTINGS.default_trial_days}-day free trial runs until ${tenant.trial_ends_at.slice(0, 10)} (UTC).` : tenant.trial_note ? `${tenant.trial_note}. Choose a plan in Settings > Plan & Billing to start.` : ''].filter(Boolean), button: proved ? { label: 'Open your workspace', url: origin } : { label: 'Confirm email and open workspace', url: `${origin}/verify-email/${token}` } });
   await sendMail({ type: 'welcome', to: tenant.owner_email, subject: `Welcome: ${tenant.name} is ready`, ...mail });
   recordServerEvent('signup_completed', { ...(b.analytics || {}), product: tenant.product, tenant_id: tenant.id });
   // the browser is sent into the new workspace already signed in (one-time code, valid two minutes), not to its sign-in page
   const enter = url && ownerId ? `${url}/login?sso=${issueLoginCode(tenant.id, ownerId, 'signup')}` : null;
-  res.status(201).json({ tenant: publicView(tenant), login_url: url, enter_url: enter, site_url: free ? siteUrl : undefined });
+  res.status(201).json({ tenant: publicView(tenant), email_confirmed: proved, login_url: url, enter_url: enter, site_url: free ? siteUrl : undefined });
 }));
 
 r.get('/tenants', requireOperator, need('workspaces.view'), (_req, res) => res.json(listTenants().map(publicView)));
@@ -221,7 +250,7 @@ r.get('/marketing', asyncH((req, res) => {
   const regions = [...selectableRegions(platformDb()).values()].map((p) => ({ code: p.code, name: p.name, currency: p.currency, sub_region_label: p.sub_region_label, sub_regions: p.sub_regions, languages: p.languages }));
   res.json({ content: { ...publicContent(), reviews: publicReviews() }, base_domain: BASE_DOMAIN, free_sites: { open: freeSitesOpen(), domain: freeSitesOpen() ? sitesDomain() : null }, regions, countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, trial_days: PLAN_SETTINGS.default_trial_days, one_trial_per_email: PLAN_SETTINGS.one_trial_per_email, products: PRODUCTS,
     plans: planCatalog().filter((p) => PLANS[p.id]?.visible), addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })),
-    google_signup: !!appCreds('google'), local_methods: methods, cards: stripe.stripeConfigured(), terms_version: termsVersion(), ga4_id: getSetting('ga4_measurement_id') || null });
+    google_signup: !!appCreds('google'), local_methods: methods, cards: stripe.stripeConfigured(), signup_email_code: signupCodeNeeded(), terms_version: termsVersion(), ga4_id: getSetting('ga4_measurement_id') || null });
 }));
 r.get('/announcements', asyncH((req, res) => { mainOnly(req); res.json(publicAnnouncements()); }));
 r.get('/legal/:slug', asyncH((req, res) => { mainOnly(req); res.json(publicLegal(req.params.slug)); }));

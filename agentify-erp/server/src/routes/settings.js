@@ -4,6 +4,7 @@ import { Router } from 'express';
 import { snapshotCurrent } from '../services/backup.js';
 import bcrypt from 'bcryptjs';
 import { all, get, run, tx, getSetting, setSetting } from '../db.js';
+import { assertEmailAllowed } from '../services/disposableEmail.js';
 import { can, hasPerm, MODULES, ACTIONS, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { crud, uploader } from './helpers.js';
@@ -91,9 +92,10 @@ r.get('/users', can('settings', 'view'), (req, res) => {
   res.json(all(`SELECT u.id,u.name,u.email,u.phone,u.active,u.role_id,r.name role,u.last_login,u.is_demo,u.created_at,u.totp_enabled,u.email_verified
     FROM users u JOIN roles r ON r.id=u.role_id WHERE r.portal=0 ORDER BY u.id`));
 });
-r.post('/users', can('settings', 'create'), asyncH((req, res) => {
+r.post('/users', can('settings', 'create'), asyncH(async (req, res) => {
   const { name, email, phone, password, role_id } = req.body;
   if (!name || !email || !role_id) throw bad('Name, email and role are required');
+  await assertEmailAllowed(email);
   if (!password || String(password).length < 8) throw bad('Password must be at least 8 characters');
   if (get('SELECT id FROM users WHERE lower(email)=lower(?)', email)) throw bad('A user with this email already exists');
   const role = get('SELECT * FROM roles WHERE id=?', role_id);

@@ -23,6 +23,11 @@ export const signToken = (user) => jwt.sign({ uid: user.id, tv: user.token_versi
 
 /** Short-lived proof that the password step passed, for accounts that still owe a 2FA code. It is not a session: it carries no `tv`. */
 export const signMfaToken = (user) => jwt.sign({ uid: user.id, tid: currentTenant()?.id ?? null }, SECRET, { expiresIn: '5m', audience: 'mfa' });
+/** Between the password and the emailed code at sign-in (services/emailOtp.js). */
+export const signOtpToken = (user) => jwt.sign({ uid: user.id, tid: currentTenant()?.id ?? null }, SECRET, { expiresIn: '15m', audience: 'login-otp' });
+export function readOtpToken(tok) {
+  try { const p = jwt.verify(String(tok || ''), SECRET, { audience: 'login-otp' }); return p.tid === (currentTenant()?.id ?? null) ? p.uid : null; } catch { return null; }
+}
 export function readMfaToken(tok) {
   try { const p = jwt.verify(String(tok || ''), SECRET, { audience: 'mfa' }); return p.tid === (currentTenant()?.id ?? null) ? p.uid : null; } catch { return null; }
 }

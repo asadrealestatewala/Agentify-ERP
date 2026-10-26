@@ -247,6 +247,7 @@ const userIn = (uid) => {
  *   verify-email   mark the address confirmed (the owner could not find the welcome email)
  *   resend-verify  send a fresh confirmation email
  *   disable-2fa    turn off two-factor sign-in (lost phone)
+ *   disable-login-otp   turn off the workspace's email sign-in code (its email cannot be delivered)
  *   activate / deactivate   allow or block sign-in
  *   sign-out       end every session of that user
  */
@@ -274,6 +275,7 @@ export async function userAction(tenantId, userId, action, { email = false } = {
         out = { email_sent: await sendMail({ type: 'verification', to: u.email, subject: 'Confirm your email address', ...layout({ brand: 'platform', heading: 'Confirm your email address', lines: [`Hi ${u.name}, please confirm this address for ${t.name}.`], button: { label: 'Confirm email', url: `${base}/verify-email/${token}` } }) }) };
         break;
       }
+      case 'disable-login-otp': run("INSERT INTO settings(key,value) VALUES('login_email_otp','off') ON CONFLICT(key) DO UPDATE SET value='off'"); break;
       case 'disable-2fa': run('UPDATE users SET totp_enabled=0, totp_secret=NULL, recovery_codes=NULL, token_version=token_version+1 WHERE id=?', u.id); break;
       case 'activate': run('UPDATE users SET active=1 WHERE id=?', u.id); break;
       case 'deactivate': {

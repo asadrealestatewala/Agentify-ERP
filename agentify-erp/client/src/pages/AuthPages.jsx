@@ -4,6 +4,7 @@ import Icon from '../components/Icon.jsx';
 import { Field, Loading } from '../components/ui.jsx';
 import { useAuth } from '../context.jsx';
 import { api } from '../api.js';
+import EmailCodeStep from '../components/EmailCodeStep.jsx';
 
 /** Shared frame for the account pages (signup, forgot/reset password, accept invitation). */
 function Shell({ eyebrow, title, lead, children, side }) {
@@ -37,8 +38,10 @@ export function Signup() {
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
   const timer = useRef();
   const [regions, setRegions] = useState([]);
+  const [codeOn, setCodeOn] = useState(false);
+  const [proof, setProof] = useState('');
   const [mode, setMode] = useState(null); // null while checking, false when the server runs in single-company mode
-  useEffect(() => { api.get('/api/platform/site').then((s) => { setMode(s.landing || s.multi_tenant); setRegions(s.regions || []); }).catch(() => setMode(undefined)); }, []);
+  useEffect(() => { api.get('/api/platform/site').then((s) => { setMode(s.landing || s.multi_tenant); setRegions(s.regions || []); setCodeOn(!!s.signup_email_code); }).catch(() => setMode(undefined)); }, []);
   useEffect(() => {
     if (!f.slug) { setAvail(null); return undefined; }
     clearTimeout(timer.current);
@@ -48,8 +51,9 @@ export function Signup() {
   const submit = async (e) => {
     e.preventDefault(); setErr('');
     if (!f.accept_terms) { setErr('Please accept the Terms of Service and Privacy Policy to create a workspace'); return; }
+    if (codeOn && !proof) { setErr('Confirm your email address with the code we email you first'); return; }
     setBusy(true);
-    try { setDone(await api.post('/api/platform/signup', f)); } catch (er) { setErr(/^Endpoint not found$/i.test(er.message) ? 'This server is an older version without workspace signup. Stop it and start the new project with run-agentify-erp.bat, then open http://localhost:4000/signup.' : er.message); } finally { setBusy(false); }
+    try { setDone(await api.post('/api/platform/signup', { ...f, email_proof: proof || undefined })); } catch (er) { setErr(/^Endpoint not found$/i.test(er.message) ? 'This server is an older version without workspace signup. Stop it and start the new project with run-agentify-erp.bat, then open http://localhost:4000/signup.' : er.message); } finally { setBusy(false); }
   };
   // straight into the new workspace, already signed in (the one-time code lasts two minutes, so do it now)
   const [checking, setChecking] = useState(false);
@@ -93,6 +97,7 @@ export function Signup() {
         </Field>
         <Field label="Your name" required><input className="input" value={f.admin_name} required onChange={set('admin_name')} autoComplete="name" /></Field>
         <Field label="Work email" required><input className="input" type="email" value={f.admin_email} required onChange={set('admin_email')} autoComplete="email" /></Field>
+        {codeOn && <EmailCodeStep email={f.admin_email} onProof={setProof} />}
         <Field label="Password" required hint="At least 8 characters"><input className="input" type="password" minLength={8} value={f.admin_password} required onChange={set('admin_password')} autoComplete="new-password" /></Field>
         {regions.length > 1 ? (() => {
           const reg = regions.find((x) => x.code === (f.region || 'PK')) || regions[0];

@@ -16,6 +16,7 @@ import { resolveRange, utcStart, addDays, buckets, keyExpr } from '../services/p
 import { COOKIE, login, loginMfa, changePassword, requireOperator, onPlatformHost, twofaStatus, twofaSetup, twofaEnable, twofaDisable,
   loginMeta, endSession, listSessions, revokeSession, revokeAllFor, loginHistory, mfaRequired } from '../services/platformAuth.js';
 import { ROLES, PERMISSIONS, TOP_ROLES, permsOf, can, need, auditContext, onDenied } from '../services/platformAccess.js';
+import { getSwitches, setSwitches, listRules as listEmailRules, addRule as addEmailRule, removeRule as removeEmailRule, checkEmail } from '../services/disposableEmail.js';
 import { getMaintenance, setMaintenance, recentErrors } from '../services/maintenance.js';
 import { reportList, runReport, exportReport, savedViews, saveView, deleteView, reconcile } from '../services/platformReports.js';
 import { stripeView, saveStripe, stripeConfig, STRIPE_MODES, audit, getSetting, setSetting } from '../services/platformConfig.js';
@@ -533,6 +534,26 @@ r.put('/security-settings', requireOperator, need('admins.manage'), asyncH((req,
   audit(req.operator.email, on ? 'require-2fa-on' : 'require-2fa-off');
   res.json({ require_2fa: mfaRequired() });
 }));
+
+// ---- Email safety: refuse throw-away addresses and require a code at signup (services/disposableEmail.js, emailOtp.js)
+r.get('/email-safety', requireOperator, need('system.view'), (_req, res) => res.json({ ...getSwitches(), ...listEmailRules() }));
+r.put('/email-safety', requireOperator, need('system.manage'), asyncH((req, res) => {
+  const out = setSwitches(req.body || {}, req.operator.email);
+  audit(req.operator.email, 'email-safety-switches', out);
+  res.json({ ...out, ...listEmailRules() });
+}));
+r.post('/email-safety/rules', requireOperator, need('system.manage'), asyncH((req, res) => {
+  const domain = addEmailRule(req.body || {}, req.operator.email);
+  audit(req.operator.email, 'email-domain-rule', { domain, action: req.body?.action });
+  res.status(201).json({ ...listEmailRules(), domain });
+}));
+r.delete('/email-safety/rules/:domain', requireOperator, need('system.manage'), asyncH((req, res) => {
+  if (!removeEmailRule(req.params.domain)) throw new HttpError(404, 'That domain is not in your list');
+  audit(req.operator.email, 'email-domain-rule-removed', { domain: req.params.domain });
+  res.json(listEmailRules());
+}));
+/** "Would this address be accepted at signup?" for support staff and for trying a domain before adding it. */
+r.post('/email-safety/check', requireOperator, need('system.view'), asyncH(async (req, res) => res.json(await checkEmail(req.body?.email))));
 
 // ---- Maintenance mode and recent errors
 r.get('/maintenance', requireOperator, need('system.view'), (_req, res) => res.json(getMaintenance()));
