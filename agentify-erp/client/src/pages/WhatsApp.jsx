@@ -11,10 +11,50 @@ import { dateTimeUtc } from '../format.js';
 const who = (t) => t.contact_name || t.display_name || `+${t.wa_id}`;
 const hoursLeft = (iso) => Math.max(0, Math.round((Date.parse(iso) - Date.now()) / 360000) / 10);
 
-function ThreadList({ items, sel, onSelect, filter, setFilter, q, setQ, status, setStatus }) {
+/** Send one approved template to one person: the only way to start a chat, or to write again after the 24-hour window. */
+function TemplateModal({ thread, templates, onClose, onSent }) {
+  const toast = useToast();
+  const ready = (templates || []).filter((x) => x.approved);
+  const [key, setKey] = useState(ready[0] ? `${ready[0].name}/${ready[0].language}` : '');
+  const [vals, setVals] = useState({});
+  const [number, setNumber] = useState('');
+  const [name, setName] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const tpl = ready.find((x) => `${x.name}/${x.language}` === key);
+  const needConsent = !thread?.last_inbound_at;
+  const values = (tpl?.params || []).map((_, i) => vals[`${key}:${i}`] || '');
+  const send = async () => {
+    setBusy(true);
+    try {
+      const body = { template: tpl.name, language: tpl.language, values, consent, ...(thread ? {} : { number, name }) };
+      const m = await api.post(thread ? `/api/whatsapp/threads/${thread.id}/template` : '/api/whatsapp/threads/start', body);
+      toast('Template sent', 'ok'); onSent(m.thread_id || thread?.id);
+    } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); }
+  };
+  const disabled = busy || !tpl || values.some((v) => !v.trim()) || (needConsent && !consent) || (!thread && number.replace(/\D/g, '').length < 7);
+  return (
+    <Modal title={thread ? 'Send a template' : 'Start a chat with a template'} onClose={onClose} footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={disabled} onClick={send}>{busy ? 'Sending…' : 'Send template'}</button></>}>
+      {!ready.length ? <p>No approved template yet. An admin adds the templates approved in your Botlinkd account under <Link to="/settings/whatsapp">Settings &gt; WhatsApp</Link> and ticks Approved. WhatsApp only lets a business start a chat, or write after 24 hours of silence, with an approved template.</p> : <>
+        {!thread && <>
+          <Field label="WhatsApp number" hint="International digits, e.g. 447700900123"><input className="input" autoFocus inputMode="numeric" value={number} onChange={(e) => setNumber(e.target.value)} /></Field>
+          <Field label="Name (optional)"><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        </>}
+        <Field label="Template"><select className="input" value={key} onChange={(e) => setKey(e.target.value)}>{ready.map((x) => <option key={`${x.name}/${x.language}`} value={`${x.name}/${x.language}`}>{x.name} ({x.language})</option>)}</select></Field>
+        {(tpl?.params || []).map((label, i) => <Field key={`${key}:${i}`} label={label}><input className="input" maxLength={200} value={vals[`${key}:${i}`] || ''} onChange={(e) => setVals({ ...vals, [`${key}:${i}`]: e.target.value })} /></Field>)}
+        {tpl?.preview && <p className="muted">Preview: {tpl.preview.replace(/\{\{(\d+)\}\}/g, (m, n) => values[Number(n) - 1] || m)}</p>}
+        {needConsent && <label className="row" style={{ alignItems: 'flex-start' }}><input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} /> <span>This person agreed to receive WhatsApp messages from us. WhatsApp can block a number that messages people who did not.</span></label>}
+        <p className="muted">One message to one person. It counts toward your daily and monthly WhatsApp limits. A reply from the customer opens the 24-hour window for free text.</p>
+      </>}
+    </Modal>
+  );
+}
+
+function ThreadList({ items, sel, onSelect, filter, setFilter, q, setQ, status, setStatus, onNew }) {
   return (
     <div className="wa-list">
       <div className="wa-tools">
+        {onNew && <button className="btn sm primary" onClick={onNew}>New chat with a template</button>}
         <input className="input" placeholder="Search name or number" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search conversations" />
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           {[['', 'All'], ['unread', 'Unread'], ['unassigned', 'Unassigned']].map(([k, l]) => <button key={k} className={`chip ${filter === k ? 'active' : ''}`} onClick={() => setFilter(k)}>{l}</button>)}
@@ -36,7 +76,7 @@ function ThreadList({ items, sel, onSelect, filter, setFilter, q, setQ, status, 
   );
 }
 
-function Thread({ id, people, onBack, onChanged }) {
+function Thread({ id, people, templates, onBack, onChanged }) {
   const toast = useToast();
   const { can } = useAuth();
   const edit = can('crm', 'edit');
@@ -45,6 +85,7 @@ function Thread({ id, people, onBack, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [lead, setLead] = useState(null);
   const [link, setLink] = useState(null);
+  const [tplOpen, setTplOpen] = useState(false);
   const end = useRef(null);
   useEffect(() => { api.post(`/api/whatsapp/threads/${id}/read`).then(onChanged).catch(() => {}); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const h = setInterval(reload, 10000); return () => clearInterval(h); }, [reload]);
@@ -88,7 +129,7 @@ function Thread({ id, people, onBack, onChanged }) {
         <div ref={end} />
       </div>
       {t.opted_out && <div className="alert warn">This customer asked not to be messaged on WhatsApp. Sending is blocked.</div>}
-      {!t.opted_out && !t.can_reply && <div className="alert info">The 24-hour reply window is closed. You can reply again when the customer writes to you. WhatsApp does not allow free messages after that.</div>}
+      {!t.opted_out && !t.can_reply && <div className="alert info">The 24-hour reply window is closed. WhatsApp does not allow free messages now: send an approved template, or wait until the customer writes to you. {edit && <button className="btn sm primary" style={{ marginLeft: 8 }} onClick={() => setTplOpen(true)}>Send a template</button>}</div>}
       {edit && <div className="wa-compose">
         <textarea className="input" rows={2} maxLength={1000} placeholder={t.can_reply ? 'Write a reply' : 'Replies are not possible right now'} disabled={!t.can_reply || busy} value={text} onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } }} aria-label="Reply" />
@@ -97,6 +138,7 @@ function Thread({ id, people, onBack, onChanged }) {
           <button className="btn primary" disabled={!t.can_reply || busy || !text.trim()} onClick={send}>{busy ? 'Sending…' : 'Send reply'}</button>
         </div>
       </div>}
+      {tplOpen && <TemplateModal thread={t} templates={templates} onClose={() => setTplOpen(false)} onSent={() => { setTplOpen(false); reload(); onChanged(); }} />}
       {lead && <Modal title="Create a lead from this chat" onClose={() => setLead(null)} footer={<><button className="btn" onClick={() => setLead(null)}>Cancel</button><button className="btn primary" disabled={!lead.name.trim()} onClick={() => act(async () => { await api.post(`/api/whatsapp/threads/${id}/create-lead`, { name: lead.name }); setLead(null); }, 'Lead created')}>Create lead</button></>}>
         <Field label="Name (letters only)"><input className="input" autoFocus value={lead.name} onChange={(e) => setLead({ name: e.target.value })} /></Field>
         <p className="muted">The number +{t.wa_id} is saved as the phone and WhatsApp number, the lead is routed by your lead rules, and the customer's first message is saved on it.</p>
@@ -131,6 +173,8 @@ export default function WhatsApp() {
   const [q, setQ] = useState('');
   const sel = Number(sp.get('thread')) || null;
   const conn = useFetch('/api/whatsapp/connection');
+  const { can } = useAuth();
+  const [newChat, setNewChat] = useState(false);
   const people = useFetch('/api/whatsapp/people');
   const [items, setItems] = useState(null);
   const load = useCallback(() => api.get('/api/whatsapp/threads', { filter, status, q }).then(setItems).catch(() => setItems([])), [filter, status, q]);
@@ -149,12 +193,13 @@ export default function WhatsApp() {
   const open = (id) => setSp(id ? { thread: String(id) } : {});
   return (
     <div className={`wa-page ${sel ? 'has-sel' : ''}`}>
-      <PageHead title="WhatsApp" sub="Replies are one-to-one and possible for 24 hours after the customer's last message. Nobody is messaged in bulk from here." />
+      <PageHead title="WhatsApp" sub="Free-text replies are one-to-one and possible for 24 hours after the customer's last message; after that, or to start a chat, send an approved template. Nobody is messaged in bulk from here." />
       {c.state === 'error' && <div className="alert err" style={{ marginBottom: 10 }}>The last send failed: {c.last_error || 'check your Botlinkd keys'}. <Link to="/settings/whatsapp">Open WhatsApp settings</Link></div>}
       <div className="wa-grid">
-        <ThreadList items={items} sel={sel} onSelect={open} filter={filter} setFilter={setFilter} q={q} setQ={setQ} status={status} setStatus={setStatus} />
-        <div className="wa-pane">{sel ? <Thread key={sel} id={sel} people={people.data || []} onBack={() => open(null)} onChanged={load} /> : <Card><Empty title="Choose a conversation" hint="Pick a customer on the left to read and reply." /></Card>}</div>
+        <ThreadList items={items} sel={sel} onSelect={open} filter={filter} setFilter={setFilter} q={q} setQ={setQ} status={status} setStatus={setStatus} onNew={can('crm', 'edit') && c.mode !== 'qr' ? () => setNewChat(true) : null} />
+        <div className="wa-pane">{sel ? <Thread key={sel} id={sel} people={people.data || []} templates={c.templates} onBack={() => open(null)} onChanged={load} /> : <Card><Empty title="Choose a conversation" hint="Pick a customer on the left to read and reply." /></Card>}</div>
       </div>
+      {newChat && <TemplateModal thread={null} templates={c.templates} onClose={() => setNewChat(false)} onSent={(tid) => { setNewChat(false); load(); if (tid) open(tid); }} />}
     </div>
   );
 }

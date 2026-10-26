@@ -35,7 +35,7 @@ let server, port;
 before(() => new Promise((res) => { server = createApp().listen(0, () => { port = server.address().port; res(); }); }));
 after(async () => { server.close(); db.closeDbs(); });
 
-const fake = { sent: [], fail: null, async sendText(m) { if (fake.fail) throw B.classifyError(fake.fail, 400); fake.sent.push(m); return { ref: `wamid_${fake.sent.length}` }; } };
+const fake = { sent: [], tpl: [], fail: null, async sendTemplate(m) { if (fake.fail) throw B.classifyError(fake.fail, 400); fake.tpl.push(m); return { ref: `wamid_t${fake.tpl.length}` }; }, async sendText(m) { if (fake.fail) throw B.classifyError(fake.fail, 400); fake.sent.push(m); return { ref: `wamid_${fake.sent.length}` }; } };
 B.setWhatsappProvider(fake);
 
 let n = 0;
@@ -384,4 +384,59 @@ test('QR mode: a failing gateway is reported, the console stores its token encry
   assert.equal((await call(host, 'GET', '/api/whatsapp/qr/status', null, { cookie: lg.cookie })).status, 403);
   assert.equal((await call(host, 'GET', '/api/whatsapp/qr/status', null, await login(t))).status, 200);
   qrPlatform(true);
+});
+
+const TPLS = [{ name: 'viewing_reminder', language: 'en', params: ['Customer name', 'Time'], preview: 'Hello {{1}}, your viewing is at {{2}}.', approved: true }, { name: 'draft_offer', language: 'en', params: [], approved: false }];
+
+test('templates: the console test sends an approved template, and a closed-window error is explained as "keys work, template needed"', async () => {
+  fake.sent.length = 0; fake.tpl.length = 0; turnOff();
+  await Int.configure('botlinkd', { appkey: 'PLATAPPKEY123', authkey: 'PLATAUTHKEY123' }, 'op@test');
+  fake.fail = 'The customer service window is closed. Send an approved template to continue.';
+  const r1 = await Int.test('botlinkd', 'op@test', { number: '447700900123' });
+  assert.equal(r1.ok, false);
+  assert.match(r1.detail, /accepted the keys/); assert.match(r1.detail, /approved template name/);
+  fake.fail = null;
+  await assert.rejects(() => Int.configure('botlinkd', { test_template: 'Bad Name!' }, 'op@test'), /lower-case/);
+  await Int.configure('botlinkd', { test_template: 'hello_world', test_language: 'en_US', test_params: 'Asad | #1001' }, 'op@test');
+  assert.equal(Int.registry().find((i) => i.id === 'botlinkd').settings.test_template, 'hello_world');
+  const r2 = await Int.test('botlinkd', 'op@test', { number: '447700900123' });
+  assert.equal(r2.ok, true);
+  assert.equal(fake.sent.length, 0, 'no plain text when a template is saved');
+  assert.deepEqual(fake.tpl[0], { appkey: 'PLATAPPKEY123', authkey: 'PLATAUTHKEY123', to: '447700900123', template: 'hello_world', language: 'en_US', params: ['Asad', '#1001'] });
+  assert.equal(B.classifyError('The customer service window is closed.', 400).kind, 'window');
+  await Int.disconnect('botlinkd', 'op@test');
+  turnOn();
+});
+
+test('templates: saved list is validated; only approved ones send, with every value, to one person, through the same guards', async () => {
+  turnOn(); fake.sent.length = 0; fake.tpl.length = 0;
+  const t = mkTenant(); connect(t);
+  await as(t, async () => {
+    const u = staff(t);
+    assert.throws(() => W.saveTemplates(u, [{ name: 'Bad Name', language: 'en' }]), /lower-case/);
+    assert.throws(() => W.saveTemplates(u, [{ name: 'a', language: 'en' }, { name: 'a', language: 'en' }]), /listed twice/);
+    W.saveTemplates(u, TPLS);
+    assert.equal(W.connectionView('https://x').templates.length, 2);
+    assert.ok(W.connectionView('https://x').keys, 'saving templates keeps the keys');
+    // a number never written to: needs consent, an approved template and all values
+    await assert.rejects(() => W.sendTemplateMessage(u, { number: '447700900555', template: 'viewing_reminder', values: ['Sam', '5pm'] }), /agreed to receive/);
+    await assert.rejects(() => W.sendTemplateMessage(u, { number: '447700900555', template: 'viewing_reminder', values: ['Sam'], consent: true }), /Fill in all 2/);
+    await assert.rejects(() => W.sendTemplateMessage(u, { number: '447700900555', template: 'draft_offer', values: [], consent: true }), /not marked as approved/);
+    await assert.rejects(() => W.sendTemplateMessage(u, { number: '447700900555', template: 'nope', values: [], consent: true }), /saved templates/);
+    assert.equal(fake.tpl.length, 0);
+    const m = await W.sendTemplateMessage(u, { number: '+44 7700 900555', template: 'viewing_reminder', values: ['Sam', '5pm'], consent: true });
+    assert.equal(m.status, 'sent'); assert.equal(m.type, 'template'); assert.equal(m.body, 'Hello Sam, your viewing is at 5pm.');
+    assert.deepEqual(fake.tpl[0], { appkey: 'APPKEY12345', authkey: 'AUTHKEY12345', to: '447700900555', template: 'viewing_reminder', language: 'en', params: ['Sam', '5pm'] });
+    assert.ok(db.get('SELECT 1 FROM wa_threads WHERE wa_id=?', '447700900555'));
+    // the window stays closed after a template, so a free-text reply is still refused
+    await assert.rejects(() => W.sendReply(u, m.thread_id, 'hi'), /24-hour reply window is closed/);
+    // a failing first send leaves no empty conversation behind
+    fake.fail = 'Template unavailable';
+    await assert.rejects(() => W.sendTemplateMessage(u, { number: '447700900666', template: 'viewing_reminder', values: ['A', 'B'], consent: true }), /did not accept this template/);
+    fake.fail = null;
+    assert.equal(db.get('SELECT 1 FROM wa_threads WHERE wa_id=?', '447700900666'), undefined);
+    // opted-out numbers are blocked
+    db.run("INSERT INTO wa_optouts(wa_id,reason,source,created_at) VALUES('447700900777','stop','customer_message',datetime('now'))");
+    await assert.rejects(() => W.sendTemplateMessage(u, { number: '447700900777', template: 'viewing_reminder', values: ['A', 'B'], consent: true }), /asked not to be messaged/);
+  });
 });

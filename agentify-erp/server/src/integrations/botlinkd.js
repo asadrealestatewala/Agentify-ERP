@@ -8,12 +8,15 @@
 import crypto from 'node:crypto';
 
 export const SEND_URL = () => process.env.BOTLINKD_API_URL || 'https://botlinkd.com/api/whatsapp/message';
+/** Template messages: POST /api/whatsapp/template, form fields appkey, authkey, to, template, language, body_params[0..n] (docs: Template Message). */
+export const TEMPLATE_URL = () => process.env.BOTLINKD_TEMPLATE_URL || SEND_URL().replace(/\/message$/, '/template');
 export const SIGNATURE_HEADERS = ['x-botlinkd-signature', 'x-signature', 'x-webhook-signature', 'x-hub-signature-256'];
 
 /** Errors carry a `kind` so the screens can say what to do: auth, limit, recipient, template, platform, temporary. */
 export function classifyError(message, status) {
   const m = String(message || '');
   const kind = /authentic|unauthori|invalid (app|auth)|app ?key|auth ?key/i.test(m) || status === 401 || status === 403 ? 'auth'
+    : /service window|customer service|24.?hour|window (is )?closed/i.test(m) ? 'window'
     : /limit|quota|allowance/i.test(m) || status === 429 ? 'limit'
     : /recipient|invalid number|not a valid/i.test(m) ? 'recipient'
     : /template/i.test(m) ? 'template'
@@ -24,18 +27,28 @@ export function classifyError(message, status) {
   return e;
 }
 
-const realProvider = {
-  name: 'botlinkd',
-  async sendText({ appkey, authkey, to, message }) {
-    const form = new FormData();
-    form.append('appkey', appkey); form.append('authkey', authkey); form.append('to', to); form.append('message', message);
+async function post(url, form) {
     let res;
-    try { res = await fetch(SEND_URL(), { method: 'POST', body: form, signal: AbortSignal.timeout(15_000), redirect: 'error' }); }
+    try { res = await fetch(url, { method: 'POST', body: form, signal: AbortSignal.timeout(15_000), redirect: 'error' }); }
     catch (e) { throw classifyError(`Could not reach Botlinkd (${e.name === 'TimeoutError' ? 'timed out' : 'network error'})`, 0); }
     let body = null; try { body = await res.json(); } catch { /* not JSON */ }
     const failed = !res.ok || body?.success === false || body?.status === false || /^(error|failed)$/i.test(String(body?.status || '')) || !!body?.error;
     if (failed) throw classifyError(body?.message || body?.error || body?.msg || `Botlinkd answered ${res.status}`, res.status);
     return { ref: String(body?.message_id || body?.id || body?.data?.id || body?.data?.message_id || '') || null };
+}
+const realProvider = {
+  name: 'botlinkd',
+  sendText({ appkey, authkey, to, message }) {
+    const form = new FormData();
+    form.append('appkey', appkey); form.append('authkey', authkey); form.append('to', to); form.append('message', message);
+    return post(SEND_URL(), form);
+  },
+  /** `params` are the template's body values in placeholder order. */
+  sendTemplate({ appkey, authkey, to, template, language, params = [] }) {
+    const form = new FormData();
+    form.append('appkey', appkey); form.append('authkey', authkey); form.append('to', to); form.append('template', template); form.append('language', language || 'en');
+    params.forEach((v, i) => form.append(`body_params[${i}]`, String(v)));
+    return post(TEMPLATE_URL(), form);
   },
 };
 let provider = realProvider;

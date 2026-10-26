@@ -41,6 +41,20 @@ r.get('/threads/:id(\\d+)', can('crm', 'view'), asyncH((req, res) => {
   const t = W.visibleThread(Number(req.params.id), ownerId(req));
   res.json({ thread: W.withWindow(t), messages: W.messagesOf(t.id) });
 }));
+r.put('/templates', can('settings', 'edit'), asyncH((req, res) => { const out = W.saveTemplates(req.user, req.body?.templates); audit(req, 'WhatsApp templates saved', 'whatsapp', null, `${out.length} template(s)`); res.json({ templates: out }); }));
+r.post('/threads/start', can('crm', 'edit'), asyncH(async (req, res) => {
+  const b = req.body || {};
+  const m = await W.sendTemplateMessage(req.user, { number: b.number, name: b.name, template: b.template, language: b.language, values: b.values, consent: b.consent === true, mineOnly: ownerId(req) });
+  audit(req, 'WhatsApp template sent', 'whatsapp', m.thread_id, b.template);
+  res.status(201).json(m);
+}));
+r.post('/threads/:id(\\d+)/template', can('crm', 'edit'), asyncH(async (req, res) => {
+  const t = W.visibleThread(Number(req.params.id), ownerId(req));
+  const b = req.body || {};
+  const m = await W.sendTemplateMessage(req.user, { thread: t, template: b.template, language: b.language, values: b.values, consent: b.consent === true });
+  audit(req, 'WhatsApp template sent', 'whatsapp', t.id, b.template);
+  res.status(201).json(m);
+}));
 r.post('/threads/:id(\\d+)/read', can('crm', 'view'), asyncH((req, res) => { const t = W.visibleThread(Number(req.params.id), ownerId(req)); W.markRead(t.id); res.json({ ok: true }); }));
 r.post('/threads/:id(\\d+)/messages', can('crm', 'edit'), asyncH(async (req, res) => {
   const t = W.visibleThread(Number(req.params.id), ownerId(req));

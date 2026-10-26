@@ -3,7 +3,7 @@
 // Rules this file enforces, because a WhatsApp number is easy to lose and hard to get back:
 //  * staff reply one-to-one; there is no bulk send, no campaign and no automated outbound message anywhere in this module;
 //  * a reply is allowed only within 24 hours of the customer's last message (WhatsApp's customer-service window), because a
-//    business-started message needs an approved template and templates are not part of this release;
+//    business-started message needs an approved template, which staff send one-to-one from the saved template list;
 //  * a number that wrote STOP (or similar) is blocked until it writes START or staff lift the block with a reason;
 //  * sends are throttled per person and per day / month by the workspace's entitlement.
 // The keys are stored encrypted per workspace and are never returned.
@@ -43,12 +43,13 @@ export function connectionView(baseUrl) {
     access: { enabled: acc.enabled, reason: acc.reason, message: acc.reason ? REASON_TEXT[acc.reason] || 'WhatsApp is not available.' : null, monthly: acc.monthly, daily: acc.daily },
     configured: viaQr ? true : !!cfg, state: viaQr ? qr.state : !cfg ? 'not_configured' : row?.status || 'configured',
     keys: cfg ? { appkey: mask(cfg.appkey), authkey: mask(cfg.authkey) } : null,
-    number: info.number || null, signing_secret_saved: !!cfg?.signing_secret, connected_at: row?.connected_at || null, last_test_at: row?.last_test_at || null, last_error: row?.last_error || null,
+    number: info.number || null, templates: info.templates || [], signing_secret_saved: !!cfg?.signing_secret, connected_at: row?.connected_at || null, last_test_at: row?.last_test_at || null, last_error: row?.last_error || null,
     webhook_url: cfg && baseUrl ? `${baseUrl}/api/hooks/whatsapp/${cfg.webhook_token}` : null,
     last_inbound_at: lastIn, usage: usage(),
-    safeguards: { window_hours: WINDOW_HOURS, per_user_per_minute: PER_USER_PER_MINUTE, max_text: MAX_TEXT, bulk_sending: false, templates: false },
+    safeguards: { window_hours: WINDOW_HOURS, per_user_per_minute: PER_USER_PER_MINUTE, max_text: MAX_TEXT, bulk_sending: false, templates: true },
   };
 }
+const pubInfo = () => { try { return JSON.parse(integrationRow(PROVIDER)?.public_info || '{}'); } catch { return {}; } };
 const keyOk = (v, label) => { const s = String(v ?? '').trim(); if (!/^[A-Za-z0-9._\-|:]{8,200}$/.test(s)) throw bad(`${label} looks wrong. Copy it again from your Botlinkd account without spaces.`); return s; };
 
 export function saveConnection(user, b) {
@@ -63,7 +64,7 @@ export function saveConnection(user, b) {
   if (b.signing_secret !== undefined && b.signing_secret !== '') { const s = String(b.signing_secret).trim(); if (s.length < 8 || s.length > 200 || /\s/.test(s)) throw bad('The signing secret looks wrong. Copy it again from Botlinkd (Auto Reply Settings).'); signing = s; }
   const cfg = { appkey, authkey, webhook_token: prev.webhook_token || crypto.randomBytes(24).toString('hex'), signing_secret: signing };
   const keysChanged = appkey !== prev.appkey || authkey !== prev.authkey;
-  saveIntegration(PROVIDER, cfg, { publicInfo: { number }, status: keysChanged || !prev.appkey ? 'configured' : integrationRow(PROVIDER)?.status || 'configured', userId: user.id });
+  saveIntegration(PROVIDER, cfg, { publicInfo: { number, templates: pubInfo().templates || [] }, status: keysChanged || !prev.appkey ? 'configured' : integrationRow(PROVIDER)?.status || 'configured', userId: user.id });
   logIntegration(PROVIDER, 'configure', 'success', number ? `number ${number}` : 'keys saved', user.id);
   return cfg;
 }
@@ -174,36 +175,46 @@ export function receiveWebhook(token, rawBody, headers, payload) {
 }
 
 // ---------------------------------------------------------------- outbound
-export async function sendReply(user, threadId, text) {
-  const t = threadRow(threadId);
-  if (!t) throw notFound('Conversation not found');
-  const body = String(text ?? '').replace(/\r\n/g, '\n').trim();
-  if (!body) throw bad('Type a message first.');
-  if (body.length > MAX_TEXT) throw bad(`Keep a WhatsApp message under ${MAX_TEXT} characters.`);
+/** Everything a send must pass, whatever it carries: connection, entitlement, opt-out, per-person throttle, daily and monthly caps. */
+function sendGuards(user, waId) {
   const viaQr = waMode() === 'qr' && !!qrConfig(), prov = viaQr ? QR : PROVIDER;
   const cfg = integrationConfig(PROVIDER);
   if (!viaQr && !cfg) throw bad('WhatsApp is not connected. Add your Botlinkd keys in Settings > WhatsApp.');
   if (viaQr && integrationRow(QR)?.status !== 'connected') throw bad('The QR connection is not linked right now. Open Settings > WhatsApp and scan the QR code again.');
   const acc = whatsappAccess(currentTenant());
   if (!acc.enabled) throw bad(REASON_TEXT[acc.reason] || 'WhatsApp is not available.');
-  if (optedOut(t.wa_id)) throw new HttpError(409, 'This customer asked not to be messaged on WhatsApp.');
-  if (!t.last_inbound_at || Date.now() - ms(t.last_inbound_at) >= WINDOW_HOURS * 3600_000) throw new HttpError(409, `The ${WINDOW_HOURS}-hour reply window is closed. You can reply again when the customer writes to you; WhatsApp does not allow free messages after that.`);
+  if (optedOut(waId)) throw new HttpError(409, 'This customer asked not to be messaged on WhatsApp.');
   const minute = new Date(Date.now() - 60_000).toISOString();
   if (get("SELECT COUNT(*) n FROM wa_messages WHERE direction='out' AND user_id=? AND created_at>=?", user.id, minute).n >= PER_USER_PER_MINUTE) throw new HttpError(429, 'You are sending too fast. Wait a minute and try again.');
   const u = usage();
   if (acc.daily != null && u.day >= acc.daily) throw new HttpError(429, 'The daily WhatsApp limit for this workspace is used up. It resets at midnight UTC.');
   if (acc.monthly != null && u.month >= acc.monthly) throw new HttpError(429, 'The monthly WhatsApp limit for this workspace is used up.');
-  const at = utcNow();
+  return { viaQr, prov, cfg, acc };
+}
+
+export async function sendReply(user, threadId, text) {
+  const t = threadRow(threadId);
+  if (!t) throw notFound('Conversation not found');
+  const body = String(text ?? '').replace(/\r\n/g, '\n').trim();
+  if (!body) throw bad('Type a message first.');
+  if (body.length > MAX_TEXT) throw bad(`Keep a WhatsApp message under ${MAX_TEXT} characters.`);
+  const { viaQr, prov, cfg, acc } = sendGuards(user, t.wa_id);
+  if (!t.last_inbound_at || Date.now() - ms(t.last_inbound_at) >= WINDOW_HOURS * 3600_000) throw new HttpError(409, `The ${WINDOW_HOURS}-hour reply window is closed. Send an approved template to start the conversation again, or wait until the customer writes to you; WhatsApp does not allow free messages after that.`);
   let ref = null, err = null;
   try { ref = (viaQr ? await qrSend(t.wa_id, body) : await whatsappProvider().sendText({ appkey: cfg.appkey, authkey: cfg.authkey, to: t.wa_id, message: body })).ref; }
   catch (e) { err = e.kind ? e : classifyError(e.message, e.status); }
-  const id = Number(run('INSERT INTO wa_messages(thread_id,direction,type,body,status,provider_ref,user_id,error,created_at) VALUES(?,?,?,?,?,?,?,?,?)', t.id, 'out', 'text', body, err ? 'failed' : 'sent', ref, user.id, err ? err.message : null, at).lastInsertRowid);
+  return recordOutbound(user, t, { prov, type: 'text', body, ref, err });
+}
+/** Stores one outbound attempt, updates the conversation and the contact's history, and throws a plain error when it failed. */
+function recordOutbound(user, t, { prov, type, body, ref, err }) {
+  const at = utcNow();
+  const id = Number(run('INSERT INTO wa_messages(thread_id,direction,type,body,status,provider_ref,user_id,error,created_at) VALUES(?,?,?,?,?,?,?,?,?)', t.id, 'out', type, body, err ? 'failed' : 'sent', ref, user.id, err ? err.message : null, at).lastInsertRowid);
   if (err) { markTested(prov, false, err.message); logIntegration(prov, 'send', 'error', `${err.kind}: ${err.message}`, user.id); }
   else {
     run('UPDATE wa_threads SET last_message_at=?, last_preview=?, unread=0, assigned_to=COALESCE(assigned_to,?) WHERE id=?', at, `You: ${body}`.slice(0, 120), user.id, t.id);
     if (t.contact_id) {
-      activity(t.contact_id, user, 'WhatsApp message sent', { detail: body.slice(0, 160) });
-      try { if (currentAssignment(t.contact_id)) logHumanResponse(t.contact_id, user, { channel: 'whatsapp', evidence: 'whatsapp_message', note: body.slice(0, 80) }); } catch { /* the reply itself must not fail on bookkeeping */ }
+      activity(t.contact_id, user, type === 'template' ? 'WhatsApp template sent' : 'WhatsApp message sent', { detail: body.slice(0, 160) });
+      try { if (currentAssignment(t.contact_id)) logHumanResponse(t.contact_id, user, { channel: 'whatsapp', evidence: 'whatsapp_message', note: body.slice(0, 80) }); } catch { /* the send itself must not fail on bookkeeping */ }
     }
   }
   const row = get('SELECT id,direction,type,body,status,error,created_at,user_id FROM wa_messages WHERE id=?', id);
@@ -214,7 +225,8 @@ const HELP = {
   auth: 'Botlinkd did not accept the keys. Check the App key and Auth key in Settings > WhatsApp.',
   limit: 'Your Botlinkd plan has no message allowance left. Check your Botlinkd account.',
   recipient: 'WhatsApp did not accept this number.',
-  template: 'WhatsApp needs an approved template for this message. Ask the customer to write first.',
+  template: 'WhatsApp or Botlinkd did not accept this template. Check that its name, language and number of values match the approved template in your Botlinkd account.',
+  window: 'WhatsApp will not deliver a free-text message now because the customer has not written in the last 24 hours. Send an approved template instead.',
   platform: 'The WhatsApp platform in Botlinkd is not connected or active. Check your Botlinkd dashboard.',
   temporary: 'Botlinkd could not send the message right now. It was not retried so the customer is not messaged twice; try again in a moment.',
 };
@@ -233,6 +245,64 @@ export async function sendTest(user, to) {
   catch (e) { const err = e.kind ? e : classifyError(e.message, e.status); markTested(PROVIDER, false, err.message); logIntegration(PROVIDER, 'test', 'error', err.kind, user.id); throw bad(HELP[err.kind] || err.message); }
   markTested(PROVIDER, true); logIntegration(PROVIDER, 'test', 'success', `to ${num.slice(0, 3)}…${num.slice(-2)}`, user.id);
   return { ok: true };
+}
+
+// ---------------------------------------------------------------- approved templates (the only way to start or restart a chat)
+// Botlinkd has no call that lists templates or their approval state, so the workspace records each template it created and had
+// approved in its Botlinkd account, and ticks "approved". A template that is not ticked cannot be sent from here.
+export const MAX_TEMPLATES = 20;
+export function saveTemplates(user, list) {
+  if (!integrationConfig(PROVIDER)) throw bad('Save your Botlinkd keys first.');
+  if (!Array.isArray(list) || list.length > MAX_TEMPLATES) throw bad(`Save up to ${MAX_TEMPLATES} templates.`);
+  const seen = new Set();
+  const out = list.map((x) => {
+    const name = String(x?.name || '').trim(), language = String(x?.language || 'en').trim();
+    if (!/^[a-z0-9_]{1,512}$/.test(name)) throw bad('A template name uses lower-case letters, digits and underscores only, exactly as in Botlinkd (for example appointment_reminder).');
+    if (!/^[a-z]{2,3}(_[A-Za-z]{2,4})?$/.test(language)) throw bad(`The language of "${name}" looks like en, en_US or ar.`);
+    if (seen.has(`${name}/${language}`)) throw bad(`"${name}" (${language}) is listed twice.`);
+    seen.add(`${name}/${language}`);
+    const params = (Array.isArray(x?.params) ? x.params : []).map((l) => String(l || '').replace(/\s+/g, ' ').trim().slice(0, 40)).filter(Boolean);
+    if (params.length > 10) throw bad(`"${name}" can have up to 10 values.`);
+    return { name, language, params, preview: String(x?.preview || '').replace(/\r\n/g, '\n').trim().slice(0, 1000), approved: x?.approved === true };
+  });
+  const row = integrationRow(PROVIDER);
+  saveIntegration(PROVIDER, integrationConfig(PROVIDER), { publicInfo: { ...pubInfo(), templates: out }, status: row?.status || 'configured', userId: user.id });
+  logIntegration(PROVIDER, 'templates', 'success', `${out.length} template(s)`, user.id);
+  return out;
+}
+const visibleThreadSafe = (id, mineOnly) => { try { visibleThread(id, mineOnly); return true; } catch { return false; } };
+const renderTemplate = (tpl, values) => (tpl.preview ? tpl.preview.replace(/\{\{(\d+)\}\}/g, (m, n) => values[Number(n) - 1] ?? m) : `${tpl.name}: ${values.join(', ')}`).slice(0, 1000);
+
+/**
+ * Sends one approved template to one person, one at a time, by a named staff member. `thread` may be null for a number we have
+ * never written to; it is then created, and removed again when the very first send fails. Needs the same entitlement, throttle,
+ * caps and opt-out checks as a reply. A number that never wrote to us also needs the staff member to confirm the person agreed.
+ */
+export async function sendTemplateMessage(user, { thread = null, number = null, name = null, template, language = null, values = [], consent = false, mineOnly = null }) {
+  if (waMode() === 'qr' && qrConfig()) throw bad('Templates belong to the official Botlinkd connection. Switch QR mode off to send one.');
+  const waId = thread ? thread.wa_id : cleanNumber(number);
+  if (!waId) throw bad('Enter the WhatsApp number in international form, digits only, for example 447700900123.');
+  const tpl = (pubInfo().templates || []).find((x) => x.name === template && (!language || x.language === language));
+  if (!tpl) throw bad('Choose one of the saved templates. An admin adds them in Settings > WhatsApp.');
+  if (!tpl.approved) throw bad(`"${tpl.name}" is not marked as approved. Approve it in your Botlinkd account first, then tick Approved in Settings > WhatsApp.`);
+  const vals = (Array.isArray(values) ? values : []).map((v) => String(v ?? '').replace(/[\r\n\t]+/g, ' ').trim());
+  if (vals.length !== tpl.params.length || vals.some((v) => !v)) throw bad(tpl.params.length ? `Fill in all ${tpl.params.length} value(s): ${tpl.params.join(', ')}.` : 'This template takes no values.');
+  if (vals.some((v) => v.length > 200)) throw bad('Keep each value under 200 characters.');
+  const { cfg } = sendGuards(user, waId);
+  const existing = thread || get('SELECT * FROM wa_threads WHERE wa_id=?', waId);
+  if (!thread && mineOnly) {
+    const c = findContactByNumber(waId);
+    if ((c && c.agent_id !== mineOnly) || (existing && visibleThreadSafe(existing.id, mineOnly) === false)) throw forbidden('This number belongs to a contact or conversation of someone else.');
+  }
+  if (!existing?.last_inbound_at && consent !== true) throw bad('Tick the box to confirm this person agreed to receive WhatsApp messages from you. WhatsApp can block a number that messages people who did not.');
+  const fresh = !existing;
+  const t = existing || ensureThread(waId, String(name || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 80) || null);
+  let ref = null, err = null;
+  try { ref = (await whatsappProvider().sendTemplate({ appkey: cfg.appkey, authkey: cfg.authkey, to: waId, template: tpl.name, language: tpl.language, params: vals })).ref; }
+  catch (e) { err = e.kind ? e : classifyError(e.message, e.status); }
+  if (err && fresh) { run('DELETE FROM wa_threads WHERE id=?', t.id); logIntegration(PROVIDER, 'template', 'error', `${err.kind}: ${err.message}`, user.id); throw new HttpError(502, HELP[err.kind] || err.message); }
+  try { return { ...recordOutbound(user, t, { prov: PROVIDER, type: 'template', body: renderTemplate(tpl, vals), ref, err }), thread_id: t.id }; }
+  catch (e) { e.thread_id = t.id; throw e; }
 }
 
 // ---------------------------------------------------------------- staff actions on a conversation
