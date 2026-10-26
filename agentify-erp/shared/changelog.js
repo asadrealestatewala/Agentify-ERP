@@ -4,6 +4,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.34', date: '2026-10-27', title: 'WhatsApp templates: start a chat or write after 24 hours',
+    items: [
+      { text: 'WhatsApp only lets a business start a chat, or write again after 24 hours of silence, with a template WhatsApp has approved. You can now list the templates from your Botlinkd account, and send one to one person from the inbox (New chat with a template, or Send a template when the window is closed). Limits, do-not-message blocks and the consent tick still apply.', where: 'Settings > WhatsApp > Message templates, and the WhatsApp inbox' },
+      { text: 'The console WhatsApp test can now send an approved template, and explains that "customer service window is closed" means the keys work but a template is needed.', where: 'Super Admin console > Integrations > WhatsApp (Botlinkd) > Change keys' },
+    ],
+  },
+  {
     version: 'v1.33', date: '2026-10-26', title: 'Clearer place to add the WhatsApp keys',
     items: [
       { text: 'The WhatsApp (Botlinkd) and QR gateway cards now have a highlighted "Add keys" button, and tell you plainly when your console role cannot change integrations.', where: 'Super Admin console > Integrations' },

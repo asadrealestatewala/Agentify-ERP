@@ -52,6 +52,36 @@ function QrCard({ q, reload, edit }) {
   );
 }
 
+const blankTpl = () => ({ name: '', language: 'en', params: '', preview: '', approved: false });
+/** Templates created and approved in the workspace's Botlinkd account. Botlinkd has no call that lists them, so they are recorded here. */
+function TemplatesCard({ c, reload }) {
+  const toast = useToast();
+  const [rows, setRows] = useState(() => (c.templates || []).map((x) => ({ ...x, params: (x.params || []).join(', ') })));
+  const [busy, setBusy] = useState(false);
+  const set = (i, patch) => setRows(rows.map((x, k) => (k === i ? { ...x, ...patch } : x)));
+  const save = async () => {
+    setBusy(true);
+    try { await api.put('/api/whatsapp/templates', { templates: rows.map((x) => ({ ...x, params: String(x.params || '').split(',').map((v) => v.trim()).filter(Boolean) })) }); toast('Templates saved', 'ok'); reload(); }
+    catch (e) { toast(e.message, 'err'); } finally { setBusy(false); }
+  };
+  return (
+    <Card title="Message templates">
+      <p className="muted" style={{ marginTop: 0 }}>WhatsApp only lets a business start a chat, or write again after 24 hours of silence, with a template that WhatsApp has approved. Create the template in your Botlinkd account, wait until it is approved, then list it here exactly as named there and tick Approved. Agentify cannot check the approval itself, so a template you tick that is not really approved will be rejected when sent. Staff send one template to one person at a time from the inbox.</p>
+      {rows.map((x, i) => (
+        <div key={i} className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8, marginBottom: 12, paddingBottom: 12, borderBottom: '1px solid var(--line, #e5e7eb)' }}>
+          <Field label="Template name" hint="As in Botlinkd, e.g. viewing_reminder"><input className="input" value={x.name} onChange={(e) => set(i, { name: e.target.value })} /></Field>
+          <Field label="Language"><input className="input" value={x.language} onChange={(e) => set(i, { language: e.target.value })} /></Field>
+          <Field label="Values, in order" hint="Names of the placeholders, comma-separated, e.g. Customer name, Time"><input className="input" value={x.params} onChange={(e) => set(i, { params: e.target.value })} /></Field>
+          <Field label="Preview text (optional)" hint="Use {{1}}, {{2}} for the values"><input className="input" value={x.preview} onChange={(e) => set(i, { preview: e.target.value })} /></Field>
+          <label className="row" style={{ alignItems: 'center', gap: 6 }}><input type="checkbox" checked={x.approved} onChange={(e) => set(i, { approved: e.target.checked })} /> Approved in Botlinkd</label>
+          <div><button className="btn sm danger" onClick={() => setRows(rows.filter((_, k) => k !== i))}>Remove</button></div>
+        </div>))}
+      {!rows.length && <p className="muted">No templates yet.</p>}
+      <div className="row"><button className="btn" onClick={() => setRows([...rows, blankTpl()])} disabled={rows.length >= 20}>Add a template</button><button className="btn primary" disabled={busy} onClick={save}>{busy ? 'Saving…' : 'Save templates'}</button></div>
+    </Card>
+  );
+}
+
 export default function WhatsAppSettings() {
   const { can } = useAuth();
   const toast = useToast();
@@ -104,6 +134,8 @@ export default function WhatsAppSettings() {
             <p className="muted" style={{ marginTop: 0 }}>Botlinkd has no read-only check, so the test sends one real message to the number you type. Use your own phone. It counts toward your WhatsApp limit.</p>
             <div className="row"><input className="input" inputMode="numeric" style={{ maxWidth: 240 }} placeholder="Your own number, digits only" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Number to test" /><button className="btn primary" disabled={!to || busy === 'test' || !c.access.enabled} onClick={() => run('test', () => api.post('/api/whatsapp/connection/test', { to }), 'Test message accepted by Botlinkd')}>{busy === 'test' ? 'Sending…' : 'Send test'}</button></div>
           </Card>
+          <div style={{ height: 12 }} />
+          <TemplatesCard key={JSON.stringify(c.templates)} c={c} reload={reload} />
         </>}
       </>}
       <div style={{ height: 12 }} />
@@ -116,7 +148,7 @@ export default function WhatsAppSettings() {
       <div style={{ height: 12 }} />
       <Card title="Rules that protect your number">
         <ul className="plain" style={{ margin: 0, paddingLeft: 18 }}>
-          <li>Replies are one-to-one, written by your team, and only within {c.safeguards.window_hours} hours of the customer's last message. There is no bulk or campaign sending.</li>
+          <li>Free-text replies are one-to-one, written by your team, and only within {c.safeguards.window_hours} hours of the customer's last message. After that, or to start a chat, staff send one approved template to one person at a time. There is no bulk or campaign sending.</li>
           <li>If a customer writes STOP, UNSUBSCRIBE or similar, they are blocked automatically until they write START or you record why messaging is allowed again.</li>
           <li>Each person can send {c.safeguards.per_user_per_minute} messages a minute, and your plan caps the day and the month.</li>
           <li>Only message people who contacted you or agreed to be contacted. WhatsApp can restrict or ban numbers that get blocked or reported, and Agentify cannot reverse a ban. Messages that start a conversation need templates approved by WhatsApp, which are not part of this release.</li>

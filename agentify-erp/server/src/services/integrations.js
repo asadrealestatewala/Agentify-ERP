@@ -80,9 +80,9 @@ export function registry() {
       note: `Register one app in the ${d.label} developer console, with the redirect address above. ${p === 'google' ? 'Add the Calendar API and the calendar.events scope.' : ''}` })),
     { id: 'botlinkd', name: 'WhatsApp (Botlinkd)', category: 'Messaging', purpose: 'Lets workspaces on a plan with WhatsApp read and answer customer chats inside the CRM, through Botlinkd and the official WhatsApp Cloud API.',
       configured: !!(getSetting('botlinkd_appkey') && getSetting('botlinkd_authkey')),
-      settings: { appkey: mask(getSetting('botlinkd_appkey')), authkey: mask(getSetting('botlinkd_authkey')), platform_id: getSetting('botlinkd_platform_id') || '', enabled: getSetting('whatsapp_enabled') === '1', default_limits: (() => { try { return JSON.parse(getSetting('whatsapp_default_limits') || 'null'); } catch { return null; } })() },
+      settings: { appkey: mask(getSetting('botlinkd_appkey')), authkey: mask(getSetting('botlinkd_authkey')), platform_id: getSetting('botlinkd_platform_id') || '', test_template: getSetting('botlinkd_test_template') || '', test_language: getSetting('botlinkd_test_language') || '', test_params: getSetting('botlinkd_test_params') || '', enabled: getSetting('whatsapp_enabled') === '1', default_limits: (() => { try { return JSON.parse(getSetting('whatsapp_default_limits') || 'null'); } catch { return null; } })() },
       test: lastTest('botlinkd'),
-      note: 'Every workspace connects its own Botlinkd account (its own keys and number) in Settings > WhatsApp; chats of different workspaces are never mixed. The keys saved here are the platform\'s own and are used for the test message only. Switching WhatsApp on does not give any workspace access: turn it on per plan, or per workspace, or as the platform default below.' },
+      note: 'Every workspace connects its own Botlinkd account (its own keys and number) in Settings > WhatsApp; chats of different workspaces are never mixed. The keys saved here are the platform\'s own and are used for the test message only. Switching WhatsApp on does not give any workspace access: turn it on per plan, or per workspace, or as the platform default below. WhatsApp only lets a business start a chat with an approved template. If Send test answers "customer service window is closed", the keys were accepted but the number has not written to you in the last 24 hours: save an approved template name under Change keys and send the test again.' },
     { id: 'whatsapp_qr', name: 'WhatsApp QR gateway (unofficial, optional)', category: 'Messaging', purpose: 'Lets a workspace link a number by scanning a QR code instead of the official Botlinkd connection. Off by default.',
       configured: !!(getSetting('whatsapp_qr_gateway_url') && getSetting('whatsapp_qr_gateway_token')),
       settings: { gateway_url: getSetting('whatsapp_qr_gateway_url') || '', token: mask(getSetting('whatsapp_qr_gateway_token')), enabled: getSetting('whatsapp_qr_enabled') === '1' },
@@ -106,6 +106,9 @@ export async function configure(id, b, actor) {
     if (b.appkey) setSetting('botlinkd_appkey', key(b.appkey, 'The App key'), { secret: true, by: actor });
     if (b.authkey) setSetting('botlinkd_authkey', key(b.authkey, 'The Auth key'), { secret: true, by: actor });
     if (b.platform_id !== undefined) { const v = String(b.platform_id || '').trim(); if (v && !/^[A-Za-z0-9_.\-]{3,40}$/.test(v)) throw bad('The platform identifier is letters, digits and - _ . only (3 to 40 characters)'); setSetting('botlinkd_platform_id', v || null, { by: actor }); }
+    if (b.test_template !== undefined) { const v = String(b.test_template || '').trim(); if (v && !/^[a-z0-9_]{1,512}$/.test(v)) throw bad('A template name uses lower-case letters, digits and underscores only, exactly as in Botlinkd (for example hello_world)'); setSetting('botlinkd_test_template', v || null, { by: actor }); }
+    if (b.test_language !== undefined) { const v = String(b.test_language || '').trim(); if (v && !/^[a-z]{2,3}(_[A-Za-z]{2,4})?$/.test(v)) throw bad('A template language looks like en, en_US or ar'); setSetting('botlinkd_test_language', v || null, { by: actor }); }
+    if (b.test_params !== undefined) { const v = String(b.test_params || '').trim(); if (v.length > 400) throw bad('Keep the template values short'); setSetting('botlinkd_test_params', v || null, { by: actor }); }
     if (b.enabled !== undefined) setSetting('whatsapp_enabled', b.enabled ? '1' : null, { by: actor });
     if (b.default_limits !== undefined) { const l = cleanWhatsappLimits(b.default_limits); setSetting('whatsapp_default_limits', l ? JSON.stringify(l) : null, { by: actor }); }
   } else if (id === 'whatsapp_qr') {
@@ -152,8 +155,17 @@ export async function test(id, actor, { to, number } = {}) {
       if (!appkey || !authkey) throw new Error('Save the App key and the Auth key first');
       const num = cleanNumber(number);
       if (!num) throw new Error('Enter the number to send the test to, in international form, digits only. Botlinkd has no read-only check, so the test sends one real message.');
-      try { await whatsappProvider().sendText({ appkey, authkey, to: num, message: 'Agentify ERP: WhatsApp connection test. No reply is needed.' }); } catch (e) { throw classifyError(e.message, e.status); }
-      outcome = 'success'; detail = `Botlinkd accepted a test message for ${num.slice(0, 3)}…${num.slice(-2)}`;
+      const tpl = getSetting('botlinkd_test_template');
+      try {
+        if (tpl) await whatsappProvider().sendTemplate({ appkey, authkey, to: num, template: tpl, language: getSetting('botlinkd_test_language') || 'en', params: String(getSetting('botlinkd_test_params') || '').split('|').map((x) => x.trim()).filter(Boolean) });
+        else await whatsappProvider().sendText({ appkey, authkey, to: num, message: 'Agentify ERP: WhatsApp connection test. No reply is needed.' });
+      } catch (e) {
+        const c = e.kind ? e : classifyError(e.message, e.status);
+        if (c.kind === 'window') throw new Error('Botlinkd accepted the keys, but WhatsApp will not deliver a plain text because that number has not written to you in the last 24 hours. Save an approved template name (and language) under Change keys, then send the test again.');
+        if (c.kind === 'template') throw new Error(`Botlinkd rejected the template: ${c.message}. Check the name, language and number of values against the approved template in your Botlinkd account.`);
+        throw c;
+      }
+      outcome = 'success'; detail = `Botlinkd accepted a ${tpl ? `template ("${tpl}")` : 'text'} test message for ${num.slice(0, 3)}…${num.slice(-2)}`;
     } else if (id === 'whatsapp_qr') {
       try { await qrGateway().health(); } catch (e) { throw new Error(`The gateway did not answer its health check: ${e.message}`); }
       outcome = 'success'; detail = 'The gateway answered its health check. No message was sent.';

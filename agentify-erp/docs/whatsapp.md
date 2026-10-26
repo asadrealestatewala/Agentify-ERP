@@ -27,7 +27,8 @@ No bulk send and no automated outbound message at all (not even a STOP confirmat
 
 ## Not verified / not built
 * Nothing was run against the real Botlinkd: tests use a fake provider. Real response shape, signature header, `wa_id` formats, status events and media are unverified.
-* Inbound media is stored as a placeholder; outbound media, templates, delivery ticks, and starting a conversation are not built.
+* Templates (v1.34): `POST https://botlinkd.com/api/whatsapp/template`, multipart fields `appkey`, `authkey`, `to`, `template`, `language`, `body_params[0..n]` (from Botlinkd's Template Message page; the page shows no response sample, so success is read the same way as for text). Botlinkd has no call that lists templates or their approval state, so a workspace lists the templates it had approved (name, language, value labels, preview) and ticks Approved; only ticked ones can be sent. Staff send one template to one person: same entitlement, throttle, caps and opt-out checks as a reply, and a number that never wrote to us needs a ticked consent box. A failed first send leaves no empty conversation. Template media/headers are not built. Botlinkd's Common Errors page names "Template unavailable" (name, language or placeholder order mismatch); the "customer service window is closed" text comes from a real test and is mapped to a plain explanation. The console test can send a template (Change keys > Test template name / language / values).
+* Inbound media is stored as a placeholder; outbound media, template media, delivery ticks are not built.
 * Opt-out keywords are English only. Consent law per country (opt-in evidence, quiet hours) needs legal input.
 * The chat polls every 10 s (no websocket).
 
