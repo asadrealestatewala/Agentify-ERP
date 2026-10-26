@@ -4,6 +4,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.24', date: '2026-10-26', title: 'Property map shows the street map again',
+    items: [
+      { text: 'Fixed the property map showing "Access blocked" instead of the street map. Matches for a typed location are now a clean list, one per line, with repeats merged.', where: 'Properties > Add or edit property > Location' },
+    ],
+  },
+  {
     version: 'v1.23', date: '2026-10-26', title: 'Android app for Google Play, privacy policy and account deletion',
     items: [
       { text: 'Paying workspaces can download the Android app (Google Play when it is live, or the direct file) from the Download app button and the Install the app page. The public website has a Download our app page too.', where: 'My Space > Install the app; website footer' },
