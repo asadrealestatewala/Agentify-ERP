@@ -34,6 +34,8 @@ import { listRegions, setRegionStatus, setRegionFlag, saveRule, reviewRule, list
 import { subscriptionHistory } from '../services/subscriptions.js';
 import mailboxRoutes from './platformMailbox.js';
 import emailRoutes from './platformEmail.js';
+import { whatsappAccess } from '../services/whatsappAccess.js';
+import { cleanWhatsappLimits } from '../services/whatsappLimits.js';
 import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite } from '../services/platformStaff.js';
 import { freeSitesConfig, saveFreeSites, checkFreeSitesDns } from '../services/freeSites.js';
@@ -409,9 +411,25 @@ r.put('/integrations/:id', requireOperator, need('integrations.manage'), asyncH(
   res.json(out);
 }));
 r.post('/integrations/:id/test', requireOperator, need('integrations.manage'), limiter, asyncH(async (req, res) => {
-  const out = await testIntegration(req.params.id, req.operator.email, { to: req.operator.email.includes('@') ? req.operator.email : req.body?.to });
+  const out = await testIntegration(req.params.id, req.operator.email, { to: req.operator.email.includes('@') ? req.operator.email : req.body?.to, number: req.body?.number });
   audit(req.operator.email, 'integration-tested', { integration: req.params.id, ok: out.ok }, { outcome: out.ok ? 'success' : 'failed' });
   res.json(out);
+}));
+// ---- WhatsApp entitlement per workspace (the plan editor and the platform default are set elsewhere)
+r.get('/whatsapp/tenants/:id(\\d+)', requireOperator, need('workspaces.view'), (req, res) => {
+  const t = getTenant(Number(req.params.id));
+  if (!t) throw new HttpError(404, 'Workspace not found');
+  res.json({ override: (() => { try { return JSON.parse(t.entitlements || '{}').whatsapp || null; } catch { return null; } })(), effective: whatsappAccess(t) });
+});
+r.put('/whatsapp/tenants/:id(\\d+)', requireOperator, need('workspaces.edit'), asyncH((req, res) => {
+  const t = getTenant(Number(req.params.id));
+  if (!t) throw new HttpError(404, 'Workspace not found');
+  const lim = cleanWhatsappLimits(req.body?.limits);
+  const ent = (() => { try { return JSON.parse(t.entitlements || '{}') || {}; } catch { return {}; } })();
+  if (lim) ent.whatsapp = lim; else delete ent.whatsapp;
+  platformDb().prepare("UPDATE tenants SET entitlements=?, updated_at=datetime('now') WHERE id=?").run(Object.keys(ent).length ? JSON.stringify(ent) : null, t.id);
+  audit(req.operator.email, 'whatsapp-limits-override', { slug: t.slug, cleared: !lim, enabled: lim?.enabled });
+  res.json({ override: lim, effective: whatsappAccess(getTenant(t.id)) });
 }));
 r.delete('/integrations/:id', requireOperator, need('integrations.manage'), asyncH(async (req, res) => {
   const out = await disconnectIntegration(req.params.id, req.operator.email);

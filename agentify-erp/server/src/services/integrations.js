@@ -12,6 +12,8 @@ import { setMailConfig, setMailLogger, sendMail, layout } from './mailer.js';
 import { logSent } from './emailLog.js';
 import { listBackups } from './backup.js';
 import { bad, HttpError } from '../util.js';
+import { whatsappProvider, cleanNumber, classifyError } from '../integrations/botlinkd.js';
+import { cleanWhatsappLimits } from './whatsappLimits.js';
 import { PROVIDERS as OAUTH, appCreds, saveAppCreds, clearAppCreds, testAppCreds } from './oauthApps.js';
 
 const pdb = () => platformDb();
@@ -75,8 +77,13 @@ export function registry() {
     ...Object.entries(OAUTH).map(([p, d]) => ({ id: `oauth_${p}`, name: `${d.label} app (sign-in and connections)`, category: 'Customer integrations', purpose: p === 'google' ? 'Lets customers sign in with Google and connect Google Calendar.' : p === 'apple' ? 'Lets customers sign in with Apple.' : `Lets customers connect ${d.label} to post and schedule content.`,
       configured: !!appCreds(p), settings: { client_id: appCreds(p)?.client_id || '', redirect: 'https://<your main domain>/api/platform/oauth/' + p + '/callback', developer_console: d.console }, test: lastTest(`oauth_${p}`),
       note: `Register one app in the ${d.label} developer console, with the redirect address above. ${p === 'google' ? 'Add the Calendar API and the calendar.events scope.' : ''}` })),
-    { id: 'sms', name: 'SMS / WhatsApp provider', category: 'Messaging', purpose: 'Text reminders to customers.', configured: false, settings: {}, test: null, available: false,
-      note: 'No provider adapter is installed yet. Staff can send WhatsApp messages from the app with click-to-chat links.' },
+    { id: 'botlinkd', name: 'WhatsApp (Botlinkd)', category: 'Messaging', purpose: 'Lets workspaces on a plan with WhatsApp read and answer customer chats inside the CRM, through Botlinkd and the official WhatsApp Cloud API.',
+      configured: !!(getSetting('botlinkd_appkey') && getSetting('botlinkd_authkey')),
+      settings: { appkey: mask(getSetting('botlinkd_appkey')), authkey: mask(getSetting('botlinkd_authkey')), platform_id: getSetting('botlinkd_platform_id') || '', enabled: getSetting('whatsapp_enabled') === '1', default_limits: (() => { try { return JSON.parse(getSetting('whatsapp_default_limits') || 'null'); } catch { return null; } })() },
+      test: lastTest('botlinkd'),
+      note: 'Every workspace connects its own Botlinkd account (its own keys and number) in Settings > WhatsApp; chats of different workspaces are never mixed. The keys saved here are the platform\'s own and are used for the test message only. Switching WhatsApp on does not give any workspace access: turn it on per plan, or per workspace, or as the platform default below.' },
+    { id: 'sms', name: 'SMS provider', category: 'Messaging', purpose: 'Text reminders to customers.', configured: false, settings: {}, test: null, available: false,
+      note: 'No provider adapter is installed yet. Workspaces with their own Twilio account can send texts from the dialer.' },
   ];
   return items.map((i) => ({ ...i, state: i.available === false ? 'not_available' : i.id === 'stripe' && !i.test && i.configured ? 'configured' : state(i.configured, i.test), configured_at: lastConfigAt(i.id),
     events: (ensure(), pdb().prepare('SELECT action, outcome, detail, actor, created_at FROM integration_events WHERE integration=? ORDER BY id DESC LIMIT 10').all(i.id)) }));
@@ -88,6 +95,13 @@ export async function configure(id, b, actor) {
     if (b.from !== undefined) { if (b.from && !/^[^<>]{0,60}<?[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+>?$/.test(b.from)) throw bad('From must look like: Agentify ERP <no-reply@yourdomain.com>'); setSetting('mail_from', b.from || null, { by: actor }); }
     if (b.webhook_secret) { if (!/^whsec_[A-Za-z0-9+/=_-]{16,}$/.test(String(b.webhook_secret).trim())) throw bad('A Resend webhook signing secret starts with whsec_'); setSetting('resend_webhook_secret', String(b.webhook_secret).trim(), { secret: true, by: actor }); }
     if (b.reply_to !== undefined) { const r = String(b.reply_to || '').trim(); if (r && !/^[^\s@<>"',;]+@[^\s@<>"',;]+\.[A-Za-z]{2,}$/.test(r)) throw bad('Reply-To must be one e-mail address'); setSetting('mail_reply_to', r || null, { by: actor }); }
+  } else if (id === 'botlinkd') {
+    const key = (v, l) => { const x = String(v).trim(); if (!/^[A-Za-z0-9._\-|:]{8,200}$/.test(x)) throw bad(`${l} looks wrong. Copy it again from Botlinkd without spaces.`); return x; };
+    if (b.appkey) setSetting('botlinkd_appkey', key(b.appkey, 'The App key'), { secret: true, by: actor });
+    if (b.authkey) setSetting('botlinkd_authkey', key(b.authkey, 'The Auth key'), { secret: true, by: actor });
+    if (b.platform_id !== undefined) { const v = String(b.platform_id || '').trim(); if (v && !/^[A-Za-z0-9_.\-]{3,40}$/.test(v)) throw bad('The platform identifier is letters, digits and - _ . only (3 to 40 characters)'); setSetting('botlinkd_platform_id', v || null, { by: actor }); }
+    if (b.enabled !== undefined) setSetting('whatsapp_enabled', b.enabled ? '1' : null, { by: actor });
+    if (b.default_limits !== undefined) { const l = cleanWhatsappLimits(b.default_limits); setSetting('whatsapp_default_limits', l ? JSON.stringify(l) : null, { by: actor }); }
   } else if (id === 'ga4') {
     const v = String(b.measurement_id || '').trim().toUpperCase();
     if (v && !/^G-[A-Z0-9]{4,16}$/.test(v)) throw bad('A GA4 measurement ID looks like G-XXXXXXXXXX');
@@ -104,6 +118,7 @@ export async function configure(id, b, actor) {
 
 export async function disconnect(id, actor) {
   if (id === 'email') { setSetting('resend_api_key', null); setSetting('mail_from', null); setSetting('resend_webhook_secret', null); setSetting('mail_reply_to', null); }
+  else if (id === 'botlinkd') { setSetting('botlinkd_appkey', null); setSetting('botlinkd_authkey', null); }
   else if (id === 'ga4') setSetting('ga4_measurement_id', null);
   else if (id === 'alerts') setSetting('alerts_webhook_url', null);
   else if (id.startsWith('oauth_') && OAUTH[id.slice(6)]) clearAppCreds(id.slice(6));
@@ -113,7 +128,7 @@ export async function disconnect(id, actor) {
 }
 
 /** A real request to the provider. Only a success marks the integration as connected. */
-export async function test(id, actor, { to } = {}) {
+export async function test(id, actor, { to, number } = {}) {
   let outcome = 'error', detail = '';
   try {
     if (id === 'email') {
@@ -121,6 +136,13 @@ export async function test(id, actor, { to } = {}) {
       const ok = await sendMail({ to, subject: 'Agentify ERP: email test', ...layout({ brand: 'platform', heading: 'Email delivery works', lines: ['This test was sent from the platform console.'] }), type: 'test' });
       if (!ok) throw new Error('The provider did not accept the message (check the key and the From domain)');
       outcome = 'success'; detail = `Test email accepted by the provider for ${to}`;
+    } else if (id === 'botlinkd') {
+      const appkey = getSetting('botlinkd_appkey'), authkey = getSetting('botlinkd_authkey');
+      if (!appkey || !authkey) throw new Error('Save the App key and the Auth key first');
+      const num = cleanNumber(number);
+      if (!num) throw new Error('Enter the number to send the test to, in international form, digits only. Botlinkd has no read-only check, so the test sends one real message.');
+      try { await whatsappProvider().sendText({ appkey, authkey, to: num, message: 'Agentify ERP: WhatsApp connection test. No reply is needed.' }); } catch (e) { throw classifyError(e.message, e.status); }
+      outcome = 'success'; detail = `Botlinkd accepted a test message for ${num.slice(0, 3)}…${num.slice(-2)}`;
     } else if (id === 'stripe') {
       const r = await testConnection(stripeConfig().secret_key);
       if (!r.ok) throw new Error(r.error);

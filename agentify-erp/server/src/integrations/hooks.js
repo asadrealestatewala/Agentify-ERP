@@ -10,6 +10,7 @@ import { PORTALS, feedToken, publishedListings, feedXml, feedCsv } from './porta
 import crypto from 'node:crypto';
 import { callSettings, addRecording, fetchRecording } from './calls.js';
 import { handleWebhook, settle } from '../services/gateways.js';
+import { receiveWebhook } from '../services/whatsapp.js';
 
 function asyncSafe(fn) { return (req, res) => fn(req, res).catch(() => res.sendStatus(500)); }
 const r = Router();
@@ -21,6 +22,11 @@ r.get('/pay/return/:provider/:token', asyncSafe(async (req, res) => {
   try { await settle(token); } catch { /* the portal keeps showing "confirming" and the webhook will retry */ }
   res.redirect(`/portal/payments?gw=${token}`);
 }));
+/** Botlinkd delivers customers' WhatsApp messages here. The secret in the address picks the workspace's connection; an optional signature is checked on top. */
+r.post('/whatsapp/:token', (req, res) => {
+  const out = receiveWebhook(req.params.token, req.rawBody, req.headers, req.body);
+  res.status(out.status).json(out.body);
+});
 r.use(express.urlencoded({ extended: false, limit: '100kb' }));
 
 function verified(req) {

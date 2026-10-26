@@ -346,13 +346,25 @@ export function IntegrationsPage() {
   const { d, err, load } = useLoad(`${A}/integrations`);
   const [edit, setEdit] = useState(null);
   const [busy, setBusy] = useState('');
-  const save = async () => { try { await api.put(`${A}/integrations/${edit.id}`, edit.values); toast('Saved'); setEdit(null); load(); } catch (e) { toast(e.message, 'err'); } };
-  const testIt = async (i) => { setBusy(i.id); try { const r = await api.post(`${A}/integrations/${i.id}/test`, {}); toast(r.ok ? `Test passed: ${r.detail}` : `Test failed: ${r.detail}`, r.ok ? 'ok' : 'err'); load(); } catch (e) { toast(e.message, 'err'); } finally { setBusy(''); } };
+  const save = async () => {
+    try {
+      let body = edit.values;
+      if (edit.id === 'botlinkd') {
+        const v = edit.values, yes = (x) => /^(y|yes|on|1|true)$/i.test(String(x).trim());
+        body = { ...(v.appkey ? { appkey: v.appkey } : {}), ...(v.authkey ? { authkey: v.authkey } : {}), platform_id: v.platform_id, enabled: yes(v.enabled), default_limits: { enabled: yes(v.dl_enabled), monthly: v.dl_monthly, daily: v.dl_daily } };
+      }
+      await api.put(`${A}/integrations/${edit.id}`, body); toast('Saved'); setEdit(null); load(); } catch (e) { toast(e.message, 'err'); } };
+  const testIt = async (i) => {
+    let number;
+    if (i.id === 'botlinkd') { number = window.prompt('Botlinkd has no read-only check, so the test sends ONE real WhatsApp message. Enter the number to send it to (your own phone, international digits only):'); if (!number) return; }
+    setBusy(i.id); try { const r = await api.post(`${A}/integrations/${i.id}/test`, { number }); toast(r.ok ? `Test passed: ${r.detail}` : `Test failed: ${r.detail}`, r.ok ? 'ok' : 'err'); load(); } catch (e) { toast(e.message, 'err'); } finally { setBusy(''); } };
   const off = async (i) => { if (!window.confirm(`Remove the ${i.name} credentials?`)) return; try { await api.del(`${A}/integrations/${i.id}`); toast('Disconnected'); load(); } catch (e) { toast(e.message, 'err'); } };
   const FORMS = {
     email: [['api_key', 'Resend API key', 'password', 'Starts with re_. Leave blank to keep the saved key.'], ['from', 'From address', 'text', 'Agentify ERP <no-reply@yourdomain.com> (domain verified in Resend)'], ['reply_to', 'Reply-To for automated e-mails', 'text', 'Optional. Defaults to hello@agentifyerp.co when sending from agentifyerp.co'], ['webhook_secret', 'Webhook signing secret', 'password', 'Starts with whsec_. From the webhook you create in Resend for the Mailbox. Leave blank to keep the saved one.']],
     ga4: [['measurement_id', 'GA4 measurement ID', 'text', 'G-XXXXXXXXXX']],
     ...Object.fromEntries(['google', 'apple', 'meta', 'linkedin', 'tiktok'].map((p) => [`oauth_${p}`, p === 'apple' ? [['client_id', 'Services ID', 'text', 'The Services ID from your Apple developer account'], ['team_id', 'Team ID', 'text', ''], ['key_id', 'Key ID', 'text', ''], ['private_key', 'Private key (.p8)', 'password', 'Paste the whole file. Leave blank to keep the saved key.']] : [['client_id', p === 'meta' ? 'App ID' : p === 'tiktok' ? 'Client key' : 'Client ID', 'text', ''], ['client_secret', p === 'meta' ? 'App secret' : 'Client secret', 'password', 'Leave blank to keep the saved secret.']]])),
+    botlinkd: [['appkey', 'Platform App key', 'password', 'From your Botlinkd account. Leave blank to keep the saved key.'], ['authkey', 'Platform Auth key', 'password', 'Leave blank to keep the saved key.'], ['platform_id', 'Platform identifier', 'text', 'The platform name or number on Botlinkd, e.g. 447544440352 (not a secret)'],
+      ['enabled', 'WhatsApp on for the platform? (yes / no)', 'text', 'Master switch. While no, no workspace can use WhatsApp.'], ['dl_enabled', 'Default for all workspaces: included? (yes / no)', 'text', 'Normally no. Switch it on per plan or per workspace instead.'], ['dl_monthly', 'Default replies per month', 'text', 'Per workspace. Empty = 1000'], ['dl_daily', 'Default replies per day', 'text', 'Per workspace. Empty = 200']],
     alerts: [['url', 'Incoming webhook URL', 'password', 'https:// only. Slack, Microsoft Teams or any service accepting {"text": "..."}']],
   };
   return (
@@ -370,10 +382,11 @@ export function IntegrationsPage() {
             {i.id.startsWith('oauth_') && <p className="muted">Redirect address to register: <span className="mono">{`${window.location.origin}/api/platform/oauth/${i.id.slice(6)}/callback`}</span>{i.settings.developer_console ? <> · <a href={i.settings.developer_console} target="_blank" rel="noreferrer">Open the developer console</a></> : null}</p>}
             {i.id === 'ga4' && i.settings.measurement_id && <p>Measurement ID <span className="mono">{i.settings.measurement_id}</span></p>}
             {i.id === 'email' && <p className="muted">Mailbox webhook signing secret: {i.settings.webhook_secret?.set ? `saved (ends ${i.settings.webhook_secret.hint})` : 'not saved yet. Needed for live delivery status and the Mailbox.'}</p>}
+            {i.id === 'botlinkd' && <p className="muted">Keys saved: App key {i.settings.appkey?.set ? `ends ${i.settings.appkey.hint}` : 'not saved'} · Auth key {i.settings.authkey?.set ? `ends ${i.settings.authkey.hint}` : 'not saved'} · WhatsApp switch: <b>{i.settings.enabled ? 'on' : 'off'}</b> · Platform identifier {i.settings.platform_id || 'not set'}</p>}
             {(i.settings.api_key?.set || i.settings.url?.set) && <p className="muted">Saved credential ends {i.settings.api_key?.hint || i.settings.url?.hint}</p>}
             {can('integrations.manage') && <div className="row wrap" style={{ gap: 8 }}>
-              {FORMS[i.id] && <button className="btn sm" onClick={() => setEdit({ id: i.id, name: i.name, values: Object.fromEntries(FORMS[i.id].map(([k]) => [k, k === 'from' ? i.settings.from || '' : k === 'reply_to' ? i.settings.reply_to || '' : k === 'measurement_id' ? i.settings.measurement_id || '' : ''])) })}>Configure</button>}
-              {(['email', 'stripe', 'alerts'].includes(i.id) || i.id.startsWith('oauth_')) && i.configured && <button className="btn sm primary" disabled={busy === i.id} onClick={() => testIt(i)}>{busy === i.id ? 'Testing…' : 'Send test'}</button>}
+              {FORMS[i.id] && <button className="btn sm" onClick={() => setEdit({ id: i.id, name: i.name, values: Object.fromEntries(FORMS[i.id].map(([k]) => [k, k === 'from' ? i.settings.from || '' : k === 'reply_to' ? i.settings.reply_to || '' : k === 'measurement_id' ? i.settings.measurement_id || '' : k === 'platform_id' ? i.settings.platform_id || '' : k === 'enabled' ? (i.settings.enabled ? 'yes' : 'no') : k === 'dl_enabled' ? (i.settings.default_limits?.enabled ? 'yes' : 'no') : k === 'dl_monthly' ? i.settings.default_limits?.monthly ?? '' : k === 'dl_daily' ? i.settings.default_limits?.daily ?? '' : ''])) })}>Configure</button>}
+              {(['email', 'stripe', 'alerts', 'botlinkd'].includes(i.id) || i.id.startsWith('oauth_')) && i.configured && <button className="btn sm primary" disabled={busy === i.id} onClick={() => testIt(i)}>{busy === i.id ? 'Testing…' : 'Send test'}</button>}
               {i.manage && <a className="btn sm" href={i.manage}>Open settings</a>}
               {FORMS[i.id] && i.configured && !i.settings.env_key && <button className="btn sm danger" onClick={() => off(i)}>Disconnect</button>}
             </div>}

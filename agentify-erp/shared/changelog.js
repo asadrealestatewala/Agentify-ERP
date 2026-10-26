@@ -4,6 +4,14 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.24', date: '2026-10-26', title: 'WhatsApp inbox for your customers\' chats',
+    items: [
+      { text: 'Connect your own WhatsApp Business number through your Botlinkd account (official WhatsApp Cloud API) and read and answer customer chats next to their CRM record. Chats are matched to contacts by phone number, can be assigned to an agent, closed, or turned into a lead.', where: 'WhatsApp; Settings > WhatsApp' },
+      { text: 'Built to protect your number: replies are one-to-one and possible for 24 hours after the customer\'s last message, there is no bulk sending, STOP and similar words block a customer until they write START, and each person and each day and month is capped.', where: 'WhatsApp' },
+      { text: 'Available when your plan includes it. Your Agentify administrator switches WhatsApp on per plan or per workspace.', where: 'Settings > WhatsApp' },
+    ],
+  },
+  {
     version: 'v1.23', date: '2026-10-26', title: 'Android app for Google Play, privacy policy and account deletion',
     items: [
       { text: 'Paying workspaces can download the Android app (Google Play when it is live, or the direct file) from the Download app button and the Install the app page. The public website has a Download our app page too.', where: 'My Space > Install the app; website footer' },
