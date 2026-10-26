@@ -249,3 +249,23 @@ test('console: switches, your own domain list, a test check, and the lock-out es
   await userAction(ten.id, uid, 'disable-login-otp', {}, { protocol: 'http', get: () => 'otpco.erp.test' });
   assert.equal(withTenant(t, () => get("SELECT value FROM settings WHERE key='login_email_otp'").value), 'off');
 });
+
+test('five wrong passwords on a real account email its owner once an hour; unknown accounts get nothing', async () => {
+  const H = 'otpco.erp.test';
+  const { withTenant, getTenant } = await import('../src/platform.js');
+  const { run } = await import('../src/db.js');
+  const ten = getTenant(platformDb().prepare('SELECT id FROM tenants WHERE slug=?').get('otpco').id);
+  withTenant(ten, () => run('DELETE FROM login_failures'));
+  const bad = (id) => call(H, 'POST', '/api/auth/login', { identifier: id, password: 'wrong-pass' }, { 'X-Forwarded-For': '192.0.2.50' });
+  const warns = () => sent.filter((m) => /Wrong password attempts/.test(m.subject));
+  sent.length = 0;
+  for (let i = 0; i < 4; i += 1) assert.equal((await bad('olive@otpco.test')).status, 401);
+  await wait(); assert.equal(warns().length, 0, 'four is not yet an attack');
+  await bad('olive@otpco.test'); await wait();
+  assert.equal(warns().length, 1); assert.deepEqual(warns()[0].to, ['olive@otpco.test']);
+  assert.match(warns()[0].text, /192\.0\.2\.50/); assert.match(warns()[0].text, /Nobody got in/);
+  for (let i = 0; i < 5; i += 1) await bad('olive@otpco.test');
+  await wait(); assert.equal(warns().length, 1, 'at most one an hour');
+  for (let i = 0; i < 6; i += 1) await bad('nobody@otpco.test');
+  await wait(); assert.equal(warns().length, 1, 'no email for an address with no account');
+});

@@ -60,7 +60,7 @@ export function noteSignIn(req, res, u) {
     if (!seenBefore || knownIp || knownDevice || !u.email) return;
     const today = get("SELECT COUNT(*) n FROM login_alerts WHERE user_id=? AND created_at>=datetime('now','-1 day')", u.id).n;
     if (today >= MAX_PER_DAY) return;
-    run('INSERT INTO login_alerts(user_id,ip,created_at) VALUES(?,?,?)', u.id, ip, now());
+    run("INSERT INTO login_alerts(user_id,ip,created_at) VALUES(?,?,datetime('now'))", u.id, ip);
     const origin = `${req.protocol}://${req.get('host')}`;
     const when = new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
     const mail = layout({
@@ -70,6 +70,32 @@ export function noteSignIn(req, res, u) {
       button: { label: 'Change my password', url: `${origin}/my/security` },
     });
     sendMail({ type: 'login_alert', to: u.email, subject: 'New sign-in to your account', ...mail }).catch(() => {});
+  } catch (e) { console.error('[login-alert]', e.message); }
+}
+
+const FAIL_LIMIT = 5, FAIL_WINDOW_MIN = 15;
+/**
+ * A wrong password for a real account. After 5 in 15 minutes the owner gets one email (at most one per hour, so an attacker
+ * cannot use it to flood their inbox). Never throws; the caller still answers "Invalid credentials" the same way.
+ */
+export function noteFailedLogin(req, row) {
+  try {
+    if (!row?.id) return;
+    const ip = req.ip || 'unknown';
+    run("INSERT INTO login_failures(user_id,ip,created_at) VALUES(?,?,datetime('now'))", row.id, ip);
+    run("DELETE FROM login_failures WHERE created_at<datetime('now','-2 days')");
+    if (!row.email) return;
+    const n = get(`SELECT COUNT(*) n FROM login_failures WHERE user_id=? AND created_at>=datetime('now','-${FAIL_WINDOW_MIN} minutes')`, row.id).n;
+    if (n < FAIL_LIMIT || get("SELECT 1 FROM login_failures WHERE user_id=? AND alerted=1 AND created_at>=datetime('now','-1 hour')", row.id)) return;
+    run('UPDATE login_failures SET alerted=1 WHERE id=(SELECT MAX(id) FROM login_failures WHERE user_id=?)', row.id);
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const mail = layout({
+      heading: 'Someone is trying to guess your password',
+      lines: [`Hi ${row.name}, there were ${n} wrong password attempts on your account in the last ${FAIL_WINDOW_MIN} minutes. The latest was from IP address ${ip}.`,
+        'Nobody got in. If this was you, you can ignore this. If not, change your password now and consider turning on two-factor sign-in.'],
+      button: { label: 'Reset my password', url: `${origin}/forgot-password` },
+    });
+    sendMail({ type: 'login_alert', to: row.email, subject: 'Wrong password attempts on your account', ...mail }).catch(() => {});
   } catch (e) { console.error('[login-alert]', e.message); }
 }
 

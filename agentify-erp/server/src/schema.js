@@ -318,6 +318,9 @@ CREATE TABLE IF NOT EXISTS verify_tokens(id INTEGER PRIMARY KEY, user_id INTEGER
 -- browsers/addresses each person has signed in from, so a sign-in from somewhere new can be flagged (services/loginAlerts.js)
 CREATE TABLE IF NOT EXISTS login_devices(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, device_hash TEXT NOT NULL, ip TEXT NOT NULL, user_agent TEXT, first_seen TEXT NOT NULL, last_seen TEXT NOT NULL, UNIQUE(user_id, device_hash, ip));
 CREATE TABLE IF NOT EXISTS login_alerts(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, ip TEXT, created_at TEXT NOT NULL);
+-- wrong passwords against a real account, to warn its owner of a guessing attempt (services/loginAlerts.js)
+CREATE TABLE IF NOT EXISTS login_failures(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, ip TEXT, created_at TEXT NOT NULL, alerted INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS idx_login_failures_user ON login_failures(user_id, created_at);
 -- training videos: the library of finished videos and which roles may watch each one
 CREATE TABLE IF NOT EXISTS training_library(
   id INTEGER PRIMARY KEY, title TEXT NOT NULL, description TEXT, category TEXT NOT NULL DEFAULT 'System overview', path TEXT NOT NULL, mime TEXT, size INTEGER NOT NULL DEFAULT 0,

@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { all, get, run, getSetting, setSetting, currentDb } from '../db.js';
 import { signToken, signMfaToken, readMfaToken, signOtpToken, readOtpToken, loadUser, requireAuth, hasPerm } from '../rbac.js';
 import { sendCode, checkCode, canEmailCodes } from '../services/emailOtp.js';
-import { noteSignIn, recognised } from '../services/loginAlerts.js';
+import { noteSignIn, noteFailedLogin, recognised } from '../services/loginAlerts.js';
 import { encrypt, decrypt } from '../services/platformConfig.js';
 import { newSecret, verifyCode, otpauthUrl, qrDataUrl, newRecoveryCodes, useRecoveryCode } from '../services/totp.js';
 import { audit } from '../audit.js';
@@ -35,6 +35,7 @@ r.post('/login', loginLimiter, asyncH((req, res) => {
   const row = get('SELECT * FROM users WHERE (lower(email)=lower(?) OR phone=?) AND active=1', id, id);
   if (!row || !bcrypt.compareSync(String(password), row.password_hash)) {
     audit(req, 'Failed login', 'user', null, id);
+    if (row) noteFailedLogin(req, row);
     throw new HttpError(401, 'Invalid credentials');
   }
   const u = loadUser(row.id);
