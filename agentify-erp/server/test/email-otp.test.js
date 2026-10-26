@@ -249,3 +249,44 @@ test('console: switches, your own domain list, a test check, and the lock-out es
   await userAction(ten.id, uid, 'disable-login-otp', {}, { protocol: 'http', get: () => 'otpco.erp.test' });
   assert.equal(withTenant(t, () => get("SELECT value FROM settings WHERE key='login_email_otp'").value), 'off');
 });
+
+test('five wrong passwords on a real account email its owner once an hour; unknown accounts get nothing', async () => {
+  const H = 'otpco.erp.test';
+  const { withTenant, getTenant } = await import('../src/platform.js');
+  const { run } = await import('../src/db.js');
+  const ten = getTenant(platformDb().prepare('SELECT id FROM tenants WHERE slug=?').get('otpco').id);
+  withTenant(ten, () => run('DELETE FROM login_failures'));
+  const bad = (id) => call(H, 'POST', '/api/auth/login', { identifier: id, password: 'wrong-pass' }, { 'X-Forwarded-For': '192.0.2.50' });
+  const warns = () => sent.filter((m) => /Wrong password attempts/.test(m.subject));
+  sent.length = 0;
+  for (let i = 0; i < 4; i += 1) assert.equal((await bad('olive@otpco.test')).status, 401);
+  await wait(); assert.equal(warns().length, 0, 'four is not yet an attack');
+  await bad('olive@otpco.test'); await wait();
+  assert.equal(warns().length, 1); assert.deepEqual(warns()[0].to, ['olive@otpco.test']);
+  assert.match(warns()[0].text, /192\.0\.2\.50/); assert.match(warns()[0].text, /Nobody got in/);
+  for (let i = 0; i < 5; i += 1) await bad('olive@otpco.test');
+  await wait(); assert.equal(warns().length, 1, 'at most one an hour');
+  for (let i = 0; i < 6; i += 1) await bad('nobody@otpco.test');
+  await wait(); assert.equal(warns().length, 1, 'no email for an address with no account');
+});
+
+test('the devices list shows each browser with its addresses, and sign-out-everywhere ends other sessions but not this one', async () => {
+  const H = 'otpco.erp.test';
+  const ua = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0) Firefox/121.0' };
+  const a = await call(H, 'POST', '/api/auth/login', { identifier: 'olive@otpco.test', password: 'Owner@12345' }, { 'X-Forwarded-For': '10.9.9.1', ...ua });
+  const tokenA = a.cookies.find((c) => c.startsWith('erp_token=')), dev = a.cookies.find((c) => c.startsWith('erp_device='));
+  const b = await call(H, 'POST', '/api/auth/login', { identifier: 'olive@otpco.test', password: 'Owner@12345' }, { 'X-Forwarded-For': '10.9.9.2' });
+  const tokenB = b.cookies.find((c) => c.startsWith('erp_token='));
+  assert.equal((await call(H, 'GET', '/api/auth/devices')).status, 401);
+  const list = await call(H, 'GET', '/api/auth/devices', null, { Cookie: `${tokenA}; ${dev}` });
+  assert.equal(list.status, 200);
+  const mine = list.data.find((d) => d.current);
+  assert.ok(mine); assert.equal(mine.browser, 'Firefox on Windows'); assert.deepEqual(mine.ips, ['10.9.9.1']);
+  assert.ok(list.data.length >= 2); assert.ok(!JSON.stringify(list.data).includes('device_hash'));
+  assert.equal((await call(H, 'GET', '/api/auth/me', null, { Cookie: tokenB })).status, 200);
+  const out = await call(H, 'POST', '/api/auth/devices/sign-out-all', {}, { Cookie: tokenA });
+  assert.equal(out.status, 200);
+  assert.equal((await call(H, 'GET', '/api/auth/me', null, { Cookie: tokenB })).status, 401, 'the other session is ended');
+  const fresh = out.cookies.find((c) => c.startsWith('erp_token='));
+  assert.equal((await call(H, 'GET', '/api/auth/me', null, { Cookie: fresh })).status, 200, 'this browser keeps working');
+});

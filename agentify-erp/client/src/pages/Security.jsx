@@ -29,6 +29,26 @@ function EmailCode() {
   );
 }
 
+const when = (ts) => String(ts || '').slice(0, 16).replace('T', ' ');
+function Devices() {
+  const toast = useToast();
+  const [list, setList] = useState(null);
+  useEffect(() => { api.get('/api/auth/devices').then(setList).catch(() => setList([])); }, []);
+  if (!list) return null;
+  const signOutAll = async () => { if (!window.confirm('Sign out of every device? This browser stays signed in.')) return; try { await api.post('/api/auth/devices/sign-out-all'); toast('Every other device was signed out'); } catch (e) { toast(e.message, 'err'); } };
+  return (
+    <Card title="Where you have signed in">
+      <p className="muted">Browsers and addresses used to sign in to your account. If you see one you do not recognise, sign out everywhere and change your password.</p>
+      {list.length === 0 ? <p className="muted">Nothing recorded yet.</p> : (
+        <div className="table-wrap"><table className="t"><thead><tr><th>Browser</th><th>Addresses</th><th>Last used</th></tr></thead><tbody>
+          {list.map((d, i) => <tr key={i}><td><b>{d.browser}</b>{d.current && <span className="muted"> (this browser)</span>}</td><td>{d.ips.join(', ')}</td><td>{when(d.last_seen)}</td></tr>)}
+        </tbody></table></div>
+      )}
+      <button className="btn" onClick={signOutAll}>Sign out of every other device</button>
+    </Card>
+  );
+}
+
 export default function Security() {
   const { user } = useAuth();
   const toast = useToast();
@@ -37,6 +57,7 @@ export default function Security() {
       <PageHead title="Security" sub="Protect your sign-in" />
       <TwoFactor base="/api/auth/2fa" />
       <EmailCode />
+      <Devices />
       {user?.isSuper && (
         <Card title="Download a backup">
           <p className="muted">A copy of your workspace database, taken right now. Keep it somewhere safe and private. Uploaded files and documents are not inside this file.</p>

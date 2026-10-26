@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { all, get, run, getSetting, setSetting, currentDb } from '../db.js';
 import { signToken, signMfaToken, readMfaToken, signOtpToken, readOtpToken, loadUser, requireAuth, hasPerm } from '../rbac.js';
 import { sendCode, checkCode, canEmailCodes } from '../services/emailOtp.js';
-import { noteSignIn, recognised } from '../services/loginAlerts.js';
+import { noteSignIn, noteFailedLogin, recognised, deviceList } from '../services/loginAlerts.js';
 import { encrypt, decrypt } from '../services/platformConfig.js';
 import { newSecret, verifyCode, otpauthUrl, qrDataUrl, newRecoveryCodes, useRecoveryCode } from '../services/totp.js';
 import { audit } from '../audit.js';
@@ -35,6 +35,7 @@ r.post('/login', loginLimiter, asyncH((req, res) => {
   const row = get('SELECT * FROM users WHERE (lower(email)=lower(?) OR phone=?) AND active=1', id, id);
   if (!row || !bcrypt.compareSync(String(password), row.password_hash)) {
     audit(req, 'Failed login', 'user', null, id);
+    if (row) noteFailedLogin(req, row);
     throw new HttpError(401, 'Invalid credentials');
   }
   const u = loadUser(row.id);
@@ -79,6 +80,15 @@ r.post('/login/otp/resend', loginLimiter, asyncH(async (req, res) => {
   const row = otpUser(req.body?.otp_token);
   const u = loadUser(row.id);
   await sendCode({ purpose: 'login', email: row.email, tenantId: currentTenant()?.id ?? null, userId: row.id, ip: req.ip, ...emailCodeMail(u) });
+  res.json({ ok: true });
+}));
+// ---- where this account has been signed in from, and a way to end every session at once
+r.get('/devices', requireAuth, (req, res) => res.json(deviceList(req.user.id, req)));
+r.post('/devices/sign-out-all', requireAuth, asyncH((req, res) => {
+  run('UPDATE users SET token_version=token_version+1 WHERE id=?', req.user.id);
+  audit(req, 'Signed out of every device', 'user', req.user.id);
+  const u = loadUser(req.user.id);
+  res.cookie('erp_token', signToken(u), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 12 * 3600 * 1000 }); // this browser stays signed in
   res.json({ ok: true });
 }));
 r.get('/login-otp', requireAuth, (req, res) => res.json({ mode: loginOtpMode(), can_send: canEmailCodes(), can_edit: hasPerm(req.user, 'settings', 'edit') }));
