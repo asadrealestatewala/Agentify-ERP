@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { customerSearchClause, findDuplicateContacts } from '../services/customers.js';
+import { recordAssignment } from '../services/leadFlow.js';
 import { all, get, run, tx, insert, update } from '../db.js';
 import { can, ownerId, requireStaff, hasPerm } from '../rbac.js';
 import { audit, activity, notify, userName } from '../audit.js';
@@ -138,10 +139,7 @@ r.post('/contacts', can('crm', 'create'), asyncH((req, res) => {
   const id = tx(() => {
     const cid = insert('contacts', d, [...COLS, 'created_by', 'created_at', 'last_activity_at']);
     activity(cid, req.user, 'Lead created', { detail: d.lead_source ? `Source: ${d.lead_source}` : null });
-    if (d.agent_id) {
-      activity(cid, req.user, 'Contact assigned', { field: 'Sales agent', next: userName(d.agent_id) });
-      if (d.agent_id !== req.user.id) notify(d.agent_id, 'lead', 'New lead assigned', `${d.full_name} was assigned to you`, `/contacts/${cid}`);
-    }
+    if (d.agent_id) recordAssignment(cid, { agentId: d.agent_id, ruleId: null, kind: 'manual', reason: d.agent_id === req.user.id ? 'Added by the agent' : 'Chosen when the lead was added' }, { kind: 'manual', actor: req.user });
     if (req.user.own_scope) notify(d.manager_id, 'lead', 'New lead from agent', `${req.user.name} added ${d.full_name}`, `/contacts/${cid}`);
     if (d.followup_date) run(`INSERT INTO tasks(entity_type,entity_id,title,due_date,assigned_to,created_by,created_at) VALUES('contact',?,?,?,?,?,?)`, cid, 'Follow up', d.followup_date, d.agent_id ?? req.user.id, req.user.id, now());
     audit(req, 'Created lead', 'contact', cid, d.full_name);
@@ -189,7 +187,10 @@ export function updateContact(id, body, req) {
       const action = k === 'stage_id' ? 'Lead stage changed' : k === 'agent_id' ? (prev ? 'Sales agent changed' : 'Contact assigned')
         : k === 'followup_date' ? 'Follow-up scheduled' : `${LABELS[k]} updated`;
       activity(id, req.user, action, { field: LABELS[k], prev: display(k, prev), next: display(k, next) });
-      if (k === 'agent_id' && next) notify(next, 'lead', 'Lead assigned to you', existing.full_name, `/contacts/${id}`);
+      if (k === 'agent_id') {
+        if (next) notify(next, 'lead', 'Lead assigned to you', existing.full_name, `/contacts/${id}`);
+        recordAssignment(id, { agentId: next, ruleId: null, kind: 'manual', reason: 'Assigned by a person' }, { kind: 'manual', actor: req.user, quiet: true });
+      }
       if (k === 'stage_id') audit(req, 'Lead stage changed', 'contact', id, `${existing.full_name}: ${display(k, prev)} → ${display(k, next)}`);
     }
     if (d.followup_date && d.followup_date !== existing.followup_date) {

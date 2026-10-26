@@ -1,12 +1,16 @@
 // One way for a website enquiry to become a CRM lead, shared by the company website, the old /api/public endpoints and
 // the Integration API v1: find the person (same phone written differently, or same e-mail), add to their history or
 // create them, route them to an agent, and keep where it came from and what they agreed to.
-import { all, get, getSetting, run } from '../db.js';
+import { all, get, getSetting, run, tx } from '../db.js';
 import { activity, notify } from '../audit.js';
 import { bad, int, jparse, now } from '../util.js';
 import { phoneKey } from './phone.js';
 import { isPersonName } from '../validation.js';
 import { publish } from './events.js';
+import { chooseAgent, recordAssignment, recordAutomated } from './leadFlow.js';
+import { inboundFingerprint, seenInbound, attachSeen, flagReview, namesCompatible } from './leadDedupe.js';
+import { recordConsent } from './emailConsent.js';
+import { triggerSequences } from './sequences.js';
 
 /** Round-robin lead routing: website -> CRM lead -> sales agent -> sales manager. */
 export function nextAgent() {
@@ -21,16 +25,16 @@ export function nextAgent() {
 /** The same person if their phone (in any spelling) or e-mail is already in the CRM. */
 function findContact(phone, email) {
   if (phone) {
-    const exact = get('SELECT id,agent_id FROM contacts WHERE phone=?', phone);
+    const exact = get('SELECT id,agent_id,full_name FROM contacts WHERE phone=?', phone);
     if (exact) return exact;
     const key = phoneKey(phone);
     if (key.length >= 7) {
-      const rows = all("SELECT id,agent_id,phone FROM contacts WHERE phone IS NOT NULL AND replace(replace(replace(replace(replace(phone,' ',''),'-',''),'(',''),')',''),'+','') LIKE ? LIMIT 50", `%${key.slice(-7)}`);
+      const rows = all("SELECT id,agent_id,phone,full_name FROM contacts WHERE phone IS NOT NULL AND replace(replace(replace(replace(replace(phone,' ',''),'-',''),'(',''),')',''),'+','') LIKE ? LIMIT 50", `%${key.slice(-7)}`);
       const hit = rows.find((r) => phoneKey(r.phone) === key);
       if (hit) return hit;
     }
   }
-  return (email && get('SELECT id,agent_id FROM contacts WHERE lower(email)=lower(?)', email)) || null;
+  return (email && get('SELECT id,agent_id,full_name FROM contacts WHERE lower(email)=lower(?)', email)) || null;
 }
 
 const text = (v, max) => String(v ?? '').trim().slice(0, max);
@@ -78,16 +82,30 @@ const byRef = (table, ref, cols) => {
  * `connection` (Integration API) supplies the lead source, pipeline stage and agent chosen in the wizard.
  * Returns { id, result: 'created' | 'matched' }.
  */
-export function submitLead(body, { kind = 'lead', connection = null, test = false } = {}) {
+export function submitLead(body, opts = {}) { return tx(() => submitLeadTx(body, opts)); }
+function submitLeadTx(body, { kind = 'lead', connection = null, test = false } = {}) {
   const { name, phone, email } = validateContactFields(body);
   const message = String(body.message || '').slice(0, 2000);
   const cfg = connection?.config || {};
   const consent = cleanConsent(body.consent);
   if (cfg.require_privacy_consent && !(consent && consent.privacy === true)) throw bad('This connection requires the visitor to accept the privacy notice (consent.privacy must be true)', { code: 'consent_required' });
   const source = cleanSource(body.source);
-  const prop = byRef('properties', body.property_ref ?? body.property_id, 'id,title,project_id,agent_id');
+  const prop = byRef('properties', body.property_ref ?? body.property_id, 'id,title,project_id,agent_id,property_type,city');
   const project = prop ? get('SELECT id,name FROM projects WHERE id=?', prop.project_id) : byRef('projects', body.project_ref, 'id,name');
-  const existing = findContact(phone, email);
+  // the same enquiry twice (retry, double submit) is recorded as a repeat, not a second lead or a second notification
+  const fp = test ? null : inboundFingerprint({ phone, email, form: source?.form, message, external_id: body.external_id });
+  const seen = fp ? seenInbound(fp, null) : null;
+  if (seen) {
+    if (seen.contactId) {
+      if (connection || source || consent) run('INSERT INTO lead_attribution(contact_id,connection_id,external_id,form,enquiry_type,page_url,referrer,utm,consent,result,test,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+        seen.contactId, connection?.id ?? null, text(body.external_id, 120) || null, source?.form ?? null, text(body.enquiry_type, 40) || kind, source?.page_url ?? null, source?.referrer ?? null, source ? JSON.stringify(source.utm) : null, consent ? JSON.stringify(consent) : null, 'repeat', 0, now());
+      return { id: seen.contactId, result: 'repeat' };
+    }
+  }
+  let existing = findContact(phone, email);
+  // a shared phone or e-mail with a different name is not proof of the same person: keep them apart and ask a person to review
+  let reviewAgainst = null;
+  if (existing && !namesCompatible(existing.full_name, name)) { reviewAgainst = existing.id; existing = null; }
   const mgr = get("SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE r.name='Sales Manager' AND u.active=1 LIMIT 1")?.id ?? null;
   const about = prop ? prop.title : project?.name || null;
   let cid, agent, result;
@@ -97,13 +115,18 @@ export function submitLead(body, { kind = 'lead', connection = null, test = fals
     if (connection && message) run("INSERT INTO notes(entity_type,entity_id,body,user_id,created_at) VALUES('contact',?,?,NULL,?)", cid, `[Website ${kind}] ${message}`, now());
   } else {
     result = 'created';
-    agent = cfg.agent_id || prop?.agent_id || nextAgent();
+    const fixed = cfg.agent_id || prop?.agent_id || null;
+    const pick = fixed ? { agentId: fixed, ruleId: null, kind: 'configured', reason: cfg.agent_id ? 'Agent set on the website connection' : 'Agent responsible for the listing' }
+      : chooseAgent({ lead_source: cfg.lead_source || 'Website', project_id: project?.id ?? null, property_type: prop?.property_type, city: prop?.city });
+    agent = pick.agentId;
     const stage = cfg.stage_id || get("SELECT id FROM lookups WHERE type='lead_stage' AND active=1 ORDER BY sort_order LIMIT 1")?.id;
     cid = Number(run(`INSERT INTO contacts(first_name,last_name,full_name,phone,email,lead_source,stage_id,agent_id,manager_id,tags,project_id,property_id,created_at,last_activity_at)
-      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, name.split(' ')[0], name.split(' ').slice(1).join(' ') || null, name, phone || null, email || null, cfg.lead_source || 'Website', stage, agent, mgr,
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, name.split(' ')[0], name.split(' ').slice(1).join(' ') || null, name, phone || null, email || null, cfg.lead_source || 'Website', stage, null, mgr,
     JSON.stringify(test ? ['website', 'test'] : ['website']), project?.id ?? null, prop?.id ?? null, now(), now()).lastInsertRowid);
     activity(cid, null, 'Lead created', { detail: `Website ${kind}${test ? ' (test submission)' : ''}${about ? ` for ${about}` : ''}` });
-    if (agent) activity(cid, null, 'Contact assigned', { field: 'Sales agent', next: get('SELECT name FROM users WHERE id=?', agent)?.name });
+    // the assignment record is the only place that notes who, why and when; it also sets the response deadlines
+    recordAssignment(cid, pick, { kind: 'auto' });
+    if (reviewAgainst) flagReview(cid, reviewAgainst, 'Same phone or e-mail as another contact with a different name');
     if (message) run("INSERT INTO notes(entity_type,entity_id,body,user_id,created_at) VALUES('contact',?,?,NULL,?)", cid, `[Website ${kind}] ${message}`, now());
   }
   if (connection || source || consent) {
@@ -111,8 +134,14 @@ export function submitLead(body, { kind = 'lead', connection = null, test = fals
       cid, connection?.id ?? null, text(body.external_id, 120) || null, source?.form ?? null, text(body.enquiry_type, 40) || kind, source?.page_url ?? null, source?.referrer ?? null,
       source ? JSON.stringify(source.utm) : null, consent ? JSON.stringify(consent) : null, result, test ? 1 : 0, now());
   }
+  if (fp) attachSeen(fp, cid);
+  // marketing consent given on the website form is evidence for later marketing mail; privacy acceptance alone is not
+  if (consent?.marketing === true && email && !test) {
+    try { recordConsent({ email, contactId: cid, status: 'granted', source: 'website_form', text: consent.text }); } catch { /* an address the mail rules reject simply gets no consent record */ }
+  }
+  if (result === 'created' && !test) { try { triggerSequences('new_inquiry', cid); } catch (e) { console.error('[lead flow]', e.message); } }
   if (result === 'created') publish('lead', `WEB-${cid}`, text(body.enquiry_type, 40) || kind, test);
-  if (!test) notify([agent, mgr], 'lead', `New website ${kind}`, `${name}${about ? ` — ${about}` : ''}`, `/contacts/${cid}`);
+  if (!test && result !== 'repeat') notify([agent, mgr], 'lead', `New website ${kind}`, `${name}${about ? ` — ${about}` : ''}`, `/contacts/${cid}`);
   return { id: cid, result };
 }
 

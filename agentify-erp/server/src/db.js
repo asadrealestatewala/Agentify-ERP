@@ -14,6 +14,7 @@ import { FIELD_SCHEMA } from './fieldSchema.js';
 import { ONBOARDING_SCHEMA } from './onboardingSchema.js';
 import { GATEWAYS_SCHEMA } from './gateways/schema.js';
 import { EMAIL_SCHEMA } from './emailSchema.js';
+import { LEAD_SCHEMA } from './leadSchema.js';
 import { now } from './util.js';
 import { als, currentContext, currentTenant } from './context.js';
 
@@ -38,7 +39,7 @@ export function openDb(file, tenant = null) {
   h.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
   handles.set(abs, h);
   try {
-    als.run({ tenant, db: h }, () => { db.exec(SCHEMA); db.exec(CONSTRUCTION_SCHEMA); db.exec(IDENTITY_SCHEMA); db.exec(MORTGAGE_SCHEMA); db.exec(DOCUMENTS_SCHEMA); db.exec(INTEGRATIONS_SCHEMA); db.exec(ONBOARDING_SCHEMA); db.exec(FIELD_SCHEMA); db.exec(GATEWAYS_SCHEMA); db.exec(EMAIL_SCHEMA); migrate(); backfillIds(); try { syncRegionLookups(); } catch { /* lists are a convenience; never block opening the workspace */ } });
+    als.run({ tenant, db: h }, () => { db.exec(SCHEMA); db.exec(CONSTRUCTION_SCHEMA); db.exec(IDENTITY_SCHEMA); db.exec(MORTGAGE_SCHEMA); db.exec(DOCUMENTS_SCHEMA); db.exec(INTEGRATIONS_SCHEMA); db.exec(ONBOARDING_SCHEMA); db.exec(FIELD_SCHEMA); db.exec(GATEWAYS_SCHEMA); db.exec(EMAIL_SCHEMA); db.exec(LEAD_SCHEMA); migrate(); backfillIds(); try { syncRegionLookups(); } catch { /* lists are a convenience; never block opening the workspace */ } });
   } catch (e) { handles.delete(abs); h.close(); throw e; }
   return h;
 }
