@@ -4,6 +4,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.19', date: '2026-10-26', title: 'See email use by plan and workspace',
+    items: [
+      { text: 'Two new tables show how much email each plan and each workspace has used against its allowance in the current period, with warning and used-up markers.', where: 'Super Admin console > Mailbox > Tenant email' },
+    ],
+  },
+  {
     version: 'v1.18', date: '2026-10-26', title: 'Tenant email page opens again',
     items: [
       { text: 'Fixed the Tenant email page showing a blank screen after the last update, so the Resend connection tools (test, webhook, test email) work again.', where: 'Super Admin console > Mailbox > Tenant email' },

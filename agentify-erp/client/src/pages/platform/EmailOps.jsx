@@ -6,6 +6,8 @@ import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, PageTitle } from './AdminShell.jsx';
 
+const STATE = { ok: ['green', 'OK'], warning: ['amber', 'Warning'], exhausted: ['red', 'Used up'], daily_limit: ['red', 'Daily limit'], not_configured: ['grey', 'No allowance'], paused: ['grey', 'Paused'] };
+const usedOf = (c) => (c.allowance == null ? `${c.used} (no allowance)` : `${c.used} / ${c.allowance}${c.percent != null ? ` · ${c.percent}%` : ''}`);
 const pct = (v) => (v == null ? '—' : `${(v * 100).toFixed(2)}%`);
 
 
@@ -105,6 +107,17 @@ export default function EmailOps() {
           <p className="muted" style={{ fontSize: 12.5 }}>Account and security email in the last 30 days: {d.service_mail_30d}. Tenant mail yields to it when provider limits are close.</p>
         </Card>
       </div>
+      <Card title="Email used by plan (current period)" flush>
+        <p className="muted" style={{ margin: '12px 16px 0', fontSize: 12.5 }}>Each workspace's period starts on its own day, so a row adds up periods that are not the same calendar month. Workspaces with no allowance set are counted as "used without allowance", not against a limit.</p>
+        {d.by_plan?.length ? <div className="table-wrap"><table className="t"><thead><tr><th>Plan</th><th>Workspaces</th><th>Operational used / allowance</th><th>Marketing used / allowance</th><th>Warning</th><th>Used up</th></tr></thead><tbody>
+          {d.by_plan.map((p) => { const o = p.categories.operational, m = p.categories.marketing; const cell = (c) => (c.workspaces_with_allowance ? `${c.used_total} / ${c.allowance_total}` : '—') + (c.used_without_allowance ? ` (+${c.used_without_allowance} without allowance)` : ''); return <tr key={p.plan}><td>{p.plan_name}</td><td>{p.workspaces}</td><td>{cell(o)}</td><td>{cell(m)}</td><td>{o.at_warning + m.at_warning}</td><td>{o.exhausted + m.exhausted}</td></tr>; })}
+        </tbody></table></div> : <Empty title="No workspaces yet" />}
+      </Card>
+      <Card title="Email used by workspace (current period)" flush>
+        {d.workspaces?.length ? <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th>Plan</th><th>Operational</th><th>Marketing</th><th>Period resets</th></tr></thead><tbody>
+          {d.workspaces.map((w) => <tr key={w.id}><td>{w.name}</td><td>{w.plan_name}</td>{['operational', 'marketing'].map((k) => { const c = w.categories[k]; const [tone, label] = STATE[c.state] || ['grey', c.state]; return <td key={k}>{w.plan_name === 'Not metered' ? 'Not metered' : <>{usedOf(c)} <StatusBadge tone={tone} label={label} /></>}</td>; })}<td>{String(w.period_resets_at || '').slice(0, 10)}</td></tr>)}
+        </tbody></table></div> : <Empty title="No workspaces yet" />}
+      </Card>
       <Card title="Provider limits (entered by hand) and commercial notes">
         <p className="muted" style={{ marginTop: 0 }}>These are your own figures, used to protect capacity for account email and to label estimated cost. Nothing here is read from the provider's billing.</p>
         <div className="pa-grid3">
