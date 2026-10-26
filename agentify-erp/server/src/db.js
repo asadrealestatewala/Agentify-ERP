@@ -10,6 +10,7 @@ import { MORTGAGE_SCHEMA } from './regions/mortgageSchema.js';
 import { DOCUMENTS_SCHEMA } from './regions/documentsSchema.js';
 import { syncRegionLookups } from './regions/lookups.js';
 import { INTEGRATIONS_SCHEMA } from './integrations/schema.js';
+import { ONBOARDING_SCHEMA } from './onboardingSchema.js';
 import { now } from './util.js';
 import { als, currentContext, currentTenant } from './context.js';
 
@@ -34,7 +35,7 @@ export function openDb(file, tenant = null) {
   h.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
   handles.set(abs, h);
   try {
-    als.run({ tenant, db: h }, () => { db.exec(SCHEMA); db.exec(CONSTRUCTION_SCHEMA); db.exec(IDENTITY_SCHEMA); db.exec(MORTGAGE_SCHEMA); db.exec(DOCUMENTS_SCHEMA); db.exec(INTEGRATIONS_SCHEMA); migrate(); backfillIds(); try { syncRegionLookups(); } catch { /* lists are a convenience; never block opening the workspace */ } });
+    als.run({ tenant, db: h }, () => { db.exec(SCHEMA); db.exec(CONSTRUCTION_SCHEMA); db.exec(IDENTITY_SCHEMA); db.exec(MORTGAGE_SCHEMA); db.exec(DOCUMENTS_SCHEMA); db.exec(INTEGRATIONS_SCHEMA); db.exec(ONBOARDING_SCHEMA); migrate(); backfillIds(); try { syncRegionLookups(); } catch { /* lists are a convenience; never block opening the workspace */ } });
   } catch (e) { handles.delete(abs); h.close(); throw e; }
   return h;
 }
@@ -120,6 +121,7 @@ function migrate() {
     db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_key ON appointments(created_by, client_key) WHERE client_key IS NOT NULL');
     db.exec('CREATE INDEX IF NOT EXISTS idx_appointments_property ON appointments(property_id); CREATE INDEX IF NOT EXISTS idx_appointments_contact ON appointments(contact_id)');
   }
+  addCol('work_tasks', 'onboarding_item_id', 'INTEGER'); // the onboarding checklist item a task was created for
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_notif_dedupe ON notifications(user_id, dedupe) WHERE dedupe IS NOT NULL');
   db.exec('CREATE INDEX IF NOT EXISTS idx_sales_contact ON sales(contact_id); CREATE INDEX IF NOT EXISTS idx_sales_agent ON sales(agent_id); CREATE INDEX IF NOT EXISTS idx_sales_bundle ON sales(bundle_id);');
   // every receipt belongs to one or more sales through receipt_sales

@@ -23,6 +23,8 @@ import { validateInput } from './validation.js';
 import { authenticate, csrfGuard, requireStaff } from './rbac.js';
 import { HttpError } from './util.js';
 import { runReminders } from './services/reminders.js';
+import { runOnboardingReminders } from './services/onboarding.js';
+import onboardingRoutes from './routes/onboarding.js';
 import { runGoalReminders } from './services/goals.js';
 import goals, { push } from './routes/goals.js';
 import assistant from './routes/assistant.js';
@@ -171,6 +173,7 @@ export function createApp() {
   app.use('/api/dashboard', dashboard);
   app.use('/api/reports', reports);
   app.use('/api/properties', properties);
+  app.use('/api/hrm/onboarding', onboardingRoutes);
   app.use('/api/hrm', hrm);
   app.use('/api', crm);
   app.use('/api', projects);
@@ -232,7 +235,7 @@ console.log(`[boot] entry=${entryFile || '<none>'} argv1=${process.argv[1] || '<
 if (isMain) {
   const port = Number(process.env.PORT) || 4000;
   createApp().listen(port, () => console.log(`Expert ERP API listening on http://localhost:${port}`));
-  const tick = () => { try { forEachTenant(() => { runReminders(); runGoalReminders(); contentReminders(); }); markJob('tenant-jobs'); } catch (e) { markJob('tenant-jobs', e); } };
+  const tick = () => { try { forEachTenant(() => { runReminders(); runOnboardingReminders(); runGoalReminders(); contentReminders(); }); markJob('tenant-jobs'); } catch (e) { markJob('tenant-jobs', e); } };
   tick();
   scheduleBackups();
   setInterval(tick, 30 * 60 * 1000).unref(); // goal nudges are once-per-day via dedupe keys
