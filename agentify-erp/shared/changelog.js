@@ -4,6 +4,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.18', date: '2026-10-26', title: 'Tenant email page opens again',
+    items: [
+      { text: 'Fixed the Tenant email page showing a blank screen after the last update, so the Resend connection tools (test, webhook, test email) work again.', where: 'Super Admin console > Mailbox > Tenant email' },
+    ],
+  },
+  {
     version: 'v1.17', date: '2026-10-26', title: 'Resend setup reuses what you already have',
     items: [
       { text: 'Registering the Resend webhook now finds one already at your address and uses it instead of making a second. Missing events are added and your own extra events are kept, and the panel says which of the three happened.', where: 'Super Admin console > Tenant email > Resend connection' },
