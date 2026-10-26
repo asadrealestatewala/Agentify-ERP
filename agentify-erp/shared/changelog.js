@@ -4,6 +4,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.20', date: '2026-10-26', title: 'Tidier Lead conversion tables',
+    items: [
+      { text: 'The By source and By owner tables now have a header row and aligned columns for Leads, Responded, Appointment and Won. Each rate shows the percentage with the count underneath, and "No data" when there is nothing to measure yet.', where: 'CRM > Lead Conversion' },
+    ],
+  },
+  {
     version: 'v1.19', date: '2026-10-26', title: 'See email use by plan and workspace',
     items: [
       { text: 'Two new tables show how much email each plan and each workspace has used against its allowance in the current period, with warning and used-up markers.', where: 'Super Admin console > Mailbox > Tenant email' },

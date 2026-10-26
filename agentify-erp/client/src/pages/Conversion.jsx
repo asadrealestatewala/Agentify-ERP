@@ -8,6 +8,13 @@ import { useFetch } from '../context.jsx';
 const mins = (m) => (m == null ? '–' : m < 60 ? `${m} min` : m < 2880 ? `${Math.round(m / 6) / 10} h` : `${Math.round(m / 144) / 10} days`);
 const pct = (r) => (r.rate == null ? '–' : `${r.rate}%`);
 const Rate = ({ label, r, help }) => <Stat label={label} value={pct(r)} sub={`${r.n} of ${r.d}${help ? ` · ${help}` : ''}`} />;
+/** Value on top, what it was divided by underneath. Nothing to divide by reads "No data" rather than a bare dash or 0%. */
+const RateCell = ({ r }) => (r.d ? <><div className="cell-main">{pct(r)}</div><div className="cell-sub">{r.n} of {r.d}</div></> : <span className="muted">No data</span>);
+const RateTable = ({ rows, first }) => (
+  <div className="table-wrap"><table className="t"><thead><tr><th>{first}</th><th className="num">Leads</th><th className="num">Responded</th><th className="num">Appointment</th><th className="num">Won</th></tr></thead><tbody>
+    {rows.map((s) => <tr key={s.key}><td className="cell-main">{s.label}</td><td className="num">{s.leads}</td><td className="num"><RateCell r={s.response_rate} /></td><td className="num"><RateCell r={s.appointment_rate} /></td><td className="num"><RateCell r={s.won_rate} /></td></tr>)}
+  </tbody></table></div>
+);
 const isoDay = (d) => d.toISOString().slice(0, 10);
 
 export default function Conversion() {
@@ -43,14 +50,10 @@ export default function Conversion() {
             <p className="muted" style={{ marginBottom: 0 }}>Response targets: {data.sla.met} met · {data.sla.missed} missed · {data.sla.open} still open{data.sla.rate.rate != null ? ` · ${data.sla.rate.rate}% of due leads on time` : ''}.</p>
           </Card>
           <Card title="By source">
-            <div className="table-wrap"><table className="table"><thead><tr><th>Source</th><th>Leads</th><th>Responded</th><th>Appointment</th><th>Won</th></tr></thead><tbody>
-              {data.by_source.map((s) => <tr key={s.key}><td>{s.label}</td><td>{s.leads}</td><td>{pct(s.response_rate)} <span className="muted">({s.response_rate.n}/{s.response_rate.d})</span></td><td>{pct(s.appointment_rate)} <span className="muted">({s.appointment_rate.n}/{s.appointment_rate.d})</span></td><td>{pct(s.won_rate)} <span className="muted">({s.won_rate.n}/{s.won_rate.d})</span></td></tr>)}
-            </tbody></table></div>
+            <RateTable rows={data.by_source} first="Source" />
           </Card>
           {data.by_agent.length > 0 && <Card title="By owner (first assignment)">
-            <div className="table-wrap"><table className="table"><thead><tr><th>Agent</th><th>Leads</th><th>Responded</th><th>Appointment</th><th>Won</th></tr></thead><tbody>
-              {data.by_agent.map((s) => <tr key={s.key}><td>{s.label}</td><td>{s.leads}</td><td>{pct(s.response_rate)} <span className="muted">({s.response_rate.n}/{s.response_rate.d})</span></td><td>{pct(s.appointment_rate)}</td><td>{pct(s.won_rate)}</td></tr>)}
-            </tbody></table></div>
+            <RateTable rows={data.by_agent} first="Agent" />
           </Card>}
           <Card title="People and automation">
             <p className="muted" style={{ marginTop: 0 }}>{data.automation.note}</p>
