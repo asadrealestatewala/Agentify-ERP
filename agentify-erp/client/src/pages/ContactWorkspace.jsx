@@ -12,6 +12,7 @@ import RegionFields from '../components/RegionFields.jsx';
 import PrivacyTools from '../components/PrivacyTools.jsx';
 import MortgageCard from '../components/MortgageCard.jsx';
 import { VisitsPanel } from '../components/Visits.jsx';
+import LeadFlowPanel from '../components/LeadFlowPanel.jsx';
 import { getRegion } from '../format.js';
 import { leadMessage, useCompanyName, waLink } from '../components/WhatsApp.jsx';
 
@@ -245,6 +246,7 @@ export default function ContactWorkspace() {
               </Field>
             </div>
           </Card>
+          {!c.is_customer && can('crm', 'view') && <LeadFlowPanel contactId={c.id} />}
           <RegionFields entity="contact" id={c.id} />
           <MortgageCard contactId={c.id} />
           <PrivacyTools contactId={c.id} />
