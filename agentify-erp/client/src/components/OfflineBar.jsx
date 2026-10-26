@@ -1,14 +1,14 @@
 import { useEffect, useState } from 'react';
-import { flushQueue, readQueue } from '../api.js';
+import { flushQueue, myQueue } from '../api.js';
 import { useToast } from '../context.jsx';
 
 /** Shows "offline — N saved on this device" and confirms when queued actions sync. */
 export default function OfflineBar() {
   const toast = useToast();
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
-  const [n, setN] = useState(readQueue().length);
+  const [n, setN] = useState(myQueue().length);
   useEffect(() => {
-    const on = () => setOnline(true), off = () => setOnline(false), q = () => setN(readQueue().length);
+    const on = () => setOnline(true), off = () => setOnline(false), q = () => setN(myQueue().length);
     const synced = (e) => {
       const { sent, failed } = e.detail;
       if (sent) toast(`Back online — ${sent} saved action${sent > 1 ? 's' : ''} synced`, 'ok');

@@ -1,6 +1,6 @@
 import { bindUser } from './fieldLocation.js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { api } from './api.js';
+import { api, setQueueOwner } from './api.js';
 
 const AuthCtx = createContext(null);
 const MetaCtx = createContext(null);
@@ -51,6 +51,8 @@ export function AppProviders({ children }) {
   }, [loadMeta]);
 
   useEffect(() => { refreshUser(); }, [refreshUser]);
+  // offline queue: only the signed-in user's own saved actions are replayed
+  useEffect(() => { setQueueOwner(user || null); }, [user?.id, user?.portal]);
   useEffect(() => {
     const h = () => { setUser(null); setMeta(null); };
     window.addEventListener('erp:unauthorized', h);

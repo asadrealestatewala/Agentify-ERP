@@ -9,14 +9,39 @@ const QUEUEABLE = [['POST', /^\/api\/notes$/], ['POST', /^\/api\/contacts$/], ['
 const canQueue = (method, url) => QUEUEABLE.some(([m, re]) => m === method && re.test(url));
 export const readQueue = () => { try { return JSON.parse(localStorage.getItem(QKEY) || '[]'); } catch { return []; } };
 const writeQueue = (q) => { try { localStorage.setItem(QKEY, JSON.stringify(q)); } catch { /* storage full or blocked */ } window.dispatchEvent(new Event('erp:queue')); };
+// Each queued item records who saved it (user id, staff or portal) and on which workspace address. A shared phone can switch
+// users while offline, so only the signed-in user's own items are replayed; the others wait for their owner to sign in again.
+let owner = null; // { uid, host } of the signed-in user, or null when nobody is signed in
+const hostNow = () => (typeof location === 'undefined' ? '' : location.host);
+const isMine = (item) => !!owner && item.uid === owner.uid && item.host === owner.host;
+/** Actions waiting on this device for the signed-in user. */
+export const myQueue = () => readQueue().filter(isMine);
+/** Called whenever the signed-in user is known (or gone). Replays that user's saved actions. */
+export function setQueueOwner(user) {
+  owner = user && user.id != null ? { uid: `${user.portal ? 'portal' : 'staff'}:${user.id}`, host: hostNow() } : null;
+  window.dispatchEvent(new Event('erp:queue'));
+  if (owner) flushQueue();
+}
 let flushing = false;
-/** Replay queued actions in order. Network failures stop the run (retry later); server rejections are dropped and reported. */
+/**
+ * Replay the signed-in user's queued actions in order. Network failures stop the run (retry later); server rejections are
+ * dropped and reported. Items saved before items were stamped with their owner cannot be told apart, so they are dropped
+ * unsent (reported as failed) rather than risk sending them as someone else.
+ */
 export async function flushQueue() {
-  if (flushing || !readQueue().length) return { sent: 0, failed: [] };
+  if (flushing || !owner) return { sent: 0, failed: [] };
+  const legacy = readQueue().filter((x) => !x.uid || !x.host);
+  const failed = legacy.map((x) => ({ ...x, error: 'An action saved on this device before an update was discarded because it did not record who saved it' }));
+  if (legacy.length) writeQueue(readQueue().filter((x) => x.uid && x.host));
+  if (!myQueue().length) {
+    if (failed.length) window.dispatchEvent(new CustomEvent('erp:synced', { detail: { sent: 0, failed } }));
+    return { sent: 0, failed };
+  }
   flushing = true;
-  let sent = 0; const failed = [];
+  let sent = 0;
   try {
-    for (const item of readQueue()) {
+    for (const item of myQueue()) {
+      if (!isMine(item)) break; // signed-in user changed mid-run
       try {
         const res = await fetch(item.url, { method: item.method, headers: { 'X-Requested-With': 'ERP', 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify(item.body) });
         if (res.status === 401) break;
@@ -29,7 +54,7 @@ export async function flushQueue() {
   if (sent || failed.length) window.dispatchEvent(new CustomEvent('erp:synced', { detail: { sent, failed } }));
   return { sent, failed };
 }
-if (typeof window !== 'undefined') { window.addEventListener('online', () => flushQueue()); setTimeout(() => flushQueue(), 3000); }
+if (typeof window !== 'undefined') window.addEventListener('online', () => flushQueue());
 
 async function request(method, url, body, isForm) {
   const headers = { 'X-Requested-With': 'ERP' };
@@ -39,8 +64,8 @@ async function request(method, url, body, isForm) {
     res = await fetch(url, { method, headers, credentials: 'same-origin', keepalive: !isForm, body: body ? (isForm ? body : JSON.stringify(body)) : undefined });
   } catch (e) {
     // no connection: keep field actions for later instead of losing them
-    if (!isForm && canQueue(method, url)) {
-      writeQueue([...readQueue(), { id: Date.now() + Math.random(), method, url, body, at: new Date().toISOString() }]);
+    if (!isForm && owner && canQueue(method, url)) {
+      writeQueue([...readQueue(), { id: Date.now() + Math.random(), uid: owner.uid, host: owner.host, method, url, body, at: new Date().toISOString() }]);
       return { queued: true, offline: true };
     }
     throw new ApiError('You appear to be offline. Check your connection and try again.', 0);
