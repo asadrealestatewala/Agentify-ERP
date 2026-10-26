@@ -4,6 +4,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.13', date: '2026-10-26', title: 'Online payments for your customers',
+    items: [
+      { text: 'Connect your own Stripe, PayPal or Tap account so customers can pay installments online from their portal. Receipts are created automatically once the payment is confirmed. Start in test mode.', where: 'Settings > Payment Gateways' },
+      { text: 'Bank accounts and wallets still work: customers pay, upload the slip, and your team confirms.', where: 'Settings > Payment Methods' },
+    ],
+  },
+  {
     version: 'v1.12', date: '2026-10-26', title: "What's new in the Super Admin console",
     items: [
       { text: "The Super Admin console has the same What's new page and shows the current version.", where: "Super Admin console > Dashboard > What's new" },
