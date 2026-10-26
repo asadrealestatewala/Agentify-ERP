@@ -10,6 +10,8 @@ const STORE_LINKS = { android: import.meta.env.VITE_ANDROID_STORE_URL || '', ios
 const validStore = (url, host) => { try { const u = new URL(url); return u.protocol === 'https:' && u.hostname === host ? u.toString() : null; } catch { return null; } };
 const standalone = () => window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true;
 const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+// Inside the Android store app the file download is hidden (Google Play does not allow an app to offer another way to install itself).
+const inNativeApp = !!window.Capacitor?.isNativePlatform?.() || /; wv\)/.test(ua);
 const isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && 'ontouchend' in document);
 
 export default function InstallApp() {
@@ -35,10 +37,10 @@ export default function InstallApp() {
   return (
     <>
       <PageHead title="Install the app" sub="Use the ERP like an app on your phone or computer: its own icon, full screen, and reminders." />
-      <Card title="Android app">
+      {!inNativeApp && <Card title="Android app">
         <p>Download the Agentify ERP app file and open it to install. Android may ask you to allow installs from your browser once.</p>
         <a className="btn primary" href={APK_URL} download="agentify-erp.apk">Download for Android</a>
-      </Card>
+      </Card>}
       <Card title="On this device">
         {state === 'installed' ? <p>The app is installed on this device. Open it from your home screen or app list.</p>
           : evt ? (<><p>Your browser can install the app now.</p><button className="btn primary" onClick={install} disabled={state === 'asking'}>{state === 'asking' ? 'Waiting for your answer…' : 'Install the app'}</button></>)
