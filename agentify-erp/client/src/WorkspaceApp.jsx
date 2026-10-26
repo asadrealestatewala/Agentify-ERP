@@ -56,6 +56,9 @@ import Integrations from './pages/Integrations.jsx';
 import WebsiteIntegrations from './pages/WebsiteIntegrations.jsx';
 import PaymentGateways from './pages/PaymentGateways.jsx';
 import EmailSettings from './pages/EmailSettings.jsx';
+import LeadRouting from './pages/LeadRouting.jsx';
+import Sequences from './pages/Sequences.jsx';
+import Conversion from './pages/Conversion.jsx';
 import Dialer from './pages/Dialer.jsx';
 import Appointments from './pages/Appointments.jsx';
 import AIStudio from './pages/AIStudio.jsx';
@@ -204,6 +207,9 @@ export default function App() {
         <Route path="settings/integrations" element={G('crm', <Integrations />)} />
         <Route path="settings/payment-gateways" element={G('settings', <PaymentGateways />)} />
         <Route path="settings/email" element={G('settings', <EmailSettings />)} />
+        <Route path="settings/lead-routing" element={G('crm', <LeadRouting />)} />
+        <Route path="sequences" element={G('crm', <Sequences />)} />
+        <Route path="leads/conversion" element={G('crm', <Conversion />)} />
         <Route path="settings/website-integrations" element={G('website', <WebsiteIntegrations />)} />
         {/* Construction */}
         <Route path="construction" element={G('construction', <ConstructionOverview />)} />

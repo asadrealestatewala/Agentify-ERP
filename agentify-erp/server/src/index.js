@@ -69,6 +69,9 @@ import misc from './routes/misc.js';
 import portal from './routes/portal.js';
 import gateways from './routes/gateways.js';
 import emailRoutes from './routes/email.js';
+import leadflowRoutes from './routes/leadflow.js';
+import { runLeadSla } from './services/leadFlow.js';
+import { runSequences } from './services/sequences.js';
 import emailPublic from './routes/emailPublic.js';
 import { runEmailQueue, syncProviderUsage } from './services/tenantEmail.js';
 import { runActivation } from './services/activation.js';
@@ -178,6 +181,7 @@ export function createApp() {
   app.use('/api/assistant', assistant);
   app.use('/api/gateways', gateways);
   app.use('/api/email', emailRoutes);
+  app.use('/api/leadflow', leadflowRoutes);
   app.use('/api/portal', portal);
   app.use('/api/settings', settings);
   app.use('/api/agents', agents);
@@ -264,6 +268,9 @@ if (isMain) {
   // tenant e-mail: the durable queue is drained every 20 seconds; provider usage is read hourly
   const emailTick = () => runEmailQueue().then(() => markJob('email-queue')).catch((e) => markJob('email-queue', e));
   setInterval(emailTick, 20 * 1000).unref();
+  // lead response targets (reminders, manager alerts, capped reassignment) and follow-up sequences, per workspace
+  const leadTick = () => forEachTenantAsync(async () => { runLeadSla(); await runSequences(); }).then(() => markJob('lead-flow')).catch((e) => markJob('lead-flow', e));
+  setInterval(leadTick, 60 * 1000).unref();
   // platform-wide: daily metric snapshot (for period comparisons) and super-admin alerts
   const platformTick = () => { syncProviderUsage().catch(() => {}); runActivation().then(() => markJob('activation')).catch((e) => markJob('activation', e)); try { snapshot(); generateNotifications(null, true); markJob('platform-jobs'); } catch (e) { console.error('[platform jobs]', e); markJob('platform-jobs', e); }
     // trial expiry, reminders and renewals (idempotent; safe to run as often as you like)

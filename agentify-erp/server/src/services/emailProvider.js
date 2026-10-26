@@ -32,7 +32,11 @@ async function call(method, path, { body, idem, timeoutMs = 15_000, ambiguousOnT
   if (res.ok) return data;
   const msg = String(data?.message || data?.error?.message || `Provider answered ${res.status}`).slice(0, 300);
   if (res.status === 429) throw fail('rate_limited', msg, { retryAfterSec: Number(res.headers.get('retry-after')) || 5 });
-  if (res.status === 401 || res.status === 403) throw fail('config', 'The provider refused the saved API key.');
+  if (res.status === 401 || res.status === 403) {
+    // Resend answers a send-only key with "restricted_api_key" on every non-send endpoint: say so, it is a different fix from a wrong key
+    if (/restricted/i.test(`${data?.name || ''} ${msg}`)) throw fail('restricted_key', 'This API key can only send email. Domains, webhooks and usage need a key with full access.');
+    throw fail('config', 'The provider refused the saved API key. Check it in Integrations, or create a new one.');
+  }
   if (res.status === 409 || res.status === 425) throw fail('transient', msg); // idempotent request still in flight
   if (res.status >= 500) throw fail(ambiguousOnTimeout ? 'ambiguous' : 'transient', msg);
   throw fail('definitive', msg);
@@ -61,6 +65,10 @@ export const resendProvider = {
   removeDomain: (id) => call('DELETE', `/domains/${encodeURIComponent(id)}`),
   /** Account usage and limits as Resend documents them. Plan names, invoices and prices are NOT part of it. */
   getUsage: () => call('GET', '/usage'),
+  listDomains: () => call('GET', '/domains'),
+  listWebhooks: () => call('GET', '/webhooks'),
+  /** Registers our endpoint. The answer carries the signing secret (whsec_...) when the provider returns it. */
+  createWebhook: (endpoint, events) => call('POST', '/webhooks', { body: { endpoint, events } }),
   /** A received (inbound) e-mail with headers, for reply detection. */
   getReceived: (id) => call('GET', `/emails/receiving/${encodeURIComponent(id)}`),
 };

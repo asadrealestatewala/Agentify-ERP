@@ -11,12 +11,26 @@ import { cleanEmailLimits } from '../services/emailLimits.js';
 import { listSenders, listDomains } from '../services/emailSenders.js';
 import { onboardingConfig, saveOnboardingConfig } from '../services/activation.js';
 import { inboundDomain } from '../services/emailInbound.js';
+import { connectionStatus, testConnection, registerWebhook } from '../services/resendConnection.js';
+import { sendMail, layout } from '../services/mailer.js';
 
 const r = Router();
 const who = (req) => req.operator.email;
 const json = (k) => { try { return JSON.parse(getSetting(k) || 'null'); } catch { return null; } };
 
 r.get('/summary', need('system.view'), (_req, res) => res.json({ ...platformSummary(), settings: { default_limits: json('email_default_limits'), provider_limits: json('email_provider_limits'), inbound_reply_domain: inboundDomain() }, onboarding: onboardingConfig() }));
+// ---- Resend connection: status, per-capability test, webhook registration, one test email to the signed-in operator
+const baseUrl = (req) => `${process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : req.protocol}://${req.get('host')}`;
+r.get('/resend', need('system.view'), (req, res) => res.json(connectionStatus(baseUrl(req))));
+r.post('/resend/test', need('integrations.manage'), asyncH(async (req, res) => { const out = await testConnection(who(req)); audit(who(req), 'resend-connection-test', { ok: out.ok }); res.json(out); }));
+r.post('/resend/webhook', need('integrations.manage'), asyncH(async (req, res) => { const out = await registerWebhook(baseUrl(req), who(req)); audit(who(req), 'resend-webhook-registered', { created: out.created }); res.json(out); }));
+/** The only real send in this panel, and only to the operator's own address, on an explicit click. */
+r.post('/resend/test-email', need('integrations.manage'), asyncH(async (req, res) => {
+  const to = req.operator.email;
+  await sendMail({ type: 'test', to, subject: 'Agentify ERP: Resend connection test', ...layout({ brand: 'platform', heading: 'Resend connection test', lines: ['This message was sent from the Super Admin console to check that your Resend connection delivers. No action is needed.'] }) });
+  audit(who(req), 'resend-test-email', {});
+  res.json({ ok: true, to });
+}));
 r.post('/sync-usage', need('integrations.manage'), asyncH(async (req, res) => { const out = await syncProviderUsage(); audit(who(req), 'email-usage-sync', { ok: out.ok }); res.json(out); }));
 
 r.put('/settings', need('integrations.manage'), asyncH((req, res) => {

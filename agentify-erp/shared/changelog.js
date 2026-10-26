@@ -4,6 +4,23 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.16', date: '2026-10-26', title: 'Connect Resend from the console',
+    items: [
+      { text: 'Super Admins can test the Resend connection (domains, webhooks, usage), register the delivery webhook in one click, and send a test email to themselves. The API key stays encrypted and is never shown.', where: 'Super Admin console > Tenant email' },
+      { text: 'The plan list now shows each plan\'s monthly email allowance, warning points and stop behaviour at a glance. Nothing is preset: a plan with no allowance cannot send tenant email.', where: 'Super Admin console > Plans' },
+    ],
+  },
+  {
+    version: 'v1.15', date: '2026-10-26', title: 'Faster, fairer lead follow-up',
+    items: [
+      { text: 'Share new leads between your agents by rules (take turns, weighted, by source, city or team), skip agents who are away or full, and see why each lead went to its owner. Existing leads never move when you change a rule.', where: 'Settings > Lead Routing' },
+      { text: 'Set how fast an owner must accept and personally answer a new lead, using your working hours and holidays. Reminders, a manager alert and an optional reassignment follow only when a target is missed. Automated emails never count as a response.', where: 'Settings > Lead Routing' },
+      { text: 'Repeated enquiries are recorded once, and two different people who share a phone number are kept apart for a manager to review before anything is merged.', where: 'Settings > Lead Routing > Duplicates' },
+      { text: 'Build follow-up sequences of emails and tasks from ready templates. They stop when the customer replies, books a viewing, opts out or the lead closes, and wait if there is no verified sender or allowance.', where: 'CRM > Follow-up Sequences' },
+      { text: 'See how leads convert from enquiry to response, viewing and sale, with the numbers each percentage is based on.', where: 'CRM > Lead Conversion' },
+    ],
+  },
+  {
     version: 'v1.14', date: '2026-10-26', title: 'Send email from your own address',
     items: [
       { text: 'Verify your company domain and create sender addresses so appointment reminders and follow-ups come from you. Only verified addresses can send.', where: 'Settings > Email' },

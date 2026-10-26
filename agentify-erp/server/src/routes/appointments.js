@@ -13,6 +13,7 @@ import { can, hasPerm } from '../rbac.js';
 import { currentRegion } from '../regions/runtime.js';
 import { syncAppointment, calendarConnected } from '../integrations/googleCalendar.js';
 import { assertContactAccess, syncFollowup } from './crm.js';
+import { appointmentBooked, triggerSequences } from '../services/sequences.js';
 import {
   TRANSITIONS, OUTCOMES, VISIT_DEFAULTS, canMove, normState, validTimeZone, wallToMs, msToWall, toUtcIso, zoneLabel, haversineM, validCoord, proximity, classifyReading,
 } from '../../../shared/visits.js';
@@ -158,11 +159,15 @@ r.post('/', can('crm', 'edit'), asyncH(async (req, res) => {
   const c = clean(b);
   const { contactId, propertyId } = checkLinks(req, b);
   const agent = agentFor(req, b);
+  // the same lead, kind and start already booked is the same booking, not a second one
+  const same = contactId && get("SELECT id FROM appointments WHERE contact_id=? AND kind=? AND starts_utc=? AND COALESCE(status,'scheduled') IN ('scheduled','in_progress')", contactId, c.kind, c.starts_utc);
+  if (same) return res.status(200).json({ ...one(same.id), replayed: true });
   const id = Number(run(`INSERT INTO appointments(contact_id, property_id, user_id, title, kind, starts_at, ends_at, timezone, starts_utc, ends_utc, location, notes, client_key, created_by, created_at)
     VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, contactId, propertyId, agent, c.title, c.kind, c.starts_at, c.ends_at, c.timezone, c.starts_utc, c.ends_utc, c.location, c.notes, key, req.user.id, now()).lastInsertRowid);
   audit(req, 'Created appointment', 'appointment', id, c.title);
   if (contactId) activity(contactId, req.user, 'Appointment scheduled', { detail: `${c.title} · ${c.starts_at} ${tzOf(c)}`, entityType: 'appointment', entityId: id });
   if (agent !== req.user.id) notify(agent, 'appointment', 'Visit scheduled for you', `${c.title} · ${c.starts_at} (${tzOf(c)})`, '/appointments', { dedupe: `appt-assigned-${id}-${agent}` });
+  if (contactId) { try { appointmentBooked(contactId, id); if (['viewing', 'site_visit'].includes(c.kind)) triggerSequences('viewing_booked', contactId, { ref: `appt:${id}` }); } catch (e) { console.error('[lead flow]', e.message); } }
   await syncAppointment(id);
   res.status(201).json(one(id));
 }));
@@ -251,6 +256,7 @@ r.post('/:id(\\d+)/check-out', can('crm', 'edit'), asyncH(async (req, res) => {
   if (taskId && a.contact_id) syncFollowup(a.contact_id);
   audit(req, 'Completed visit', 'appointment', a.id, `${a.title} · ${b.outcome} · ${LOC_TEXT[ev.location_status]}`);
   if (a.contact_id) activity(a.contact_id, req.user, 'Visit completed', { detail: `${a.title} · ${b.outcome.replace(/_/g, ' ')}${f ? ` · follow-up: ${f.title}` : ''}`, entityType: 'appointment', entityId: a.id });
+  if (a.contact_id && b.outcome !== 'no_show') { try { triggerSequences('viewing_completed', a.contact_id, { ref: `appt:${a.id}` }); } catch (e) { console.error('[lead flow]', e.message); } }
   await syncAppointment(a.id);
   res.json(one(a.id));
 }));

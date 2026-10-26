@@ -8,6 +8,54 @@ import { A, PageTitle } from './AdminShell.jsx';
 
 const pct = (v) => (v == null ? '—' : `${(v * 100).toFixed(2)}%`);
 
+
+const CHECK = { domains: 'Domains (verify sender domains)', webhooks: 'Webhooks (delivery events)', usage: 'Usage and limits' };
+function ResendConnection() {
+  const toast = useToast();
+  const [c, setC] = useState(null);
+  const [busy, setBusy] = useState('');
+  const load = useCallback(() => api.get(`${A}/email/resend`).then(setC).catch(() => {}), []);
+  useEffect(() => { load(); }, [load]);
+  if (!c) return null;
+  const run = async (key, path, ok) => { setBusy(key); try { const r = await api.post(`${A}/email/resend/${path}`); toast(typeof ok === 'function' ? ok(r) : ok, 'ok'); } catch (e) { toast(e.message, 'err'); } finally { setBusy(''); load(); } };
+  const t = c.last_test;
+  return (
+    <Card title="Resend connection" actions={<StatusBadge tone={!c.key.saved ? 'red' : t?.ok ? 'green' : t ? 'amber' : 'grey'} label={!c.key.saved ? 'No key saved' : t?.ok ? 'Connected' : t ? 'Needs attention' : 'Not tested yet'} />}>
+      <p style={{ marginTop: 0 }}>{c.key.saved ? <>API key saved{c.key.last4 ? <> (ends in <span className="mono">{c.key.last4}</span>)</> : null}, from the {c.key.source}. It is stored encrypted and is never shown again.</> : 'Paste your Resend API key under Integrations > Email. It is stored encrypted and is never shown again.'} <a href="/platform/integrations">Open Integrations</a></p>
+      <div className="row wrap" style={{ gap: 8 }}>
+        <button className="btn primary" disabled={!c.key.saved || busy === 'test'} onClick={() => run('test', 'test', (r) => (r.ok ? 'Connection works' : r.summary))}>Test connection</button>
+        <button className="btn" disabled={!c.key.saved || busy === 'wh'} onClick={() => run('wh', 'webhook', (r) => (r.needs_secret ? 'Webhook registered. Paste its signing secret in Integrations.' : r.created ? 'Webhook registered' : 'Webhook was already registered'))}>Register webhook</button>
+        <button className="btn" disabled={!c.key.saved || busy === 'mail'} onClick={() => run('mail', 'test-email', (r) => `Test email sent to ${r.to}`)}>Send a test email to me</button>
+      </div>
+      {t && <ul style={{ listStyle: 'none', padding: 0, margin: '12px 0 0', display: 'grid', gap: 4 }}>
+        {Object.entries(t.checks).map(([k, v]) => <li key={k}>{v.ok ? '✓' : '✗'} <strong>{CHECK[k] || k}</strong>{v.ok ? (v.count != null ? ` · ${v.count} found${v.verified != null ? `, ${v.verified} verified` : ''}` : '') : <span className="muted"> · {v.error}</span>}</li>)}
+        <li className="muted" style={{ fontSize: 12.5 }}>{t.summary} Checked {String(t.at).replace('T', ' ').slice(0, 19)} UTC by {t.by}.</li>
+      </ul>}
+      <div style={{ marginTop: 12 }}>
+        <strong>Webhook</strong>
+        <div className="mono" style={{ fontSize: 12.5, wordBreak: 'break-all' }}>{c.webhook.url}</div>
+        <div className="muted" style={{ fontSize: 12.5 }}>Signing secret: {c.webhook.secret_saved ? 'saved' : 'not saved (events are refused until it is)'} · Last event: {c.webhook.last_event_at ? `${c.webhook.last_event_type} at ${String(c.webhook.last_event_at).replace('T', ' ').slice(0, 19)}` : 'none yet'}</div>
+        <div className="muted" style={{ fontSize: 12.5 }}>Subscribed to: {c.webhook.events.join(', ')}. Opens and clicks are not used.</div>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <strong>Replies (inbound)</strong>
+        <div className="muted" style={{ fontSize: 12.5 }}>{c.inbound.domain ? `Reply domain ${c.inbound.domain}. Last inbound message: ${c.inbound.last_mail_at ? String(c.inbound.last_mail_at).replace('T', ' ').slice(0, 19) : 'none yet'}.` : 'No reply domain chosen yet, so replies are not detected automatically. Staff can pause a sequence or record a reply by hand.'}</div>
+      </div>
+      <details style={{ marginTop: 12 }}>
+        <summary style={{ cursor: 'pointer' }}>Live smoke test (about 10 minutes)</summary>
+        <ol style={{ paddingInlineStart: 18, margin: '8px 0 0', display: 'grid', gap: 4 }}>
+          <li>Press <strong>Test connection</strong>. All three lines should show a tick.</li>
+          <li>Press <strong>Send a test email to me</strong> and check your own inbox (and spam).</li>
+          <li>Press <strong>Register webhook</strong>, then in Resend open Webhooks and use <em>Send test event</em>. "Last event" above should update.</li>
+          <li>In a test workspace, add one sending domain under Settings &gt; Email, publish the DNS records and press Check until it says verified.</li>
+          <li>From that workspace send one test email to your own address, and confirm it moves from queued to delivered.</li>
+          <li>Reply detection is only live once a reply domain is chosen and Resend receives mail for it.</li>
+        </ol>
+      </details>
+    </Card>
+  );
+}
+
 export default function EmailOps() {
   const toast = useToast();
   const [d, setD] = useState(null);
@@ -28,6 +76,7 @@ export default function EmailOps() {
   return (
     <div>
       <PageTitle title="Email operations" sub="Tenant email: provider health, consumption, delivery quality and the queue. Account and security email is counted separately." />
+      <ResendConnection />
       <div className="pa-grid2">
         <Card title="Provider" actions={<StatusBadge tone={d.provider.connected ? 'green' : 'red'} label={d.provider.connected ? 'Connected' : 'Not connected'} />}>
           <p style={{ margin: 0 }}>Last successful usage sync: <strong>{d.provider.last_success_at ? d.provider.last_success_at.replace('T', ' ').slice(0, 19) : 'never'}</strong></p>
