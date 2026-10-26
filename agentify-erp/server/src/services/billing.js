@@ -13,6 +13,8 @@ import { recordSubscriptionChange } from './subscriptions.js';
 import { bad, HttpError } from '../util.js';
 import { platformDb, getTenant, getTenantBySlug, logTenantEvent } from '../platform.js';
 import * as stripe from './stripe.js';
+import { PROVIDERS } from '../gateways/providers.js';
+import { platformGatewayOffers } from './platformGateways.js';
 import { sendMail, layout } from './mailer.js';
 import { quote, recordRedemption, setTenantAddon, recordRefund } from './commerce.js';
 import { recordServerEvent } from './analytics.js';
@@ -138,6 +140,9 @@ export const invoicesFor = (tenantId) => platformDb().prepare('SELECT * FROM inv
 // ---------------------------------------------------------------- payment methods
 export const LOCAL_METHODS = { raast: 'Raast', easypaisa: 'Easypaisa', jazzcash: 'JazzCash', sadapay: 'SadaPay', nayapay: 'NayaPay', bank: 'Bank transfer' };
 
+/** Display name of a payment method id: local transfer methods and online gateways. */
+export const methodLabel = (id) => LOCAL_METHODS[id] || PROVIDERS[id]?.label || id;
+
 /**
  * Where customers send money for the local methods: the active rows of payment_accounts, managed in the admin console
  * (first start imports BILLING_PK_ACCOUNTS if set). A method is offered only when it has an active account.
@@ -150,6 +155,7 @@ export function localAccounts() {
 export function availableMethods(tenant) {
   const out = [];
   if (stripe.stripeConfigured() || providerName() === 'generic') out.push({ id: 'card', label: 'Card (Visa, Mastercard)', kind: 'online' });
+  for (const g of platformGatewayOffers(tenant)) out.push({ id: g.id, label: g.label, kind: 'gateway', test_mode: g.test_mode });
   for (const a of localAccounts()) out.push({ id: a.method, label: LOCAL_METHODS[a.method], kind: 'transfer', account: a.account, account_name: a.name || null, note: a.note || null });
   return out;
 }
@@ -194,7 +200,7 @@ export async function submitLocalPayment(tenant, user, { plan, interval = 'month
   }
   logTenantEvent(tenant.id, 'billing:payment-submitted', { id, method, plan });
   if (process.env.BILLING_OPERATOR_EMAIL) {
-    const mail = layout({ brand: 'platform', heading: 'Payment to confirm', lines: [`${tenant.name} (${tenant.slug}) says they paid PKR ${amount.toLocaleString('en-PK')} by ${LOCAL_METHODS[method]} for ${PLANS[plan].name} (${interval}).`, `Reference: ${ref}`] });
+    const mail = layout({ brand: 'platform', heading: 'Payment to confirm', lines: [`${tenant.name} (${tenant.slug}) says they paid PKR ${amount.toLocaleString('en-PK')} by ${methodLabel(method)} for ${PLANS[plan].name} (${interval}).`, `Reference: ${ref}`] });
     await sendMail({ type: 'billing', to: process.env.BILLING_OPERATOR_EMAIL, subject: `Payment to confirm: ${tenant.name}`, ...mail });
   }
   return { id, amount, currency: 'PKR', status: 'pending', quote: q };
@@ -228,7 +234,7 @@ export async function approveSubmission(id, decisionNote, decidedBy = null) {
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   logTenantEvent(s.tenant_id, 'billing:payment-approved', { id, method: s.method });
   if (!['active', 'past_due'].includes(tenant.subscription_status)) recordServerEvent('subscription_activated', { product: PLANS[s.plan]?.product, plan: s.plan, tenant_id: s.tenant_id });
-  const mail = layout({ brand: 'platform', heading: 'Payment received', lines: [`Thank you. We received your ${LOCAL_METHODS[s.method]} payment and your ${PLANS[s.plan].name} plan is active until ${periodEnd}.`] });
+  const mail = layout({ brand: 'platform', heading: 'Payment received', lines: [`Thank you. We received your ${methodLabel(s.method)} payment and your ${PLANS[s.plan].name} plan is active until ${periodEnd}.`] });
   await sendMail({ type: 'billing', to: s.submitted_by, subject: 'Your payment was confirmed', ...mail });
   return getTenant(s.tenant_id);
 }

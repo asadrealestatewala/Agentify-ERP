@@ -24,3 +24,10 @@ Add one object to `server/src/gateways/providers.js` (see the contract in that f
 
 ## Webhook addresses
 `https://<workspace host>/api/hooks/pay/<provider>`; shown on the settings screen.
+
+## Agentify platform: how tenants pay Agentify (Super Admin console)
+* **Stripe** subscriptions are unchanged (console > Billing & Payments > Stripe configuration; recurring).
+* **Payment gateways** (new, same menu): PayPal and Tap (real adapters, mock-tested only), PayPro and Payoneer (placeholders). Keys are entered only there, encrypted in `platform_settings` (`pgw_<id>_*`), never returned, with a Test/Live toggle, a "switch on for customers" switch and a status that says plainly "Not live: no keys yet".
+* These take **one payment per period** (monthly or yearly), not a recurring mandate. A provider-confirmed payment creates a payment submission and runs the existing `approveSubmission` (plan, invoice, coupon, add-ons), so manual billing and its approvals keep working unchanged. Test-mode payments never activate a plan.
+* The charge currency is the workspace's own currency when the plan is priced in it and the gateway can charge it; otherwise the first plan currency the gateway can charge (e.g. a PKR workspace pays the plan's USD price through PayPal). Show this to the user before going live.
+* Webhook addresses: `https://<platform host>/api/platform/pay/webhook/<provider>`.

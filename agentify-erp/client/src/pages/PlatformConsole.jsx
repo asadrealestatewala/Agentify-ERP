@@ -210,6 +210,51 @@ function StripeSettings() {
   );
 }
 
+const GW_STATUS = { live: ['green', 'LIVE'], test: ['blue', 'Test mode'], off: ['grey', 'Keys saved, switched off'], untested: ['amber', 'Keys saved, not tested'], no_keys: ['grey', 'Not live: no keys yet'], not_built: ['grey', 'Not built yet'] };
+function GatewayCard({ g, onChange }) {
+  const toast = useToast();
+  const [f, setF] = useState(() => ({ mode: g.mode, ...Object.fromEntries(g.fields.map((x) => [x.key, x.secret ? '' : x.value])) }));
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const call = async (fn) => { setBusy(true); try { onChange(await fn()); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
+  const [tone, label] = GW_STATUS[g.status] || GW_STATUS.no_keys;
+  return (
+    <Card title={g.label} actions={<StatusBadge status={g.status} tone={tone} label={label} />}>
+      <p className="muted" style={{ marginTop: 0 }}>{g.blurb}{g.currencies ? ` Charges in: ${g.currencies.join(', ')}.` : ''}</p>
+      {!g.available ? <div className="alert info">{g.note}</div> : (
+        <>
+          {g.docs && <p><a className="btn sm" href={g.docs} target="_blank" rel="noreferrer">Open {g.label} dashboard ↗</a></p>}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(240px,1fr))', gap: 12 }}>
+            <Field label="Mode" hint="Test mode never activates a plan. Live needs live keys."><select className="input" value={f.mode} onChange={set('mode')}><option value="test">Test (sandbox)</option><option value="live">Live (real money)</option></select></Field>
+            {g.fields.map((x) => <Field key={x.key} label={x.label} hint={x.secret && x.value ? `Saved, ends ${x.value.replace('…', '')} (leave blank to keep)` : x.hint}><TextInput type={x.secret ? 'password' : 'text'} autoComplete="off" value={f[x.key] ?? ''} onChange={(v) => setF({ ...f, [x.key]: v })} /></Field>)}
+          </div>
+          <p className="muted" style={{ fontSize: 12.5 }}>Webhook address to add at {g.label}: <code>{g.webhook_url}</code></p>
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn primary" disabled={busy} onClick={() => { if (f.mode === 'live' && !window.confirm(`Use ${g.label} in LIVE mode? Real customer payments will activate plans.`)) return; call(() => api.put(`${A}/settings/gateways/${g.id}`, f)); }}>{busy ? 'Checking with provider…' : 'Save and test'}</button>
+            {g.status !== 'no_keys' && <button className="btn" disabled={busy || g.status === 'untested'} onClick={() => call(() => api.post(`${A}/settings/gateways/${g.id}/enabled`, { enabled: !g.enabled }))}>{g.enabled ? 'Switch off' : 'Switch on for customers'}</button>}
+            {g.status !== 'no_keys' && <button className="btn danger" disabled={busy} onClick={() => { if (window.confirm(`Remove the ${g.label} keys?`)) call(() => api.del(`${A}/settings/gateways/${g.id}`)); }}>Remove keys</button>}
+          </div>
+        </>)}
+    </Card>
+  );
+}
+function PlatformGateways() {
+  const toast = useToast();
+  const [d, setD] = useState(null);
+  useEffect(() => { api.get(`${A}/settings/gateways`).then(setD).catch((e) => toast(e.message, 'err')); }, [toast]);
+  if (!d) return <Loading />;
+  return (
+    <>
+      <div className="alert info">Nothing here is live until you add keys and switch a gateway on. Card subscriptions through Stripe are configured on the Stripe tab. Gateways here take one payment per period (monthly or yearly); a confirmed payment activates the plan exactly like an approved bank transfer. Customers whose plan currency a gateway cannot charge simply do not see it.</div>
+      {d.gateways.map((g) => <GatewayCard key={`${g.id}-${g.status}-${g.mode}`} g={g} onChange={setD} />)}
+      <Card title="Recent online plan payments" flush>
+        {!d.payments.length ? <Empty title="None yet" hint="Online plan payments appear here." /> : (
+          <table className="t"><thead><tr><th>When</th><th>Workspace</th><th>Gateway</th><th>Amount</th><th>Status</th></tr></thead><tbody>{d.payments.map((k) => <tr key={k.id}><td>{k.created_at}</td><td>{k.tenant} <span className="muted">({k.slug})</span></td><td>{k.provider_label}{k.sandbox ? ' (test)' : ''}</td><td>{k.currency} {k.amount}</td><td>{k.status}{k.error ? <div className="muted">{k.error}</div> : null}</td></tr>)}</tbody></table>)}
+      </Card>
+    </>
+  );
+}
+
 function LocalAccounts() {
   const toast = useToast();
   const [d, setD] = useState(null);
@@ -312,6 +357,7 @@ function ConsoleRoutes() {
         <Route path="subscriptions/history" element={<Allowed perm="billing.view"><SubscriptionHistoryPage /></Allowed>} />
         <Route path="payments" element={<Allowed perm="billing.view">{page('Payment approvals', 'Bank and wallet payments waiting for you to confirm the money arrived.', <Payments />)}</Allowed>} />
         <Route path="billing/stripe" element={<Allowed perm="billing.configure">{page('Stripe configuration', 'Card payment keys, prices and webhook.', <StripeSettings />)}</Allowed>} />
+        <Route path="billing/gateways" element={<Allowed perm="billing.configure">{page('Payment gateways', 'How Agentify is paid for plans: PayPal, Tap and more. Keys are write-only and encrypted.', <PlatformGateways />)}</Allowed>} />
         <Route path="billing/accounts" element={<Allowed perm="billing.view">{page('Local payment accounts', 'Where customers send Raast, Easypaisa, JazzCash, SadaPay, NayaPay and bank payments.', <LocalAccounts />)}</Allowed>} />
         <Route path="admins" element={<Allowed perm="admins.manage"><AdminsPage /></Allowed>} />
         <Route path="security" element={page('Two-factor sign-in', 'Protect your console account with an authenticator app.', <TwoFactor base={`${A}/2fa`} />)} />

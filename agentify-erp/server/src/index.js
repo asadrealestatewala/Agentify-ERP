@@ -92,7 +92,7 @@ export function createApp() {
   // gzip text responses (the app script alone is 2.3 MB raw); live streams are left alone so they are not buffered
   app.use(compression({ filter: (req, res) => !/event-stream/.test(String(res.getHeader('Content-Type') || '')) && compression.filter(req, res) }));
   // the billing webhook is signed over the exact bytes, so keep them for that one route
-  app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { if (req.originalUrl.startsWith('/api/platform/billing/webhook') || req.originalUrl.startsWith('/api/platform/webhooks/') || req.originalUrl.startsWith('/api/hooks/pay/')) req.rawBody = buf; } }));
+  app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { if (req.originalUrl.startsWith('/api/platform/billing/webhook') || req.originalUrl.startsWith('/api/platform/webhooks/') || req.originalUrl.startsWith('/api/hooks/pay/') || req.originalUrl.startsWith('/api/platform/pay/')) req.rawBody = buf; } }));
   app.use(cookieParser());
 
   // Platform (control plane) API: signup, tenant admin. Never tenant-scoped.
