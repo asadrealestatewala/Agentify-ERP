@@ -23,6 +23,12 @@ r.use(rateLimit({ windowMs: 60_000, limit: 300, standardHeaders: true, legacyHea
 const inquiryLimit = rateLimit({ windowMs: 10 * 60_000, limit: 12, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many enquiries — please try again later.' } });
 
 /** The editor's draft configuration (what the website editor and the SEO manager edit). Visitors get the live release. */
+/** The sign-in pages this workspace really has, so the website only offers those. */
+const signInDoors = (req) => {
+  const product = req.tenant?.product || 'bundle';
+  return { customer_label: product === 'construction' ? 'Client portal' : 'Customer portal', vendor: product === 'construction' || product === 'bundle' };
+};
+
 export const siteConfig = () => mergeConfig(jparse(getSetting('site_config'), {}));
 
 /** The configuration visitors see: the published release, or the draft through a valid preview link. */
@@ -58,7 +64,7 @@ r.get('/bootstrap', (req, res) => {
   if (site.offline) return res.json({ offline: true, company: { name: getSetting('company_name') } });
   const cfg = cleanForOutput(site.config);
   const menu = site.pages.filter((p) => p.published && p.show_in_menu).sort((a, b) => a.sort_order - b.sort_order).map((p) => ({ slug: p.slug, title: p.title }));
-  res.json({ config: { ...cfg, listing: { show_agent: cfg.listing.show_agent, per_page: cfg.listing.per_page } }, menu, company: { name: getSetting('company_name') }, ...(preview ? { preview: true } : {}),
+  res.json({ config: { ...cfg, listing: { show_agent: cfg.listing.show_agent, per_page: cfg.listing.per_page } }, menu, company: { name: getSetting('company_name') }, portals: signInDoors(req), ...(preview ? { preview: true } : {}),
     ...(viaCustomDomain(req) ? { workspace_url: workspaceUrl(req.tenant, req) } : {}) });
 });
 
