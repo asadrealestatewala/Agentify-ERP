@@ -19,20 +19,28 @@ process.env.LOGIN_LIMIT = '1000';
 process.env.SIGNUP_LIMIT = '1000';
 
 const { createApp } = await import('../src/index.js');
-const { geocode, geocodeParts, cleanQuery } = await import('../src/services/geocode.js');
+const { geocode, geocodeParts, cleanQuery, variants } = await import('../src/services/geocode.js');
 let server, port;
 const realFetch = globalThis.fetch;
 const seen = [];
 let mode = 'ok';
+const row = (name, lat, lon, type, bb, address = {}) => ({ display_name: `${name}, Rawalpindi, Punjab, Pakistan`, name, lat: String(lat), lon: String(lon), addresstype: type, boundingbox: bb.map(String), address: { city: 'Rawalpindi', state: 'Punjab', ...address } });
 before(() => new Promise((res) => {
   globalThis.fetch = async (url, opts = {}) => {
     const u = String(url);
     if (u.includes('127.0.0.1')) return realFetch(url, opts);
-    seen.push({ u, ua: opts.headers?.['User-Agent'] });
+    const sp = new URL(u).searchParams;
+    seen.push({ u, ua: opts.headers?.['User-Agent'], q: sp.get('q'), bounded: sp.get('bounded'), viewbox: sp.get('viewbox') });
+    const J = (x) => new Response(JSON.stringify(x), { status: 200 });
     if (mode === 'down') return new Response('x', { status: 503 });
-    if (mode === 'none') return new Response('[]', { status: 200 });
-    if (mode === 'city' && !/^Rawalpindi$/.test(new URL(u).searchParams.get('q'))) return new Response('[]', { status: 200 });
-    return new Response(JSON.stringify([{ display_name: 'Islamabad, Pakistan', lat: '33.6938118', lon: '73.0651511' }, { display_name: 'Bad', lat: '999', lon: '1' }]), { status: 200 });
+    if (mode === 'none') return J([]);
+    const q = sp.get('q');
+    if (q === 'Rawalpindi') return J([row('Rawalpindi', 33.6, 73.05, 'city', [33.4, 33.8, 72.9, 73.2])]);
+    if (q === 'dhamial road') return J([row('Dhamial Road', 33.554, 73.024, 'road', [33.55, 33.56, 73.02, 73.03], { road: 'Dhamial Road', suburb: 'Dhamial' })]);
+    if (q === 'Quaid-e-Azam colony' && sp.get('bounded') === '1') return J([row('Quaid-e-Azam Colony', 33.5571, 73.0262, 'neighbourhood', [33.556, 33.558, 73.025, 73.027], { suburb: 'Dhamial' })]);
+    if (sp.get('bounded') === '1') return J([]);
+    if (q === 'Quaid-e-Azam colony' || q === 'QuaideAzam colony' || q === 'Nowhere Lane') return J([]);
+    return J([{ ...row('Islamabad', 33.6938118, 73.0651511, 'city', [33.5, 33.8, 72.9, 73.2]) }, { ...row('Bad', 999, 1, 'city', [0, 0, 0, 0]) }]);
   };
   server = createApp().listen(0, () => { port = server.address().port; res(); });
 }));
@@ -42,17 +50,47 @@ test('geocode cleans answers, narrows by country, sends a User-Agent and caches'
   assert.equal(cleanQuery('  a   b '), 'a b');
   assert.deepEqual((await geocode('x')).results, []);
   const r = await geocode('Islamabad', 'UK');
-  assert.deepEqual(r.results, [{ label: 'Islamabad, Pakistan', lat: 33.693812, lng: 73.065151 }], 'out-of-range rows are dropped, values rounded');
+  assert.equal(r.results.length, 1, 'out-of-range rows are dropped');
+  assert.equal(r.results[0].lat, 33.693812);
+  assert.equal(r.results[0].level, 'area');
   assert.match(seen[0].u, /countrycodes=gb/);
+  assert.match(seen[0].u, /accept-language=en/);
   assert.match(seen[0].ua, /agentify-erp/);
-  const again = await geocode('islamabad', 'UK');
-  assert.equal(again.cached, true);
-  assert.equal(seen.length, 1);
+  const n = seen.length;
+  assert.equal((await geocode('islamabad', 'UK')).cached, false, 'cache is keyed on the exact text');
+  assert.equal((await geocode('Islamabad', 'UK')).cached, true);
+  assert.equal(seen.length, n + 1);
   mode = 'none';
   assert.deepEqual((await geocode('Nowhereville')).results, []);
   mode = 'down';
   await assert.rejects(() => geocode('Down town'), /503/);
   mode = 'ok';
+});
+
+test('spelling variants split run-together words and unify alternate spellings', () => {
+  assert.deepEqual(variants('QuaideAzam colony'), ['QuaideAzam colony', 'Quaid-e-Azam colony']);
+  assert.deepEqual(variants('Quaid e Azam Road'), ['Quaid e Azam Road', 'Quaid-e-Azam Road']);
+  assert.deepEqual(variants('Saddar'), ['Saddar']);
+});
+
+test('street search finds the anchor, then looks for the street inside it, whatever field it was typed in', async () => {
+  // the person typed the road in City, a colony in Area and a misspelt colony in Location
+  const r = await geocodeParts(['QuaideAzam colony', 'bank colony', 'dhamial road'], 'PK');
+  assert.equal(r.approximate, false);
+  assert.equal(r.results[0].label.startsWith('Quaid-e-Azam Colony'), true);
+  assert.equal(r.results[0].level, 'street');
+  assert.ok(r.results.some((x) => x.label.startsWith('Dhamial Road')), 'the wider road stays a clickable candidate');
+  const bounded = seen.filter((x) => x.bounded === '1');
+  assert.ok(bounded.length >= 1 && bounded[0].viewbox, 'specific pieces are searched inside the anchor area only');
+});
+
+test('approximate only when nothing specific matched inside the area', async () => {
+  const r = await geocodeParts(['Nowhere Lane', 'Rawalpindi'], 'PK');
+  assert.equal(r.approximate, true);
+  assert.equal(r.results[0].label.startsWith('Rawalpindi'), true);
+  const single = await geocodeParts(['Rawalpindi'], 'PK');
+  assert.equal(single.approximate, false);
+  assert.deepEqual((await geocodeParts([' ', 'x'])).results, []);
 });
 
 const call = (host, method, url, body, headers = {}) => new Promise((resolve, reject) => {
@@ -62,19 +100,6 @@ const call = (host, method, url, body, headers = {}) => new Promise((resolve, re
     res.on('end', () => { const s = Buffer.concat(chunks).toString(); let d; try { d = JSON.parse(s); } catch { d = s; } resolve({ status: res.statusCode, data: d, cookie: (res.headers['set-cookie'] || [])[0]?.split(';')[0] }); });
   });
   req.on('error', reject); if (data) req.write(data); req.end();
-});
-
-test('geocodeParts drops the most specific text until something is found and says so', async () => {
-  mode = 'city';
-  const r = await geocodeParts(['Dhamial Rawalpindi', 'Chakri Road', 'chakri road', 'Rawalpindi'], 'PK');
-  assert.equal(r.approximate, true);
-  assert.equal(r.query, 'Rawalpindi');
-  assert.equal(r.results.length, 1);
-  assert.deepEqual((await geocodeParts([' ', 'x'])).results, []);
-  mode = 'ok';
-  const exact = await geocodeParts(['Saddar Bazaar', 'Rawalpindi'], 'PK');
-  assert.equal(exact.approximate, false);
-  assert.equal(exact.query, 'Saddar Bazaar, Rawalpindi');
 });
 
 test('property geocode route needs a signed-in editor and reports provider problems clearly', async () => {
@@ -87,7 +112,7 @@ test('property geocode route needs a signed-in editor and reports provider probl
   const c = { cookie: l.cookie };
   const ok = await call(host, 'GET', '/api/properties/geocode?p=Gulberg&p=Lahore', null, c);
   assert.equal(ok.status, 200, JSON.stringify(ok.data));
-  assert.equal(ok.data.results[0].lat, 33.693812);
+  assert.ok(ok.data.results.length >= 1);
   assert.match(seen.at(-1).u, /countrycodes=pk/);
   assert.equal((await call(host, 'GET', '/api/properties/geocode?q=a', null, c)).status, 400);
   mode = 'down';

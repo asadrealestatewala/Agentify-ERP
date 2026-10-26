@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
 import { FileUploader, ImageUploader } from '../components/Uploaders.jsx';
@@ -6,8 +6,8 @@ import { BackLink, Card, Check, ChipSelect, CurrencyInput, Field, Loading, Selec
 import { api, fileUrl } from '../api.js';
 import { useAuth, useFetch, useLookups, useToast } from '../context.jsx';
 import { money, getRegion } from '../format.js';
-import PinPicker from '../components/PinPicker.jsx';
 import ListingAiWriter from '../components/ListingAiWriter.jsx';
+const PropertyMap = lazy(() => import('../components/PropertyMap.jsx'));
 
 const PK_UNITS = ['Marla', 'Kanal', 'Sq Ft', 'Sq Yards', 'Sq Meter'];
 const UNIT_LABEL = { sqft: 'Sq Ft', sqm: 'Sq M', acre: 'Acre', hectare: 'Hectare', marla: 'Marla', kanal: 'Kanal' };
@@ -102,13 +102,14 @@ export default function PropertyForm() {
     const seq = ++geoSeq.current;
     setGeo({ busy: true, msg: '', kind: '', options: [] });
     try {
-      const { results, approximate } = await api.get(`/api/properties/geocode?${geoParts.map((x) => `p=${encodeURIComponent(x)}`).join('&')}`);
+      const { results, approximate, anchor } = await api.get(`/api/properties/geocode?${geoParts.map((x) => `p=${encodeURIComponent(x)}`).join('&')}`);
       if (seq !== geoSeq.current) return;
       if (auto && typedCoords.current) { setGeo({ busy: false, msg: '', kind: '', options: [] }); return; }
       if (!results.length) { setGeo({ busy: false, msg: 'No place found for that text. Try a nearby landmark or a different spelling, or enter the latitude and longitude by hand.', kind: 'err', options: [] }); return; }
       const top = results[0];
       setF((x) => ({ ...x, lat: top.lat, lng: top.lng }));
-      setGeo({ busy: false, msg: `${approximate ? 'Only the wider area was found, so the pin is approximate. Zoom in and tap the map or drag the pin to the exact street. ' : ''}Coordinates filled from the map: ${top.label}. Tap the map or drag the pin to make it exact.`, kind: approximate ? 'warn' : 'ok', options: results.slice(1) });
+      setGeo({ busy: false, kind: approximate ? 'warn' : 'ok', options: results,
+        msg: approximate ? `The street was not found, so the pin sits on ${anchor || top.label}. Pick a closer match below or drag the pin to the exact spot.` : `Pinned: ${top.label}. Drag the pin to fine-tune, or pick another match.` });
     } catch (e) {
       if (seq === geoSeq.current) setGeo({ busy: false, msg: e.message || 'The map search is not available right now. Enter the latitude and longitude by hand.', kind: 'err', options: [] });
     }
@@ -127,6 +128,7 @@ export default function PropertyForm() {
   const ppu = Number(f.area_size) > 0 && Number(f.total_price) ? Math.round(Number(f.total_price) / Number(f.area_size)) : null;
   const imgCount = media.filter((m) => !/\.pdf$/i.test(m.path)).length + pending.length;
   const quality = useMemo(() => ({ amen: Math.min(100, Math.round(((f.amenities?.length || 0) / 5) * 100)), imgs: Math.min(100, Math.round((imgCount / 5) * 100)) }), [f.amenities, imgCount]);
+  const hasPin = f.lat !== '' && f.lng !== '' && f.lat != null && f.lng != null && Number.isFinite(Number(f.lat)) && Number.isFinite(Number(f.lng)) && Math.abs(Number(f.lat)) <= 90 && Math.abs(Number(f.lng)) <= 180;
   const locked = editing && existing.data?.status === 'sold';
 
   const validate = () => {
@@ -198,8 +200,9 @@ export default function PropertyForm() {
             <span className="muted" style={{ fontSize: 13 }}>Fills latitude and longitude from City, Area, Location and Address as you type. You can still change them.</span>
           </div>
           {geo.msg && <div className={`alert ${geo.kind === 'err' ? 'err' : geo.kind === 'warn' ? 'warn' : 'ok'}`} role="status" style={{ marginBottom: 10 }}>{geo.msg}</div>}
-          {geo.options.length > 0 && <div className="muted" style={{ marginBottom: 10, fontSize: 13 }}>Other matches: {geo.options.map((o, i) => <button key={i} type="button" className="btn sm ghost" style={{ margin: '2px 4px' }} onClick={() => { setF((x) => ({ ...x, lat: o.lat, lng: o.lng })); setGeo((g) => ({ ...g, msg: `Coordinates set to: ${o.label}.`, options: [] })); }}>{o.label.split(',').slice(0, 3).join(',')}</button>)}</div>}
-          <PinPicker lat={f.lat} lng={f.lng} onChange={(la, ln) => { typedCoords.current = true; setGeo((g) => (g.msg ? { ...g, msg: '', options: [] } : g)); setF((x) => ({ ...x, lat: la, lng: ln })); }} />
+          {geo.options.length > 1 && <div style={{ marginBottom: 10 }}><div className="muted" style={{ fontSize: 13, marginBottom: 4 }}>Matches (pick the one that is yours):</div><div className="row wrap" style={{ gap: 6 }}>{geo.options.map((o, i) => <button key={i} type="button" className={`btn sm ${o.lat === f.lat && o.lng === f.lng ? 'primary' : 'ghost'}`} title={o.full} onClick={() => { typedCoords.current = true; setF((x) => ({ ...x, lat: o.lat, lng: o.lng })); setGeo((g) => ({ ...g, kind: 'ok', msg: `Pinned: ${o.label}. Drag the pin to fine-tune.` })); }}>{o.label}<span className="muted" style={{ marginLeft: 6, fontSize: 11 }}>{o.level === 'street' ? 'street' : 'area'}</span></button>)}</div></div>}
+          {hasPin ? (<div><Suspense fallback={<Loading />}><PropertyMap lat={Number(f.lat)} lng={Number(f.lng)} onMove={(la, ln) => { typedCoords.current = true; setF((x) => ({ ...x, lat: la, lng: ln })); setGeo((g) => ({ ...g, kind: 'ok', msg: 'Pin moved. Latitude and longitude updated from the pin.', options: g.options })); }} /></Suspense><a href={`https://www.google.com/maps?q=${f.lat},${f.lng}`} target="_blank" rel="noreferrer" className="muted">Open in Google Maps ↗</a></div>)
+            : <div className="dropzone" style={{ cursor: 'default' }}><Icon name="map" size={20} /><div>Type a location above, or enter GPS coordinates, to preview the map location.</div></div>}
         </Section>
 
         <Section icon="dollar" title="Price & area" hint="Size, price and payment options">
