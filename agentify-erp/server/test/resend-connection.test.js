@@ -100,3 +100,53 @@ test('webhook registration: creates our endpoint once, stores the signing secret
   const noSecret = await conn.registerWebhook('https://erp.example.com', 'op');
   assert.equal(noSecret.needs_secret, true); assert.match(noSecret.note, /whsec_/);
 });
+
+const URL_ = 'https://erp.example.com/api/platform/webhooks/resend';
+const ALL = conn.WEBHOOK_EVENTS;
+
+test('webhook registration adopts the webhook already at our address: no duplicate, extra events kept, missing ones added', async () => {
+  setSetting('resend_webhook_secret', null, { secret: true, by: 't' });
+  const patched = []; let posted = 0;
+  // 1) already complete (plus an event of its own): used as it is, nothing created or changed; secret comes from the detail call
+  routes = {
+    'GET /webhooks': () => reply(200, { data: [{ id: 'wh_old', endpoint: `${URL_}/`, events: [...ALL, 'inbox.email.received'] }, { id: 'wh_other', endpoint: 'https://elsewhere.example/hook' }] }),
+    'GET /webhooks/wh_old': () => reply(200, { id: 'wh_old', signing_secret: 'whsec_FromDetailCallAbCdEfGh12' }),
+    'POST /webhooks': () => { posted++; return reply(201, { id: 'new' }); },
+    'PATCH /webhooks/wh_old': (init) => { patched.push(JSON.parse(init.body)); return reply(200, { id: 'wh_old' }); },
+  };
+  const a = await conn.registerWebhook('https://erp.example.com', 'op');
+  assert.equal(a.outcome, 'adopted'); assert.equal(a.created, false); assert.equal(a.id, 'wh_old');
+  assert.equal(posted, 0); assert.equal(patched.length, 0);
+  assert.equal(getSetting('resend_webhook_secret'), 'whsec_FromDetailCallAbCdEfGh12'); assert.equal(a.needs_secret, false);
+  // 2) missing some events: they are added and the ones it already had (including the inbox one) are kept
+  routes['GET /webhooks'] = () => reply(200, { data: [{ id: 'wh_old', endpoint: URL_, events: ['email.sent', 'email.delivered', 'email.bounced', 'inbox.email.received'] }] });
+  const b = await conn.registerWebhook('https://erp.example.com', 'op');
+  assert.equal(b.outcome, 'adopted_updated'); assert.equal(posted, 0);
+  assert.equal(patched.length, 1);
+  assert.ok(patched[0].events.includes('inbox.email.received') && ALL.every((e) => patched[0].events.includes(e)));
+  assert.deepEqual(b.added_events.sort(), ALL.filter((e) => !['email.sent', 'email.delivered', 'email.bounced'].includes(e)).sort());
+  // 3) the detail call cannot give the secret: say how to save it, and the secret field stores it encrypted and never returns it
+  setSetting('resend_webhook_secret', null, { secret: true, by: 't' });
+  routes['GET /webhooks/wh_old'] = () => reply(200, { id: 'wh_old' });
+  const c = await conn.registerWebhook('https://erp.example.com', 'op');
+  assert.equal(c.needs_secret, true); assert.match(c.note, /rotate/);
+  assert.throws(() => conn.saveWebhookSecret('nope', 'op'), /whsec_/);
+  const saved = conn.saveWebhookSecret('whsec_PastedByTheOperator1234', 'op');
+  assert.deepEqual(saved, { secret_saved: true });
+  const raw = P.platformDb().prepare("SELECT value, secret FROM platform_settings WHERE key='resend_webhook_secret'").get();
+  assert.equal(raw.secret, 1); assert.ok(!raw.value.includes('whsec_'));
+  assert.ok(!JSON.stringify(conn.connectionStatus('https://erp.example.com')).includes('PastedByTheOperator'));
+});
+
+test('connection test lists the domains already at Resend with sending/receiving, creating nothing; reply detection stays off until a reply domain is chosen', async () => {
+  routes = {
+    'GET /domains': () => reply(200, { data: [{ id: 'd1', name: 'agentifyerp.co', status: 'verified', capabilities: { sending: 'enabled', receiving: 'enabled' } }] }),
+    'GET /webhooks': () => reply(200, { data: [] }), 'GET /usage': () => reply(200, {}),
+  };
+  const before = calls.length;
+  await conn.testConnection('op');
+  assert.ok(calls.slice(before).every((c) => c.method === 'GET'), 'read only');
+  const s = conn.connectionStatus('https://erp.example.com');
+  assert.deepEqual(s.inbound.receiving_domains, ['agentifyerp.co']);
+  assert.equal(s.inbound.on, false); assert.equal(s.inbound.domain, null);
+});

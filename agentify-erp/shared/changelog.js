@@ -4,6 +4,14 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.17', date: '2026-10-26', title: 'Resend setup reuses what you already have',
+    items: [
+      { text: 'Registering the Resend webhook now finds one already at your address and uses it instead of making a second. Missing events are added and your own extra events are kept, and the panel says which of the three happened.', where: 'Super Admin console > Tenant email > Resend connection' },
+      { text: 'Save the webhook signing secret straight from the panel if Resend does not hand it over. It is stored encrypted and never shown again; you can rotate it in Resend first.', where: 'Super Admin console > Tenant email > Resend connection' },
+      { text: 'Domains you already verified at Resend are listed with sending and receiving status and are never re-created. Reply detection stays off until you choose the reply address.', where: 'Super Admin console > Tenant email' },
+    ],
+  },
+  {
     version: 'v1.16', date: '2026-10-26', title: 'Connect Resend from the console',
     items: [
       { text: 'Super Admins can test the Resend connection (domains, webhooks, usage), register the delivery webhook in one click, and send a test email to themselves. The API key stays encrypted and is never shown.', where: 'Super Admin console > Tenant email' },

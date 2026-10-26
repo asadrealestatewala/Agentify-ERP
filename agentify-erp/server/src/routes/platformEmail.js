@@ -11,7 +11,7 @@ import { cleanEmailLimits } from '../services/emailLimits.js';
 import { listSenders, listDomains } from '../services/emailSenders.js';
 import { onboardingConfig, saveOnboardingConfig } from '../services/activation.js';
 import { inboundDomain } from '../services/emailInbound.js';
-import { connectionStatus, testConnection, registerWebhook } from '../services/resendConnection.js';
+import { connectionStatus, testConnection, registerWebhook, saveWebhookSecret } from '../services/resendConnection.js';
 import { sendMail, layout } from '../services/mailer.js';
 
 const r = Router();
@@ -23,8 +23,9 @@ r.get('/summary', need('system.view'), (_req, res) => res.json({ ...platformSumm
 const baseUrl = (req) => `${process.env.NODE_ENV === 'production' || req.secure || req.headers['x-forwarded-proto'] === 'https' ? 'https' : req.protocol}://${req.get('host')}`;
 r.get('/resend', need('system.view'), (req, res) => res.json(connectionStatus(baseUrl(req))));
 r.post('/resend/test', need('integrations.manage'), asyncH(async (req, res) => { const out = await testConnection(who(req)); audit(who(req), 'resend-connection-test', { ok: out.ok }); res.json(out); }));
-r.post('/resend/webhook', need('integrations.manage'), asyncH(async (req, res) => { const out = await registerWebhook(baseUrl(req), who(req)); audit(who(req), 'resend-webhook-registered', { created: out.created }); res.json(out); }));
+r.post('/resend/webhook', need('integrations.manage'), asyncH(async (req, res) => { const out = await registerWebhook(baseUrl(req), who(req)); audit(who(req), 'resend-webhook-registered', { outcome: out.outcome }); res.json(out); }));
 /** The only real send in this panel, and only to the operator's own address, on an explicit click. */
+r.post('/resend/webhook-secret', need('integrations.manage'), (req, res) => { const out = saveWebhookSecret(req.body?.secret, who(req)); audit(who(req), 'resend-webhook-secret-saved', {}); res.json(out); });
 r.post('/resend/test-email', need('integrations.manage'), asyncH(async (req, res) => {
   const to = req.operator.email;
   await sendMail({ type: 'test', to, subject: 'Agentify ERP: Resend connection test', ...layout({ brand: 'platform', heading: 'Resend connection test', lines: ['This message was sent from the Super Admin console to check that your Resend connection delivers. No action is needed.'] }) });
