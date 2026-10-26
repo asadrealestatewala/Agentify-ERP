@@ -11,6 +11,10 @@ import { websiteState, fireWebhook } from '../services/website.js';
 import { saleSummary } from '../services/sales.js';
 import { notifyReviewers } from '../services/listings.js';
 import { currentRegion } from '../regions/runtime.js';
+import rateLimit from 'express-rate-limit';
+import { writeListingText, LANGUAGES, TONES, REWRITE_GOALS, RTL_LANGUAGES } from '../services/listingAi.js';
+import { activeProvider } from '../integrations/ai.js';
+import { currentTenant } from '../context.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -177,6 +181,25 @@ r.delete('/:id(\\d+)', can('properties', 'delete'), asyncH((req, res) => {
   tx(() => { run("DELETE FROM media WHERE entity_type='property' AND entity_id=?", p.id); run('DELETE FROM properties WHERE id=?', p.id); });
   audit(req, 'Deleted property', 'property', p.id, p.title);
   res.json({ ok: true });
+}));
+
+// ---- AI listing writer: suggestions only. Nothing is saved or published here; the editor shows a preview and the person applies it.
+const canWrite = (req, _res, next) => (hasPerm(req.user, 'properties', 'edit') || hasPerm(req.user, 'properties', 'create') ? next() : next(forbidden('You do not have permission to edit properties')));
+const aiWriterLimit = rateLimit({ windowMs: 60 * 60_000, limit: Number(process.env.PROPERTY_AI_LIMIT) || 40, standardHeaders: true, legacyHeaders: false,
+  keyGenerator: (req) => `${currentTenant()?.id ?? 'legacy'}:${req.user.id}`, message: { error: 'You have used the AI writer many times this hour. Please try again later.' } });
+r.get('/ai-writer', canWrite, (_req, res) => res.json({ languages: LANGUAGES, tones: TONES, goals: REWRITE_GOALS, rtl: RTL_LANGUAGES, connected: !!activeProvider(getSetting('ai_default', null)) }));
+r.post('/ai-writer', canWrite, aiWriterLimit, asyncH(async (req, res) => {
+  const pid = Number(req.body?.property_id) || null;
+  let stored = null;
+  if (pid) {
+    stored = get('SELECT * FROM properties WHERE id=?', pid);
+    if (!stored) throw notFound('Property not found');
+    if (!hasPerm(req.user, 'properties', 'edit')) throw forbidden('You do not have permission to edit properties');
+    assertOwner(req, stored);
+  }
+  const out = await writeListingText(req.body || {}, stored);
+  audit(req, 'Wrote listing text with AI', 'property', pid, `${out.mode}${out.field ? ` ${out.field}` : ''} (${out.language}, ${out.provider})`);
+  res.json(out);
 }));
 
 // ---- Status / publishing workflow
