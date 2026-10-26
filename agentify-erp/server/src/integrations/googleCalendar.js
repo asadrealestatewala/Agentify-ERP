@@ -20,9 +20,9 @@ async function accessToken(userId) {
   return t.access_token;
 }
 
-/** "2026-10-21 15:00:00" in the workspace's time zone, as Google wants it. */
-const eventTime = (local) => ({ dateTime: String(local).replace(' ', 'T').slice(0, 19), timeZone: currentRegion().config.timezone });
-const body = (a) => ({ summary: a.title, location: a.location || undefined, description: a.notes || undefined, start: eventTime(a.starts_at), end: eventTime(a.ends_at) });
+/** "2026-10-21 15:00:00" in the appointment's own time zone (else the workspace's), as Google wants it. */
+const eventTime = (local, tz) => ({ dateTime: String(local).replace(' ', 'T').slice(0, 19), timeZone: tz || currentRegion().config.timezone });
+const body = (a) => ({ summary: a.title, location: a.location || undefined, description: a.notes || undefined, start: eventTime(a.starts_at, a.timezone), end: eventTime(a.ends_at, a.timezone) });
 
 async function call(userId, method, id, payload) {
   const token = await accessToken(userId);

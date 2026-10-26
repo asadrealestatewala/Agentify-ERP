@@ -37,7 +37,7 @@ function visibility(req) {
   const o = ownerId(req);
   return o ? { sql: '(c.agent_id=? OR c.created_by=?)', params: [o, o] } : { sql: '1=1', params: [] };
 }
-function assertContactAccess(req, c) {
+export function assertContactAccess(req, c) {
   if (!c) throw notFound('Contact not found');
   const o = ownerId(req);
   if (o && c.agent_id !== o && c.created_by !== o) throw forbidden('This contact is not assigned to you');
@@ -332,7 +332,7 @@ r.delete('/notes/:id(\\d+)', can('crm', 'edit'), asyncH((req, res) => {
 }));
 
 // ---- Tasks
-function syncFollowup(contactId) {
+export function syncFollowup(contactId) {
   const next = get(`SELECT MIN(due_date) d FROM tasks WHERE entity_type='contact' AND entity_id=? AND status='open'`, contactId)?.d ?? null;
   run('UPDATE contacts SET followup_date=? WHERE id=?', next, contactId);
 }
