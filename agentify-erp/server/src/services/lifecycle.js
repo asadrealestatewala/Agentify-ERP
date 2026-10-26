@@ -17,6 +17,7 @@ import { sendMail, layout } from './mailer.js';
 import { all } from '../db.js';
 import { notify } from '../audit.js';
 import { flagEligible } from './retention.js';
+import { billingAddress } from './billingMail.js';
 
 const pdb = () => platformDb();
 const day = (v) => String(v || '').slice(0, 10);
@@ -24,7 +25,7 @@ const addDays = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 864e5).toI
 const daysBetween = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 864e5);
 const STRIPE_RENEWS = new Set(['stripe', 'generic']);
 
-const billingUrl = (t) => (isMultiTenant() ? `https://${t.custom_domain || `${t.slug}.${BASE_DOMAIN}`}/settings/billing` : '/settings/billing');
+export const billingUrl = (t) => (isMultiTenant() ? `https://${t.custom_domain || `${t.slug}.${BASE_DOMAIN}`}/settings/billing` : '/settings/billing');
 
 /** Record that a notice went out; false when it was already sent (so the caller skips it). */
 const claim = (tenantId, kind, ref) => pdb().prepare('INSERT OR IGNORE INTO lifecycle_notices(tenant_id,kind,ref) VALUES(?,?,?)').run(tenantId, kind, String(ref)).changes > 0;
@@ -48,7 +49,7 @@ function transition(t, fields, reason) {
 /** Email the owner and put an in-app notification in front of the workspace's admins. */
 async function tell(t, { subject, heading, lines, dedupe }) {
   const url = billingUrl(t);
-  if (t.owner_email) await withTenant(t, () => sendMail({ type: 'billing_notice', to: t.owner_email, subject, ...layout({ brand: 'platform', heading, lines, button: { label: 'Open Plan & Billing', url } }) }));
+  if (t.owner_email) await withTenant(t, () => sendMail({ type: 'billing_notice', to: t.owner_email, subject, ...layout({ brand: 'platform', heading, lines, button: { label: 'Open Plan & Billing', url }, footer: `Have a question? Mail us at ${billingAddress()}` }) }));
   try {
     withTenant(t, () => {
       const admins = all("SELECT u.id FROM users u JOIN roles r ON r.id=u.role_id WHERE u.active=1 AND r.portal=0 AND r.name IN ('Super Admin','Admin')").map((r) => r.id);

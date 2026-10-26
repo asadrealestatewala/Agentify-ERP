@@ -1,6 +1,7 @@
 // Super-admin views over every workspace: setup progress, usage, expiry, and help with a workspace's sign-ins.
 // Each workspace keeps its own database; these helpers open it read-mostly through withTenant and never copy data out
 // beyond counts, user names/emails and recent activity.
+import { billingAddress } from './billingMail.js';
 import fs from 'node:fs';
 import bcrypt from 'bcryptjs';
 import { platformDb, listTenants, getTenant, withTenant, logTenantEvent, BASE_DOMAIN, isMultiTenant, createTenant, setTenantStatus } from '../platform.js';
@@ -229,7 +230,7 @@ export async function remindOwner(id, req) {
   const when = e.date ? (e.days_left < 0 ? `ended on ${e.date}` : e.days_left === 0 ? 'ends today' : `ends on ${e.date} (${e.days_left} day${e.days_left === 1 ? '' : 's'} left)`) : null;
   const what = { trial: 'Your free trial', grace: 'The grace period after your failed payment', ends: 'Your subscription', renews: 'Your current billing period' }[e.kind] || 'Your subscription';
   const lines = [when ? `${what} ${when}.` : 'Your workspace needs a plan to keep editing.', e.locked ? 'Your data is safe but read-only until a plan is active.' : 'Choose or renew a plan to keep full access. Nothing is deleted.'];
-  const sent = await withTenant(t, () => sendMail({ type: 'billing_notice', to: t.owner_email, subject: `${t.name}: ${e.locked ? 'your workspace is read-only' : 'your plan needs attention'}`, ...layout({ brand: 'platform', heading: `${t.name} billing reminder`, lines, button: { label: 'Open billing', url: `${workspaceUrl(t, req)}/billing` } }) }));
+  const sent = await withTenant(t, () => sendMail({ type: 'billing_notice', to: t.owner_email, subject: `${t.name}: ${e.locked ? 'your workspace is read-only' : 'your plan needs attention'}`, ...layout({ brand: 'platform', heading: `${t.name} billing reminder`, lines, button: { label: 'Open billing', url: `${workspaceUrl(t, req)}/billing` }, footer: `Have a question? Mail us at ${billingAddress()}` }) }));
   logTenantEvent(t.id, 'reminder-sent', { kind: e.kind, date: e.date });
   return { sent, to: t.owner_email };
 }

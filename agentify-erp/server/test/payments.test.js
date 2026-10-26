@@ -203,3 +203,19 @@ test('a paid Stripe invoice sends one receipt from billing@, and a retried webho
   assert.equal((await call('erp.test', 'GET', '/api/platform/admin/billing-mail')).status, 401);
   void w;
 });
+
+test('a failed card payment emails the owner once from billing@; renewal reminders also come from billing@', async () => {
+  await workspace('fail1');
+  patch('fail1', { provider_customer_id: 'cus_F', provider_subscription_id: 'sub_F', plan: 'growth', subscription_status: 'active' });
+  const before = outbox.length;
+  await signed(ev('invoice.payment_failed', { id: 'in_f1', customer: 'cus_F', subscription: 'sub_F' }));
+  await signed(ev('customer.subscription.updated', { id: 'sub_F', customer: 'cus_F', status: 'past_due', metadata: { tenant_id: String(row('fail1').id), plan: 'growth' } }));
+  const m = outbox.slice(before).filter((x) => x.to === 'owner@fail1.test' && /not successful/.test(x.subject));
+  assert.equal(m.length, 1, 'one failure notice for one failed payment');
+  assert.equal(m[0].from, 'Agentify ERP Billing <billing@agentifyerp.co>'); assert.match(m[0].text, /Mail us at billing@agentifyerp\.co/);
+  patch('fail1', { subscription_status: 'active', billing_provider: 'raast', current_period_end: inDays(2), grace_until: null });
+  const { runLifecycle } = await import('../src/services/lifecycle.js');
+  await runLifecycle();
+  const r = outbox.filter((x) => x.to === 'owner@fail1.test' && /renews on/.test(x.subject)).pop();
+  assert.ok(r, 'renewal reminder sent'); assert.equal(r.from, 'Agentify ERP Billing <billing@agentifyerp.co>');
+});
