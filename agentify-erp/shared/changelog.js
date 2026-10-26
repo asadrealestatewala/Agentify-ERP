@@ -4,6 +4,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.33', date: '2026-10-26', title: 'Clearer place to add the WhatsApp keys',
+    items: [
+      { text: 'The WhatsApp (Botlinkd) and QR gateway cards now have a highlighted "Add keys" button, and tell you plainly when your console role cannot change integrations.', where: 'Super Admin console > Integrations' },
+    ],
+  },
+  {
     version: 'v1.32', date: '2026-10-26', title: 'Failed-payment emails, and all billing mail from billing@agentifyerp.co',
     items: [
       { text: 'If a card payment fails, the owner gets one email saying so, with the date they keep access until and a button to fix it. Payment reminders, renewal and trial notices and failed-payment emails all come from billing@agentifyerp.co, and end with where to ask a question.', where: 'Your inbox' },
