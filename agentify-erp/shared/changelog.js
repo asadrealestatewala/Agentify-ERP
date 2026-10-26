@@ -4,6 +4,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.32', date: '2026-10-26', title: 'Failed-payment emails, and all billing mail from billing@agentifyerp.co',
+    items: [
+      { text: 'If a card payment fails, the owner gets one email saying so, with the date they keep access until and a button to fix it. Payment reminders, renewal and trial notices and failed-payment emails all come from billing@agentifyerp.co, and end with where to ask a question.', where: 'Your inbox' },
+    ],
+  },
+  {
     version: 'v1.31', date: '2026-10-26', title: 'Payment receipts by email from billing@agentifyerp.co',
     items: [
       { text: 'Every time a payment is recorded for your workspace (card, bank or wallet transfer) you get one email titled "Payment received successfully" with the amount, plan, date and reference. Billing emails now come from billing@agentifyerp.co, and you can reply or write there with any billing question.', where: 'Your inbox' },

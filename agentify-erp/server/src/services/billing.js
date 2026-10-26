@@ -18,7 +18,8 @@ import { platformGatewayOffers } from './platformGateways.js';
 import { sendMail, layout } from './mailer.js';
 import { quote, recordRedemption, setTenantAddon, recordRefund } from './commerce.js';
 import { recordServerEvent } from './analytics.js';
-import { sendPaymentReceipt } from './billingMail.js';
+import { sendPaymentReceipt, billingAddress } from './billingMail.js';
+import { billingUrl } from './lifecycle.js';
 
 /** Explicit subscription states (see services/plans.js billingState). */
 export const SUB_STATUSES = ['trialing', 'pending', 'active', 'past_due', 'canceled', 'expired'];
@@ -110,6 +111,14 @@ export function applyBillingEvent(provider, ev) {
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   logTenantEvent(tenant.id, `billing:${ev.type}`, { provider, plan: ev.plan });
+  if (ev.type === 'payment.failed') {
+    // tell the owner once per grace period (Stripe sends both an invoice and a subscription event for one failure)
+    const t3 = getTenant(tenant.id);
+    if (t3.owner_email && platformDb().prepare('INSERT OR IGNORE INTO lifecycle_notices(tenant_id,kind,ref) VALUES(?,?,?)').run(tenant.id, 'payment-failed', String(t3.grace_until || iso(new Date()))).changes) {
+      const mail = layout({ brand: 'platform', heading: 'Your payment was not successful', lines: [`We could not collect the payment for your ${PLANS[t3.plan]?.name || ''} plan on ${tenant.name}.`, t3.grace_until ? `You keep full access until ${t3.grace_until} while you update your payment method or try again.` : 'Please update your payment method or try again.'], button: { label: 'Open Plan & Billing', url: billingUrl(t3) }, footer: `Have a question? Mail us at ${billingAddress()}` });
+      void sendMail({ type: 'billing', workspaceId: tenant.id, to: t3.owner_email, subject: `${tenant.name}: your payment was not successful`, ...mail }).catch(() => {});
+    }
+  }
   // one receipt per paid invoice (the key is the provider's invoice id, so a retried webhook cannot send a second one)
   if (ev.invoice?.id && String(ev.invoice.status || 'paid') === 'paid' && Number(ev.invoice.amount) > 0) {
     const t2 = getTenant(tenant.id);
@@ -252,7 +261,7 @@ export async function rejectSubmission(id, decisionNote) {
   if (!String(decisionNote || '').trim()) throw bad('Say why it was rejected so the customer can fix it');
   db.prepare("UPDATE payment_submissions SET status='rejected', decision_note=?, decided_at=datetime('now') WHERE id=?").run(decisionNote, id);
   logTenantEvent(s.tenant_id, 'billing:payment-rejected', { id });
-  const mail = layout({ brand: 'platform', heading: 'We could not confirm your payment', lines: [`Reference ${s.reference}: ${decisionNote}`, 'Please check the details and submit again, or contact us.'] });
+  const mail = layout({ brand: 'platform', heading: 'We could not confirm your payment', lines: [`Reference ${s.reference}: ${decisionNote}`, 'Please check the details and submit again, or contact us.'], footer: `Have a question? Mail us at ${billingAddress()}` });
   await sendMail({ type: 'billing', to: s.submitted_by, subject: 'We could not confirm your payment', ...mail });
 }
 
