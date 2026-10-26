@@ -1,0 +1,35 @@
+name: Build Android APK (temporary)
+on:
+  push:
+    branches: [ci/apk-build]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build debug APK
+        working-directory: agentify-erp/mobile
+        run: |
+          npm ci
+          npx cap sync android
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Commit APK to this branch
+        run: |
+          cp agentify-erp/mobile/android/app/build/outputs/apk/debug/app-debug.apk agentify-erp/client/public/downloads/agentify-erp.apk
+          ls -l agentify-erp/client/public/downloads/agentify-erp.apk
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -f agentify-erp/client/public/downloads/agentify-erp.apk
+          git commit -m "CI-built debug APK" || echo "no change"
+          git push origin HEAD:ci/apk-build
