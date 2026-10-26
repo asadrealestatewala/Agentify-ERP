@@ -4,6 +4,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.20', date: '2026-10-26', title: 'Latitude and longitude fill in for you',
+    items: [
+      { text: 'After you type a Location or Address and move to the next field, the GPS latitude and longitude are filled from the map and the pin shows below. A new Find on map button does it on demand, shows other matches, and tells you when nothing is found. Coordinates you typed yourself are never replaced automatically.', where: 'Properties > Add or edit property > Location' },
+      { text: 'The By source and By owner tables now line up in clear columns, with each percentage and its count under it. The same tidy table style is fixed on the SEO, chatbot knowledge and website studio lists.', where: 'CRM > Lead Conversion' },
+    ],
+  },
+  {
     version: 'v1.19', date: '2026-10-26', title: 'See email use by plan and workspace',
     items: [
       { text: 'Two new tables show how much email each plan and each workspace has used against its allowance in the current period, with warning and used-up markers.', where: 'Super Admin console > Mailbox > Tenant email' },
