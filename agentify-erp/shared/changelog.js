@@ -4,6 +4,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.22', date: '2026-10-26', title: 'Street-level location search and a draggable map pin',
+    items: [
+      { text: 'Location search now narrows down to the street or colony: it finds the city or area first, then looks for each street or colony you typed inside it, whichever box you typed it in, and also tries common alternate spellings. The search shows several matches you can click, in English, marked as street or area.', where: 'Properties > Add or edit property > Location' },
+      { text: 'The map is now an interactive map: drag the pin (or click the map) to the exact spot and the GPS latitude and longitude update. The "approximate" warning only appears when the street really could not be found.', where: 'Properties > Add or edit property > Location' },
+    ],
+  },
+  {
     version: 'v1.21', date: '2026-10-26', title: 'Latitude, longitude and map fill in as you type',
     items: [
       { text: 'As you type the City, Area, Location and Address, the map finds the place and drops the pin on it, and the GPS latitude and longitude fill in by themselves. Find on map does it on demand, other matches are offered, and you are told when nothing is found. Coordinates you typed yourself are never replaced automatically.', where: 'Properties > Add or edit property > Location' },
