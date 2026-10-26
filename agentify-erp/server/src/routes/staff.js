@@ -7,6 +7,7 @@ import { acct } from '../services/accounting.js';
 import { createVoucher } from '../services/expenses.js';
 import { sendPdf } from '../services/pdf.js';
 import { uploader } from './helpers.js';
+import { syncFromTask } from '../services/onboarding.js';
 import { attendanceSummary, createLeave, decideLeave, employeeOf, leaveBalances, managerUserId, canDecideLeave, commissionDue } from '../services/hr.js';
 
 /**
@@ -167,6 +168,7 @@ r.put('/work-tasks/:id(\\d+)', asyncH((req, res) => {
     }
     if (b.status && b.status !== t.status) {
       if (!STATUS.includes(b.status)) throw bad('Invalid status');
+      if (t.onboarding_item_id) syncFromTask(t, b.status, req); // onboarding items keep their own evidence rules
       run('UPDATE work_tasks SET status=?, started_at=COALESCE(started_at, ?), completed_at=? WHERE id=?', b.status, b.status === 'in_progress' ? now() : null, b.status === 'done' ? now() : null, t.id);
       if (t.assigned_by && t.assigned_by !== req.user.id) notify(t.assigned_by, 'task', `Task ${b.status === 'done' ? 'completed' : 'updated'}: ${t.title}`, `${req.user.name} → ${b.status.replace('_', ' ')}${b.note ? ` — ${b.note}` : ''}`, '/my/tasks?scope=assigned_by_me');
     }
@@ -178,6 +180,7 @@ r.delete('/work-tasks/:id(\\d+)', asyncH((req, res) => {
   const t = get('SELECT * FROM work_tasks WHERE id=?', req.params.id);
   if (!t) throw notFound();
   if (!(isSenior(req) && (t.assigned_by === req.user.id || req.user.isSuper))) throw forbidden();
+  if (t.onboarding_item_id && t.status !== 'done') throw bad('This task belongs to an onboarding checklist. Waive or cancel it from HR → Onboarding instead.');
   run('DELETE FROM work_tasks WHERE id=?', t.id);
   res.json({ ok: true });
 }));

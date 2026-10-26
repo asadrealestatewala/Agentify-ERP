@@ -9,6 +9,7 @@ import { date, money } from '../format.js';
 import { PropertyActions, WebsiteBadge } from './Properties.jsx';
 import RegionFields from '../components/RegionFields.jsx';
 import PortalsCard from '../components/PortalsCard.jsx';
+import { VisitsPanel } from '../components/Visits.jsx';
 
 const KIND_OPTS = [['cover', 'Cover image'], ['gallery', 'Gallery'], ['siteplan', 'Site plan'], ['map', 'Map'], ['dev', 'Development picture'], ['document', 'Document (PDF)']];
 const FEATURE_LABEL = { bedrooms: 'Bedrooms', bathrooms: 'Bathrooms', floors: 'Floors', kitchen: 'Kitchens', garage: 'Garage', lawn: 'Lawn', drawing_room: 'Drawing room', dining_room: 'Dining room', corner: 'Corner', park_facing: 'Park facing', main_road: 'Main road', boulevard: 'Boulevard', possession: 'Possession', development_status: 'Development status' };
@@ -42,7 +43,7 @@ export default function PropertyDetail() {
           <RegionFields entity="property" id={p.id} />
           <PortalsCard propertyId={p.id} published={!!p.published} />
           <Card flush>
-            <Tabs value={tab} onChange={setTab} tabs={[{ key: 'overview', label: 'Unit information' }, ...(s ? [{ key: 'sale', label: 'Customer & sale' }, { key: 'ledger', label: 'Ledger' }] : []), { key: 'media', label: 'Images & videos', count: p.media.length }, { key: 'docs', label: 'Documents', count: ws.documents.length }]} />
+            <Tabs value={tab} onChange={setTab} tabs={[{ key: 'overview', label: 'Unit information' }, ...(s ? [{ key: 'sale', label: 'Customer & sale' }, { key: 'ledger', label: 'Ledger' }] : []), { key: 'media', label: 'Images & videos', count: p.media.length }, { key: 'docs', label: 'Documents', count: ws.documents.length }, ...(can('crm', 'view') ? [{ key: 'visits', label: 'Visits' }] : [])]} />
             <div className="card-b">
               {tab === 'overview' && (
                 <div className="stack">
@@ -68,6 +69,7 @@ export default function PropertyDetail() {
               {tab === 'ledger' && s && (<div className="stack"><InstallmentTable rows={s.installments} />
                 {ws.receipts && <Card title="Receipts for this unit" flush><table className="t"><tbody>{ws.receipts.map((r) => <tr key={r.id}><td><Link to={`/receipts/${r.id}`}>{r.receipt_no}</Link></td><td>{date(r.date)}</td><td>{r.payment_type}</td><td>{r.method}</td><td className="num mono">{money(r.amount)}</td><td><StatusBadge status={r.status} /></td></tr>)}</tbody></table></Card>}</div>)}
               {tab === 'media' && <ImageUploader base={`/api/properties/${p.id}`} media={p.media} onChange={(m) => setData({ ...ws, property: { ...p, media: m } })} kinds={KIND_OPTS} readOnly={!can('properties', 'edit')} />}
+              {tab === 'visits' && <VisitsPanel propertyId={p.id} />}
               {tab === 'docs' && <DocumentsPanel entityType="property" entityId={p.id} canEdit={can('properties', 'edit')} categories={['Contract', 'Architectural Drawing', 'Construction Drawing', 'Site Plan', 'Allotment Letter', 'Agreement', 'Payment Proof', 'Other']} portalToggle />}
             </div>
           </Card>

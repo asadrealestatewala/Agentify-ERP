@@ -59,7 +59,7 @@ export function clientConfig(tenant) {
   const c = configFor(tenant);
   return {
     region: c.region, sub_region: c.sub_region, name: c.name, locale: c.locale, language: c.language, languages: c.languages, direction: regionFor(tenant).dir, currency: c.currency, money_scale: c.money_scale,
-    currency_style: c.currency_style, date_style: c.date_style, time_style: c.time_style, timezone: c.timezone, units_system: c.units_system, area_units: c.area_units, default_area_unit: c.default_area_unit,
+    currency_style: c.currency_style, date_style: c.date_style, time_style: c.time_style, timezone: c.timezone, units_system: c.units_system, distance_unit: c.distance_unit || 'km', timezones: c.timezones || [c.timezone], area_units: c.area_units, default_area_unit: c.default_area_unit,
     marla_sqft: c.marla_sqft, phone: c.phone, sub_region_label: c.sub_region_label, sub_regions: c.sub_regions, terminology: c.terminology, identity: c.identity, flags: c.flags, pack_version: c.pack_version,
     price_style: c.price_style, rent_suffix: c.rent_suffix, property_types: c.property_types, listing_fields: c.listing_fields, area: c.area, calculators: c.calculators, fees: c.fees, site_copy: c.site_copy, mortgage_compounding: c.mortgage_compounding,
   };

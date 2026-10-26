@@ -34,6 +34,7 @@ import { MyLocation, FieldCoverage } from './pages/FieldLocation.jsx';
 import InstallApp from './pages/InstallApp.jsx';
 import TrainingLibrary from './pages/TrainingLibrary.jsx';
 import { AttendanceBoard, Assets, LeaveBoard } from './pages/HrExtras.jsx';
+import { MyOnboarding, OnboardingDetail, OnboardingHome } from './pages/Onboarding.jsx';
 import Content from './pages/Content.jsx';
 import Promos from './pages/Promos.jsx';
 import PlotMap from './pages/PlotMap.jsx';
@@ -256,6 +257,8 @@ export default function App() {
         <Route path="hrm/leave" element={<LeaveBoard />} />
         <Route path="hrm/assets" element={<LibraryGuard><Assets /></LibraryGuard>} />
         <Route path="assets" element={<LibraryGuard><Assets /></LibraryGuard>} />
+        <Route path="hrm/onboarding" element={G('hrm', <OnboardingHome />)} />
+        <Route path="hrm/onboarding/:id" element={<OnboardingDetail />} />
         <Route path="hrm/recruitment" element={G('hrm', <Recruitment />)} />
         <Route path="hrm/reports" element={G('hrm', <HrReports />)} />
         {/* Reports */}
@@ -287,6 +290,7 @@ export default function App() {
         <Route path="my/tasks" element={<MyTasks />} />
         <Route path="my/location" element={<MyLocation />} />
         <Route path="field" element={<FieldCoverage />} />
+        <Route path="my/onboarding" element={<MyOnboarding />} />
         <Route path="content" element={G('content', <Content />)} />
         <Route path="customers/promos" element={G('customers', <Promos />, 'edit')} />
         <Route path="website" element={G('website', <WebsiteHome />)} />

@@ -12,7 +12,9 @@
   "date_style": "DD/MM/YYYY",
   "time_style": "24h",
   "timezone": "Europe/London",
+  "work_week": { "weekend": [0, 6], "note": "Default only; each workspace sets its own weekend in HR > Onboarding > Working calendar." },
   "units_system": "mixed",
+  "distance_unit": "mi",
   "area_units": [ "sqft", "sqm", "acre", "hectare" ],
   "default_area_unit": "sqft",
   "phone": {

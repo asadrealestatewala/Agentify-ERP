@@ -23,6 +23,8 @@ import { validateInput } from './validation.js';
 import { authenticate, csrfGuard, requireStaff } from './rbac.js';
 import { HttpError } from './util.js';
 import { runReminders } from './services/reminders.js';
+import { runOnboardingReminders } from './services/onboarding.js';
+import onboardingRoutes from './routes/onboarding.js';
 import { runGoalReminders } from './services/goals.js';
 import goals, { push } from './routes/goals.js';
 import assistant from './routes/assistant.js';
@@ -47,7 +49,7 @@ import mortgageRoutes from './regions/mortgage.js';
 import documentRoutes from './regions/documents.js';
 import privacyRoutes from './regions/privacy.js';
 import integrationRoutes from './routes/integrations.js';
-import appointmentRoutes from './routes/appointments.js';
+import appointmentRoutes, { runVisitReminders } from './routes/appointments.js';
 import meetingRoutes, { roomRouter as meetingRoom, runMeetingReminders } from './routes/meetings.js';
 import integrationHooks from './integrations/hooks.js';
 import { sendAlert } from './services/integrations.js';
@@ -174,6 +176,7 @@ export function createApp() {
   app.use('/api/dashboard', dashboard);
   app.use('/api/reports', reports);
   app.use('/api/properties', properties);
+  app.use('/api/hrm/onboarding', onboardingRoutes);
   app.use('/api/hrm', hrm);
   app.use('/api', crm);
   app.use('/api', projects);
@@ -235,7 +238,7 @@ console.log(`[boot] entry=${entryFile || '<none>'} argv1=${process.argv[1] || '<
 if (isMain) {
   const port = Number(process.env.PORT) || 4000;
   createApp().listen(port, () => console.log(`Expert ERP API listening on http://localhost:${port}`));
-  const tick = () => { try { forEachTenant(() => { runReminders(); runGoalReminders(); contentReminders(); purgeFieldLocations(); }); markJob('tenant-jobs'); } catch (e) { markJob('tenant-jobs', e); } };
+  const tick = () => { try { forEachTenant(() => { runReminders(); runOnboardingReminders(); runGoalReminders(); contentReminders(); purgeFieldLocations(); }); markJob('tenant-jobs'); } catch (e) { markJob('tenant-jobs', e); } };
   tick();
   scheduleBackups();
   setInterval(tick, 30 * 60 * 1000).unref(); // goal nudges are once-per-day via dedupe keys
@@ -247,6 +250,9 @@ if (isMain) {
   setInterval(webhookTick, 60 * 1000).unref();
   const meetingTick = () => forEachTenantAsync(() => runMeetingReminders()).then(() => markJob('meeting-reminders')).catch((e) => markJob('meeting-reminders', e));
   setInterval(meetingTick, 60 * 1000).unref();
+  // visit reminders (an hour before, and a nudge when nobody checked in) and location retention; de-duplicated
+  const visitTick = () => { try { forEachTenant(() => runVisitReminders()); markJob('visit-reminders'); } catch (e) { markJob('visit-reminders', e); } };
+  setInterval(visitTick, 5 * 60 * 1000).unref();
   // platform-wide: daily metric snapshot (for period comparisons) and super-admin alerts
   const platformTick = () => { try { snapshot(); generateNotifications(null, true); markJob('platform-jobs'); } catch (e) { console.error('[platform jobs]', e); markJob('platform-jobs', e); }
     // trial expiry, reminders and renewals (idempotent; safe to run as often as you like)

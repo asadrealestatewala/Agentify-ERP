@@ -16,6 +16,12 @@ export const moneyShort = (n) => R.money.short(n);
 export const date = (s) => R.fmt.date(s);
 export const dateTime = (s) => R.fmt.dateTime(s);
 export const month = (s) => R.fmt.month(s);
+/** A UTC instant ('…Z') shown as date and time in the workspace's timezone. */
+export function dateTimeUtc(iso) {
+  const d = iso ? new Date(iso) : null;
+  if (!d || Number.isNaN(d.getTime())) return R.fmt.dateTime(iso);
+  return R.fmt.dateTime(d.toLocaleString('sv-SE', { timeZone: R.config.timezone }));
+}
 
 /** Today in the workspace's timezone as YYYY-MM-DD (Pakistan: Asia/Karachi) */
 export const today = () => R.fmt.today();

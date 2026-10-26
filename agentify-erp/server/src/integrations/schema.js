@@ -15,6 +15,13 @@ CREATE TABLE IF NOT EXISTS appointments(
   id INTEGER PRIMARY KEY, contact_id INTEGER, property_id INTEGER, user_id INTEGER NOT NULL, title TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'viewing', starts_at TEXT NOT NULL, ends_at TEXT NOT NULL,
   location TEXT, notes TEXT, status TEXT NOT NULL DEFAULT 'scheduled', google_event_id TEXT, sync_error TEXT, created_by INTEGER, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_appointments_user ON appointments(user_id, starts_at);
+-- property visits: one row per check-in / check-out, with the location evidence the device gave (if any)
+CREATE TABLE IF NOT EXISTS visit_checks(
+  id INTEGER PRIMARY KEY, appointment_id INTEGER NOT NULL, user_id INTEGER NOT NULL, kind TEXT NOT NULL, server_at TEXT NOT NULL,
+  location_status TEXT NOT NULL, lat REAL, lng REAL, accuracy_m INTEGER, captured_at TEXT, distance_m INTEGER, proximity TEXT,
+  radius_m INTEGER, manual_reason TEXT, client_key TEXT, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_visit_checks_appt ON visit_checks(appointment_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_visit_checks_key ON visit_checks(user_id, client_key) WHERE client_key IS NOT NULL;
 CREATE TABLE IF NOT EXISTS social_connections(
   id INTEGER PRIMARY KEY, provider TEXT NOT NULL, external_id TEXT NOT NULL, name TEXT, token_enc TEXT NOT NULL, meta TEXT, connected_by INTEGER, connected_at TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'connected', UNIQUE(provider, external_id));
 CREATE TABLE IF NOT EXISTS social_posts(
