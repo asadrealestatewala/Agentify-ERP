@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon.jsx';
 import { Empty, Menu } from '../../components/ui.jsx';
 import { api } from '../../api.js';
+import { APP_VERSION } from '../../../../shared/changelog.js';
 import './admin.css';
 
 export const A = '/api/platform/admin';
@@ -24,7 +25,7 @@ export function Allowed({ perm, children }) {
 
 /** Navigation: [label, path, permission]. Groups and pages the user cannot use are hidden. */
 export const NAV = [
-  { key: 'dash', label: 'Dashboard', icon: 'dashboard', items: [['Overview', '/platform', 'dashboard.view'], ['System health', '/platform/health', 'system.view'], ['Alerts', '/platform/notifications', 'dashboard.view']] },
+  { key: 'dash', label: 'Dashboard', icon: 'dashboard', items: [['Overview', '/platform', 'dashboard.view'], ['System health', '/platform/health', 'system.view'], ['Alerts', '/platform/notifications', 'dashboard.view'], ["What's new", '/platform/whats-new', 'self']] },
   { key: 'ws', label: 'Workspaces', icon: 'building', items: [['All workspaces', '/platform/workspaces', 'workspaces.view'], ['Active', '/platform/workspaces?status=active', 'workspaces.view'], ['Free trials', '/platform/workspaces?status=trial', 'workspaces.view'], ['Paying', '/platform/workspaces?status=paying', 'workspaces.view'], ['Need attention', '/platform/workspaces?status=attention', 'workspaces.view'], ['Suspended', '/platform/workspaces?status=suspended', 'workspaces.view'], ['Cancelled', '/platform/workspaces?status=cancelled', 'workspaces.view']] },
   { key: 'subs', label: 'Plans & Subscriptions', icon: 'layers', items: [['Plans, add-ons & coupons', '/platform/plans', 'billing.view'], ['Renewals & expiry', '/platform/expiry', 'workspaces.view'], ['Subscription history', '/platform/subscriptions/history', 'billing.view']] },
   { key: 'billing', label: 'Billing & Payments', icon: 'wallet', items: [['Transactions & invoices', '/platform/transactions', 'billing.view'], ['Payment approvals', '/platform/payments', 'billing.view'], ['Stripe configuration', '/platform/billing/stripe', 'billing.configure'], ['Local payment accounts', '/platform/billing/accounts', 'billing.view'], ['Reconciliation', '/platform/reconciliation', 'billing.view']] },
@@ -146,7 +147,7 @@ export default function AdminShell({ me, onSignOut, onChangePassword, children }
             <button onClick={() => nav('/platform/security/sessions')}>My sessions</button>
             <button className="danger" onClick={onSignOut}>Sign out</button>
           </Menu>
-          <div className="pa-me-text"><b>{me.name || 'Console user'}</b><small>{me.role_label || me.email}</small></div>
+          <div className="pa-me-text"><b>{me.name || 'Console user'}</b><small>{me.role_label || me.email} · {APP_VERSION}</small></div>
           <button className="pa-link" style={{ width: 'auto', padding: 6 }} onClick={onSignOut} title="Sign out" aria-label="Sign out"><Icon name="logout" size={16} /></button>
         </div>
       </aside>
