@@ -4,9 +4,10 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
-    version: 'v1.30', date: '2026-10-26', title: 'Warning when someone keeps guessing your password',
+    version: 'v1.30', date: '2026-10-26', title: 'Warning when someone keeps guessing your password, and a list of where you signed in',
     items: [
       { text: 'If there are 5 wrong password attempts on your account within 15 minutes, you get an email with the address they came from, and a button to reset your password. You get at most one such email an hour.', where: 'Your inbox' },
+      { text: 'See the browsers and addresses your account has signed in from, and sign out of every other device in one click.', where: 'My Space > Security > Where you have signed in' },
     ],
   },
   {

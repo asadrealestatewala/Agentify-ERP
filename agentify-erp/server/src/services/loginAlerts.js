@@ -99,4 +99,16 @@ export function noteFailedLogin(req, row) {
   } catch (e) { console.error('[login-alert]', e.message); }
 }
 
-export const knownDevices = (userId) => all('SELECT ip, user_agent, first_seen, last_seen FROM login_devices WHERE user_id=? ORDER BY last_seen DESC LIMIT 10', userId);
+/** Browsers this person has signed in from (newest first), with the addresses seen for each and which one is this request. */
+export function deviceList(userId, req) {
+  const mine = req.cookies?.[COOKIE] ? sha(req.cookies[COOKIE]) : null;
+  const rows = all('SELECT device_hash, ip, user_agent, first_seen, last_seen FROM login_devices WHERE user_id=? ORDER BY last_seen DESC, id DESC', userId);
+  const byDevice = new Map();
+  for (const r of rows) {
+    const d = byDevice.get(r.device_hash) || { browser: describeBrowser(r.user_agent), ips: [], first_seen: r.first_seen, last_seen: r.last_seen, current: r.device_hash === mine };
+    if (!d.ips.includes(r.ip)) d.ips.push(r.ip);
+    if (r.first_seen < d.first_seen) d.first_seen = r.first_seen;
+    byDevice.set(r.device_hash, d);
+  }
+  return [...byDevice.values()];
+}
