@@ -5,11 +5,13 @@
 import { useSyncExternalStore } from 'react';
 
 const standalone = () => typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true);
-const state = { evt: typeof window !== 'undefined' ? window.__erpInstallEvt || null : null, installed: standalone(), v: 0 };
+const state = { evt: typeof window !== 'undefined' ? window.__erpInstallEvt || null : null, installed: standalone(), play: '', v: 0 };
 /** The Android app file, built from /mobile (Capacitor) and served from the public site. */
 export const APK_URL = 'https://agentifyerp.co/downloads/agentify-erp.apk';
-const inNativeApp = () => typeof window !== 'undefined' && (!!window.Capacitor?.isNativePlatform?.() || /; wv\)/.test(navigator.userAgent));
+export const inNativeApp = () => typeof window !== 'undefined' && (!!window.Capacitor?.isNativePlatform?.() || /; wv\)/.test(navigator.userAgent));
 const isAndroid = () => typeof navigator !== 'undefined' && /Android/i.test(navigator.userAgent);
+// Google Play link, set by the public site from the console (empty until the store listing is live).
+export const setPlayUrl = (u) => { const v = typeof u === 'string' && /^https:\/\/play\.google\.com\//.test(u) ? u : ''; if (v !== state.play) { state.play = v; emit(); } };
 const subs = new Set();
 const emit = () => { state.v += 1; subs.forEach((f) => f()); };
 
@@ -43,5 +45,5 @@ async function install() {
 export function useInstallApp() {
   useSyncExternalStore(subscribe, snapshot, snapshot);
   const native = inNativeApp();
-  return { canPrompt: !!state.evt && !state.installed, installed: state.installed || native, ios: isIOS() && !state.installed, install, apk: isAndroid() && !native && !state.installed ? APK_URL : null };
+  return { canPrompt: !!state.evt && !state.installed, installed: state.installed || native, ios: isIOS() && !state.installed, install, apk: isAndroid() && !native && !state.installed ? APK_URL : null, play: native ? '' : state.play };
 }

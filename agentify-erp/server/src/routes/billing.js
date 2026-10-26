@@ -9,6 +9,7 @@ import { audit } from '../audit.js';
 import { startPlatformCheckout, platformCheckoutStatus } from '../services/platformGateways.js';
 import { recordServerEvent } from '../services/analytics.js';
 import { platformDb, logTenantEvent } from '../platform.js';
+import { marketingContent } from '../services/marketing.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -22,10 +23,13 @@ const summary = (req) => {
 };
 
 /** Any signed-in staff member: enough to show the trial / read-only banner and to hide what the subscription does not include. */
+// The app downloads (Google Play link and the direct Android file) are for paying workspaces only; trials, expired and free-website accounts get null.
+const appLinks = (s) => (!s.free_site && ['active', 'past_due'].includes(s.status) && !s.locked
+  ? { android_store_url: marketingContent().android_store_url || null, apk_url: 'https://agentifyerp.co/downloads/agentify-erp.apk' } : null);
 r.get('/status', (req, res) => {
   const s = summary(req);
   res.json({ status: s.status, locked: s.locked, reason: s.reason || null, message: s.message, days_left: s.days_left ?? null, trial_ends_at: s.trial_ends_at || null, plan: s.plan,
-    grace_until: s.grace_until || null, period_end: s.period_end || null, products: s.products, product: s.product, modules: s.limits.modules, limits: s.limits, legacy: !!req.tenant.is_legacy });
+    grace_until: s.grace_until || null, period_end: s.period_end || null, products: s.products, product: s.product, modules: s.limits.modules, limits: s.limits, legacy: !!req.tenant.is_legacy, app: appLinks(s) });
 });
 
 r.get('/', can('settings', 'view'), (req, res) => res.json({ ...summary(req), invoices: req.tenant.is_legacy ? [] : invoicesFor(req.tenant.id), payments: req.tenant.is_legacy ? [] : submissionsFor(req.tenant.id),

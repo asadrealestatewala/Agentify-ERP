@@ -6,6 +6,7 @@ import { BackLink, Card, Check, ChipSelect, CurrencyInput, Field, Loading, Selec
 import { api, fileUrl } from '../api.js';
 import { useAuth, useFetch, useLookups, useToast } from '../context.jsx';
 import { money, getRegion } from '../format.js';
+import PinPicker from '../components/PinPicker.jsx';
 import ListingAiWriter from '../components/ListingAiWriter.jsx';
 
 const PK_UNITS = ['Marla', 'Kanal', 'Sq Ft', 'Sq Yards', 'Sq Meter'];
@@ -107,7 +108,7 @@ export default function PropertyForm() {
       if (!results.length) { setGeo({ busy: false, msg: 'No place found for that text. Try a nearby landmark or a different spelling, or enter the latitude and longitude by hand.', kind: 'err', options: [] }); return; }
       const top = results[0];
       setF((x) => ({ ...x, lat: top.lat, lng: top.lng }));
-      setGeo({ busy: false, msg: `${approximate ? 'Only the wider area was found, so the pin is approximate. ' : ''}Coordinates filled from the map: ${top.label}. Check the pin and adjust if needed.`, kind: approximate ? 'warn' : 'ok', options: results.slice(1) });
+      setGeo({ busy: false, msg: `${approximate ? 'Only the wider area was found, so the pin is approximate. Zoom in and tap the map or drag the pin to the exact street. ' : ''}Coordinates filled from the map: ${top.label}. Tap the map or drag the pin to make it exact.`, kind: approximate ? 'warn' : 'ok', options: results.slice(1) });
     } catch (e) {
       if (seq === geoSeq.current) setGeo({ busy: false, msg: e.message || 'The map search is not available right now. Enter the latitude and longitude by hand.', kind: 'err', options: [] });
     }
@@ -126,7 +127,6 @@ export default function PropertyForm() {
   const ppu = Number(f.area_size) > 0 && Number(f.total_price) ? Math.round(Number(f.total_price) / Number(f.area_size)) : null;
   const imgCount = media.filter((m) => !/\.pdf$/i.test(m.path)).length + pending.length;
   const quality = useMemo(() => ({ amen: Math.min(100, Math.round(((f.amenities?.length || 0) / 5) * 100)), imgs: Math.min(100, Math.round((imgCount / 5) * 100)) }), [f.amenities, imgCount]);
-  const mapSrc = f.lat && f.lng ? `https://www.openstreetmap.org/export/embed.html?bbox=${Number(f.lng) - 0.01}%2C${Number(f.lat) - 0.006}%2C${Number(f.lng) + 0.01}%2C${Number(f.lat) + 0.006}&layer=mapnik&marker=${f.lat}%2C${f.lng}` : null;
   const locked = editing && existing.data?.status === 'sold';
 
   const validate = () => {
@@ -199,8 +199,7 @@ export default function PropertyForm() {
           </div>
           {geo.msg && <div className={`alert ${geo.kind === 'err' ? 'err' : geo.kind === 'warn' ? 'warn' : 'ok'}`} role="status" style={{ marginBottom: 10 }}>{geo.msg}</div>}
           {geo.options.length > 0 && <div className="muted" style={{ marginBottom: 10, fontSize: 13 }}>Other matches: {geo.options.map((o, i) => <button key={i} type="button" className="btn sm ghost" style={{ margin: '2px 4px' }} onClick={() => { setF((x) => ({ ...x, lat: o.lat, lng: o.lng })); setGeo((g) => ({ ...g, msg: `Coordinates set to: ${o.label}.`, options: [] })); }}>{o.label.split(',').slice(0, 3).join(',')}</button>)}</div>}
-          {mapSrc ? (<div><iframe title="Map" src={mapSrc} style={{ width: '100%', height: 200, border: '1px solid var(--border)', borderRadius: 8 }} loading="lazy" /><a href={`https://www.google.com/maps?q=${f.lat},${f.lng}`} target="_blank" rel="noreferrer" className="muted">Open in Google Maps ↗</a></div>)
-            : <div className="dropzone" style={{ cursor: 'default' }}><Icon name="map" size={20} /><div>Type a location above, or enter GPS coordinates, to preview the map location.</div></div>}
+          <PinPicker lat={f.lat} lng={f.lng} onChange={(la, ln) => { typedCoords.current = true; setGeo((g) => (g.msg ? { ...g, msg: '', options: [] } : g)); setF((x) => ({ ...x, lat: la, lng: ln })); }} />
         </Section>
 
         <Section icon="dollar" title="Price & area" hint="Size, price and payment options">

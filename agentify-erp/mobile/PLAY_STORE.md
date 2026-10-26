@@ -30,8 +30,8 @@ The sideload APK at `/downloads/agentify-erp.apk` is debug-signed; replace it on
 
 ## Play Console checklist
 1. **Developer account**: a new *personal* account must run a closed test with at least 12 testers for 14 days before production; organisation accounts do not. Confirm current rules in Play Console.
-2. **Privacy policy URL**: https://agentifyerp.co/legal/privacy exists, but its text is still the **placeholder draft**. Replace it with a reviewed policy (data collected, purposes, retention, deletion, contact) in Super Admin > Website builder > Legal before submitting. Play will reject a placeholder.
-3. **Account deletion**: apps with sign-up need an in-app deletion path and a public web URL for the request. Today the workspace owner can *request* closure from Billing (platform team processes it). Add a public deletion-request page or URL and say how long it takes.
+2. **Privacy policy URL**: https://agentifyerp.co/legal/privacy now has a full draft covering the apps (location, camera, microphone, files, deletion). It still contains `[bracketed]` company details and must be reviewed by a lawyer, filled in and **published** (Super Admin > Website builder > Legal; publishing is blocked until every bracket is replaced and a reviewer is named). Play rejects a draft with placeholders.
+3. **Account deletion** (done in code): in the app, Plan & Billing > Close your account (also inside the Android app). Public URL for the Play form: https://agentifyerp.co/delete-account (no sign-in). Both only alert the platform team, who confirm with the owner before deleting; state the time limit in the policy.
 4. **Data safety form** (draft answers; verify against the final policy):
    - Location: precise, collected for app functionality (field location, visit check-in, property GPS); foreground only; employee consent notice; not sold; optional per workspace.
    - Personal info: name, email, phone, address (contacts/leads and users); account and app functionality.
@@ -42,7 +42,7 @@ The sideload APK at `/downloads/agentify-erp.apk` is debug-signed; replace it on
 5. **Permissions**: location (foreground only), camera, microphone. Prepare the short in-app explanation text shown before each prompt; reviewers may test them.
 6. **Policy risks**:
    - *Minimum functionality / WebView apps*: Play can reject apps that are only a website in a frame. Argue the app adds native permissions, camera/mic/GPS use, Back-button handling and install as an app; consider adding a native push-notification setup (the Push plugin is included but needs Firebase `google-services.json`) to strengthen it.
-   - *Payments*: if the app lets people buy or change a subscription, Google Play Billing may be required for digital services. Safest is to keep subscription purchase and upgrade on the website only, and not link out to it from inside the app, until you have checked with Play support.
+   - *Payments* (handled in code: inside the app, Plan & Billing shows the plan and the closure request only, and the sales and pricing pages redirect to sign-in; subscriptions are bought on the website). Google may still ask. If the app lets people buy or change a subscription, Google Play Billing may be required for digital services. Safest is to keep subscription purchase and upgrade on the website only, and not link out to it from inside the app, until you have checked with Play support.
    - *Employee location*: foreground only, disclosed in-app; keep the consent text in the listing description too.
 7. **App content**: content rating questionnaire, target audience (adults/business), no ads, news-app and government declarations as "No", test sign-in for reviewers (a demo workspace login in "App access"; never reuse a real customer's).
 8. **Store listing assets** (brand kit in project files, teal `#0e7c6b` kept):
@@ -50,4 +50,5 @@ The sideload APK at `/downloads/agentify-erp.apk` is debug-signed; replace it on
    - Feature graphic 1024x500: not in the kit. Make it from `social/agentify-cover-1500x500.png` (crop/resize) and approve it.
    - Phone screenshots (2-8, 16:9 or 9:16): capture from the real app on a phone or emulator using the demo workspace; none exist yet.
    - Short description (80 chars) and full description: write without unproven claims (no fake reviews, user counts or partnerships).
-9. **Release**: internal test track first, then closed test, then production with staged rollout. After the Play listing is live, set `VITE_ANDROID_STORE_URL` so the site shows the "Get it on Google Play" button.
+9. **Download links**: Super Admin > Website builder > Mobile app > Google Play link. Until it is set, only the direct file shows. Paying workspaces see Download app in the top bar and My Space > Install the app; the public site has /download-app.
+10. **Release**: internal test track first, then closed test, then production with staged rollout. After the Play listing is live, set `VITE_ANDROID_STORE_URL` so the site shows the "Get it on Google Play" button.

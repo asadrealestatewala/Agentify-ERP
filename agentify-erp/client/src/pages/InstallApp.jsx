@@ -2,6 +2,7 @@
 // browser's own install prompt where it exists, explains the steps where it does not (iPhone), and shows store links
 // only when real published listings are configured (see marketing/home/config.js).
 import { useEffect, useState } from 'react';
+import { useFetch } from '../context.jsx';
 import { Card, PageHead } from '../components/ui.jsx';
 import { APK_URL } from '../installApp.js';
 // Native store listings, once published, set at build time (only https links on play.google.com / apps.apple.com are shown).
@@ -15,6 +16,7 @@ const inNativeApp = !!window.Capacitor?.isNativePlatform?.() || /; wv\)/.test(ua
 const isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && 'ontouchend' in document);
 
 export default function InstallApp() {
+  const links = useFetch('/api/billing/status').data?.app; // Google Play link + direct file, only for paying workspaces
   const [evt, setEvt] = useState(() => window.__erpInstallEvt || null);
   const [state, setState] = useState(() => (standalone() ? 'installed' : 'idle'));
   useEffect(() => {
@@ -38,8 +40,13 @@ export default function InstallApp() {
     <>
       <PageHead title="Install the app" sub="Use the ERP like an app on your phone or computer: its own icon, full screen, and reminders." />
       {!inNativeApp && <Card title="Android app">
-        <p>Download the Agentify ERP app file and open it to install. Android may ask you to allow installs from your browser once.</p>
-        <a className="btn primary" href={APK_URL} download="agentify-erp.apk">Download for Android</a>
+        {links ? (<>
+          <p>Get the Agentify ERP Android app. {links.android_store_url ? 'Install it from Google Play, or use the direct file if your phone has no Google Play.' : 'Download the app file and open it to install. Android may ask you to allow installs from your browser once.'}</p>
+          <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
+            {links.android_store_url && <a className="btn primary" href={links.android_store_url} target="_blank" rel="noreferrer">Get it on Google Play</a>}
+            <a className={links.android_store_url ? 'btn' : 'btn primary'} href={links.apk_url || APK_URL} download="agentify-erp.apk">Download for Android (direct file)</a>
+          </div>
+        </>) : <p className="muted" style={{ margin: 0 }}>The Android app is included with a paid subscription. You can already install the web app on this device below.</p>}
       </Card>}
       <Card title="On this device">
         {state === 'installed' ? <p>The app is installed on this device. Open it from your home screen or app list.</p>

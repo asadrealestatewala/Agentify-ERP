@@ -52,26 +52,47 @@ These terms are governed by the laws of [jurisdiction]. Contact: [legal contact 
 ` },
   privacy: { title: 'Privacy Policy', body: `${PLACEHOLDER_NOTE}
 
+## Who we are
+Agentify ERP ("we", "us") is provided by [Company legal name], [registered address]. This policy explains what personal data we handle in the website, the web app and the Android app, and the choices you have. Contact: [privacy contact email].
+
+## Two roles
+- For your account, billing and our website we decide why and how data is used (we are the controller).
+- For the records a company enters into its workspace (leads, customers, employees, properties, projects, recordings), the company is the controller and we process the data for it to provide the Service (we are the processor).
+
 ## What we collect
-- Account details: name, email, phone, company name and the workspace address you choose.
-- Workspace data: the records you and your team enter. This is stored in a separate database for your workspace and processed only to provide the Service.
-- Billing details: plan, invoices and payment references. Card details are handled by our payment provider and never stored by us.
-- Website analytics: only if you accept analytics cookies. We record pages viewed, the campaign or site that referred you and sign-up steps, using a random identifier. We do not store IP addresses for analytics and we honour Do Not Track and Global Privacy Control.
+- Account details: name, email, phone, company name, workspace address, role and sign-in security data (hashed password, two-factor settings, sign-in history).
+- Workspace data: the records you and your team enter, including contacts and their messages, documents, photos, call recordings and meeting recordings. Each workspace is stored in its own separate database.
+- Billing details: plan, invoices and payment references. Card details are handled by our payment provider and are never stored by us.
+- Location: only in the apps, only while the app is open, and only after you press a button or switch on sharing. The app reads precise location to (1) share a field employee's last known position with their company when the company has switched this on and the employee accepted the notice, (2) check in and out of a property visit, and (3) fill a property's map pin. We do not collect location in the background.
+- Camera, microphone and files: used only when you start a video meeting, record a call, or attach a photo or document. Nothing is recorded until you start it.
+- Device and usage data: browser or app type, language, error logs and security logs. Website analytics are used only if you accept analytics cookies, use a random identifier and do not store IP addresses.
 
 ## Why we use it
-To provide and secure the Service, bill subscriptions, send service emails (verification, invitations, receipts, trial and renewal reminders) and improve the website.
+To provide, secure and support the Service; bill subscriptions; send service emails (verification, invitations, receipts, reminders); prevent fraud and abuse; meet legal duties; and, with your consent, improve the website. We do not sell personal data and we do not show advertising in the apps.
 
 ## Sharing
-We use service providers for hosting, email delivery and payments: [list providers]. We do not sell personal data.
+We share data only with service providers that help us run the Service, under contract: hosting, email delivery, payments, maps (OpenStreetMap for address search and map tiles) and, where a company switches them on, telephony, video, AI and calendar providers. [List providers]. We may disclose data when the law requires it or to protect people and the Service.
+
+## International transfers
+Data may be processed in countries other than yours. [Describe hosting region and transfer safeguards.]
+
+## Security
+Data is encrypted in transit (HTTPS). Access is limited by role and logged. No system is completely secure; tell us at once if you suspect a problem.
 
 ## Retention
-Workspace data is kept while your account exists and for [retention period] after cancellation unless you ask us to delete it sooner, except billing records we must keep by law.
+Workspace data is kept while the account exists and for [retention period] after cancellation unless deleted sooner on request. Location readings are kept only for the retention period the company sets (default 30 days). Billing records are kept as long as the law requires.
 
-## Your rights
-You can access, export, correct or ask us to delete your data. Contact [privacy contact email].
+## Your rights and deleting your data
+You can ask to access, export, correct or delete your data, and to object to or restrict some uses. Employees and other workspace users should first ask their company's administrator, who controls the workspace data. A workspace owner can request closure of the account and deletion of its data inside the app (Plan & Billing), and anyone can send a deletion request without signing in at /delete-account. We confirm the request with the account owner before deleting, and complete it within [number] days, except records we must keep by law.
+
+## Children
+The Service is for businesses and is not directed at children under 16. We do not knowingly collect their data.
+
+## Changes
+We will post changes here and, for material changes, tell account owners in advance.
 
 ## Contact
-[Company legal name], [address].
+[Company legal name], [address], [privacy contact email].
 ` },
   refunds: { title: 'Cancellation & Refund Policy', body: `${PLACEHOLDER_NOTE}
 
@@ -108,6 +129,7 @@ Prices are shown [inclusive / exclusive] of applicable taxes. [Add tax registrat
 
 export const CONTENT_DEFAULTS = {
   brand: 'Agentify ERP',
+  android_store_url: '', // https://play.google.com/store/apps/details?id=co.agentifyerp.app once the listing is live; empty hides the Google Play button
   hero_title: 'Run your property or construction business from one system',
   hero_subtitle: 'Two products on one secure platform: Real Estate Brokerage Management for agencies and developers, and Construction Management for contractors and builders. Each company gets its own private workspace.',
   real_estate: {
@@ -169,6 +191,8 @@ function ensure() {
   if (ready) return;
   pdb().exec(MARKETING_SCHEMA);
   for (const [slug, d] of Object.entries(LEGAL_DEFAULTS)) pdb().prepare('INSERT OR IGNORE INTO legal_documents(slug,title,body,updated_by) VALUES(?,?,?,?)').run(slug, d.title, d.body, 'system');
+  // an unedited, unpublished seeded privacy draft is replaced by the current template (edited or published ones are never touched)
+  pdb().prepare("UPDATE legal_documents SET body=? WHERE slug='privacy' AND updated_by='system' AND status!='published' AND body!=?").run(LEGAL_DEFAULTS.privacy.body, LEGAL_DEFAULTS.privacy.body);
   ready = true;
 }
 export const resetMarketingCache = () => { ready = false; };
@@ -197,6 +221,11 @@ export function saveMarketing(b, by) {
   const cur = marketingContent();
   const next = { ...cur };
   for (const k of ['brand', 'hero_title', 'hero_subtitle', 'contact_email', 'contact_phone', 'address', 'announcement_bar']) if (b[k] !== undefined) next[k] = str(b[k], k === 'hero_subtitle' ? 600 : 200, k);
+  if (b.android_store_url !== undefined) {
+    const u = String(b.android_store_url || '').trim();
+    if (u) { let ok = false; try { const x = new URL(u); ok = x.protocol === 'https:' && x.hostname === 'play.google.com'; } catch { /* invalid */ } if (!ok) throw bad('The Google Play link must start with https://play.google.com/'); }
+    next.android_store_url = u;
+  }
   if (next.contact_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next.contact_email)) throw bad('Contact email is not valid');
   for (const prod of ['real_estate', 'construction']) {
     if (!b[prod]) continue;
@@ -252,6 +281,18 @@ export function publicContent() {
 
 // ---------------------------------------------------------------- legal documents
 export function listLegal() { ensure(); return pdb().prepare('SELECT slug,title,status,version,reviewed_by,published_at,updated_at,updated_by FROM legal_documents ORDER BY slug').all(); }
+/** Public "delete my account/data" request (no sign-in). Nothing is deleted here: the operator is alerted and confirms with the account owner first. */
+export function createDeletionRequest(b) {
+  ensure();
+  const email = String(b.email || '').trim().toLowerCase().slice(0, 200);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw bad('Enter the email address of the account');
+  const workspace = String(b.workspace || '').trim().slice(0, 120);
+  const note = String(b.reason || '').trim().slice(0, 500);
+  const day = new Date().toISOString().slice(0, 10);
+  pdb().prepare("INSERT INTO platform_notifications(kind,severity,title,body,link,dedupe) VALUES('account','warning',?,?,?,?) ON CONFLICT(dedupe) DO NOTHING")
+    .run(`Account deletion request from ${email}`, `${workspace ? `Workspace: ${workspace}. ` : ''}${note}`.trim() || 'Public request, no details given.', '/platform/workspaces', `delete-req:${email}:${day}`);
+  return { email, workspace, note };
+}
 export function legalDoc(slug, { includeDraft = true } = {}) {
   ensure();
   const d = pdb().prepare('SELECT * FROM legal_documents WHERE slug=?').get(String(slug));
@@ -319,7 +360,7 @@ export function updateDemoRequest(id, { status, note }, by) {
 
 // ---------------------------------------------------------------- SEO for the platform host
 export const MARKETING_ROUTES = { '/': 'home', '/real-estate': 'real_estate', '/construction': 'construction', '/pricing': 'pricing', '/contact': 'contact', '/signup': 'home',
-  '/legal/terms': 'legal', '/legal/privacy': 'legal', '/legal/refunds': 'legal', '/legal/subscription': 'legal' };
+  '/delete-account': 'delete_account', '/download-app': 'download_app', '/legal/terms': 'legal', '/legal/privacy': 'legal', '/legal/refunds': 'legal', '/legal/subscription': 'legal' };
 const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const siteOrigin = (req) => (BASE_DOMAIN && BASE_DOMAIN !== 'localhost' ? `https://${BASE_DOMAIN}` : `${req.protocol}://${req.get('host')}`);
 
@@ -330,6 +371,8 @@ export function injectMeta(html, path, req) {
   const c = marketingContent();
   let m = c.seo[page] || c.seo.home;
   if (page === 'legal') { const slug = path.split('/').pop(); const doc = LEGAL_DEFAULTS[slug]; m = { title: `${doc?.title || 'Legal'} | ${c.brand}`, description: `${doc?.title || 'Legal document'} for ${c.brand}.` }; }
+  if (page === 'delete_account') m = { title: `Delete your account | ${c.brand}`, description: `Ask ${c.brand} to delete your account and data.` };
+  if (page === 'download_app') m = { title: `Download the app | ${c.brand}`, description: `Get the ${c.brand} app for Android.` };
   const url = `${siteOrigin(req)}${path === '/' ? '/' : path}`;
   const tags = [
     `<title>${escHtml(m.title)}</title>`, `<meta name="description" content="${escHtml(m.description)}" />`, `<link rel="canonical" href="${escHtml(url)}" />`,

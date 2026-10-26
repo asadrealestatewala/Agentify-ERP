@@ -121,7 +121,7 @@ export function WebsitePage() {
   useEffect(() => {
     if (!d) return;
     const c = d.content;
-    setF({ brand: c.brand, hero_title: c.hero_title, hero_subtitle: c.hero_subtitle, announcement_bar: c.announcement_bar, contact_email: c.contact_email, contact_phone: c.contact_phone, address: c.address, social: { ...c.social },
+    setF({ brand: c.brand, hero_title: c.hero_title, hero_subtitle: c.hero_subtitle, announcement_bar: c.announcement_bar, contact_email: c.contact_email, android_store_url: c.android_store_url || '', contact_phone: c.contact_phone, address: c.address, social: { ...c.social },
       re_title: c.real_estate.title, re_subtitle: c.real_estate.subtitle, re_features: pairsToText(c.real_estate.features), re_use: (c.real_estate.use_cases || []).join('\n'),
       con_title: c.construction.title, con_subtitle: c.construction.subtitle, con_features: pairsToText(c.construction.features), con_use: (c.construction.use_cases || []).join('\n'),
       faqs: pairsToText(c.faqs), testimonials: c.testimonials, partners: c.partners || [], seo: JSON.parse(JSON.stringify(c.seo)) });
@@ -130,7 +130,7 @@ export function WebsitePage() {
   const set = (k) => (v) => setF({ ...f, [k]: v });
   const save = async () => {
     try {
-      await api.put(`${A}/marketing`, { brand: f.brand, hero_title: f.hero_title, hero_subtitle: f.hero_subtitle, announcement_bar: f.announcement_bar, contact_email: f.contact_email, contact_phone: f.contact_phone, address: f.address, social: f.social,
+      await api.put(`${A}/marketing`, { brand: f.brand, hero_title: f.hero_title, hero_subtitle: f.hero_subtitle, announcement_bar: f.announcement_bar, contact_email: f.contact_email, android_store_url: f.android_store_url, contact_phone: f.contact_phone, address: f.address, social: f.social,
         real_estate: { title: f.re_title, subtitle: f.re_subtitle, features: textToPairs(f.re_features), use_cases: f.re_use.split('\n').filter((x) => x.trim()) },
         construction: { title: f.con_title, subtitle: f.con_subtitle, features: textToPairs(f.con_features), use_cases: f.con_use.split('\n').filter((x) => x.trim()) },
         faqs: textToPairs(f.faqs), testimonials: f.testimonials, partners: f.partners, seo: f.seo });
@@ -177,6 +177,10 @@ export function WebsitePage() {
         })}
       </Card>
       <div className="pa-grid2">
+        <Card title="Mobile app">
+          <Field label="Google Play link"><TextInput value={f.android_store_url} placeholder="https://play.google.com/store/apps/details?id=co.agentifyerp.app" onChange={set('android_store_url')} /></Field>
+          <p className="muted" style={{ margin: 0 }}>Leave empty until the Play listing is live. When set, the website and paying workspaces show a Google Play button next to the direct Android file.</p>
+        </Card>
         <Card title="Contact details">
           <Field label="Email"><TextInput value={f.contact_email} onChange={set('contact_email')} /></Field>
           <Field label="Phone"><TextInput value={f.contact_phone} onChange={set('contact_phone')} /></Field>
