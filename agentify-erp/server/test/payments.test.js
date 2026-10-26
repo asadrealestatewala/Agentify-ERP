@@ -40,7 +40,7 @@ async function workspace(slug) {
   const r = await call('erp.test', 'POST', '/api/platform/signup', { accept_terms: true, slug, company_name: `${slug} Co`, admin_name: 'Owner', admin_email: `owner@${slug}.test`, admin_password: PW });
   assert.equal(r.status, 201, JSON.stringify(r.data));
   const host = `${slug}.erp.test`; const l = await call(host, 'POST', '/api/auth/login', { identifier: `owner@${slug}.test`, password: PW }); const c = l.cookie;
-  return { host, id: r.data.tenant.id, slug, get: (u) => call(host, 'GET', u, null, { cookie: c }), post: (u, b) => call(host, 'POST', u, b || {}, { cookie: c }) };
+  return { host, cookie: c, id: r.data.tenant.id, slug, get: (u) => call(host, 'GET', u, null, { cookie: c }), post: (u, b) => call(host, 'POST', u, b || {}, { cookie: c }) };
 }
 const signed = (ev, { secret = WH, t = Math.floor(Date.now() / 1000) } = {}) => {
   const raw = JSON.stringify(ev);
@@ -218,4 +218,44 @@ test('a failed card payment emails the owner once from billing@; renewal reminde
   await runLifecycle();
   const r = outbox.filter((x) => x.to === 'owner@fail1.test' && /renews on/.test(x.subject)).pop();
   assert.ok(r, 'renewal reminder sent'); assert.equal(r.from, 'Agentify ERP Billing <billing@agentifyerp.co>');
+});
+
+test('tenant billing documents: history, statement, invoice PDF, proof upload and isolation', async () => {
+  const w = await workspace('doc1'); const other = await workspace('doc2');
+  const pay = (ws, b) => ws.post('/api/billing/manual-payment', b);
+  const s = await pay(w, { plan: 'growth', interval: 'month', method: 'raast', reference: 'DOC-100001' });
+  assert.equal(s.status, 201, JSON.stringify(s.data));
+  // proof: multipart upload, real file types only
+  const upload = (ws, id, bytes, name, type) => new Promise((resolve, reject) => {
+    const bnd = '----t'; const head = Buffer.from(`--${bnd}\r\nContent-Disposition: form-data; name="file"; filename="${name}"\r\nContent-Type: ${type}\r\n\r\n`); const tail = Buffer.from(`\r\n--${bnd}--\r\n`);
+    const body = Buffer.concat([head, bytes, tail]);
+    const req = http.request({ host: '127.0.0.1', port, path: `/api/billing/payments/${id}/proof`, method: 'POST', agent: false, headers: { Host: ws.host, 'Content-Type': `multipart/form-data; boundary=${bnd}`, 'Content-Length': body.length, 'X-Requested-With': 'ERP', cookie: ws.cookie } }, (res) => { let t = ''; res.on('data', (c) => { t += c; }); res.on('end', () => resolve({ status: res.statusCode, data: t })); });
+    req.on('error', reject); req.write(body); req.end();
+  });
+  const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(40)]);
+  assert.equal((await upload(w, s.data.id, Buffer.from('<script>alert(1)</script>'), 'x.png', 'image/png')).status, 400, 'content is checked, not the name');
+  assert.equal((await upload(w, s.data.id, Buffer.alloc(6 * 1024 * 1024, 1), 'big.png', 'image/png')).status, 400, 'over 5 MB');
+  assert.equal((await upload(other, s.data.id, png, 'a.png', 'image/png')).status, 404, 'another workspace cannot attach to it');
+  assert.equal((await upload(w, s.data.id, png, 'receipt.png', 'image/png')).status, 201);
+  assert.equal((await w.get(`/api/billing/payments/${s.data.id}/proof`)).status, 200);
+  assert.equal((await other.get(`/api/billing/payments/${s.data.id}/proof`)).status, 404, 'proof is private to its workspace');
+  const pending = (await call('erp.test', 'GET', '/api/platform/payments?status=pending', null, OP)).data.find((p) => p.slug === 'doc1');
+  assert.equal(pending.proof_name, 'receipt.png'); assert.ok(!('proof_file' in pending), 'stored file name is not exposed');
+  assert.equal((await call('erp.test', 'GET', `/api/platform/admin/payments/${s.data.id}/proof`, null, OP)).status, 200, 'the approver can open it');
+  assert.equal((await call('erp.test', 'GET', `/api/platform/admin/payments/${s.data.id}/proof`)).status, 401);
+  await call('erp.test', 'POST', `/api/platform/payments/${s.data.id}/approve`, {}, OP);
+  assert.equal((await upload(w, s.data.id, png, 'late.png', 'image/png')).status, 400, 'no new file after the decision');
+  // history shows the payment and its receipt; the statement and PDFs download
+  const b = (await w.get('/api/billing')).data;
+  const h = b.history.find((x) => x.reference === 'DOC-100001'); assert.equal(h.status, 'paid'); assert.ok(h.invoice_id);
+  const csv = await w.get('/api/billing/statement?format=csv'); assert.equal(csv.status, 200); assert.match(String(csv.data), /Payment received/);
+  assert.match(String((await w.get('/api/billing/statement?format=csv&from=2999-01-01')).data), /Totals/);
+  assert.equal((await w.get('/api/billing/statement?format=xml')).status, 400);
+  const pdfGet = (ws, url) => new Promise((resolve, reject) => { http.get({ host: '127.0.0.1', port, path: url, agent: false, headers: { Host: ws.host, cookie: ws.cookie } }, (res) => { const c = []; res.on('data', (d) => c.push(d)); res.on('end', () => resolve({ status: res.statusCode, type: res.headers['content-type'], body: Buffer.concat(c) })); }).on('error', reject); });
+  for (const u of ['/api/billing/statement?format=pdf', `/api/billing/invoices/${h.invoice_id}/pdf`]) { const r = await pdfGet(w, u); assert.equal(r.status, 200, u); assert.equal(r.type, 'application/pdf'); assert.equal(r.body.toString('latin1', 0, 5), '%PDF-'); }
+  assert.equal((await pdfGet(other, `/api/billing/invoices/${h.invoice_id}/pdf`)).status, 404, 'another workspace cannot read the invoice');
+  // a rejected payment stays in the history
+  const r2 = await pay(other, { plan: 'growth', interval: 'month', method: 'raast', reference: 'DOC-200002' });
+  await call('erp.test', 'POST', `/api/platform/payments/${r2.data.id}/reject`, { note: 'Amount does not match' }, OP);
+  const h2 = (await other.get('/api/billing')).data.history.find((x) => x.reference === 'DOC-200002'); assert.equal(h2.status, 'rejected'); assert.equal(h2.note, 'Amount does not match');
 });

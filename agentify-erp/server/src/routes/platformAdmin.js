@@ -34,6 +34,7 @@ import { caps as meetingCaps } from '../integrations/meetings.js';
 import { listRegions, setRegionStatus, setRegionFlag, saveRule, reviewRule, listRules, ruleAudit, saveFx, listFx } from '../regions/admin.js';
 import { subscriptionHistory } from '../services/subscriptions.js';
 import mailboxRoutes from './platformMailbox.js';
+import { sendProof } from '../services/billingStatements.js';
 import { billingAddress, billingFrom, listReceipts, resendReceipt } from '../services/billingMail.js';
 import { listInboxes, createInbox, resendConfigured } from '../services/mailbox.js';
 import emailRoutes from './platformEmail.js';
@@ -388,6 +389,7 @@ r.put('/meetings-settings', requireOperator, need('system.manage'), asyncH((req,
 }));
 // ---- Mailbox: read, reply and send company e-mail, the sent log and its settings (Platform Owner and Super Admin only)
 // ---- Billing mail: the billing@ sender, its inbox in the Mailbox, and the receipts sent for recorded payments
+r.get('/payments/:id/proof', requireOperator, need('billing.view'), (req, res) => sendProof(res, req.params.id));
 r.get('/billing-mail', requireOperator, need('billing.view'), asyncH(async (req, res) => {
   let inbox = null, inboxError = null;
   if (resendConfigured() && can(req.operator, 'mailbox.manage')) {

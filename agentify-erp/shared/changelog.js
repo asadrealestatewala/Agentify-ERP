@@ -6,6 +6,15 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.36', date: '2026-10-27', title: 'Account statement, receipt PDFs and payment history in Plan & Billing',
+    items: [
+      { text: 'Download an account statement as PDF or Excel (CSV) for any date range, with every charge, payment and refund and a running balance.', where: 'Settings > Plan & Billing > Account statement' },
+      { text: 'Every invoice now has a receipt PDF, whether you paid by card, bank transfer, wallet or an online gateway.', where: 'Settings > Plan & Billing > Invoices & receipts' },
+      { text: 'See all your payments in one list, including ones waiting for confirmation and ones we could not accept, with the reason.', where: 'Settings > Plan & Billing > Payment history' },
+      { text: 'When you pay by bank or wallet transfer you can attach a photo or PDF of your payment receipt (up to 5 MB) so we can confirm it faster. You can add or replace it while the payment is waiting.', where: 'Settings > Plan & Billing > Pay' },
+    ],
+  },
+  {
     version: 'v1.35', date: '2026-10-27', title: "What's new now shows each audience only its own updates",
     items: [
       { text: "Workspaces see only updates that concern their own work; console administration updates appear only here, in the console What's new and Alerts. A version with nothing for workspaces sends them no notification.", audience: 'platform', where: "Super Admin console > Dashboard > What's new" },
