@@ -48,7 +48,12 @@ export async function submitDomain(tenant, input, by) {
   if (taken) throw bad(taken.tenant_id === tenant.id ? 'This domain is already added to your workspace.' : 'That domain is already connected to another workspace.');
   if (d.prepare('SELECT COUNT(*) n FROM email_sender_domains WHERE tenant_id=?').get(tenant.id).n >= 5) throw bad('A workspace can have up to 5 sending domains.');
   let out;
-  try { out = await emailProvider().createDomain(domain); } catch (e) { throw new HttpError(e.kind === 'config' ? 503 : 502, e.kind === 'config' ? 'E-mail sending is not connected on this server yet. Ask Agentify support.' : `The e-mail provider could not add the domain: ${e.message}`); }
+  // a domain that is already at the provider but not yet verified (added earlier) is adopted, not created again
+  let found = null;
+  try { found = ((await emailProvider().listDomains())?.data || []).find((x) => String(x.name || '').toLowerCase() === domain); } catch { /* a send-only key cannot list: fall through to create */ }
+  // a domain the provider already shows as verified was proven by someone else's DNS; it is linked by support, never claimed by name
+  if (found?.status === 'verified') throw bad('This domain is already set up in the platform\'s mail account. Ask Agentify support to link it to your workspace.');
+  try { out = found ? await emailProvider().getDomain(found.id) : await emailProvider().createDomain(domain); } catch (e) { throw new HttpError(e.kind === 'config' ? 503 : 502, e.kind === 'config' ? 'E-mail sending is not connected on this server yet. Ask Agentify support.' : `The e-mail provider could not add the domain: ${e.message}`); }
   const recs = mapRecords(out?.records);
   const r = d.prepare('INSERT INTO email_sender_domains(tenant_id,domain,provider_domain_id,status,records,created_by) VALUES(?,?,?,?,?,?)').run(tenant.id, domain, out?.id || null, STATUS[out?.status] || 'pending', JSON.stringify(recs), by || null);
   return view(d.prepare('SELECT * FROM email_sender_domains WHERE id=?').get(Number(r.lastInsertRowid)));

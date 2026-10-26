@@ -69,6 +69,9 @@ export const resendProvider = {
   listWebhooks: () => call('GET', '/webhooks'),
   /** Registers our endpoint. The answer carries the signing secret (whsec_...) when the provider returns it. */
   createWebhook: (endpoint, events) => call('POST', '/webhooks', { body: { endpoint, events } }),
+  getWebhook: (id) => call('GET', `/webhooks/${encodeURIComponent(id)}`),
+  /** Change the events of a webhook that already exists (the endpoint and its signing secret stay as they are). */
+  updateWebhook: (id, events) => call('PATCH', `/webhooks/${encodeURIComponent(id)}`, { body: { events } }),
   /** A received (inbound) e-mail with headers, for reply detection. */
   getReceived: (id) => call('GET', `/emails/receiving/${encodeURIComponent(id)}`),
 };

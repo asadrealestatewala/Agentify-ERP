@@ -108,6 +108,19 @@ test('migration: an older plans table gains email_limits and tenants gain email_
   assert.ok(pdb2.prepare('PRAGMA table_info(tenants)').all().some((c) => c.name === 'email_prefs'));
 });
 
+test('sender domains: a domain already at the provider is adopted when pending and refused when already verified', async () => {
+  const t = mkTenant();
+  fake.domains.set('dom_old', { id: 'dom_old', name: 'earlier-added.com', status: 'pending', records: [{ record: 'SPF', type: 'TXT', name: 'send', value: 'v=spf1', status: 'not_started' }] });
+  fake.domains.set('dom_ver', { id: 'dom_ver', name: 'proven-elsewhere.com', status: 'verified', records: [] });
+  fake.listDomains = async () => ({ data: [...fake.domains.values()] });
+  try {
+    const before = fake.domains.size;
+    const d = await S.submitDomain(t, 'Earlier-Added.com', 'test');
+    assert.equal(d.status, 'pending'); assert.equal(fake.domains.size, before, 'no second domain created at the provider');
+    await assert.rejects(() => S.submitDomain(t, 'proven-elsewhere.com', 'test'), /Ask Agentify support/);
+  } finally { delete fake.listDomains; }
+});
+
 test('sender domains: only verified, tenant-owned senders can send', async () => {
   const a = mkTenant(), b = mkTenant();
   setLimits({ operational: { monthly: 100 }, marketing: { monthly: 100 } });

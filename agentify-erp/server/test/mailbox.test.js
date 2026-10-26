@@ -102,6 +102,11 @@ test('the Resend webhook needs a saved secret, a valid Svix signature and a fres
   const rx = JSON.stringify({ type: 'email.received', data: { from: 'Client <c@x.test>', subject: 'Hello' } });
   assert.equal((await send('msg_b', now, sign('msg_b', now, rx), rx)).status, 200);
   assert.equal(log.webhookStatus().last_mail.subject, 'Hello');
+  // the account's mailbox event (inbox.email.received) is accepted, signed and recorded the same way, once
+  const ix = JSON.stringify({ type: 'inbox.email.received', data: { inbox_id: 'ib_1', from: 'Client <c@x.test>', subject: 'Via inbox' } });
+  assert.equal((await send('msg_inbox', now, sign('msg_inbox', now, ix), ix)).status, 200);
+  assert.equal((await send('msg_inbox', now, sign('msg_inbox', now, ix), ix)).data.duplicate, true);
+  assert.equal(platformDb().prepare("SELECT COUNT(*) n FROM platform_webhook_events WHERE type='inbox.email.received'").get().n, 1);
   assert.equal(mb.verifyWebhook(Buffer.from(body), { 'svix-id': 'i', 'svix-timestamp': String(now), 'svix-signature': `v1,bad ${sign('i', now)}` }, secret), true, 'any matching signature in a rotation list is enough');
   assert.equal(mb.verifyWebhook(body, { 'svix-id': 'i', 'svix-timestamp': String(now), 'svix-signature': sign('i', now) }, secret), false, 'raw bytes are required');
 });
