@@ -146,7 +146,10 @@ test('Raast / Easypaisa payment: submit, operator confirms, plan activates; refe
   assert.ok(Math.abs(Date.parse(t.current_period_end) - exp.getTime()) < 4 * 864e5, `period end ${t.current_period_end}`);
   assert.equal(t.billing_provider, 'raast');
   assert.equal((await w.get('/api/billing')).data.invoices[0].amount, 22000);
-  assert.match(outbox.filter((m) => m.to === 'owner@local1.test').pop().subject, /confirmed/);
+  const rcpt = outbox.filter((m) => m.to === 'owner@local1.test' && /^Payment received/.test(m.subject));
+  assert.equal(rcpt.length, 1, 'one receipt');
+  assert.equal(rcpt[0].from, 'Agentify ERP Billing <billing@agentifyerp.co>');
+  assert.match(rcpt[0].text, /PKR 22,000/); assert.match(rcpt[0].text, /RST-100001/); assert.match(rcpt[0].text, /Have a question\? Mail us at billing@agentifyerp\.co/);
   assert.equal((await call('erp.test', 'POST', `/api/platform/payments/${mine.id}/approve`, {}, OP)).status, 400, 'cannot approve twice');
   // renewing early extends from the current period end instead of losing days
   const again = await pay(w, { plan: 'growth', interval: 'year', method: 'easypaisa', reference: 'EP-9000001' });
@@ -174,4 +177,29 @@ test('a confirmed payment unlocks a workspace whose trial had ended', async () =
   assert.equal(s.status, 201, 'billing endpoints stay open while locked');
   await call('erp.test', 'POST', `/api/platform/payments/${s.data.id}/approve`, {}, OP);
   assert.equal((await w.post('/api/contacts', { full_name: 'Y', phone: '+92 300 2', lead_source: 'Walk-in' })).status, 201);
+});
+
+test('a paid Stripe invoice sends one receipt from billing@, and a retried webhook sends none', async () => {
+  const w = await workspace('rcpt1');
+  patch('rcpt1', { provider_customer_id: 'cus_R', provider_subscription_id: 'sub_R', plan: 'growth', subscription_status: 'active' });
+  const before = outbox.length;
+  const e = ev('invoice.paid', { id: 'in_rcpt1', customer: 'cus_R', subscription: 'sub_R', amount_paid: 2900, currency: 'usd' });
+  await signed(e); await signed(e); await signed(ev('invoice.paid', { id: 'in_rcpt1', customer: 'cus_R', subscription: 'sub_R', amount_paid: 2900, currency: 'usd' }));
+  const mails = outbox.slice(before).filter((m) => m.to === 'owner@rcpt1.test' && /^Payment received/.test(m.subject));
+  assert.equal(mails.length, 1, 'exactly one receipt for one invoice');
+  assert.equal(mails[0].from, 'Agentify ERP Billing <billing@agentifyerp.co>'); assert.match(mails[0].text, /USD 29/); assert.match(mails[0].text, /in_rcpt1/);
+  assert.ok(!/sk_test|whsec|password/i.test(mails[0].text), 'no secrets in the mail');
+  // zero-amount (trial) invoices send nothing
+  await signed(ev('invoice.paid', { id: 'in_rcpt0', customer: 'cus_R', subscription: 'sub_R', amount_paid: 0, currency: 'usd' }));
+  assert.equal(outbox.slice(before).filter((m) => /^Payment received/.test(m.subject)).length, 1);
+  // console: receipts are listed and can be re-sent; billing view only
+  const list = await call('erp.test', 'GET', '/api/platform/admin/billing-mail', null, OP);
+  assert.equal(list.status, 200, JSON.stringify(list.data)); assert.equal(list.data.address, 'billing@agentifyerp.co');
+  const rc = list.data.receipts.find((r) => r.reference === 'in_rcpt1'); assert.ok(rc);
+  const n0 = outbox.length;
+  assert.equal((await call('erp.test', 'POST', `/api/platform/admin/billing-mail/receipts/${rc.id}/resend`, {}, OP)).status, 200);
+  assert.equal(outbox.length, n0 + 1);
+  assert.equal((await call('erp.test', 'POST', '/api/platform/admin/billing-mail/receipts/99999/resend', {}, OP)).status, 404);
+  assert.equal((await call('erp.test', 'GET', '/api/platform/admin/billing-mail')).status, 401);
+  void w;
 });
