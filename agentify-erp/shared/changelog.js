@@ -4,6 +4,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.27', date: '2026-10-26', title: 'New versions now announce themselves in your notifications',
+    items: [
+      { text: 'Whenever Agentify ERP is updated, everyone on your team gets one notification in the bell with a link to What\'s new, so nobody misses a new feature. It appears once per version and stays until you read it.', where: 'Notifications (bell); Menu > What\'s new' },
+      { text: 'Super Admin console users get the same notice, with its own read state for each person.', where: 'Super Admin console > Alerts' },
+    ],
+  },
+  {
     version: 'v1.26', date: '2026-10-26', title: 'Property map shows the street map again',
     items: [
       { text: 'Fixed the property map showing "Access blocked" instead of the street map. Matches for a typed location are now a clean list, one per line, with repeats merged.', where: 'Properties > Add or edit property > Location' },
