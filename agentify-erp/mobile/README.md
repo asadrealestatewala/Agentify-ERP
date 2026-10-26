@@ -30,7 +30,7 @@ This folder wraps the hosted ERP in a native shell so you can publish to Google 
 
 `client/public/downloads/agentify-erp.apk` is a debug-signed build of this wrapper (app id `co.agentifyerp.app`, loads https://agentifyerp.co) and is served at `/downloads/agentify-erp.apk`; the landing page and the workspace "Download app" buttons link to it on Android.
 
-Rebuild after changing the wrapper (JDK 17 and the Android SDK, platform 35, must be installed):
+Rebuild after changing the wrapper (JDK 21 and the Android SDK, platform 35, must be installed):
 
 ```
 cd mobile && npm install && npx cap sync android
@@ -38,4 +38,4 @@ cd android && ./gradlew assembleDebug
 cp app/build/outputs/apk/debug/app-debug.apk ../../client/public/downloads/agentify-erp.apk
 ```
 
-For Google Play see **PLAY_STORE.md** (Capacitor 7 / API 35, signing with your own upload key, Data safety answers, policy risks). JDK 17+ and Android SDK platform 35 are needed now. iOS needs a Mac with Xcode (`npm run add:ios`).
+For Google Play see **PLAY_STORE.md** (Capacitor 7 / API 35, signing with your own upload key, Data safety answers, policy risks). JDK 21 and Android SDK platform 35 are needed now. iOS needs a Mac with Xcode (`npm run add:ios`).

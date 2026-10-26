@@ -12,6 +12,7 @@
 import { PLANS, DEFAULT_PLANS, DEFAULT_CONSTRUCTION_PLANS, PLAN_SETTINGS, MODULES, PRODUCT_CHOICES, setAddonLookup } from './plans.js';
 import { bad, HttpError } from '../util.js';
 import { cleanEmailLimits } from './emailLimits.js';
+import { cleanWhatsappLimits } from './whatsappLimits.js';
 
 export const PLANS_SCHEMA = `
 CREATE TABLE IF NOT EXISTS plans(
@@ -42,7 +43,7 @@ CREATE INDEX IF NOT EXISTS idx_coupon_redemptions ON coupon_redemptions(code);
 `;
 /** Columns added to plans for the SaaS release (product families, more limits, marketing content, setup fee). */
 const PLAN_COLUMNS = [['product', "TEXT NOT NULL DEFAULT 'real_estate'"], ['properties', 'INTEGER'], ['storage_mb', 'INTEGER'], ['api_access', 'INTEGER NOT NULL DEFAULT 1'],
-  ['features', 'TEXT'], ['highlight', 'INTEGER NOT NULL DEFAULT 0'], ['trial_eligible', 'INTEGER NOT NULL DEFAULT 1'], ['setup_fee', 'TEXT'], ['email_limits', 'TEXT']];
+  ['features', 'TEXT'], ['highlight', 'INTEGER NOT NULL DEFAULT 0'], ['trial_eligible', 'INTEGER NOT NULL DEFAULT 1'], ['setup_fee', 'TEXT'], ['email_limits', 'TEXT'], ['whatsapp_limits', 'TEXT']];
 export const CURRENCIES = ['PKR', 'USD'];
 const ID_RE = /^[a-z][a-z0-9_]{1,30}$/;
 
@@ -117,7 +118,7 @@ export function reloadPlans() {
     for (const p of prices.filter((x) => x.plan_id === r.id)) (price[p.currency] ||= {})[p.interval] = p.amount;
     PLANS[r.id] = { name: r.name, product: r.product || 'real_estate', description: r.description, seats: r.seats, projects: r.projects, properties: r.properties, storage_mb: r.storage_mb, api_access: !!r.api_access,
       grace_days: r.grace_days, modules: r.modules ? JSON.parse(r.modules) : null, visible: !!r.visible, active: !!r.active, features: parseJson(r.features, []), highlight: !!r.highlight,
-      trial_eligible: r.trial_eligible !== 0, setup_fee: parseJson(r.setup_fee, {}), email_limits: parseJson(r.email_limits, null), price };
+      trial_eligible: r.trial_eligible !== 0, setup_fee: parseJson(r.setup_fee, {}), email_limits: parseJson(r.email_limits, null), whatsapp_limits: parseJson(r.whatsapp_limits, null), price };
   }
   PLAN_SETTINGS.trial_plan = setting('trial_plan') || (PLANS.growth ? 'growth' : Object.keys(PLANS)[0] || 'growth');
   PLAN_SETTINGS.trial_plans = { real_estate: PLAN_SETTINGS.trial_plan, construction: setting('trial_plan_construction') || (PLANS.con_professional ? 'con_professional' : null) };
@@ -131,7 +132,7 @@ export function listPlans() {
   const subs = Object.fromEntries(db.prepare("SELECT plan, COUNT(*) n FROM tenants WHERE is_legacy=0 AND status='active' AND subscription_status NOT IN ('trialing','pending','expired') GROUP BY plan").all().map((r) => [r.plan, r.n]));
   return db.prepare('SELECT * FROM plans ORDER BY sort_order, id').all().map((r) => ({
     id: r.id, name: r.name, product: r.product, description: r.description, seats: r.seats, projects: r.projects, properties: r.properties, storage_mb: r.storage_mb, api_access: !!r.api_access,
-    grace_days: r.grace_days, modules: r.modules ? JSON.parse(r.modules) : null, features: parseJson(r.features, []), highlight: !!r.highlight, trial_eligible: r.trial_eligible !== 0, setup_fee: parseJson(r.setup_fee, {}), email_limits: parseJson(r.email_limits, null),
+    grace_days: r.grace_days, modules: r.modules ? JSON.parse(r.modules) : null, features: parseJson(r.features, []), highlight: !!r.highlight, trial_eligible: r.trial_eligible !== 0, setup_fee: parseJson(r.setup_fee, {}), email_limits: parseJson(r.email_limits, null), whatsapp_limits: parseJson(r.whatsapp_limits, null),
     visible: !!r.visible, active: !!r.active, sort_order: r.sort_order, updated_at: r.updated_at, updated_by: r.updated_by, subscribers: subs[r.id] || 0,
     price: PLANS[r.id]?.price || {},
     price_history: db.prepare('SELECT currency, interval, amount, effective_from, created_by FROM plan_prices WHERE plan_id=? ORDER BY effective_from DESC, id DESC LIMIT 40').all(r.id),
@@ -196,6 +197,8 @@ export function savePlan(id, b, actor) {
     trial_eligible: b.trial_eligible === undefined ? exists?.trial_eligible ?? 1 : (b.trial_eligible ? 1 : 0),
     setup_fee: b.setup_fee === undefined ? exists?.setup_fee ?? null : JSON.stringify(cleanMoneyMap(b.setup_fee, 'Setup fee')),
     email_limits: b.email_limits === undefined ? exists?.email_limits ?? null : (cleanEmailLimits(b.email_limits) ? JSON.stringify(cleanEmailLimits(b.email_limits)) : null),
+    whatsapp_limits: b.whatsapp_limits === undefined ? exists?.whatsapp_limits ?? null : (cleanWhatsappLimits(b.whatsapp_limits) ? JSON.stringify(cleanWhatsappLimits(b.whatsapp_limits)) : null),
+    whatsapp_limits: b.whatsapp_limits === undefined ? exists?.whatsapp_limits ?? null : (cleanWhatsappLimits(b.whatsapp_limits) ? JSON.stringify(cleanWhatsappLimits(b.whatsapp_limits)) : null),
     visible: b.visible === undefined ? exists?.visible ?? 1 : (b.visible ? 1 : 0),
     active: b.active === undefined ? exists?.active ?? 1 : (b.active ? 1 : 0),
     sort_order: b.sort_order === undefined ? exists?.sort_order ?? (db.prepare('SELECT COALESCE(MAX(sort_order),0)+1 n FROM plans').get().n) : Math.trunc(Number(b.sort_order)) || 0,

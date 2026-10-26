@@ -70,6 +70,7 @@ import portal from './routes/portal.js';
 import gateways from './routes/gateways.js';
 import emailRoutes from './routes/email.js';
 import leadflowRoutes from './routes/leadflow.js';
+import whatsappRoutes from './routes/whatsapp.js';
 import { runLeadSla } from './services/leadFlow.js';
 import { runSequences } from './services/sequences.js';
 import emailPublic from './routes/emailPublic.js';
@@ -99,7 +100,7 @@ export function createApp() {
   // gzip text responses (the app script alone is 2.3 MB raw); live streams are left alone so they are not buffered
   app.use(compression({ filter: (req, res) => !/event-stream/.test(String(res.getHeader('Content-Type') || '')) && compression.filter(req, res) }));
   // the billing webhook is signed over the exact bytes, so keep them for that one route
-  app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { if (req.originalUrl.startsWith('/api/platform/billing/webhook') || req.originalUrl.startsWith('/api/platform/webhooks/') || req.originalUrl.startsWith('/api/hooks/pay/') || req.originalUrl.startsWith('/api/platform/pay/')) req.rawBody = buf; } }));
+  app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { if (req.originalUrl.startsWith('/api/platform/billing/webhook') || req.originalUrl.startsWith('/api/platform/webhooks/') || req.originalUrl.startsWith('/api/hooks/pay/') || req.originalUrl.startsWith('/api/hooks/whatsapp/') || req.originalUrl.startsWith('/api/platform/pay/')) req.rawBody = buf; } }));
   app.use(cookieParser());
 
   // Platform (control plane) API: signup, tenant admin. Never tenant-scoped.
@@ -182,6 +183,7 @@ export function createApp() {
   app.use('/api/gateways', gateways);
   app.use('/api/email', emailRoutes);
   app.use('/api/leadflow', leadflowRoutes);
+  app.use('/api/whatsapp', whatsappRoutes);
   app.use('/api/portal', portal);
   app.use('/api/settings', settings);
   app.use('/api/agents', agents);

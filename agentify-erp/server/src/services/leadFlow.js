@@ -204,7 +204,7 @@ export function acceptLead(contactId, user, atMs = Date.now()) {
   activity(contactId, user, 'Lead accepted');
   return get('SELECT * FROM lead_assignments WHERE id=?', a.id);
 }
-const CHANNELS = ['phone', 'email', 'sms', 'in_person', 'other'];
+const CHANNELS = ['phone', 'email', 'sms', 'whatsapp', 'in_person', 'other'];
 /** An attempt (dialled, left a voicemail, sent a message). It is NOT a response. */
 export function logAttempt(contactId, user, { channel = 'phone', note } = {}, atMs = Date.now()) {
   if (!CHANNELS.includes(channel)) throw bad('Choose how you tried to reach the customer');
