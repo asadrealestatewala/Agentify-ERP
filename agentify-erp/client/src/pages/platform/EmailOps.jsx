@@ -14,12 +14,12 @@ function ResendConnection() {
   const toast = useToast();
   const [c, setC] = useState(null);
   const [busy, setBusy] = useState('');
+  const [sec, setSec] = useState('');
   const load = useCallback(() => api.get(`${A}/email/resend`).then(setC).catch(() => {}), []);
   useEffect(() => { load(); }, [load]);
   if (!c) return null;
   const run = async (key, path, ok) => { setBusy(key); try { const r = await api.post(`${A}/email/resend/${path}`); toast(typeof ok === 'function' ? ok(r) : ok, 'ok'); } catch (e) { toast(e.message, 'err'); } finally { setBusy(''); load(); } };
   const t = c.last_test;
-  const [sec, setSec] = useState('');
   const saveSecret = async () => { try { await api.post(`${A}/email/resend/webhook-secret`, { secret: sec }); setSec(''); toast('Signing secret saved', 'ok'); load(); } catch (e) { toast(e.message, 'err'); } };
   const reg = c.webhook.registered;
   const domains = t?.checks?.domains?.list || [];
