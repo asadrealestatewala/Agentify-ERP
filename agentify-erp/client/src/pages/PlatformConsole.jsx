@@ -14,6 +14,7 @@ import { FinancePage } from './platform/Finance.jsx';
 import { AnalyticsPage, WebsitePage, DemoRequestsPage, AnnouncementsPage, IntegrationsPage, ReviewsPage } from './platform/Content.jsx';
 import LandingEditorPage from './platform/LandingEditor.jsx';
 import { MailboxPage, SentLogPage, MailboxSettingsPage } from './platform/Mailbox.jsx';
+import BillingMailPage from './platform/BillingMail.jsx';
 import EmailOps from './platform/EmailOps.jsx';
 import { RegionsPage } from "./platform/Regions.jsx";
 import WhatsNew from './WhatsNew.jsx';
@@ -359,6 +360,7 @@ function ConsoleRoutes() {
         <Route path="finance" element={<Allowed perm="finance.view"><FinancePage /></Allowed>} />
         <Route path="transactions" element={<Allowed perm="billing.view"><TransactionsPage /></Allowed>} />
         <Route path="subscriptions/history" element={<Allowed perm="billing.view"><SubscriptionHistoryPage /></Allowed>} />
+        <Route path="billing/mail" element={<Allowed perm="billing.view">{page('Billing mail', 'Receipts and the billing@ inbox.', <BillingMailPage />)}</Allowed>} />
         <Route path="payments" element={<Allowed perm="billing.view">{page('Payment approvals', 'Bank and wallet payments waiting for you to confirm the money arrived.', <Payments />)}</Allowed>} />
         <Route path="billing/stripe" element={<Allowed perm="billing.configure">{page('Stripe configuration', 'Card payment keys, prices and webhook.', <StripeSettings />)}</Allowed>} />
         <Route path="billing/gateways" element={<Allowed perm="billing.configure">{page('Payment gateways', 'How Agentify is paid for plans: PayPal, Tap and more. Keys are write-only and encrypted.', <PlatformGateways />)}</Allowed>} />

@@ -5,6 +5,10 @@ import { currentTenant } from '../context.js';
 import { getSetting } from '../db.js';
 
 export const outbox = [];
+const BILLING_TYPES = ['billing', 'billing_notice'];
+/** Sender and Reply-To for billing mail (registered by services/billingMail.js). */
+let billingIdentity = () => null;
+export const setBillingIdentity = (fn) => { billingIdentity = fn; };
 /** Where the API key and sender come from (the integration settings register this; environment variables otherwise). */
 let mailConfig = () => ({ key: process.env.RESEND_API_KEY || null, from: process.env.MAIL_FROM || null });
 export const setMailConfig = (fn) => { mailConfig = fn; };
@@ -56,12 +60,16 @@ ${footer ? `<p style="color:#6b7280;font-size:13px">${escapeHtml(footer)}</p>` :
 export const mailReady = () => { try { return !!((mailConfig() || {}).key || process.env.RESEND_API_KEY); } catch { return !!process.env.RESEND_API_KEY; } };
 
 /** Never throws into the caller: a failed email must not undo a signup or an invite. Returns true when handed to the provider. */
-export async function sendMail({ to, subject, text, html, type = 'other', workspaceId = null, replyTo }) {
+export async function sendMail({ to, subject, text, html, type = 'other', workspaceId = null, replyTo, from }) {
   const msg = { to, subject, text, html, type, at: new Date().toISOString() };
+  msg.from = from || (BILLING_TYPES.includes(type) ? billingIdentity()?.from : undefined);
   let cfg = { key: process.env.RESEND_API_KEY, from: process.env.MAIL_FROM };
   try { cfg = mailConfig() || cfg; } catch { /* platform db not ready: use the environment */ }
   const key = cfg.key;
-  const reply = replyTo || cfg.replyTo || undefined;
+  // billing mail comes from the billing address and replies land in the billing inbox (services/billingMail.js sets this hook)
+  const bill = BILLING_TYPES.includes(type) ? billingIdentity() : null;
+  const sender = from || bill?.from || cfg.from;
+  const reply = replyTo || bill?.replyTo || cfg.replyTo || undefined;
   const wsId = workspaceId ?? currentTenant()?.id ?? null;
   if (!key) {
     outbox.push(msg); if (outbox.length > MAX_OUTBOX) outbox.shift();
@@ -71,11 +79,11 @@ export async function sendMail({ to, subject, text, html, type = 'other', worksp
   try {
     const res = await fetch('https://api.resend.com/emails', {
       method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: cfg.from || 'Agentify ERP <no-reply@example.com>', to: [to], subject, text, html, ...(reply ? { reply_to: reply } : {}) }), signal: AbortSignal.timeout(10_000),
+      body: JSON.stringify({ from: sender || 'Agentify ERP <no-reply@example.com>', to: [to], subject, text, html, ...(reply ? { reply_to: reply } : {}) }), signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) { console.error('[mail] provider rejected message', res.status); mailLogger({ type, workspaceId: wsId, to, from: cfg.from, subject, status: 'failed' }); return false; }
+    if (!res.ok) { console.error('[mail] provider rejected message', res.status); mailLogger({ type, workspaceId: wsId, to, from: sender, subject, status: 'failed' }); return false; }
     let id = null; try { id = (await res.json())?.id || null; } catch { /* no body */ }
-    mailLogger({ resendId: id, type, workspaceId: wsId, to, from: cfg.from, subject, status: 'queued' });
+    mailLogger({ resendId: id, type, workspaceId: wsId, to, from: sender, subject, status: 'queued' });
     return true;
   } catch (e) { console.error('[mail] send failed', e.message); return false; }
 }

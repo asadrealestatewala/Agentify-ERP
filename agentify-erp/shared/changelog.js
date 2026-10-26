@@ -4,6 +4,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.31', date: '2026-10-26', title: 'Payment receipts by email from billing@agentifyerp.co',
+    items: [
+      { text: 'Every time a payment is recorded for your workspace (card, bank or wallet transfer) you get one email titled "Payment received successfully" with the amount, plan, date and reference. Billing emails now come from billing@agentifyerp.co, and you can reply or write there with any billing question.', where: 'Your inbox' },
+      { text: 'The Agentify administrator can see every receipt sent, send one again, and read and answer billing mail.', where: 'Super Admin console > Billing & Payments > Billing mail & receipts' },
+    ],
+  },
+  {
     version: 'v1.30', date: '2026-10-26', title: 'Warning when someone keeps guessing your password, and a list of where you signed in',
     items: [
       { text: 'If there are 5 wrong password attempts on your account within 15 minutes, you get an email with the address they came from, and a button to reset your password. You get at most one such email an hour.', where: 'Your inbox' },

@@ -18,6 +18,7 @@ import { platformGatewayOffers } from './platformGateways.js';
 import { sendMail, layout } from './mailer.js';
 import { quote, recordRedemption, setTenantAddon, recordRefund } from './commerce.js';
 import { recordServerEvent } from './analytics.js';
+import { sendPaymentReceipt } from './billingMail.js';
 
 /** Explicit subscription states (see services/plans.js billingState). */
 export const SUB_STATUSES = ['trialing', 'pending', 'active', 'past_due', 'canceled', 'expired'];
@@ -109,6 +110,11 @@ export function applyBillingEvent(provider, ev) {
     db.exec('COMMIT');
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   logTenantEvent(tenant.id, `billing:${ev.type}`, { provider, plan: ev.plan });
+  // one receipt per paid invoice (the key is the provider's invoice id, so a retried webhook cannot send a second one)
+  if (ev.invoice?.id && String(ev.invoice.status || 'paid') === 'paid' && Number(ev.invoice.amount) > 0) {
+    const t2 = getTenant(tenant.id);
+    void sendPaymentReceipt(`invoice:${provider}:${ev.invoice.id}`, { tenant_id: tenant.id, to: t2.owner_email, amount: ev.invoice.amount, currency: ev.invoice.currency || 'USD', plan: t2.plan, interval: t2.billing_interval, method: provider === 'stripe' ? 'Card' : provider, reference: ev.invoice.id, period_end: iso(ev.invoice.period_end) || iso(t2.current_period_end) });
+  }
   if (ev.type === 'subscription.activated' && tenant.subscription_status !== 'active') recordServerEvent('subscription_activated', { product: PLANS[ev.plan || tenant.plan]?.product, plan: ev.plan || tenant.plan, tenant_id: tenant.id });
   return { applied: true, tenant: getTenant(tenant.id) };
 }
@@ -234,8 +240,7 @@ export async function approveSubmission(id, decisionNote, decidedBy = null) {
   } catch (e) { db.exec('ROLLBACK'); throw e; }
   logTenantEvent(s.tenant_id, 'billing:payment-approved', { id, method: s.method });
   if (!['active', 'past_due'].includes(tenant.subscription_status)) recordServerEvent('subscription_activated', { product: PLANS[s.plan]?.product, plan: s.plan, tenant_id: s.tenant_id });
-  const mail = layout({ brand: 'platform', heading: 'Payment received', lines: [`Thank you. We received your ${methodLabel(s.method)} payment and your ${PLANS[s.plan].name} plan is active until ${periodEnd}.`] });
-  await sendMail({ type: 'billing', to: s.submitted_by, subject: 'Your payment was confirmed', ...mail });
+  await sendPaymentReceipt(`local:${id}`, { tenant_id: s.tenant_id, to: s.submitted_by || tenant.owner_email, amount: s.amount, currency: s.currency, plan: s.plan, interval: s.interval, method: methodLabel(s.method), reference: s.reference, period_end: periodEnd });
   return getTenant(s.tenant_id);
 }
 

@@ -34,6 +34,8 @@ import { caps as meetingCaps } from '../integrations/meetings.js';
 import { listRegions, setRegionStatus, setRegionFlag, saveRule, reviewRule, listRules, ruleAudit, saveFx, listFx } from '../regions/admin.js';
 import { subscriptionHistory } from '../services/subscriptions.js';
 import mailboxRoutes from './platformMailbox.js';
+import { billingAddress, billingFrom, listReceipts, resendReceipt } from '../services/billingMail.js';
+import { listInboxes, createInbox, resendConfigured } from '../services/mailbox.js';
 import emailRoutes from './platformEmail.js';
 import { whatsappAccess } from '../services/whatsappAccess.js';
 import { cleanWhatsappLimits } from '../services/whatsappLimits.js';
@@ -385,6 +387,26 @@ r.put('/meetings-settings', requireOperator, need('system.manage'), asyncH((req,
   res.json(meetingCaps());
 }));
 // ---- Mailbox: read, reply and send company e-mail, the sent log and its settings (Platform Owner and Super Admin only)
+// ---- Billing mail: the billing@ sender, its inbox in the Mailbox, and the receipts sent for recorded payments
+r.get('/billing-mail', requireOperator, need('billing.view'), asyncH(async (req, res) => {
+  let inbox = null, inboxError = null;
+  if (resendConfigured() && can(req.operator, 'mailbox.manage')) {
+    try { inbox = (await listInboxes({ fresh: true })).find((i) => String(i.email_address).toLowerCase() === billingAddress()) || null; } catch (e) { inboxError = e.message; }
+  }
+  const receipts = listReceipts({ limit: 100 });
+  res.json({ address: billingAddress(), from: billingFrom(), resend_ready: resendConfigured(), can_open_mailbox: can(req.operator, 'mailbox.manage'), inbox: inbox ? { id: inbox.id, email: inbox.email_address } : null, inbox_error: inboxError, receipts });
+}));
+r.post('/billing-mail/inbox', requireOperator, need('mailbox.manage'), limiter, asyncH(async (req, res) => {
+  const out = await createInbox({ email: billingAddress(), name: 'Agentify ERP – Billing', from_name: 'Agentify ERP Billing' });
+  audit(req.operator.email, 'billing-inbox-created', { address: out.email });
+  res.status(201).json(out);
+}));
+r.post('/billing-mail/receipts/:id/resend', requireOperator, need('billing.manage'), limiter, asyncH(async (req, res) => {
+  const out = await resendReceipt(req.params.id);
+  if (!out.found) throw new HttpError(404, 'Receipt not found');
+  audit(req.operator.email, 'receipt-resent', { receipt: Number(req.params.id), sent: out.sent });
+  res.json(out);
+}));
 r.use('/mailbox', requireOperator, need('mailbox.manage'), mailboxRoutes);
 r.use('/email', requireOperator, emailRoutes);
 // ---- Announcements and release notes, integrations, running version

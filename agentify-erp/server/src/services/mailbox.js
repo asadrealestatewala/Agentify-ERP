@@ -71,6 +71,15 @@ export async function sendingInbox(ref) {
   if (FORBIDDEN_FROM.test(found.email_address)) throw bad('Mail cannot be sent from the no-reply address');
   return found;
 }
+/** Create a receiving inbox on a domain Resend already receives mail for (used for the billing inbox). Not verified against a live account. */
+export async function createInbox({ email, name, from_name }) {
+  const addr = String(email || '').trim().toLowerCase();
+  if (!ADDR.test(addr) || FORBIDDEN_FROM.test(addr)) throw bad('Enter a valid inbox address');
+  if ((await listInboxes({ fresh: true })).some((i) => String(i.email_address).toLowerCase() === addr)) throw bad('This inbox already exists');
+  const out = await rs('POST', '/inboxes', { body: { email_address: addr, ...(name ? { name: String(name).slice(0, 64) } : {}), ...(from_name ? { from_name: String(from_name).slice(0, 78) } : {}) }, idem: `inbox-${addr}` });
+  inboxCache.at = 0;
+  return { id: out?.id || null, email: addr };
+}
 export async function updateInbox(ref, { from_name }) {
   const inbox = await sendingInbox(ref);
   const name = String(from_name ?? '').trim();
