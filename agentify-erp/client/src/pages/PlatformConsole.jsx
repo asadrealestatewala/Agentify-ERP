@@ -337,7 +337,7 @@ function ConsoleRoutes() {
     <>
       <Routes>
         <Route index element={<Allowed perm="dashboard.view"><Dashboard /></Allowed>} />
-        <Route path="whats-new" element={<WhatsNew />} />
+        <Route path="whats-new" element={<WhatsNew platform />} />
         <Route path="health" element={<Allowed perm="system.view"><HealthPage /></Allowed>} />
         <Route path="notifications" element={<Allowed perm="dashboard.view"><NotificationsPage /></Allowed>} />
         <Route path="setup" element={<Allowed perm="system.view"><SetupPage /></Allowed>} />

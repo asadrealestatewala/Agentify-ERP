@@ -1,18 +1,22 @@
 import { all, run, getSetting, setSetting } from '../db.js';
 import { platformDb } from '../platform.js';
-import { CHANGELOG } from '../../../shared/changelog.js';
+import { CHANGELOG, tenantChangelog } from '../../../shared/changelog.js';
 import { now } from '../util.js';
 
 // One in-app notification per release, for everyone. Runs on start-up and with the regular background jobs; the key
 // per person (`release-v1.26`) and the per-workspace marker make it safe to run as often as needed. In-app only:
 // nothing is pushed, e-mailed or sent to WhatsApp.
-const latest = () => CHANGELOG[0];
+const latest = (log = CHANGELOG) => log[0];
 const summary = (r) => (r.items[0]?.text || '').slice(0, 160);
+// Workspaces only hear about releases that have something for them (items not marked audience:'platform').
+const tenantRelease = (log) => tenantChangelog(log).find((r) => r.version === latest(log)?.version);
 
 /** Inside a workspace: tell every active staff user (not customer-portal users) about the newest release, once. */
-export function announceRelease() {
-  const r = latest();
-  if (!r || getSetting('release_announced') === r.version) return { skipped: true };
+export function announceRelease(log = CHANGELOG) {
+  const v = latest(log)?.version;
+  if (!v || getSetting('release_announced') === v) return { skipped: true };
+  const r = tenantRelease(log);
+  if (!r) { setSetting('release_announced', v); return { version: v, created: 0, platformOnly: true }; }
   const users = all('SELECT u.id FROM users u JOIN roles ro ON ro.id=u.role_id WHERE u.active=1 AND ro.portal=0');
   let n = 0;
   for (const u of users) {
