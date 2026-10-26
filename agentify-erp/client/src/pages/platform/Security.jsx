@@ -227,3 +227,55 @@ export function MaintenancePage() {
     </>
   );
 }
+
+// ---------------------------------------------------------------- email safety
+/** Signup code, disposable-address blocking and the Super Admin's own domain list. */
+export function EmailSafetyPage() {
+  const toast = useToast();
+  const { d, err, load } = useLoad(`${A}/email-safety`);
+  const [rule, setRule] = useState({ domain: '', action: 'block', note: '' });
+  const [probe, setProbe] = useState('');
+  const [result, setResult] = useState(null);
+  const sw = async (k, v) => { try { await api.put(`${A}/email-safety`, { [k]: v }); load(); toast('Saved'); } catch (e) { toast(e.message, 'err'); } };
+  const add = async () => { try { await api.post(`${A}/email-safety/rules`, rule); setRule({ domain: '', action: 'block', note: '' }); load(); toast('Added'); } catch (e) { toast(e.message, 'err'); } };
+  const del = async (dom) => { try { await api.del(`${A}/email-safety/rules/${encodeURIComponent(dom)}`); load(); } catch (e) { toast(e.message, 'err'); } };
+  const check = async () => { try { setResult(await api.post(`${A}/email-safety/check`, { email: probe })); } catch (e) { toast(e.message, 'err'); } };
+  return (
+    <>
+      <PageTitle title="Email safety" sub="Stop fake and temporary email addresses from creating workspaces or joining a team." />
+      <ErrorBox error={err} />
+      {!d ? (!err && <Loading />) : (
+        <>
+          <Card title="Rules">
+            <Toggle value={d.signup_email_code} onChange={(v) => sw('signup_email_code', v)} label="Require an emailed code before a workspace is created" />
+            <p className="muted">The owner types a 6-digit code sent to their address, so the mailbox must be real and theirs. Applies only while email sending is connected (Integrations); otherwise signup stays open without it.</p>
+            <Toggle value={d.block_disposable_email} onChange={(v) => sw('block_disposable_email', v)} label={`Refuse temporary and disposable email services (${d.builtin_count} built-in domains plus your list)`} />
+            <Toggle value={d.check_email_mx} onChange={(v) => sw('check_email_mx', v)} label="Refuse domains that cannot receive email at all (typos and invented domains)" />
+            <p className="muted" style={{ marginBottom: 0 }}>No list can be complete: new disposable services appear every day. The emailed code is the strong protection; the list removes the easy abuse. When you spot a new service in Workspaces, add its domain below.</p>
+          </Card>
+          <Card title="Your domain list">
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+              <Field label="Domain"><TextInput value={rule.domain} onChange={(v) => setRule({ ...rule, domain: v })} placeholder="example-temp-mail.com" /></Field>
+              <Field label="What to do"><select className="input" value={rule.action} onChange={(e) => setRule({ ...rule, action: e.target.value })}><option value="block">Block it</option><option value="allow">Always allow it</option></select></Field>
+              <Field label="Note (optional)"><TextInput value={rule.note} onChange={(v) => setRule({ ...rule, note: v })} /></Field>
+              <button className="btn primary" disabled={!rule.domain.trim()} onClick={add}>Add</button>
+            </div>
+            <p className="muted">A domain covers its subdomains. “Always allow” beats the built-in list, for a real company the list gets wrong.</p>
+            {d.rules.length === 0 ? <Empty title="Your list is empty" hint="Domains you add show up here." /> : (
+              <div className="table-wrap"><table className="t"><thead><tr><th>Domain</th><th>Rule</th><th>Note</th><th>Added</th><th /></tr></thead><tbody>
+                {d.rules.map((x) => <tr key={x.domain}><td><b>{x.domain}</b></td><td><StatusBadge status={x.action === 'block' ? 'overdue' : 'active'} label={x.action === 'block' ? 'Blocked' : 'Always allowed'} /></td><td>{x.note || ''}</td><td className="muted">{x.created_by || ''} {String(x.created_at).slice(0, 10)}</td><td><button className="btn sm" onClick={() => del(x.domain)}>Remove</button></td></tr>)}
+              </tbody></table></div>
+            )}
+          </Card>
+          <Card title="Try an address">
+            <div className="row" style={{ gap: 8, alignItems: 'flex-end' }}>
+              <Field label="Email address"><TextInput value={probe} onChange={setProbe} placeholder="someone@example.com" /></Field>
+              <button className="btn" disabled={!probe.trim()} onClick={check}>Check</button>
+            </div>
+            {result && <div className={`alert ${result.ok ? 'ok' : 'err'}`} role="status" style={{ marginTop: 10 }}>{result.ok ? 'This address would be accepted.' : result.message}</div>}
+          </Card>
+        </>
+      )}
+    </>
+  );
+}

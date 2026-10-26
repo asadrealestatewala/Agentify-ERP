@@ -6,6 +6,7 @@ import { all, get, run, tx, getSetting } from '../db.js';
 import { now, bad, HttpError } from '../util.js';
 import { sendMail, layout } from './mailer.js';
 import { assertSeatAvailable } from './plans.js';
+import { assertEmailAllowed } from './disposableEmail.js';
 
 const hash = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
 export const INVITE_DAYS = 7;
@@ -34,6 +35,7 @@ export async function createInvite(req, { email, name, roleId }) {
   const e = String(email || '').trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw bad('A valid email address is required');
   if (get('SELECT 1 FROM users WHERE lower(email)=?', e)) throw bad('A user with this email already exists');
+  await assertEmailAllowed(e);
   if (!get('SELECT email_verified FROM users WHERE id=?', req.user.id)?.email_verified) throw bad('Confirm your own email address before inviting people (check your inbox, or resend the link from the banner)');
   assertSeatAvailable(req.tenant);
   // a fresh invite replaces any earlier pending one for the same address

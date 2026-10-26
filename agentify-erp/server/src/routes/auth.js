@@ -2,8 +2,10 @@ import { stopSharing } from '../services/fieldLocation.js';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import rateLimit from 'express-rate-limit';
-import { all, get, run, getSetting, currentDb } from '../db.js';
-import { signToken, signMfaToken, readMfaToken, loadUser, requireAuth } from '../rbac.js';
+import { all, get, run, getSetting, setSetting, currentDb } from '../db.js';
+import { signToken, signMfaToken, readMfaToken, signOtpToken, readOtpToken, loadUser, requireAuth, hasPerm } from '../rbac.js';
+import { sendCode, checkCode, canEmailCodes } from '../services/emailOtp.js';
+import { noteSignIn, recognised } from '../services/loginAlerts.js';
 import { encrypt, decrypt } from '../services/platformConfig.js';
 import { newSecret, verifyCode, otpauthUrl, qrDataUrl, newRecoveryCodes, useRecoveryCode } from '../services/totp.js';
 import { audit } from '../audit.js';
@@ -39,7 +41,56 @@ r.post('/login', loginLimiter, asyncH((req, res) => {
   if (req.body.portal && !u.portal) throw new HttpError(403, 'Use the staff login for this account');
   if (!req.body.portal && u.portal) throw new HttpError(403, 'Customers and vendors must use their portal login');
   if (u.totp_enabled) return res.json({ mfa_required: true, mfa_token: signMfaToken(u) });
+  if (needsEmailCode(req, u)) return askEmailCode(req, res, u);
   finishLogin(req, res, u);
+}));
+
+// ---- optional email code after the password (Security > Email sign-in code): off, new browsers only, or every sign-in
+export const LOGIN_OTP_MODES = ['off', 'new_device', 'always'];
+const loginOtpMode = () => { const m = getSetting('login_email_otp', 'off'); return LOGIN_OTP_MODES.includes(m) ? m : 'off'; };
+/** Staff with an email address, not already using an authenticator app (which is stronger), and only when mail can really be sent. */
+function needsEmailCode(req, u) {
+  const mode = loginOtpMode();
+  if (mode === 'off' || u.portal || !u.email || u.totp_enabled || !canEmailCodes()) return false;
+  return mode === 'always' || !recognised(u.id, req);
+}
+const maskEmail = (e) => String(e).replace(/^(.).*(@.*)$/, (_m, a, b) => `${a}***${b}`);
+const company = () => getSetting('company_name', '') || 'your workspace';
+const emailCodeMail = (u) => ({ heading: 'Your sign-in code', intro: `Hi ${u.name}, use this code to finish signing in to ${company()}.`, brand: 'tenant' });
+async function askEmailCode(req, res, u) {
+  await sendCode({ purpose: 'login', email: u.email, tenantId: currentTenant()?.id ?? null, userId: u.id, ip: req.ip, ...emailCodeMail(u) });
+  res.json({ otp_required: true, otp_token: signOtpToken(u), email_hint: maskEmail(u.email) });
+}
+const otpUser = (token) => {
+  const uid = readOtpToken(token);
+  const row = uid && get('SELECT * FROM users WHERE id=? AND active=1', uid);
+  if (!row) throw new HttpError(401, 'This sign-in expired. Enter your password again.');
+  return row;
+};
+r.post('/login/otp', loginLimiter, asyncH((req, res) => {
+  const row = otpUser(req.body?.otp_token);
+  try { checkCode({ purpose: 'login', email: row.email, tenantId: currentTenant()?.id ?? null, code: req.body?.code }); }
+  catch (e) { audit(req, 'Failed email sign-in code', 'user', null, row.email); throw e; }
+  // reading the mailbox proves the address
+  if (row.email_verified === 0) run('UPDATE users SET email_verified=1 WHERE id=?', row.id);
+  finishLogin(req, res, loadUser(row.id));
+}));
+r.post('/login/otp/resend', loginLimiter, asyncH(async (req, res) => {
+  const row = otpUser(req.body?.otp_token);
+  const u = loadUser(row.id);
+  await sendCode({ purpose: 'login', email: row.email, tenantId: currentTenant()?.id ?? null, userId: row.id, ip: req.ip, ...emailCodeMail(u) });
+  res.json({ ok: true });
+}));
+r.get('/login-otp', requireAuth, (req, res) => res.json({ mode: loginOtpMode(), can_send: canEmailCodes(), can_edit: hasPerm(req.user, 'settings', 'edit') }));
+r.put('/login-otp', requireAuth, asyncH((req, res) => {
+  if (!hasPerm(req.user, 'settings', 'edit')) throw new HttpError(403, 'Only an administrator can change this');
+  const mode = String(req.body?.mode || '');
+  if (!LOGIN_OTP_MODES.includes(mode)) throw bad('Choose off, new browsers only, or every sign-in');
+  if (mode !== 'off' && !canEmailCodes()) throw bad('Email sending is not set up on this platform yet, so codes could not be delivered. Ask the Agentify administrator to connect email first.');
+  if (mode !== 'off' && !req.user.email_verified) throw bad('Confirm your own email address first, so you cannot lock yourself out.');
+  setSetting('login_email_otp', mode);
+  audit(req, 'Changed email sign-in code', 'settings', null, mode);
+  res.json({ mode, can_send: canEmailCodes(), can_edit: true });
 }));
 
 function finishLogin(req, res, u) {
@@ -47,6 +98,7 @@ function finishLogin(req, res, u) {
   req.user = u;
   audit(req, 'Login', 'user', u.id, u.email);
   res.cookie('erp_token', signToken(u), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 12 * 3600 * 1000 });
+  noteSignIn(req, res, u);
   res.json(sessionPayload(u));
 }
 
@@ -127,6 +179,7 @@ r.post('/invite/accept', linkLimiter, asyncH((req, res) => {
   req.user = u;
   audit(req, 'Accepted invitation', 'user', u.id, u.email);
   res.cookie('erp_token', signToken(u), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 12 * 3600 * 1000 });
+  noteSignIn(req, res, u);
   res.status(201).json(sessionPayload(u));
 }));
 

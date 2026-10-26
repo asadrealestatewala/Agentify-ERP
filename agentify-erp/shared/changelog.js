@@ -4,6 +4,16 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.29', date: '2026-10-26', title: 'Email codes, new sign-in alerts and no more throw-away emails',
+    items: [
+      { text: 'Creating a workspace now needs a 6-digit code we email to the owner, so only a real mailbox the person can read can start a workspace. Temporary and disposable email services, and domains that cannot receive mail, are refused.', where: 'Sign-up page' },
+      { text: 'Administrators can ask for an emailed code after the password: for every sign-in, or only when someone signs in from a new browser. People who use an authenticator app keep using that.', where: 'My Space > Security > Email sign-in code' },
+      { text: 'When your account is signed in from an address and browser we have not seen before, you get an email with the time, address and browser, and a button to change your password. The same goes for Agentify console users.', where: 'Your inbox' },
+      { text: 'Staff invitations and users added by an administrator also refuse disposable email addresses.', where: 'Settings > Users' },
+      { text: 'The Agentify administrator can switch each rule on or off, add their own blocked domains, allow a domain the list gets wrong, and try an address to see if it would be accepted.', where: 'Super Admin console > Security & Access > Email safety' },
+    ],
+  },
+  {
     version: 'v1.28', date: '2026-10-26', title: 'Optional QR connection for WhatsApp',
     items: [
       { text: 'Workspaces can link a number by scanning a QR code instead of the official connection, when your Agentify administrator has switched this on. It is unofficial, so WhatsApp can ban the number; you must tick a warning to switch it on, and you can switch it off any time.', where: 'Settings > WhatsApp > QR connection' },

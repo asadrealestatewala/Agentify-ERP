@@ -12,6 +12,7 @@ import { newSecret, verifyCode, otpauthUrl, qrDataUrl, newRecoveryCodes, useReco
 import { HttpError, bad } from '../util.js';
 import { setMfaRule } from './platformAccess.js';
 import { checkPassword, ensureSetupToken } from './platformStaff.js';
+import { sendMail, layout } from './mailer.js';
 
 const SESSION_HOURS = 8;
 const setting = (k) => platformDb().prepare('SELECT value FROM platform_settings WHERE key=?').get(k)?.value;
@@ -31,6 +32,9 @@ function recordLogin(a, email, outcome, meta = {}) {
   } else if (meta.ip && db.prepare("SELECT 1 FROM platform_logins WHERE admin_id=? AND outcome='success' AND id<(SELECT MAX(id) FROM platform_logins) LIMIT 1").get(a.id)
     && !db.prepare("SELECT 1 FROM platform_logins WHERE admin_id=? AND outcome='success' AND ip=? AND id<(SELECT MAX(id) FROM platform_logins) LIMIT 1").get(a.id, meta.ip)) {
     alert(`new-ip:${a.id}:${meta.ip}`, 'warning', `${a.email} signed in from a new IP address`, `${meta.ip} · ${String(meta.ua || '').slice(0, 80)}`);
+    // the console user hears about it too, by email, so a stolen password does not go unnoticed
+    sendMail({ type: 'login_alert', to: a.email, subject: 'New sign-in to the Agentify console', ...layout({ brand: 'platform', heading: 'New sign-in to your console account',
+      lines: [`Hi ${a.name}, your console account was just signed in from an address we have not seen before.`, `IP address: ${meta.ip}`, `Browser: ${String(meta.ua || 'unknown').slice(0, 120)}`, 'If this was not you, change your password in Security straight away and sign out other sessions.'] }) }).catch(() => {});
   }
 }
 

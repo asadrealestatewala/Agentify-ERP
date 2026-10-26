@@ -16,6 +16,7 @@ import '../site/site.css';
 import '../pages/landing.css';
 import './marketing.css';
 import Glow from './glow/Glow.jsx';
+import EmailCodeStep from '../components/EmailCodeStep.jsx';
 
 const PRODUCT_PATH = { real_estate: '/real-estate', construction: '/construction' };
 const METHOD = { raast: 'Raast', easypaisa: 'Easypaisa', jazzcash: 'JazzCash', sadapay: 'SadaPay', nayapay: 'NayaPay', bank: 'Bank transfer' };
@@ -810,6 +811,7 @@ function Signup({ info }) {
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(null);
+  const [proof, setProof] = useState('');
   // "Continue with Google": the server sends the visitor back here with a signed token holding the name and email Google verified
   const gToken = q.get('google') || '';
   const [gWho, setGWho] = useState(null);
@@ -832,8 +834,9 @@ function Signup({ info }) {
     e.preventDefault(); setErr('');
     if (!product) { setErr('Tick Real Estate, Construction or both to continue'); return; }
     if (!f.accept_terms) { setErr('Please accept the Terms of Service and Privacy Policy'); return; }
+    if (info.signup_email_code && !gWho && !proof) { setErr('Confirm your email address with the code we email you first'); return; }
     setBusy(true);
-    try { setDone(await api.post('/api/platform/signup', { ...f, google_token: gWho ? gToken : undefined, region: country.code, currency: country.currency, timezone: (country.timezones || []).includes(f.timezone) ? f.timezone : (country.timezones || [f.timezone])[0], language: f.language || null, sample_data: !!f.sample_data, product, analytics: attributionFields() })); } catch (x) { setErr(x.message); } finally { setBusy(false); }
+    try { setDone(await api.post('/api/platform/signup', { ...f, email_proof: proof || undefined, google_token: gWho ? gToken : undefined, region: country.code, currency: country.currency, timezone: (country.timezones || []).includes(f.timezone) ? f.timezone : (country.timezones || [f.timezone])[0], language: f.language || null, sample_data: !!f.sample_data, product, analytics: attributionFields() })); } catch (x) { setErr(x.message); } finally { setBusy(false); }
   };
   // straight into the new workspace, already signed in (the one-time code lasts two minutes, so do it now)
   const [unreachable, setUnreachable] = useState(false);
@@ -863,7 +866,7 @@ function Signup({ info }) {
         {t.trial_ends_at ? <p>Your free trial runs until <b>{new Date(t.trial_ends_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</b> (your local time).</p>
           : <p>{t.trial_note ? `${t.trial_note}. ` : ''}Choose a plan in Settings › Plan &amp; Billing to start working.</p>}
         {done.site_url && <p>Your website will be public at <b>{done.site_url.replace(/^https?:\/\//, '')}</b> once you publish it. Publishing needs your email confirmed first.</p>}
-        <p className="lmini">We emailed {t.owner_email} a link to confirm the address.</p>
+        <p className="lmini">{done.email_confirmed ? `${t.owner_email} is confirmed.` : `We emailed ${t.owner_email} a link to confirm the address.`}</p>
         {unreachable && <div className="lerr" role="alert" style={{ textAlign: 'left', margin: '12px 0' }}>Your workspace was created at <b>{done.login_url.replace(/^https?:\/\//, '')}</b>, but that address cannot be reached yet. This is a setup step on our side (the website address for workspaces is still being connected). Your data is safe. Please try the button below again in a little while, or contact us.</div>}
         <button type="button" className="lbtn p" onClick={enter} disabled={checking}>{checking ? 'Checking the address…' : unreachable ? 'Check again' : 'Open your workspace'}</button>
       </div></div></section>
@@ -904,6 +907,7 @@ function Signup({ info }) {
         <label>Workspace address<span className="lhint">{avail ? (avail.available ? `Available: ${f.slug}.${free ? info.free_sites.domain : info.base_domain}` : avail.reason) : 'Letters, digits and hyphens'}</span>
           <input required value={f.slug} onChange={(e) => { setSlugTouched(true); setF((s) => ({ ...s, slug: slugify(e.target.value) })); }} placeholder="your-company" aria-invalid={avail && !avail.available} /></label>
         <div className="lrow"><label>Your name<input required value={f.admin_name} onChange={set('admin_name')} autoComplete="name" /></label><label>Work email<input type="email" required value={f.admin_email} onChange={set('admin_email')} autoComplete="email" readOnly={!!gWho} /></label></div>
+        {info.signup_email_code && !gWho && <EmailCodeStep email={f.admin_email} onProof={setProof} variant="landing" />}
         {!gWho && <label>Password<span className="lhint">At least 8 characters</span><input type="password" minLength={8} required value={f.admin_password} onChange={set('admin_password')} autoComplete="new-password" /></label>}
         <div style={{ fontWeight: 700 }}>3. Your country</div>
         <div className="lrow">
