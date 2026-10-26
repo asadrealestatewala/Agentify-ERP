@@ -10,3 +10,10 @@ See README.md and ARCHITECTURE.md for the product and code layout. Merging to `m
 * Decorative icons stay `aria-hidden`; icon-only controls carry their own `aria-label`.
 * Add icons deliberately, following docs/website-icons.md (registry, renderer map, picker keywords, tests).
 * The ERP app chrome still uses its own `client/src/components/Icon.jsx`; leave it unless a task moves it over.
+
+## Releases and versions
+
+* The product version is `vMAJOR.MINOR` (v1.0, v1.1, v1.2 ...). One source of truth: `shared/changelog.js`. The app version shown in the menu footer and on Menu > What's new is the first entry.
+* Every change customers can see: add a new entry at the TOP of `CHANGELOG` (`version`, `date` as YYYY-MM-DD, `title`, `items` of `{ text, where }`), going up by one minor step. A big release goes to the next major (v2.0). Write plain customer-facing words and say where to find the feature. Skip purely internal changes.
+* Also set `version` in `server/package.json` and `client/package.json` (and the first two version lines of their `package-lock.json`) to the same number with `.0` added, e.g. v1.12 becomes `1.12.0`. `server/test/changelog.test.js` fails if they differ or the order is wrong.
+* Concurrent PRs: if another PR already took the next number, rebase and take the next one.
