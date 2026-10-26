@@ -4,6 +4,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.25', date: '2026-10-26', title: 'Optional QR connection for WhatsApp',
+    items: [
+      { text: 'Workspaces can link a number by scanning a QR code instead of the official connection, when your Agentify administrator has switched this on. It is unofficial, so WhatsApp can ban the number; you must tick a warning to switch it on, and you can switch it off any time.', where: 'Settings > WhatsApp > QR connection' },
+    ],
+  },
+  {
     version: 'v1.24', date: '2026-10-26', title: 'WhatsApp inbox for your customers\' chats',
     items: [
       { text: 'Connect your own WhatsApp Business number through your Botlinkd account (official WhatsApp Cloud API) and read and answer customer chats next to their CRM record. Chats are matched to contacts by phone number, can be assigned to an agent, closed, or turned into a lead.', where: 'WhatsApp; Settings > WhatsApp' },

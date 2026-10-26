@@ -7,6 +7,7 @@ import { audit } from '../audit.js';
 import { asyncH, bad } from '../util.js';
 import { all } from '../db.js';
 import * as W from '../services/whatsapp.js';
+import * as Q from '../services/whatsappQr.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -26,6 +27,13 @@ r.put('/connection', can('settings', 'edit'), asyncH((req, res) => {
 r.delete('/connection', can('settings', 'edit'), asyncH((req, res) => { W.removeConnection(req.user); audit(req, 'WhatsApp disconnected', 'whatsapp'); res.json({ ok: true }); }));
 r.post('/connection/rotate-webhook', can('settings', 'edit'), asyncH((req, res) => { W.rotateWebhookToken(req.user); audit(req, 'WhatsApp webhook address changed', 'whatsapp'); res.json(W.connectionView(baseUrl(req))); }));
 r.post('/connection/test', can('settings', 'edit'), asyncH(async (req, res) => { const out = await W.sendTest(req.user, req.body?.to); audit(req, 'WhatsApp test message sent', 'whatsapp'); res.json(out); }));
+
+// ---- optional QR mode (unofficial; off unless the platform and the workspace both switch it on)
+r.post('/qr/enable', can('settings', 'edit'), asyncH((req, res) => { Q.enableQr(req.user, req.body || {}); audit(req, 'WhatsApp QR mode switched on', 'whatsapp', null, 'risk acknowledged'); res.json(Q.qrView()); }));
+r.post('/qr/start', can('settings', 'edit'), asyncH(async (req, res) => { await Q.startQr(req.user, baseUrl(req)); audit(req, 'WhatsApp QR session started', 'whatsapp'); res.json(await Q.qrStatus()); }));
+r.get('/qr/status', can('settings', 'edit'), asyncH(async (_req, res) => res.json({ ...(await Q.qrStatus()), view: Q.qrView() })));
+r.post('/qr/disconnect', can('settings', 'edit'), asyncH(async (req, res) => { await Q.disconnectQr(req.user); audit(req, 'WhatsApp QR session disconnected', 'whatsapp'); res.json(Q.qrView()); }));
+r.post('/qr/disable', can('settings', 'edit'), asyncH(async (req, res) => { await Q.disconnectQr(req.user, { forget: true }); audit(req, 'WhatsApp QR mode switched off', 'whatsapp'); res.json(Q.qrView()); }));
 
 r.get('/people', can('crm', 'view'), (_req, res) => res.json(all("SELECT u.id,u.name FROM users u JOIN roles r ON r.id=u.role_id WHERE u.active=1 AND r.portal=0 ORDER BY u.name")));
 r.get('/threads', can('crm', 'view'), asyncH((req, res) => res.json(W.listThreads({ mineOnly: ownerId(req), status: req.query.status || 'open', filter: req.query.filter || '', q: req.query.q || '' }))));
