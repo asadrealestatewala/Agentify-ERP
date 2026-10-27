@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.45', date: '2026-10-28', title: 'Console sign-in: show password and reset',
+    items: [
+      { text: 'The console sign-in page has an eye button to show or hide the password you type, and a Reset password link that emails a one-time link (valid for 30 minutes) to choose a new password. Resetting signs out other sessions; two-factor sign-in stays on.', where: 'Platform console sign-in', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.44', date: '2026-10-27', title: 'Your own colour and logo',
     items: [
       { text: 'Choose your workspace brand colour and upload your logo. The colour replaces the default on buttons, links and highlights, and the logo appears at the top left of the menu. Colours that make white text hard to read are refused. Leave both empty to keep the default look.', where: 'Settings > Receipts & Branding > Workspace colour & logo' },

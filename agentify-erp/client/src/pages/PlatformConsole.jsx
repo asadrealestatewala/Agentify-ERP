@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Card, ConfirmDialog, Empty, Field, Loading, Modal, StatusBadge, Tabs, TextInput, Toggle } from '../components/ui.jsx';
 import { api } from '../api.js';
 import { useToast } from '../context.jsx';
+import Icon from '../components/Icon.jsx';
 import TwoFactor from '../components/TwoFactor.jsx';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Workspaces, WorkspaceDetail, Expiry, FILTERS } from './SuperAdmin.jsx';
@@ -23,6 +24,82 @@ import WhatsNew from './WhatsNew.jsx';
 import FreeSitesPage from './platform/FreeSites.jsx';
 
 const A = '/api/platform/admin';
+const LINK = { background: 'none', border: 0, padding: 0, color: 'var(--primary)', cursor: 'pointer', font: 'inherit', textDecoration: 'underline' };
+
+/** Password box with an eye button that shows or hides what was typed; the value itself is never changed. */
+function PasswordInput({ value, onChange, autoComplete = 'current-password', ...p }) {
+  const [shown, setShown] = useState(false);
+  const label = shown ? 'Hide password' : 'Show password';
+  return (
+    <div style={{ position: 'relative' }}>
+      <TextInput type={shown ? 'text' : 'password'} autoComplete={autoComplete} value={value} onChange={onChange} style={{ paddingRight: 40 }} {...p} />
+      <button type="button" className="btn ghost" title={label} aria-label={label} aria-pressed={shown} onClick={() => setShown((v) => !v)}
+        style={{ position: 'absolute', right: 2, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name={shown ? 'eye-off' : 'eye'} size={18} />
+      </button>
+    </div>
+  );
+}
+
+/** Forgotten password: asks for the email and always shows the same confirmation. */
+function ForgotPassword({ onBack }) {
+  const [email, setEmail] = useState('');
+  const [sent, setSent] = useState(false);
+  const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
+  const go = async (e) => {
+    e.preventDefault(); setBusy(true); setErr('');
+    try { await api.post(`${A}/password/forgot`, { email }); setSent(true); } catch (x) { setErr(x.message); } finally { setBusy(false); }
+  };
+  if (sent) return (
+    <div>
+      <p>If that email belongs to a console account, a reset link is on its way. It works once and expires in 30 minutes.</p>
+      <button type="button" className="btn" style={{ width: '100%' }} onClick={onBack}>Back to sign in</button>
+    </div>
+  );
+  return (
+    <form onSubmit={go}>
+      {err && <div className="alert err">{err}</div>}
+      <p className="muted">Enter your console email and we will send you a link to choose a new password.</p>
+      <Field label="Email"><TextInput type="email" autoComplete="email" value={email} onChange={setEmail} autoFocus /></Field>
+      <button className="btn primary" style={{ width: '100%' }} disabled={busy || !email.trim()}>{busy ? 'Sending…' : 'Send reset link'}</button>
+      <p style={{ textAlign: 'center', marginTop: 12 }}><button type="button" style={LINK} onClick={onBack}>Back to sign in</button></p>
+    </form>
+  );
+}
+
+/** The page behind the emailed link. */
+function ResetPassword({ token }) {
+  const [info, setInfo] = useState(undefined);
+  const [f, setF] = useState({ password: '', confirm: '' });
+  const [err, setErr] = useState('');
+  const [done, setDone] = useState(false);
+  const nav = useNavigate();
+  useEffect(() => { api.get(`${A}/password/reset/${token}`).then(setInfo).catch((e) => { setInfo(null); setErr(e.message); }); }, [token]);
+  if (info === undefined) return <Loading />;
+  const go = async (e) => {
+    e.preventDefault(); setErr('');
+    if (f.password !== f.confirm) { setErr('The two passwords do not match'); return; }
+    try { await api.post(`${A}/password/reset`, { token, password: f.password }); setDone(true); } catch (x) { setErr(x.message); }
+  };
+  return (
+    <div className="empty" style={{ paddingTop: 60 }}>
+      <div style={{ width: 380, maxWidth: '92vw', textAlign: 'left' }}>
+        <h2 style={{ textAlign: 'center' }}>Choose a new password</h2>
+        {err && <div className="alert err">{err}</div>}
+        {done ? <><p>Your password is changed and other sessions were signed out. Sign in with {info?.email || 'your email'}.</p><button className="btn primary" style={{ width: '100%' }} onClick={() => nav('/platform')}>Go to sign in</button></>
+          : info ? (
+            <form onSubmit={go}>
+              <p>New password for <b>{info.email}</b>.</p>
+              <Field label="New password" required hint="10+ characters using at least three of: lower case, capitals, digits, symbols."><PasswordInput autoComplete="new-password" value={f.password} onChange={(v) => setF({ ...f, password: v })} autoFocus /></Field>
+              <Field label="Repeat password" required><PasswordInput autoComplete="new-password" value={f.confirm} onChange={(v) => setF({ ...f, confirm: v })} /></Field>
+              <button className="btn primary" style={{ width: '100%' }}>Change password</button>
+            </form>
+          ) : <button className="btn" style={{ width: '100%' }} onClick={() => nav('/platform')}>Back to sign in</button>}
+      </div>
+    </div>
+  );
+}
 const SLOT_LABEL = (s) => s.replace('_', ' · ').replace(/^./, (c) => c.toUpperCase());
 
 /** First run: create the Platform Owner with the one-time token from the server (no default account exists). */
@@ -78,8 +155,8 @@ function AcceptInvite({ token }) {
           <form onSubmit={go}>
             <p>You were invited as <b>{info.role}</b> with <b>{info.email}</b>.</p>
             <Field label="Your name"><TextInput value={f.name} onChange={(v) => setF({ ...f, name: v })} /></Field>
-            <Field label="Choose a password" required hint="10+ characters using at least three of: lower case, capitals, digits, symbols."><TextInput type="password" autoComplete="new-password" value={f.password} onChange={(v) => setF({ ...f, password: v })} /></Field>
-            <Field label="Repeat password" required><TextInput type="password" autoComplete="new-password" value={f.confirm} onChange={(v) => setF({ ...f, confirm: v })} /></Field>
+            <Field label="Choose a password" required hint="10+ characters using at least three of: lower case, capitals, digits, symbols."><PasswordInput autoComplete="new-password" value={f.password} onChange={(v) => setF({ ...f, password: v })} /></Field>
+            <Field label="Repeat password" required><PasswordInput autoComplete="new-password" value={f.confirm} onChange={(v) => setF({ ...f, confirm: v })} /></Field>
             <button className="btn primary" style={{ width: '100%' }}>Activate account</button>
           </form>
         )}
@@ -94,6 +171,7 @@ function SignIn({ onDone }) {
   const [busy, setBusy] = useState(false);
   const [mfa, setMfa] = useState(null);
   const [code, setCode] = useState('');
+  const [forgot, setForgot] = useState(false);
   const go = async (e) => {
     e.preventDefault(); setBusy(true); setErr('');
     try {
@@ -103,14 +181,16 @@ function SignIn({ onDone }) {
   };
   return (
     <div className="empty" style={{ paddingTop: 80 }}>
+      {forgot ? <div style={{ width: 340, textAlign: 'left' }}><h2 style={{ textAlign: 'center' }}>Reset password</h2><ForgotPassword onBack={() => setForgot(false)} /></div> :
       <form onSubmit={go} style={{ width: 340, textAlign: 'left' }}>
         <h2 style={{ textAlign: 'center' }}>Platform console</h2>
         {err && <div className="alert err">{err}</div>}
         {mfa ? <Field label="Authenticator code" hint="Or one of your recovery codes."><TextInput autoComplete="one-time-code" value={code} onChange={setCode} autoFocus /></Field> : <>
           <Field label="Email"><TextInput type="email" value={f.email} onChange={(v) => setF({ ...f, email: v })} autoFocus /></Field>
-          <Field label="Password"><TextInput type="password" value={f.password} onChange={(v) => setF({ ...f, password: v })} /></Field></>}
+          <Field label="Password"><PasswordInput value={f.password} onChange={(v) => setF({ ...f, password: v })} /></Field></>}
         <button className="btn primary" style={{ width: '100%' }} disabled={busy}>{busy ? 'Signing in…' : mfa ? 'Verify' : 'Sign in'}</button>
-      </form>
+        {!mfa && <p style={{ textAlign: 'center', marginTop: 12 }}><button type="button" style={LINK} onClick={() => { setErr(''); setForgot(true); }}>Reset password</button></p>}
+      </form>}
     </div>
   );
 }
@@ -390,6 +470,8 @@ export default function PlatformConsole() {
   const loc = useLocation();
   const invite = loc.pathname.match(/^\/platform\/accept-invite\/([\w-]+)/);
   if (invite) return <AcceptInvite token={invite[1]} />;
+  const reset = loc.pathname.match(/^\/platform\/reset-password\/([\w-]+)/);
+  if (reset) return <ResetPassword token={reset[1]} />;
   return <ConsoleApp />;
 }
 

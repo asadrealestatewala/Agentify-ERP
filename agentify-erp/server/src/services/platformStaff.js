@@ -147,3 +147,51 @@ export function acceptInvite({ token, name, password }) {
     .run(bcrypt.hashSync(String(password), 10), String(name || a.name).trim().slice(0, 80) || a.name, a.id);
   return { id: a.id, email: a.email };
 }
+
+// ---------------------------------------------------------------- forgotten password
+export const RESET_MINUTES = 30;
+const RESET_GAP_SECONDS = 60;
+
+/**
+ * "Forgot password" on the console sign-in. Always looks the same to the caller: it never says whether the email belongs to
+ * a console account. For an active, activated account it stores the hash of a fresh one-time token (30 minutes) and emails
+ * the link. A new request replaces the previous link; requests for one account closer than a minute apart are ignored.
+ * Two-factor sign-in is not touched: after the reset the person still needs their authenticator code.
+ */
+export async function requestPasswordReset(email, origin, meta = {}) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(e) || e.length > 200) return;
+  const db = platformDb();
+  const a = db.prepare('SELECT * FROM platform_admins WHERE email=? AND active=1 AND invite_token_hash IS NULL').get(e);
+  if (!a) return;
+  if (a.reset_sent_at && Date.now() - Date.parse(`${a.reset_sent_at.replace(' ', 'T')}Z`) < RESET_GAP_SECONDS * 1000) return;
+  const token = crypto.randomBytes(32).toString('base64url');
+  db.prepare("UPDATE platform_admins SET reset_token_hash=?, reset_expires_at=?, reset_sent_at=datetime('now') WHERE id=?")
+    .run(sha(token), new Date(Date.now() + RESET_MINUTES * 60e3).toISOString(), a.id);
+  const mail = layout({ brand: 'platform', heading: 'Reset your console password', lines: [
+    `Hi ${a.name}, someone asked to reset the password of your Agentify console account.`,
+    `The link works once and expires in ${RESET_MINUTES} minutes. If you did not ask for this, ignore this email; your password stays as it is.`,
+    ...(meta.ip ? [`Requested from IP address ${meta.ip}.`] : [])], button: { label: 'Choose a new password', url: `${origin}/platform/reset-password/${token}` } });
+  await sendMail({ type: 'password_reset', to: a.email, subject: 'Reset your Agentify console password', ...mail });
+}
+
+function resetRow(token) {
+  if (!token || typeof token !== 'string') return null;
+  const a = platformDb().prepare('SELECT * FROM platform_admins WHERE reset_token_hash=?').get(sha(token));
+  return a && a.active && Date.parse(a.reset_expires_at) > Date.now() ? a : null;
+}
+export function resetInfo(token) {
+  const a = resetRow(token);
+  if (!a) throw new HttpError(404, 'This reset link is not valid or has expired. Ask for a new one.');
+  return { email: a.email };
+}
+/** Sets the new password, ends every session and uses up the link. Authenticator (2FA) settings stay as they are. */
+export function completePasswordReset({ token, password }) {
+  const a = resetRow(token);
+  if (!a) throw new HttpError(404, 'This reset link is not valid or has expired. Ask for a new one.');
+  checkPassword(password, a.email);
+  const db = platformDb();
+  db.prepare('UPDATE platform_admins SET password_hash=?, token_version=token_version+1, reset_token_hash=NULL, reset_expires_at=NULL WHERE id=?').run(bcrypt.hashSync(String(password), 10), a.id);
+  db.prepare("UPDATE platform_sessions SET revoked_at=datetime('now'), revoked_by='password-reset' WHERE admin_id=? AND revoked_at IS NULL").run(a.id);
+  return { id: a.id, email: a.email };
+}
