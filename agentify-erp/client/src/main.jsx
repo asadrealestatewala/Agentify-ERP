@@ -10,12 +10,15 @@ import { registerSW } from './components/Push.jsx';
 import './styles.css';
 import './styles2.css';
 import './styles3.css';
+import './mobile.css';
 import { setRegion } from './format.js';
 import { setLanguage, pickLanguage } from './i18n.js';
 import { seedHomeEntry } from './backNav.js';
+import { watchTables } from './mobileTables.js';
 
 registerSW();
 seedHomeEntry();
+watchTables();
 
 // The workspace's region (formats, units, terms) is applied before anything renders an amount. Failing to load it
 // leaves the Pakistan defaults, which is what the app always used.

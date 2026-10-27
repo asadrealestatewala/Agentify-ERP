@@ -6,6 +6,15 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.37', date: '2026-10-27', title: 'Cleaner phone screens and a Back button that steps back',
+    items: [
+      { text: 'On phones the tables become one card per row, so nothing is cut off or blank when you scroll sideways. Report lists no longer push the table off screen.', where: 'Reports, Commissions, Leads and other lists on a phone' },
+      { text: 'The floating Ask button no longer covers Cancel, Save or fields. Ask now sits in the top bar, and every page ends clear of the bottom tabs.', where: 'Top bar, on phones' },
+      { text: 'The Back button closes an open menu, notifications or Ask panel first, then goes to the previous screen, and only leaves the app from the home screen. The Android app needs the updated app file for this and for the status bar fix.', where: 'Phones and the Android app' },
+      { text: 'Contact page: the duplicate vertical icon strip is hidden on phones, and the menu drawer is more compact.', where: 'Contacts, menu on phones' },
+    ],
+  },
+  {
     version: 'v1.36', date: '2026-10-27', title: 'Account statement, receipt PDFs and payment history in Plan & Billing',
     items: [
       { text: 'Download an account statement as PDF or Excel (CSV) for any date range, with every charge, payment and refund and a running balance.', where: 'Settings > Plan & Billing > Account statement' },
