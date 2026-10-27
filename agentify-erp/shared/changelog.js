@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.37', date: '2026-10-27', title: 'Training videos for field coverage',
+    items: [
+      { text: 'Two new training videos: one for administrators and HR on setting up and reading field coverage, and one for field staff on agreeing to the notice, sharing their location only when they choose, and stopping.', where: 'Training Videos' },
+    ],
+  },
+  {
     version: 'v1.36', date: '2026-10-27', title: 'Account statement, receipt PDFs and payment history in Plan & Billing',
     items: [
       { text: 'Download an account statement as PDF or Excel (CSV) for any date range, with every charge, payment and refund and a running balance.', where: 'Settings > Plan & Billing > Account statement' },
