@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Suspense, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom';
 import Appearance from '../components/Appearance.jsx';
 import Icon from '../components/Icon.jsx';
@@ -30,7 +30,7 @@ export function VendorLayout() {
         <div className="grow" /><Appearance /><NotificationBell /><span style={{ color: '#cfd8ea' }} className="nowrap hide-sm">{user.name}</span>
         <button className="btn sm" onClick={logout} aria-label="Sign out"><span className="hide-sm">Sign out</span><Icon name="logout" size={15} className="show-sm" /></button>
       </header>
-      <div className="portal-body"><Outlet /></div>
+      <div className="portal-body"><Suspense fallback={<Loading />}><Outlet /></Suspense></div>
       <nav className="mtabs vtabs no-print" aria-label="Vendor portal tabs">
         {[['/vendor', 'Home', 'home', true], ['/vendor/payments', 'Payments', 'wallet'], ['/vendor/ledger', 'Ledger', 'history'], ['/vendor/tenders', 'Contracts', 'file'], ['/vendor/bids', 'Bids', 'badge'], ['/vendor/profile', 'Profile', 'user']].map(([to, l, ic, end]) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => (isActive ? 'on' : '')}><Icon name={ic} size={19} /><span>{l}</span>{to === '/vendor/tenders' && data?.open ? <b className="tab-dot">{data.open}</b> : null}</NavLink>))}

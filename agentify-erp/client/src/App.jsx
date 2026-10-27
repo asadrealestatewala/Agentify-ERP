@@ -8,7 +8,7 @@ import { useAuth } from './context.jsx';
 import StaffGate from './pages/StaffGate.jsx';
 import Login from './pages/Login.jsx';
 import { AcceptInvite, ForgotPassword, ResetPassword, Signup, VerifyEmail } from './pages/AuthPages.jsx';
-import MarketingSite from './marketing/Marketing.jsx';
+const MarketingSite = lazy(() => import('./marketing/Marketing.jsx'));
 const PlatformConsole = lazy(() => import('./pages/PlatformConsole.jsx'));
 const MeetingRoom = lazy(() => import('./meet/MeetingRoom.jsx'));
 const SiteApp = lazy(() => import('./site/SiteApp.jsx'));

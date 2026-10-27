@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Link, NavLink, Outlet, useParams, useSearchParams } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
 import { InstallmentTable, SaleLedgerSummary } from '../components/SaleBits.jsx';
@@ -34,7 +34,7 @@ export function PortalLayout() {
         <div className="grow" /><NotificationBell allHref="/portal/notifications" /><span style={{ color: '#cfd8ea' }} className="nowrap">{user.name}</span>
         <button className="btn sm" onClick={logout}>Sign out</button>
       </header>
-      <div className="portal-body"><Outlet /></div>
+      <div className="portal-body"><Suspense fallback={<Loading />}><Outlet /></Suspense></div>
     </div>
   );
 }
