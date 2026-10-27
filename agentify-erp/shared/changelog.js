@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.42', date: '2026-10-27', title: 'See which YouTube channel training videos go to',
+    items: [
+      { text: 'After connecting YouTube the page shows the channel uploads will go to, and you can save an expected channel ID so posting is refused if the wrong channel is connected. A video uploaded by hand in YouTube Studio can be linked with its YouTube address.', audience: 'platform', where: 'Console > System > Training videos' },
+    ],
+  },
+  {
     version: 'v1.41', date: '2026-10-27', title: 'Choose the YouTube channel and re-post training videos',
     items: [
       { text: 'Connecting YouTube now always asks which account and channel to use (so a brand channel can be chosen), each posted video shows the channel it went to, and Unlink from YouTube lets you forget a link and post the video again.', audience: 'platform', where: 'Console > System > Training videos' },

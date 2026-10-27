@@ -36,7 +36,8 @@ function AddForm({ data, onDone, onCancel }) {
 
 function YoutubeCard({ yt, canManage, reload }) {
   const toast = useToast();
-  const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [expected, setExpected] = useState(yt.expected_channel || '');
+  const saveExpected = async () => { setBusy(true); setErr(''); try { await api.put(`${A}/training-videos/youtube/expected-channel`, { channel_id: expected }); toast(expected ? 'Expected channel saved' : 'Channel check switched off'); reload(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   const connect = async () => { setBusy(true); setErr(''); try { const { url } = await api.get(`${A}/training-videos/youtube/connect`); window.location.assign(url); } catch (e) { setErr(e.message); setBusy(false); } };
   const disconnect = async () => { setBusy(true); try { await api.del(`${A}/training-videos/youtube`); toast('YouTube disconnected'); reload(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   return (
@@ -51,7 +52,12 @@ function YoutubeCard({ yt, canManage, reload }) {
         </ol>
       </>}
       {yt.state === 'not_connected' && <><p><b>Google is set up, but no YouTube channel is connected.</b> Sign in with the Google account that owns the channel the videos should go to.</p>{canManage && <button className="btn primary" disabled={busy} onClick={connect}>Connect YouTube</button>}</>}
-      {yt.state === 'connected' && <><p><span className="pill green">Connected</span> {yt.account ? <>as <b>{yt.account}</b>. </> : null}Videos you post go to that account's YouTube channel.</p>{canManage && <button className="btn" disabled={busy} onClick={disconnect}>Disconnect</button>}</>}
+      {yt.state === 'connected' && <>
+        <p><span className="pill green">Connected</span> {yt.account ? <>as <b>{yt.account}</b>. </> : null}{yt.channel?.id ? <>Uploads go to the channel <b>{yt.channel.title || 'unnamed'}</b> <span className="mono">({yt.channel.id})</span>.</> : 'The channel could not be read. Disconnect and connect again to see which channel uploads go to.'}</p>
+        {canManage && <>
+          <Field label="Expected channel ID (optional safety)" hint="When set, posting is refused unless the connected channel matches, so nothing lands on the wrong channel. Find it in YouTube Studio > Settings > Channel > Advanced settings."><TextInput value={expected} onChange={setExpected} placeholder="UC…" /></Field>
+          <div className="row" style={{ gap: 8 }}><button className="btn" disabled={busy} onClick={saveExpected}>Save expected channel</button><button className="btn" disabled={busy} onClick={disconnect}>Disconnect</button></div>
+        </>}</>}
       <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>Google limits uploads: the default quota allows about 6 uploads a day. YouTube also keeps videos from a new Google project private until the project passes YouTube's API compliance review, so unlisted and public only take effect after that review.</p>
     </Card>
   );
@@ -60,7 +66,7 @@ function YoutubeCard({ yt, canManage, reload }) {
 function Row({ v, yt, canManage, reload }) {
   const toast = useToast();
   const [privacy, setPrivacy] = useState(v.privacy || 'unlisted'); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
-  const [edit, setEdit] = useState(false); const [f, setF] = useState({ title: v.title, description: v.description || '' });
+  const [link, setLink] = useState(null); const [edit, setEdit] = useState(false); const [f, setF] = useState({ title: v.title, description: v.description || '' });
   const act = async (fn, ok) => { setBusy(true); setErr(''); try { await fn(); if (ok) toast(ok); reload(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   const post = () => act(() => api.post(`${A}/training-videos/${v.key}/post`, { privacy }), 'Posting started. This can take a few minutes for large videos.');
   const posting = v.status === 'posting';
@@ -83,8 +89,13 @@ function Row({ v, yt, canManage, reload }) {
         <p className="muted" style={{ fontSize: 12.5 }}>{v.youtube_url ? 'Workspaces pick up the new wording. The title and description on YouTube itself are not changed; edit them in YouTube Studio.' : 'Used for the YouTube post and for every workspace.'}</p>
         <div className="row" style={{ gap: 8 }}><button className="btn primary" disabled={busy} onClick={() => act(async () => { await api.put(`${A}/training-videos/${v.key}`, f); setEdit(false); }, 'Saved')}>Save</button><button className="btn" onClick={() => setEdit(false)}>Cancel</button></div>
       </div>}
-      {canManage && !edit && (
+      {link !== null && <div className="stack" style={{ marginTop: 10 }}>
+        <Field label="YouTube link" hint="For a video you uploaded yourself in YouTube Studio (for example to a channel the console cannot reach)."><TextInput value={link} onChange={setLink} placeholder="https://www.youtube.com/watch?v=…" /></Field>
+        <div className="row" style={{ gap: 8 }}><button className="btn primary" disabled={busy} onClick={() => act(async () => { await api.post(`${A}/training-videos/${v.key}/link`, { url: link }); setLink(null); }, 'Linked')}>Use this link</button><button className="btn" onClick={() => setLink(null)}>Cancel</button></div>
+      </div>}
+      {canManage && !edit && link === null && (
         <div className="row" style={{ gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          {!v.youtube_url && !posting && <button className="btn" onClick={() => setLink('')}>Link a YouTube video</button>}
           {!v.youtube_url && <>
             <select className="select" aria-label="Visibility on YouTube" value={privacy} onChange={(e) => setPrivacy(e.target.value)} style={{ maxWidth: 280 }}>{Object.entries(PRIVACY).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
             <button className="btn primary" disabled={busy || posting || yt.state !== 'connected' || !v.server_copy} title={yt.state !== 'connected' ? 'Set up and connect YouTube first' : undefined} onClick={post}>{posting ? 'Posting…' : v.status === 'failed' ? 'Post again' : 'Post to YouTube'}</button>
