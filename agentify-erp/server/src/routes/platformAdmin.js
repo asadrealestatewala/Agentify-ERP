@@ -42,7 +42,7 @@ import emailRoutes from './platformEmail.js';
 import { whatsappAccess } from '../services/whatsappAccess.js';
 import { cleanWhatsappLimits } from '../services/whatsappLimits.js';
 import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
-import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite } from '../services/platformStaff.js';
+import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
 import multer from 'multer';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -93,6 +93,21 @@ r.post('/invite/accept', limiter, asyncH((req, res) => {
   const out = acceptInvite(req.body || {});
   audit(out.email, 'invitation-accepted');
   res.json({ ok: true, email: out.email });
+}));
+// Forgotten password: the same answer whether or not the email is a console account; a stricter limit than sign-in
+const resetLimiter = rateLimit({ windowMs: 15 * 60_000, limit: Number(process.env.RESET_LIMIT) || 5, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many reset requests. Try again later.' } });
+r.post('/password/forgot', resetLimiter, asyncH((req, res) => {
+  platformOnly(req, true);
+  // fire and forget so the response time does not tell an existing account from an unknown one
+  requestPasswordReset(req.body?.email, mainOrigin(req), loginMeta(req)).catch(() => {});
+  res.json({ ok: true });
+}));
+r.get('/password/reset/:token', limiter, asyncH((req, res) => { platformOnly(req); res.json(resetInfo(req.params.token)); }));
+r.post('/password/reset', limiter, asyncH((req, res) => {
+  platformOnly(req, true);
+  const out = completePasswordReset(req.body || {});
+  audit(out.email, 'password-reset', { via: 'email-link' });
+  res.json({ ok: true });
 }));
 const adminOnly = (req) => { if (req.operator.via !== 'session') throw bad('Sign in as an admin to manage two-factor sign-in'); };
 r.get('/2fa', requireOperator, need('self'), (req, res) => { adminOnly(req); res.json(twofaStatus(req.operator.id)); });

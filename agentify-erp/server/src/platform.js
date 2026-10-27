@@ -159,7 +159,9 @@ export function platformDb() {
   for (const [c, def] of [['totp_secret', 'TEXT'], ['totp_enabled', 'INTEGER NOT NULL DEFAULT 0'], ['recovery_codes', 'TEXT'], ['totp_last_step', 'INTEGER NOT NULL DEFAULT 0'],
     ['role', "TEXT NOT NULL DEFAULT 'super_admin'"], ['active', 'INTEGER NOT NULL DEFAULT 1'],
     // invitations: the account cannot sign in until the invitee sets a password with the one-time link
-    ['invited_by', 'TEXT'], ['invite_token_hash', 'TEXT'], ['invite_expires_at', 'TEXT'], ['activated_at', 'TEXT']]) if (!adm.has(c)) pdb.exec(`ALTER TABLE platform_admins ADD COLUMN ${c} ${def}`);
+    ['invited_by', 'TEXT'], ['invite_token_hash', 'TEXT'], ['invite_expires_at', 'TEXT'], ['activated_at', 'TEXT'],
+    // forgotten password: one-time emailed link, only the hash is kept
+    ['reset_token_hash', 'TEXT'], ['reset_expires_at', 'TEXT'], ['reset_sent_at', 'TEXT']]) if (!adm.has(c)) pdb.exec(`ALTER TABLE platform_admins ADD COLUMN ${c} ${def}`);
   const aud = new Set(pdb.prepare('PRAGMA table_info(platform_audit)').all().map((c) => c.name));
   for (const c of ['actor_role', 'target', 'reason', 'outcome', 'ip', 'user_agent', 'request_id']) if (!aud.has(c)) pdb.exec(`ALTER TABLE platform_audit ADD COLUMN ${c} TEXT`);
   // invoices: the one-time part (setup fee) is recognised at once, the rest over the invoice period

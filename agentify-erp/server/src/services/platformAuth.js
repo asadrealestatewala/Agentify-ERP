@@ -136,7 +136,7 @@ export function changePassword(adminId, current, next, meta = {}) {
   const a = platformDb().prepare('SELECT * FROM platform_admins WHERE id=?').get(adminId);
   if (!bcrypt.compareSync(String(current || ''), a.password_hash)) throw bad('Current password is incorrect');
   checkPassword(next, a.email);
-  platformDb().prepare('UPDATE platform_admins SET password_hash=?, token_version=token_version+1 WHERE id=?').run(bcrypt.hashSync(String(next), 10), a.id);
+  platformDb().prepare('UPDATE platform_admins SET password_hash=?, token_version=token_version+1, reset_token_hash=NULL, reset_expires_at=NULL WHERE id=?').run(bcrypt.hashSync(String(next), 10), a.id);
   platformDb().prepare("UPDATE platform_sessions SET revoked_at=datetime('now'), revoked_by='password-change' WHERE admin_id=? AND revoked_at IS NULL").run(a.id);
   return issueSession(platformDb().prepare('SELECT * FROM platform_admins WHERE id=?').get(a.id), meta);
 }
