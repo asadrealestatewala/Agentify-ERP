@@ -5,6 +5,8 @@ import { Card, Field, Loading, PageHead, Select, Toggle } from '../components/ui
 import { api, fileUrl } from '../api.js';
 import { useAuth, useFetch, useMeta, useToast } from '../context.jsx';
 import { money } from '../format.js';
+import { refreshBrand } from '../brand.js';
+import { checkBrandColor, contrastOnWhite, shades } from '../../../shared/brandColor.js';
 
 const PLATFORMS = ['Facebook', 'Instagram', 'WhatsApp', 'X (Twitter)', 'YouTube', 'LinkedIn', 'TikTok', 'Website', 'Other'];
 
@@ -26,6 +28,17 @@ export default function Branding() {
   const ro = !can('settings', 'edit');
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const logo = meta.settings.print_logo;
+  const appLogo = meta.settings.brand_logo;
+  const colorCheck = checkBrandColor(f.brand_color);
+  const applyLook = async (patch) => { await api.put('/api/settings/system', patch); await refreshBrand(); reload(); rl(); };
+  const saveColor = async (v) => {
+    const c = checkBrandColor(v);
+    if (!c.ok) return toast(c.error, 'err');
+    try { await applyLook({ brand_color: c.hex }); toast(c.hex ? 'Workspace colour saved' : 'Back to the default colour', 'ok'); } catch (e) { toast(e.message, 'err'); }
+  };
+  const uploadAppLogo = async ([file]) => {
+    try { const fd = new FormData(); fd.append('logo', file); await api.upload('/api/settings/branding/app-logo', fd); await refreshBrand(); reload(); toast('Workspace logo updated', 'ok'); } catch (e) { toast(e.message, 'err'); }
+  };
   const brand = { ...f, print_logo: meta.settings.print_logo, print_social: JSON.stringify(social.filter((x) => x.handle)) };
 
   const save = async () => {
@@ -49,7 +62,30 @@ export default function Branding() {
       </PageHead>
       <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', alignItems: 'start' }}>
         <div className="stack">
-          <Card title="Logo">
+          <Card title="Workspace colour & logo" actions={null}>
+            <div className="stack" style={{ gap: 14 }}>
+              <div className="muted" style={{ fontSize: 12.5 }}>Your colour replaces the default blue/teal on buttons, links and highlights for everyone in your workspace (people who picked their own accent colour keep it). Your logo appears at the top left, in place of the default mark. Leave both empty to keep the default look.</div>
+              <Field label="Brand colour" hint={colorCheck.ok ? 'Hex colour, for example #1a56db. White text must stay readable on it.' : colorCheck.error}>
+                <div className="row" style={{ gap: 8 }}>
+                  <input type="color" aria-label="Pick brand colour" disabled={ro} value={colorCheck.hex || '#2563eb'} onChange={(e) => set('brand_color', e.target.value)} style={{ width: 44, height: 36, padding: 2, border: '1px solid var(--border-2)', borderRadius: 6, background: 'transparent' }} />
+                  <input className="input" style={{ width: 130 }} disabled={ro} value={f.brand_color || ''} placeholder="Default" maxLength={7} onChange={(e) => set('brand_color', e.target.value)} />
+                  <button className="btn sm primary" disabled={ro || !colorCheck.ok} onClick={() => saveColor(f.brand_color)} style={colorCheck.hex ? { background: colorCheck.hex, borderColor: colorCheck.hex } : undefined}>Save colour</button>
+                  {(f.brand_color || meta.settings.brand_color) && !ro && <button className="btn sm" onClick={() => { set('brand_color', ''); saveColor(''); }}>Use default</button>}
+                </div>
+              </Field>
+              {colorCheck.hex && colorCheck.ok && <div className="muted" style={{ fontSize: 12 }}>Contrast of white text on this colour: {contrastOnWhite(colorCheck.hex).toFixed(1)}:1 (minimum 4.5:1). Hover shade <span style={{ background: shades(colorCheck.hex)[1], color: '#fff', padding: '1px 6px', borderRadius: 4 }}>sample</span></div>}
+              <div className="row" style={{ gap: 16, alignItems: 'flex-start' }}>
+                <div style={{ width: 160, height: 56, border: '1px dashed var(--border-2)', borderRadius: 8, display: 'grid', placeItems: 'center', background: '#0f1b33' }}>
+                  {appLogo ? <img src={fileUrl(appLogo)} alt="Workspace logo" style={{ maxWidth: 140, maxHeight: 40, objectFit: 'contain' }} /> : <span style={{ color: '#94a3b8', fontSize: 12 }}>Default mark</span>}
+                </div>
+                <div className="grow stack" style={{ gap: 8 }}>
+                  {!ro && <FileUploader multiple={false} accept="image/png,image/jpeg,image/webp" onFiles={uploadAppLogo} label="Upload your logo (PNG, JPG, WebP — max 1 MB)" />}
+                  {appLogo && !ro && <button className="btn sm danger" style={{ width: 'fit-content' }} onClick={async () => { await api.del('/api/settings/branding/app-logo'); await refreshBrand(); reload(); toast('Workspace logo removed', 'ok'); }}>Remove logo</button>}
+                </div>
+              </div>
+            </div>
+          </Card>
+          <Card title="Logo on documents">
             <div className="row" style={{ gap: 16, alignItems: 'flex-start' }}>
               <div style={{ width: 120, height: 80, border: '1px dashed var(--border-2)', borderRadius: 8, display: 'grid', placeItems: 'center', background: 'var(--surface-2)' }}>
                 {logo ? <img src={fileUrl(logo)} alt="Logo" style={{ maxWidth: 110, maxHeight: 70, objectFit: 'contain' }} /> : <span className="faint">No logo</span>}

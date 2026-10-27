@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.44', date: '2026-10-27', title: 'Your own colour and logo',
+    items: [
+      { text: 'Choose your workspace brand colour and upload your logo. The colour replaces the default on buttons, links and highlights, and the logo appears at the top left of the menu. Colours that make white text hard to read are refused. Leave both empty to keep the default look.', where: 'Settings > Receipts & Branding > Workspace colour & logo' },
+    ],
+  },
+  {
     version: 'v1.43', date: '2026-10-27', title: 'Download a training video from the console',
     items: [
       { text: 'Console > Training videos has a Download MP4 button on every video that still has a server copy, so you can upload it to YouTube by hand and then link it.', audience: 'platform' },

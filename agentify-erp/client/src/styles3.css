@@ -559,3 +559,7 @@ html[dir="rtl"] .input-group .addon { border-radius: 0 var(--radius, 8px) var(--
   .wa-page.has-sel .wa-list { display: none; } .wa-page:not(.has-sel) .wa-pane { display: none; }
   .wa-back { display: inline-flex; } .wa-list, .wa-chat { max-height: none; } .wa-msg { max-width: 90%; }
 }
+
+/* workspace's own logo, top left of the sidebar */
+.brand-logo { max-width: 100%; max-height: 40px; object-fit: contain; object-position: left center; display: block; }
+.collapsed .brand-logo { max-width: 32px; object-position: center; }

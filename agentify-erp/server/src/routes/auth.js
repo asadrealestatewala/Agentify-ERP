@@ -222,7 +222,7 @@ r.get('/brand', (_req, res) => {
   const workspace = !!currentTenant();
   let logo = '';
   if (workspace) { try { logo = liveConfig().brand?.logo || ''; } catch { /* no website yet */ } }
-  res.json({ name: getSetting('company_name', '') || 'Agentify ERP', demo_logins: demoLogins(), ...(ssoList().length ? { sso: ssoList() } : {}),
+  res.json({ name: getSetting('company_name', '') || 'Agentify ERP', color: getSetting('brand_color', ''), app_logo: getSetting('brand_logo', ''), demo_logins: demoLogins(), ...(ssoList().length ? { sso: ssoList() } : {}),
     // a company's own sign-in page: its brand and the unlisted staff link, never the product's marketing
     ...(workspace ? { workspace: true, logo, staff_path: staffLoginPath() } : {}) });
 });

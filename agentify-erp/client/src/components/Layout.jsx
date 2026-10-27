@@ -9,7 +9,7 @@ import { inNativeApp } from '../installApp.js';
 import CommandPalette from './CommandPalette.jsx';
 import OfflineBar from './OfflineBar.jsx';
 import { NotificationBell } from './Notifications.jsx';
-import { api } from '../api.js';
+import { api, fileUrl } from '../api.js';
 import { useAuth, useFetch, useMeta } from '../context.jsx';
 import { useBrand } from '../brand.js';
 import { BillingBanner, VerifyBanner } from '../pages/Billing.jsx';
@@ -123,8 +123,10 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
   return (
     <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`} onClick={(e) => { if (e.target.closest('a')) closeMobile(); }}>
       <div className="brand">
-        <div className="brand-mark"><Icon name="home" size={18} stroke={2.2} /></div>
-        <div className="brand-name">{brand.name}<small>ERP</small></div>
+        {brand.app_logo
+          ? <img className="brand-logo" src={fileUrl(brand.app_logo)} alt={brand.name} />
+          : <><div className="brand-mark"><Icon name="home" size={18} stroke={2.2} /></div>
+            <div className="brand-name">{brand.name}<small>ERP</small></div></>}
       </div>
       <button className="collapse-btn" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}><Icon name={collapsed ? 'chevR' : 'chevL'} size={12} stroke={3} /></button>
       <nav className="nav" aria-label="Main">
