@@ -5,7 +5,6 @@ import App from './App.jsx';
 import { AppProviders } from './context.jsx';
 import './installApp.js';
 import './theme.js';
-import './supabase.js';
 import { registerSW } from './components/Push.jsx';
 import './styles.css';
 import './styles2.css';

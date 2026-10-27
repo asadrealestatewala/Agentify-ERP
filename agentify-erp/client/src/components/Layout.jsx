@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Icon from './Icon.jsx';
-import { Avatar } from './ui.jsx';
+import { Avatar, Loading } from './ui.jsx';
 import Assistant from './Assistant.jsx';
 import Appearance from './Appearance.jsx';
 import GetAppButton from './GetAppButton.jsx';
@@ -20,7 +20,7 @@ import { FieldSharingBadge } from '../pages/FieldLocation.jsx';
 import { bindUser } from '../fieldLocation.js';
 import { setBackHome } from '../backNav.js';
 import BackLayer from './BackLayer.jsx';
-import { APP_VERSION } from '../../../shared/changelog.js';
+import { APP_VERSION } from '../appVersion.js';
 
 // [label, path, perm module (view)]
 const NAV = [
@@ -247,7 +247,7 @@ export default function Layout() {
           <Appearance />
           <NotificationBell />
         </header>
-        <main className="content" id="content"><VerifyBanner /><BillingBanner /><Announcements /><Outlet /></main>
+        <main className="content" id="content"><VerifyBanner /><BillingBanner /><Announcements /><Suspense fallback={<Loading />}><Outlet /></Suspense></main>
         <Assistant />
         <MobileTabs />
         <OfflineBar />

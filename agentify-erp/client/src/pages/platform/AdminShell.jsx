@@ -5,7 +5,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon.jsx';
 import { Empty, Menu } from '../../components/ui.jsx';
 import { api } from '../../api.js';
-import { APP_VERSION } from '../../../../shared/changelog.js';
+import { APP_VERSION } from '../../appVersion.js';
 import './admin.css';
 
 export const A = '/api/platform/admin';
