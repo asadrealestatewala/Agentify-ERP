@@ -61,7 +61,7 @@ export function listVideos() {
 /** Role names the console can offer (the ones the shipped videos already use, plus the administrators). */
 export const roleNames = () => [...new Set([...manifest().flatMap((m) => m.roles || []), 'Super Admin', 'Admin'])].sort();
 
-const rowOf = (key) => { const r = db().prepare('SELECT * FROM training_posts WHERE key=?').get(String(key)); if (!r) throw notFound('Video not found'); return r; };
+export const rowOf = (key) => { const r = db().prepare('SELECT * FROM training_posts WHERE key=?').get(String(key)); if (!r) throw notFound('Video not found'); return r; };
 const cleanRoles = (v) => { const ok = new Set(roleNames()); return [...new Set((Array.isArray(v) ? v : []).map((x) => String(x)).filter((x) => ok.has(x)))]; };
 
 export function addUpload(file, body, by) {
