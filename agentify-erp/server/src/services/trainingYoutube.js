@@ -51,7 +51,7 @@ function sync() {
 }
 
 const present = (r) => ({ key: r.key, title: r.title, description: r.description, category: r.category, roles: JSON.parse(r.roles || '[]'), seconds: r.seconds, size: r.size, privacy: r.privacy,
-  status: r.status, error: r.error, youtube_url: r.youtube_url, posted_at: r.posted_at, posted_by: r.posted_by, server_copy: !!fileOf(r), uploaded: !r.file?.startsWith('@assets/') });
+  status: r.status, error: r.error, youtube_url: r.youtube_url, posted_at: r.posted_at, posted_by: r.posted_by, youtube_channel: r.youtube_channel, server_copy: !!fileOf(r), uploaded: !r.file?.startsWith('@assets/') });
 export function listVideos() {
   sync();
   // a restart in the middle of an upload leaves 'posting' behind
@@ -94,6 +94,19 @@ export function deleteVideo(key) {
   if (r.file?.startsWith('@assets/')) throw bad('Videos shipped with the system cannot be deleted. After posting, use "Delete server copy".');
   const f = fileOf(r); if (f) fs.rmSync(f, { force: true });
   db().prepare('DELETE FROM training_posts WHERE key=?').run(r.key); bump();
+}
+/**
+ * Forget the YouTube link (the video was deleted on YouTube or went to the wrong channel) so it can be posted again.
+ * The video on YouTube is not touched: the upload permission cannot delete it. A shipped video's file is usable again;
+ * a console upload has no server copy left and must be uploaded again.
+ */
+export function unlink(key) {
+  const r = rowOf(key);
+  if (r.status === 'posting') throw bad('This video is being posted right now. Try again in a minute.');
+  if (!r.youtube_url) throw bad('This video is not linked to YouTube.');
+  db().prepare("UPDATE training_posts SET youtube_id=NULL, youtube_url=NULL, youtube_channel=NULL, posted_at=NULL, status='ready', error=NULL, file_removed=0, updated_at=datetime('now') WHERE key=?").run(r.key);
+  bump();
+  return { server_copy: !!fileOf(rowOf(key)) };
 }
 /** The posted videos every workspace shows (a link, never the file). */
 export function postedVideos() {
@@ -140,8 +153,8 @@ export function startPost(key, { privacy = 'unlisted' } = {}, by = null, deps = 
   posting.add(r.key);
   const done = (fn) => { posting.delete(r.key); fn(); bump(); };
   const job = upload(r, file, privacy, deps).then(
-    (id) => done(() => {
-      db().prepare("UPDATE training_posts SET status='posted', youtube_id=?, youtube_url=?, posted_at=datetime('now'), posted_by=?, error=NULL WHERE key=?").run(id, `https://www.youtube.com/watch?v=${id}`, by, r.key);
+    ({ id, channelId }) => done(() => {
+      db().prepare("UPDATE training_posts SET status='posted', youtube_id=?, youtube_url=?, youtube_channel=?, posted_at=datetime('now'), posted_by=?, error=NULL WHERE key=?").run(id, `https://www.youtube.com/watch?v=${id}`, channelId || null, by, r.key);
       // a copy uploaded to the console has no other use; the files shipped with the system are kept until deleted on purpose
       if (!r.file.startsWith('@assets/')) { fs.rmSync(file, { force: true }); db().prepare('UPDATE training_posts SET file_removed=1 WHERE key=?').run(r.key); }
     }),
@@ -161,5 +174,5 @@ async function upload(r, file, privacy, { fetchFn = fetch } = {}) {
   const res = await fetchFn(url, { method: 'PUT', headers: { 'Content-Type': mime, 'Content-Length': String(size) }, body: Readable.toWeb(fs.createReadStream(file)), duplex: 'half' });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.id) throw new Error(friendly(res.status, data));
-  return data.id;
+  return { id: data.id, channelId: data.snippet?.channelId };
 }

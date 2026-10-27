@@ -53,6 +53,9 @@ function ensureLibrary() {
     run('UPDATE training_library SET youtube_url=?, title=?, description=?, category=?, seconds=? WHERE id=?', p.youtube_url, p.title, p.description, p.category, p.seconds, v.id);
     assignOnce(p.key, v.id, p.roles);
   }
+  // a link the console took back (the video was unlinked) no longer shows in the workspace
+  const live = posted.map((p) => p.key);
+  for (const row of all("SELECT id, seed_key FROM training_library WHERE youtube_url IS NOT NULL AND youtube_url<>''")) if (!live.includes(row.seed_key)) run('UPDATE training_library SET youtube_url=NULL WHERE id=?', row.id);
   setSetting('training_manifest', stamp);
 }
 
