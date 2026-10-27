@@ -43,6 +43,12 @@ import { whatsappAccess } from '../services/whatsappAccess.js';
 import { cleanWhatsappLimits } from '../services/whatsappLimits.js';
 import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite } from '../services/platformStaff.js';
+import multer from 'multer';
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { authorizeUrl, signState, mainOrigin, redirectUri } from '../services/oauthApps.js';
+import * as training from '../services/trainingYoutube.js';
 import { freeSitesConfig, saveFreeSites, checkFreeSitesDns } from '../services/freeSites.js';
 
 const r = Router();
@@ -594,6 +600,36 @@ r.put('/app-config', requireOperator, need('system.manage'), asyncH((req, res) =
   audit(req.operator.email, 'app-config-saved', { min: out.update.min, latest: out.update.latest });
   res.json(out);
 }));
+// ---- Training videos: the console library and posting to YouTube (services/trainingYoutube.js)
+const videoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_r, _f, cb) => fs.mkdir(training.UPLOADS, { recursive: true }, (e) => cb(e, training.UPLOADS)),
+    filename: (_r, f, cb) => cb(null, crypto.randomBytes(16).toString('hex') + path.extname(f.originalname).toLowerCase()),
+  }),
+  limits: { fileSize: 500 * 1024 * 1024, files: 1, fields: 12 },
+  fileFilter: (_r, f, cb) => (['.mp4', '.webm', '.mov'].includes(path.extname(f.originalname).toLowerCase()) && /^video\//.test(f.mimetype) ? cb(null, true) : cb(bad('Choose a video file (MP4, WebM or MOV)'))),
+});
+r.get('/training-videos', requireOperator, need('system.view'), (_req, res) => res.json({ youtube: training.youtubeStatus(), rows: training.listVideos(), roles: training.roleNames(), categories: training.CATEGORIES, privacy: training.PRIVACY }));
+r.get('/training-videos/youtube/connect', requireOperator, need('system.manage'), asyncH((req, res) => {
+  if (training.youtubeStatus().state === 'not_configured') throw bad('Add the Google client ID and secret first (Integrations > Google).');
+  const state = signState({ purpose: 'youtube', origin: mainOrigin(req), by: req.operator.email });
+  res.json({ url: authorizeUrl('google', 'youtube', { state, redirect: redirectUri('google', req) }) });
+}));
+r.delete('/training-videos/youtube', requireOperator, need('system.manage'), (req, res) => { training.disconnect(); audit(req.operator.email, 'youtube-disconnected', {}); res.json({ ok: true }); });
+r.post('/training-videos', requireOperator, need('system.manage'), videoUpload.single('file'), asyncH((req, res) => {
+  if (!req.file) throw bad('Choose a video file (MP4, WebM or MOV)');
+  const key = training.addUpload(req.file, req.body || {}, req.operator.email);
+  audit(req.operator.email, 'training-video-added', { id: key });
+  res.status(201).json({ key });
+}));
+r.put('/training-videos/:key', requireOperator, need('system.manage'), asyncH((req, res) => { training.updateVideo(req.params.key, req.body || {}); audit(req.operator.email, 'training-video-edited', { id: req.params.key }); res.json({ ok: true }); }));
+r.post('/training-videos/:key/post', requireOperator, need('system.manage'), asyncH((req, res) => {
+  training.startPost(req.params.key, { privacy: req.body?.privacy || 'unlisted' }, req.operator.email);
+  audit(req.operator.email, 'training-video-posting', { id: req.params.key, privacy: req.body?.privacy || 'unlisted' });
+  res.status(202).json({ ok: true });
+}));
+r.delete('/training-videos/:key/copy', requireOperator, need('system.manage'), asyncH((req, res) => { training.removeCopy(req.params.key); audit(req.operator.email, 'training-video-copy-deleted', { id: req.params.key }); res.json({ ok: true }); }));
+r.delete('/training-videos/:key', requireOperator, need('system.manage'), asyncH((req, res) => { training.deleteVideo(req.params.key); audit(req.operator.email, 'training-video-deleted', { id: req.params.key }); res.json({ ok: true }); }));
 r.get('/errors', requireOperator, need('system.view'), (_req, res) => res.json(recentErrors()));
 
 // ---- Reports, exports and reconciliation

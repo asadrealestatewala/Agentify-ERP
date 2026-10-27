@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.40', date: '2026-10-27', title: 'Training videos open on YouTube',
+    items: [
+      { text: 'Training videos can now open on YouTube. Where a video shows Watch on YouTube, it opens in a new tab with the title and description shown here, and loads faster because nothing is downloaded from Agentify. The two Field Coverage videos move there first.', where: 'Training Videos' },
+      { text: 'New Training videos page: post each video to your YouTube channel (unlisted, public or private) and every workspace then shows the YouTube link with the title and description saved here. Reports "not configured" until the Google client and a YouTube channel are connected, and the server copy of a posted video can be deleted.', audience: 'platform', where: 'Console > System > Training videos' },
+    ],
+  },
+  {
     version: 'v1.39', date: '2026-10-27', title: 'Training videos for field coverage',
     items: [
       { text: 'Two new training videos: one for administrators and HR on setting up and reading field coverage, and one for field staff on agreeing to the notice, sharing their location only when they choose, and stopping.', where: 'Training Videos' },
