@@ -27,6 +27,7 @@ import { verifySignature, applyBillingEvent, setSubscription, listSubmissions, a
 import * as stripe from '../services/stripe.js';
 import { handlePlatformWebhook, settlePlatformCheckout } from '../services/platformGateways.js';
 import { stripeConfig, getSetting } from '../services/platformConfig.js';
+import { publicAppConfig } from '../services/appConfig.js';
 import { selectableRegions, listCountries } from '../regions/index.js';
 import { GLOBAL_CRM_COPY } from '../regions/marketingCopy.js';
 import { mayIssueCertificate } from '../integrations/domains.js';
@@ -36,7 +37,7 @@ import { sitesDomain } from '../platform.js';
 import { locate, geoConfigured } from '../services/geo.js';
 import { handleCallback } from '../services/oauthFlow.js';
 import { PROVIDERS, appCreds, authorizeUrl, readState, redirectUri, signState, mainOrigin } from '../services/oauthApps.js';
-import { BASE_DOMAIN, platformDb, withTenant, isMultiTenant, createTenant, validateSlug, listTenants, getTenant, setTenantStatus, RESERVED_SLUGS } from '../platform.js';
+import { BASE_DOMAIN, platformDb, resolveTenant, withTenant, isMultiTenant, createTenant, validateSlug, listTenants, getTenant, setTenantStatus, RESERVED_SLUGS } from '../platform.js';
 
 const r = Router();
 r.use('/admin', adminRoutes);
@@ -49,6 +50,15 @@ const urlFor = (slug, req) => (!isMultiTenant() ? null : BASE_DOMAIN === 'localh
 const signupLimiter = rateLimit({ windowMs: 60 * 60_000, limit: Number(process.env.SIGNUP_LIMIT) || 10, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many signups from this address. Try again later.' } });
 
 /** Public: what the marketing page on the main domain shows. `landing` is false on workspace addresses and in single-company installs. */
+// remote configuration of the Android app shell (colours, title, update notice). Public and cached briefly; answers on the
+// main domain and on every workspace address, and uses the workspace's company name as the title on the latter.
+r.get('/app-config', (req, res) => {
+  let name = '';
+  try { name = resolveTenant(req.hostname)?.name || ''; } catch { /* unknown host: platform name */ }
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json(publicAppConfig(name));
+});
+
 r.get('/site', (req, res) => {
   const landing = isMultiTenant() && onPlatformHost(req);
   if (!landing) return res.json({ landing: false, multi_tenant: isMultiTenant() });

@@ -18,6 +18,7 @@ import { COOKIE, login, loginMfa, changePassword, requireOperator, onPlatformHos
 import { ROLES, PERMISSIONS, TOP_ROLES, permsOf, can, need, auditContext, onDenied } from '../services/platformAccess.js';
 import { getSwitches, setSwitches, listRules as listEmailRules, addRule as addEmailRule, removeRule as removeEmailRule, checkEmail } from '../services/disposableEmail.js';
 import { getMaintenance, setMaintenance, recentErrors } from '../services/maintenance.js';
+import { getAppConfig, saveAppConfig } from '../services/appConfig.js';
 import { reportList, runReport, exportReport, savedViews, saveView, deleteView, reconcile } from '../services/platformReports.js';
 import { stripeView, saveStripe, stripeConfig, STRIPE_MODES, audit, getSetting, setSetting } from '../services/platformConfig.js';
 import { testConnection } from '../services/stripe.js';
@@ -584,6 +585,13 @@ r.get('/maintenance', requireOperator, need('system.view'), (_req, res) => res.j
 r.put('/maintenance', requireOperator, need('system.manage'), asyncH((req, res) => {
   const out = setMaintenance(req.body || {}, req.operator.email);
   audit(req.operator.email, out.on ? 'maintenance-on' : 'maintenance-off', { reason: req.body?.reason || null });
+  res.json(out);
+}));
+// ---- Mobile app remote configuration (colours, title, update notice)
+r.get('/app-config', requireOperator, need('system.view'), (_req, res) => res.json(getAppConfig()));
+r.put('/app-config', requireOperator, need('system.manage'), asyncH((req, res) => {
+  const out = saveAppConfig(req.body || {}, req.operator.email);
+  audit(req.operator.email, 'app-config-saved', { min: out.update.min, latest: out.update.latest });
   res.json(out);
 }));
 r.get('/errors', requireOperator, need('system.view'), (_req, res) => res.json(recentErrors()));

@@ -1,0 +1,59 @@
+/* ---------- Phones: calmer screens (360-430px) ----------
+   Keeps the brand look; only spacing, stacking and what sits on top of the content change. */
+@media (max-width: 800px) {
+  /* the page always ends above the floating tab bar, including on phones with a gesture bar */
+  .content { padding-bottom: calc(112px + env(safe-area-inset-bottom)) !important; }
+  /* "Ask" lives in the top bar on phones; the floating button no longer covers buttons and fields */
+  .assistant-fab { display: none; }
+  .topbar { gap: 6px; }
+  .page-head { flex-wrap: wrap; gap: 8px; }
+}
+@media (min-width: 801px) { .ask-btn { display: none; } }
+
+/* the data assistant fills the phone and keeps its header under the system bar */
+@media (max-width: 600px) {
+  .assistant-panel { top: 0; height: auto; padding-top: env(safe-area-inset-top); }
+  .assistant-input { padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+}
+
+/* two-column pages with a fixed first column (report picker, settings lists) stack on phones */
+@media (max-width: 800px) {
+  .grid[style*="px minmax"], .grid[style*="px 1fr"], .grid[style*="minmax(0,1fr) "], .grid[style*="1fr 3"], .grid[style*="1fr 2"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* wide tables become one card per row: label on the left, value on the right */
+@media (max-width: 700px) {
+  .table-wrap, .tbl-wrap { overflow-x: visible; border-top: 0; }
+  table.t.t-stack, table.t.t-stack tbody, table.t.t-stack tfoot, table.t.t-stack tr, table.t.t-stack td { display: block; width: 100%; }
+  table.t.t-stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.t.t-stack tr { margin: 0 0 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+  table.t.t-stack tfoot tr { background: var(--surface-2); font-weight: 700; }
+  table.t.t-stack td { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 8px 14px; border-bottom: 1px solid var(--border); text-align: right !important; min-width: 0; overflow-wrap: anywhere; }
+  table.t.t-stack td:last-child { border-bottom: 0; }
+  table.t.t-stack td::before { content: attr(data-label); flex: 0 0 38%; max-width: 42%; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  table.t.t-stack td[data-label=""]::before, table.t.t-stack td[data-wide]::before { content: none; }
+  table.t.t-stack td[data-wide], table.t.t-stack td[data-label=""] { justify-content: flex-start; text-align: left !important; }
+  table.t.t-stack td:empty { display: none; }
+}
+
+/* long drawers: tighter rows so more of the menu is visible at once */
+@media (max-width: 860px) {
+  .sidebar { padding-top: env(safe-area-inset-top); padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .sidebar .nav-item { padding-top: 7px; padding-bottom: 7px; }
+  .sidebar .sub .nav-item { padding-top: 5px; padding-bottom: 5px; }
+}
+
+/* contact page: the vertical icon strip repeats the tabs above it, so it is hidden below desktop width */
+@media (max-width: 1100px) { .ws-tools { display: none !important; } .ws-left { position: static; max-height: none; overflow: visible; } }
+
+/* ---------- Phone app shell: update notice and page-driven safe areas ---------- */
+.app-update-block { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 24px; background: var(--bg); }
+.app-update-block .card-b { max-width: 360px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 24px; box-shadow: var(--shadow-lg); }
+.app-update-bar { position: fixed; left: 10px; right: 10px; top: calc(10px + var(--safe-top, 0px)); z-index: 300; display: flex; align-items: center; gap: 8px; background: var(--primary); color: #fff; padding: 8px 10px 8px 14px; border-radius: 14px; box-shadow: var(--shadow-lg); font-size: 13px; }
+.app-update-bar span { flex: 1; }
+.app-update-bar .icon-btn { background: transparent; color: #fff; border: 0; width: 28px; height: 28px; font-size: 20px; line-height: 1; }
+/* when the shell hands the bars to the page (console > Mobile app > Safe areas = page) */
+html[data-insets="web"] body { padding: var(--safe-top, 0px) var(--safe-right, 0px) var(--safe-bottom, 0px) var(--safe-left, 0px); }
+@media (max-width: 800px) { html[data-insets="web"] .mtabs { bottom: calc(10px + var(--safe-bottom, 0px)); } }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import BackLayer from './BackLayer.jsx';
 import Icon from './Icon.jsx';
 import { Empty } from './ui.jsx';
 import { api } from '../api.js';
@@ -89,6 +90,7 @@ export function NotificationBell({ allHref = '/notifications' }) {
       <button className={`icon-btn bell ${ring ? 'ring' : ''}`} aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`} aria-expanded={open} onClick={() => setOpen(!open)}>
         <Icon name="bell" />{unread > 0 && <span className="badge-dot">{unread > 9 ? '9+' : unread}</span>}
       </button>
+      {open && <BackLayer onClose={() => setOpen(false)} />}
       {open && (
         <div className="notif-panel" role="dialog" aria-label="Notifications">
           <div className="notif-head"><h3>Notifications {unread > 0 && <span className="count">{unread}</span>}</h3>{unread > 0 && <button className="btn sm ghost" onClick={() => markRead()}>Mark all read</button>}</div>

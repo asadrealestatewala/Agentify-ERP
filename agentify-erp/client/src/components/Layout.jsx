@@ -18,6 +18,8 @@ import { getRegion } from '../format.js';
 import { t } from '../i18n.js';
 import { FieldSharingBadge } from '../pages/FieldLocation.jsx';
 import { bindUser } from '../fieldLocation.js';
+import { setBackHome } from '../backNav.js';
+import BackLayer from './BackLayer.jsx';
 import { APP_VERSION } from '../../../shared/changelog.js';
 
 // [label, path, perm module (view)]
@@ -209,6 +211,8 @@ function MobileTabs() {
 }
 
 export default function Layout() {
+  const navigate = useNavigate();
+  useEffect(() => { setBackHome(navigate); return () => setBackHome(null); }, [navigate]);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar-collapsed') === '1');
   const [mobileOpen, setMobileOpen] = useState(false);
   const { meta } = useMeta();
@@ -227,6 +231,7 @@ export default function Layout() {
   }, []);
   return (
     <div className="app">
+      {mobileOpen && <BackLayer onClose={() => setMobileOpen(false)} />}
       {mobileOpen && <div className="scrim" onClick={() => setMobileOpen(false)} />}
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} mobileOpen={mobileOpen} closeMobile={() => setMobileOpen(false)} />
       <div className="main">
@@ -238,6 +243,7 @@ export default function Layout() {
           <div className="grow" />
           <FieldSharingBadge />
           <Link to="/notifications" className="muted nowrap no-print" style={{ fontSize: 12 }}>{user.role}</Link>
+          <button className="icon-btn ask-btn no-print" onClick={() => window.dispatchEvent(new Event('erp:assistant'))} aria-label="Ask the data assistant"><Icon name="bolt" /></button>
           <Appearance />
           <NotificationBell />
         </header>
