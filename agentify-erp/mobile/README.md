@@ -39,3 +39,30 @@ cp app/build/outputs/apk/debug/app-debug.apk ../../client/public/downloads/agent
 ```
 
 For Google Play see **PLAY_STORE.md** (Capacitor 7 / API 35, signing with your own upload key, Data safety answers, policy risks). JDK 21 and Android SDK platform 35 are needed now. iOS needs a Mac with Xcode (`npm run add:ios`).
+
+## What updates by itself, and what needs a new app file
+
+The Android app is a thin shell around https://agentifyerp.co. Anything the website serves reaches every phone as soon as it is deployed, with no reinstall: every screen, fix and feature, the Back-button logic (`client/src/backNav.js`, called by the shell as `window.__agentifyBack`), the phone layout, and the update notice itself.
+
+On top of that the server controls the shell through **/api/platform/app-config** (edited in the Super Admin console, System > Mobile app) and one native plugin, `AgentifyShell` (`android/app/src/main/java/co/agentifyerp/app/AgentifyShellPlugin.java`), called from `client/src/nativeShell.js`:
+
+| Remote (no new app file) | Plugin method |
+| --- | --- |
+| Status bar / bottom bar colour and icon colour, light and dark | `setAppearance` |
+| Title in the recent-apps list (workspace name) | `setAppearance` |
+| Who handles safe areas (app or page, `--safe-*` variables) | `setAppearance`, `getInsets` |
+| Colour shown while the app opens (remembered from the last visit) | `setAppearance` |
+| Ask for camera, microphone, location, notification permission | `requestPermissions`, `checkPermissions` |
+| Open a link in the phone's browser | `openExternal` |
+| Update banner / minimum version, with a link to the Download page | `getInfo` (versionCode) + config |
+
+Add a method to the plugin only when the web layer truly needs something new from Android; the web app checks `getInfo().bridge` before calling newer methods, and older apps keep working.
+
+**Can never be remote** (needs a rebuilt, republished app file):
+- Permissions not already declared in `AndroidManifest.xml` (declared today: internet, network state, camera, microphone, location, notifications). A new one also needs a Google Play Data safety update.
+- The launcher icon, the name under the icon, and the system splash icon (they live inside the app file).
+- New native plugins or code (for example Bluetooth, NFC, background location).
+- Google Play policy and review: what the app may do is decided by the store listing and declared permissions, not by the server.
+- iOS: needs a Mac, Xcode and an Apple developer account; Apple also forbids changing an app's purpose remotely and may reject a shell that only wraps a website. The same web and server side applies unchanged once an iOS shell exists.
+
+App build numbers: 1.1.0 = 2 (no plugin; sees only a notice), 1.2.0 = 3 (first with the plugin and the Back/status-bar fixes).

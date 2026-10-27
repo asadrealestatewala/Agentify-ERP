@@ -6,6 +6,7 @@ import TwoFactor from '../components/TwoFactor.jsx';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Workspaces, WorkspaceDetail, Expiry, FILTERS } from './SuperAdmin.jsx';
 import AdminShell, { PageTitle, Allowed } from './platform/AdminShell.jsx';
+import MobileAppPage from './platform/MobileApp.jsx';
 import { AdminsPage, SessionsPage, LoginsPage, AuditPage, MaintenancePage, EmailSafetyPage } from './platform/Security.jsx';
 import { ReportsPage, ReconciliationPage } from './platform/Reports.jsx';
 import { Dashboard, HealthPage, NotificationsPage, SetupPage } from './platform/Dashboard.jsx';
@@ -370,6 +371,7 @@ function ConsoleRoutes() {
         <Route path="security/sessions" element={<SessionsPage />} />
         <Route path="security/email" element={<Allowed perm="system.view"><EmailSafetyPage /></Allowed>} />
         <Route path="security/logins" element={<Allowed perm="audit.view"><LoginsPage /></Allowed>} />
+        <Route path="mobile-app" element={<Allowed perm="system.view"><MobileAppPage /></Allowed>} />
         <Route path="maintenance" element={<Allowed perm="system.view"><MaintenancePage /></Allowed>} />
         <Route path="backups" element={<Allowed perm="system.view">{page('Backups', null, <Backups />)}</Allowed>} />
         <Route path="reports" element={<ReportsPage />} />

@@ -15,10 +15,13 @@ import { setRegion } from './format.js';
 import { setLanguage, pickLanguage } from './i18n.js';
 import { seedHomeEntry } from './backNav.js';
 import { watchTables } from './mobileTables.js';
+import { startNativeShell } from './nativeShell.js';
+import AppUpdateGate from './components/AppUpdateGate.jsx';
 
 registerSW();
 seedHomeEntry();
 watchTables();
+startNativeShell();
 
 // The workspace's region (formats, units, terms) is applied before anything renders an amount. Failing to load it
 // leaves the Pakistan defaults, which is what the app always used.
@@ -36,6 +39,7 @@ async function start() {
     <BrowserRouter>
       <AppProviders>
         <App />
+        <AppUpdateGate />
       </AppProviders>
     </BrowserRouter>
   </StrictMode>,
