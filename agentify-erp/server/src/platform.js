@@ -131,6 +131,11 @@ CREATE TABLE IF NOT EXISTS trial_claims(email_hash TEXT PRIMARY KEY, tenant_id I
 CREATE INDEX IF NOT EXISTS idx_tenants_sub ON tenants(subscription_status, trial_ends_at);
 CREATE INDEX IF NOT EXISTS idx_tenants_period ON tenants(current_period_end);
 CREATE INDEX IF NOT EXISTS idx_tenants_product ON tenants(product, plan);
+-- the console's training-video library: what is posted to YouTube and what every workspace shows (services/trainingYoutube.js)
+CREATE TABLE IF NOT EXISTS training_posts(
+  key TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, category TEXT NOT NULL DEFAULT 'Other', roles TEXT NOT NULL DEFAULT '[]', sort_order INTEGER NOT NULL DEFAULT 100, seconds INTEGER,
+  file TEXT, size INTEGER NOT NULL DEFAULT 0, mime TEXT, file_removed INTEGER NOT NULL DEFAULT 0, privacy TEXT NOT NULL DEFAULT 'unlisted', status TEXT NOT NULL DEFAULT 'ready', error TEXT,
+  youtube_id TEXT, youtube_url TEXT, posted_at TEXT, posted_by TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT);
 CREATE TABLE IF NOT EXISTS platform_sessions(id TEXT PRIMARY KEY, admin_id INTEGER NOT NULL REFERENCES platform_admins(id) ON DELETE CASCADE, ip TEXT, user_agent TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')), last_seen TEXT NOT NULL DEFAULT (datetime('now')), expires_at TEXT NOT NULL, revoked_at TEXT, revoked_by TEXT);
 CREATE INDEX IF NOT EXISTS idx_platform_sessions_admin ON platform_sessions(admin_id, revoked_at);

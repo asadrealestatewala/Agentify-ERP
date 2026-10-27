@@ -71,23 +71,29 @@ export default function TrainingLibrary() {
   const length = (s) => (s ? (s < 90 ? `${s} sec` : `${Math.round(s / 60)} min`) : '');
   return (
     <div className="stack">
-      <PageHead title="Training videos" sub={mgr ? 'Every training video. Use Assign to choose which roles see each one, so every team gets its own set.' : 'Short videos made for your role. Watch them here, or download them to keep.'}>
+      <PageHead title="Training videos" sub={mgr ? 'Every training video. Use Assign to choose which roles see each one, so every team gets its own set.' : 'Short videos made for your role. Watch them here, or on YouTube where a video shows a YouTube link.'}>
         {mgr && <button className="btn primary" onClick={() => setAdd(true)}><Icon name="plus" size={14} />Add a video</button>}
       </PageHead>
       {used.length > 2 && <div className="row" role="group" aria-label="Filter by topic" style={{ gap: 6, flexWrap: 'wrap' }}>{used.map((c) => <button key={c} type="button" className={`pill ${cat === c ? 'blue' : 'grey'}`} style={{ cursor: 'pointer', border: 0 }} aria-pressed={cat === c} onClick={() => setCat(c)}>{c}</button>)}</div>}
       {!shown.length ? <Empty icon="video" title="No training videos for your role yet" hint="When the administrator assigns a video to your role, it appears here." /> : (
         <div className="grid g3" style={{ alignItems: 'start' }}>{shown.map((v) => (
           <Card key={v.id} flush>
-            <video controls preload="metadata" playsInline style={{ width: '100%', display: 'block', background: '#000', aspectRatio: '16 / 9' }} aria-label={v.title} src={`/api/training/library/${v.id}/file`} />
+            {v.youtube_url ? (
+              <a href={v.youtube_url} target="_blank" rel="noopener noreferrer" aria-label={`Watch "${v.title}" on YouTube (opens in a new tab)`}
+                style={{ display: 'grid', placeItems: 'center', aspectRatio: '16 / 9', background: 'linear-gradient(135deg,#0e7c6b,#0a5a4d)', color: '#fff', textDecoration: 'none' }}>
+                <span style={{ display: 'grid', placeItems: 'center', gap: 6, fontWeight: 650 }}><Icon name="video" size={34} />Watch on YouTube</span>
+              </a>
+            ) : <video controls preload="metadata" playsInline style={{ width: '100%', display: 'block', background: '#000', aspectRatio: '16 / 9' }} aria-label={v.title} src={`/api/training/library/${v.id}/file`} />}
             <div style={{ padding: 14 }}>
               <div style={{ fontWeight: 650 }}>{v.title}</div>
-              <div className="cell-sub">{v.category}{v.seconds ? ` · ${length(v.seconds)}` : ''} · {mb(v.size)} · {date(String(v.created_at).slice(0, 10))}</div>
+              <div className="cell-sub">{v.category}{v.seconds ? ` · ${length(v.seconds)}` : ''}{v.youtube_url ? '' : ` · ${mb(v.size)}`} · {date(String(v.created_at).slice(0, 10))}</div>
               {v.description && <p className="muted" style={{ margin: '8px 0 0', fontSize: 13.5 }}>{v.description}</p>}
               {mgr && <div style={{ marginTop: 8, fontSize: 12.5 }}><span className="muted">Assigned to: </span>{v.roles.length ? v.roles.map((r) => <span key={r.id} className="pill grey" style={{ marginRight: 4 }}>{r.name}</span>) : <span className="pill amber">Nobody yet (admins only)</span>}</div>}
               <div className="row" style={{ gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
                 {mgr && <button className="btn sm primary" onClick={() => setAssign(v)}><Icon name="users" size={13} />Assign</button>}
-                <button className={`btn sm ${mgr ? '' : 'primary'}`} onClick={() => download(`/api/training/library/${v.id}/file`, { download: 1 }, `${v.title.replace(/[^\w]+/g, '-')}.${v.mime === 'video/webm' ? 'webm' : 'mp4'}`).catch(fail)}><Icon name="download" size={13} />Download</button>
-                {mgr && <button className="btn sm" onClick={() => setEdit(v)}>Edit</button>}
+                {v.youtube_url && <a className={`btn sm ${mgr ? '' : 'primary'}`} href={v.youtube_url} target="_blank" rel="noopener noreferrer"><Icon name="video" size={13} />Watch on YouTube</a>}
+                {!v.youtube_url && <button className={`btn sm ${mgr ? '' : 'primary'}`} onClick={() => download(`/api/training/library/${v.id}/file`, { download: 1 }, `${v.title.replace(/[^\w]+/g, '-')}.${v.mime === 'video/webm' ? 'webm' : 'mp4'}`).catch(fail)}><Icon name="download" size={13} />Download</button>}
+                {mgr && !v.youtube_url && <button className="btn sm" onClick={() => setEdit(v)}>Edit</button>}
                 {mgr && <button className="btn sm ghost danger" onClick={() => setDel(v)}>Delete</button>}
               </div>
             </div>

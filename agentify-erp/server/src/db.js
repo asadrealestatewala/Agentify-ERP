@@ -78,6 +78,7 @@ export const uploadDir = () => currentTenant()?.upload_dir || UPLOAD_DIR;
 function migrate() {
   const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all();
   const addCol = (t, name, def) => { if (cols(t).length && !cols(t).some((c) => c.name === name)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${name} ${def}`); };
+  addCol('training_library', 'youtube_url', 'TEXT'); // set when the video lives on YouTube; workspaces then show a link, not a file
   const hasSales = cols('sales').length > 0;
   if (hasSales) {
     // property_id used to be NOT NULL; construction contracts may have no plot. Rebuild the table once.

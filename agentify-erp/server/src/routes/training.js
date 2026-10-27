@@ -1,7 +1,8 @@
 // Training videos inside every workspace. The ready-made videos ship with the system (server/assets/training, listed in
 // manifest.json) and are placed in each workspace's library the first time it is opened, given to the roles named in the
 // manifest. After that the workspace's administrators decide who gets what with Assign; that choice is never overridden.
-// Each employee sees only the videos assigned to their role; Super Admin and the Admin role see all and can manage them.
+// Videos the Super Admin has posted to YouTube arrive as links (title, description and link come from the console library),
+// so the server does not have to serve them. Each employee sees only the videos assigned to their role; Super Admin and the Admin role see all and can manage them.
 import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,6 +12,7 @@ import { uploader } from './helpers.js';
 import { hasPerm } from '../rbac.js';
 import { HttpError, asyncH, bad, forbidden, notFound, now } from '../util.js';
 import { audit } from '../audit.js';
+import { postedVideos, revision } from '../services/trainingYoutube.js';
 
 const r = Router();
 const authed = (req, _res, next) => (req.user && !req.user.portal ? next() : next(new HttpError(401, 'Authentication required')));
@@ -19,24 +21,38 @@ const CATEGORIES = ['System overview', 'Administration', 'Sales & CRM', 'Propert
 const ASSETS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'assets');
 const SHIPPED = path.join(ASSETS, 'training');
 
-/** Put the shipped videos in this workspace's library (once per manifest version); never touches assignments the administrators changed. */
+/** Give a library row to the roles named, once; never touches assignments the administrators changed afterwards. */
+function assignOnce(key, videoId, roles) {
+  if (getSetting(`training_assigned_${key}`) != null) return;
+  for (const name of roles || []) { const role = get('SELECT id FROM roles WHERE name=?', name); if (role) run('INSERT OR IGNORE INTO training_assignments(video_id, role_id) VALUES(?,?)', videoId, role.id); }
+  setSetting(`training_assigned_${key}`, '1');
+}
+/** Put the shipped videos and the console's YouTube videos in this workspace's library (again when either changes). */
 function ensureLibrary() {
-  let items = [], stamp;
-  try { const f = path.join(SHIPPED, 'manifest.json'); items = JSON.parse(fs.readFileSync(f, 'utf8')); stamp = `${fs.statSync(f).mtimeMs}:${items.length}`; } catch { return; }
+  let items = [], stamp = 'none';
+  try { const f = path.join(SHIPPED, 'manifest.json'); items = JSON.parse(fs.readFileSync(f, 'utf8')); stamp = `${fs.statSync(f).mtimeMs}:${items.length}`; } catch { /* no shipped videos */ }
+  let posted = [], rev = 0;
+  try { posted = postedVideos(); rev = revision(); } catch { /* single-company install without a console library */ }
+  stamp = `${stamp}:${rev}`;
   if (getSetting('training_manifest') === stamp) return;
+  const onYoutube = new Map(posted.map((p) => [p.key, p]));
   items.forEach((it) => {
+    const yt = onYoutube.get(it.key);
     const file = ['mp4', 'webm'].map((e) => path.join(SHIPPED, `${it.key}.${e}`)).find((f) => fs.existsSync(f));
-    if (!file) return;
-    const ext = path.extname(file), mime = ext === '.mp4' ? 'video/mp4' : 'video/webm';
+    if (!file && !yt) return;
+    const ext = file ? path.extname(file) : '', mime = ext === '.webm' ? 'video/webm' : 'video/mp4';
     let v = get('SELECT id FROM training_library WHERE seed_key=?', it.key);
-    if (v) run('UPDATE training_library SET path=?, mime=?, size=?, seconds=? WHERE id=?', `@assets/training/${it.key}${ext}`, mime, fs.statSync(file).size, it.seconds, v.id);
-    else v = { id: Number(run('INSERT INTO training_library(title,description,category,path,mime,size,seconds,seed_key,sort_order,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
-      it.title, it.description, it.category, `@assets/training/${it.key}${ext}`, mime, fs.statSync(file).size, it.seconds, it.key, it.order ?? 100, now()).lastInsertRowid) };
-    if (getSetting(`training_assigned_${it.key}`) == null) {
-      for (const name of it.roles || []) { const role = get('SELECT id FROM roles WHERE name=?', name); if (role) run('INSERT OR IGNORE INTO training_assignments(video_id, role_id) VALUES(?,?)', v.id, role.id); }
-      setSetting(`training_assigned_${it.key}`, '1');
-    }
+    if (v && file) run('UPDATE training_library SET path=?, mime=?, size=?, seconds=? WHERE id=?', `@assets/training/${it.key}${ext}`, mime, fs.statSync(file).size, it.seconds, v.id);
+    else if (!v) v = { id: Number(run('INSERT INTO training_library(title,description,category,path,mime,size,seconds,seed_key,sort_order,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+      it.title, it.description, it.category, file ? `@assets/training/${it.key}${ext}` : '', mime, file ? fs.statSync(file).size : 0, it.seconds, it.key, it.order ?? 100, now()).lastInsertRowid) };
+    assignOnce(it.key, v.id, it.roles);
   });
+  for (const p of posted) {
+    let v = get('SELECT id FROM training_library WHERE seed_key=?', p.key);
+    if (!v) v = { id: Number(run("INSERT INTO training_library(title,description,category,path,mime,size,seconds,seed_key,sort_order,created_at) VALUES(?,?,?,'',?,0,?,?,?,?)", p.title, p.description, p.category, 'video/mp4', p.seconds, p.key, p.order ?? 100, now()).lastInsertRowid) };
+    run('UPDATE training_library SET youtube_url=?, title=?, description=?, category=?, seconds=? WHERE id=?', p.youtube_url, p.title, p.description, p.category, p.seconds, v.id);
+    assignOnce(p.key, v.id, p.roles);
+  }
   setSetting('training_manifest', stamp);
 }
 
@@ -63,7 +79,7 @@ function setAssignments(videoId, roleIds) {
 r.get('/library', authed, asyncH((req, res) => {
   ensureLibrary();
   const mgr = manages(req.user);
-  const rows = visible(req.user).map((v) => ({ id: v.id, title: v.title, description: v.description, category: v.category, mime: v.mime, size: v.size, seconds: v.seconds, created_at: v.created_at, seed_key: v.seed_key, ...(mgr ? { roles: rolesOf(v.id) } : {}) }));
+  const rows = visible(req.user).map((v) => ({ id: v.id, title: v.title, description: v.description, category: v.category, mime: v.mime, size: v.size, seconds: v.seconds, created_at: v.created_at, seed_key: v.seed_key, youtube_url: v.youtube_url || null, ...(mgr ? { roles: rolesOf(v.id) } : {}) }));
   res.json({ categories: CATEGORIES, rows, can: { manage: mgr, all: seesAll(req.user) }, ...(mgr ? { roles: all('SELECT id, name, portal FROM roles ORDER BY portal, name') } : {}) });
 }));
 r.post('/library', authed, manager, up.single('file'), asyncH((req, res) => {
@@ -80,6 +96,7 @@ r.post('/library', authed, manager, up.single('file'), asyncH((req, res) => {
 }));
 r.get('/library/:id(\\d+)/file', authed, asyncH((req, res) => {
   const v = mayWatch(req.user, req.params.id); if (!v) throw notFound('Video not found');
+  if (v.youtube_url) return res.redirect(302, v.youtube_url); // posted to YouTube: nothing is served from here
   const f = fileOf(v), ext = path.extname(v.path);
   res.setHeader('Content-Type', v.mime || 'video/mp4'); res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Content-Disposition', `${req.query.download ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(slug(v.title) + ext)}`);
@@ -94,6 +111,7 @@ r.put('/library/:id(\\d+)/assign', authed, manager, asyncH((req, res) => {
 }));
 r.put('/library/:id(\\d+)', authed, manager, asyncH((req, res) => {
   const v = get('SELECT * FROM training_library WHERE id=?', req.params.id); if (!v) throw notFound('Video not found');
+  if (v.youtube_url) throw bad('This video is managed centrally. Its title and description come from the Agentify library.');
   const title = str(req.body.title ?? v.title, 120); if (!title) throw bad('Give the video a title');
   run('UPDATE training_library SET title=?, description=?, category=? WHERE id=?', title, str(req.body.description ?? v.description, 600), CATEGORIES.includes(req.body.category) ? req.body.category : v.category, v.id);
   audit(req, 'Edited a training video', 'training', v.id, title); res.json({ ok: true });

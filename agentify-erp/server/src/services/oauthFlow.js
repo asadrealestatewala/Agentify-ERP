@@ -5,6 +5,7 @@ import { get, run } from '../db.js';
 import { saveIntegration } from '../integrations/store.js';
 import { appCreds, exchangeCode, readState, redirectUri, signState, PROVIDERS } from './oauthApps.js';
 import { onSocialConnected } from '../integrations/social.js';
+import { saveConnection } from './trainingYoutube.js';
 
 const CODES = `CREATE TABLE IF NOT EXISTS oauth_login_codes(code TEXT PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, provider TEXT NOT NULL, expires_at INTEGER NOT NULL);`;
 let ready = false;
@@ -60,6 +61,18 @@ export async function handleCallback(provider, params, req) {
       const token = signState({ purpose: 'google-signup', email: String(who.email).toLowerCase(), name: who.name || '' });
       return { redirect: back(`google=${encodeURIComponent(token)}${st.q ? '&' + st.q : ''}`) };
     } catch (e) { return { redirect: back(`google_error=failed${st.q ? '&' + st.q : ''}`), detail: e.message }; }
+  }
+  // The Super Admin connecting the platform's YouTube channel (training videos); no workspace is involved.
+  if (st.purpose === 'youtube') {
+    const back = (q) => `${st.origin}/platform/training-videos?${q}`;
+    if (provider !== 'google') return { redirect: back('youtube=failed') };
+    if (params.error) return { redirect: back(`youtube=${params.error === 'access_denied' ? 'cancelled' : 'failed'}`) };
+    try {
+      const tokens = await exchangeCode('google', params.code, redirectUri('google', req));
+      const who = await googleIdentity(tokens.access_token).catch(() => ({}));
+      saveConnection(tokens.refresh_token, who.email, st.by);
+      return { redirect: back('youtube=connected') };
+    } catch (e) { return { redirect: back('youtube=failed'), detail: e.message }; }
   }
   const fail = (code) => `${st.origin}${st.purpose === 'login' ? '/login' : '/settings/integrations'}?oauth_error=${encodeURIComponent(code)}`;
   if (params.error) return { redirect: fail(params.error === 'access_denied' ? 'cancelled' : params.error) };
