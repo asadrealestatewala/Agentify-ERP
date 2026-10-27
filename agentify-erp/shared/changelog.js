@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.41', date: '2026-10-27', title: 'Choose the YouTube channel and re-post training videos',
+    items: [
+      { text: 'Connecting YouTube now always asks which account and channel to use (so a brand channel can be chosen), each posted video shows the channel it went to, and Unlink from YouTube lets you forget a link and post the video again.', audience: 'platform', where: 'Console > System > Training videos' },
+    ],
+  },
+  {
     version: 'v1.40', date: '2026-10-27', title: 'Training videos open on YouTube',
     items: [
       { text: 'Training videos can now open on YouTube. Where a video shows Watch on YouTube, it opens in a new tab with the title and description shown here, and loads faster because nothing is downloaded from Agentify. The two Field Coverage videos move there first.', where: 'Training Videos' },

@@ -628,6 +628,7 @@ r.post('/training-videos/:key/post', requireOperator, need('system.manage'), asy
   audit(req.operator.email, 'training-video-posting', { id: req.params.key, privacy: req.body?.privacy || 'unlisted' });
   res.status(202).json({ ok: true });
 }));
+r.delete('/training-videos/:key/youtube', requireOperator, need('system.manage'), asyncH((req, res) => { const out = training.unlink(req.params.key); audit(req.operator.email, 'training-video-unlinked', { id: req.params.key }); res.json({ ok: true, ...out }); }));
 r.delete('/training-videos/:key/copy', requireOperator, need('system.manage'), asyncH((req, res) => { training.removeCopy(req.params.key); audit(req.operator.email, 'training-video-copy-deleted', { id: req.params.key }); res.json({ ok: true }); }));
 r.delete('/training-videos/:key', requireOperator, need('system.manage'), asyncH((req, res) => { training.deleteVideo(req.params.key); audit(req.operator.email, 'training-video-deleted', { id: req.params.key }); res.json({ ok: true }); }));
 r.get('/errors', requireOperator, need('system.view'), (_req, res) => res.json(recentErrors()));

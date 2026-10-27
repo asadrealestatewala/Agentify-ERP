@@ -60,7 +60,7 @@ test('posting uploads to YouTube, saves the link, and workspaces see a link inst
     seen.push({ url: u, method: init.method, auth: init.headers?.Authorization });
     if (u.includes('oauth2.googleapis.com/token')) return new Response(JSON.stringify({ access_token: 'access-1', expires_in: 3600 }), { status: 200 });
     if (u.includes('uploadType=resumable')) { seen.at(-1).meta = JSON.parse(init.body); return new Response('{}', { status: 200, headers: { location: 'https://www.googleapis.com/upload/session/abc' } }); }
-    if (u.endsWith('/session/abc')) { for await (const _ of init.body) { /* drain */ } return new Response(JSON.stringify({ id: 'VID123' }), { status: 200 }); }
+    if (u.endsWith('/session/abc')) { for await (const _ of init.body) { /* drain */ } return new Response(JSON.stringify({ id: 'VID123', snippet: { channelId: 'UCbrand' } }), { status: 200 }); }
     return new Response('{}', { status: 404 });
   };
   try {
@@ -71,6 +71,7 @@ test('posting uploads to YouTube, saves the link, and workspaces see a link inst
     for (let i = 0; i < 50; i++) { row = (await call(P, 'GET', `${A}/training-videos`, null, { cookie })).data.rows.find((x) => x.key === 'field-coverage-agent'); if (row.status !== 'posting') break; await new Promise((s) => setTimeout(s, 100)); }
     assert.equal(row.status, 'posted', row.error);
     assert.equal(row.youtube_url, 'https://www.youtube.com/watch?v=VID123');
+    assert.equal(row.youtube_channel, 'UCbrand', 'the channel the video landed on is recorded');
     const init = seen.find((s) => s.meta);
     assert.equal(init.meta.status.privacyStatus, 'unlisted');
     assert.equal(init.meta.snippet.title, row.title);
@@ -102,6 +103,15 @@ test('posting uploads to YouTube, saves the link, and workspaces see a link inst
     await call(P, 'PUT', `${A}/training-videos/field-coverage-agent`, { title: 'Location sharing (updated)' }, { cookie });
     const again = await call('ytco.erp.test', 'GET', '/api/training/library', null, { cookie: c });
     assert.equal(again.data.rows.find((x) => x.seed_key === 'field-coverage-agent').title, 'Location sharing (updated)');
+
+    // unlinking (wrong channel): the link is forgotten here and in the workspace, and the video can be posted again
+    const un = await call(P, 'DELETE', `${A}/training-videos/field-coverage-agent/youtube`, null, { cookie });
+    assert.equal(un.status, 200, JSON.stringify(un.data));
+    assert.equal((await call(P, 'DELETE', `${A}/training-videos/field-coverage-agent/youtube`, null, { cookie })).status, 400, 'nothing left to unlink');
+    const after = (await call(P, 'GET', `${A}/training-videos`, null, { cookie })).data.rows.find((x) => x.key === 'field-coverage-agent');
+    assert.equal(after.youtube_url, null); assert.equal(after.status, 'ready'); assert.equal(after.youtube_channel, null);
+    const gone = await call('ytco.erp.test', 'GET', '/api/training/library', null, { cookie: c });
+    assert.equal(gone.data.rows.find((x) => x.seed_key === 'field-coverage-agent').youtube_url, null);
   } finally { global.fetch = realFetch; }
 });
 

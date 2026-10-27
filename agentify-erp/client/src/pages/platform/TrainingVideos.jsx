@@ -76,7 +76,7 @@ function Row({ v, yt, canManage, reload }) {
       </div>
       {v.status === 'failed' && v.error && <div className="alert err" role="alert" style={{ marginTop: 8 }}>{v.error}</div>}
       <ErrorBox error={err} />
-      {v.youtube_url && <p style={{ margin: '8px 0 0' }}><a href={v.youtube_url} target="_blank" rel="noopener noreferrer">{v.youtube_url}</a> <span className="muted">· {v.privacy}{v.posted_by ? ` · posted by ${v.posted_by}` : ''}. Every workspace shows this link, title and description.</span></p>}
+      {v.youtube_url && <p style={{ margin: '8px 0 0' }}><a href={v.youtube_url} target="_blank" rel="noopener noreferrer">{v.youtube_url}</a> <span className="muted">· {v.privacy}{v.posted_by ? ` · posted by ${v.posted_by}` : ''}{v.youtube_channel ? ` · channel ${v.youtube_channel}` : ''}. Every workspace shows this link, title and description.</span></p>}
       {edit && <div className="stack" style={{ marginTop: 10 }}>
         <Field label="Title"><TextInput value={f.title} onChange={(x) => setF({ ...f, title: x })} /></Field>
         <Field label="Description"><textarea className="textarea" rows={3} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} /></Field>
@@ -91,6 +91,7 @@ function Row({ v, yt, canManage, reload }) {
           </>}
           <button className="btn" onClick={() => setEdit(true)}>Edit wording</button>
           {v.youtube_url && v.server_copy && <button className="btn" disabled={busy} onClick={() => confirm(`Delete the copy of "${v.title}" from this server? The YouTube link stays.`) && act(() => api.del(`${A}/training-videos/${v.key}/copy`), 'Server copy deleted')}>Delete server copy</button>}
+          {v.youtube_url && <button className="btn" disabled={busy} onClick={() => confirm(`Forget the YouTube link for "${v.title}"? The video stays on YouTube until you delete it in YouTube Studio. Workspaces go back to the server copy if there is one.`) && act(async () => { const o = await api.del(`${A}/training-videos/${v.key}/youtube`); if (!o.server_copy) toast('Unlinked. There is no server copy left, so add the video again to post it.'); }, 'Unlinked')}>Unlink from YouTube</button>}
           {v.uploaded && !posting && <button className="btn ghost danger" disabled={busy} onClick={() => confirm(`Remove "${v.title}" from the library? Workspaces will keep the YouTube link only until they next refresh.`) && act(() => api.del(`${A}/training-videos/${v.key}`), 'Removed')}>Remove</button>}
         </div>)}
     </Card>
