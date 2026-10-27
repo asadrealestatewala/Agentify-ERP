@@ -13,6 +13,7 @@ import { createInvite, pendingInvites, revokeInvite } from '../services/accessLi
 import { assertSeatAvailable } from '../services/plans.js';
 import { webhookSecret } from '../services/website.js';
 import { cleanStaffPath } from '../services/staffLogin.js';
+import { checkBrandColor } from '../../../shared/brandColor.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -22,7 +23,7 @@ const SETTING_KEYS = ['company_name', 'company_address', 'company_phone', 'compa
   'notify_whatsapp_enabled', 'installment_reminder_days', 'allow_negative_bank',
   // printed documents (receipt vouchers, expense vouchers, statements)
   'print_header', 'print_footer', 'print_email', 'print_phone', 'print_address', 'print_website', 'print_social', 'print_show_logo',
-  'receipt_title', 'receipt_header', 'receipt_footer', 'receipt_terms', 'receipt_copies', 'receipt_qr', 'expense_title', 'expense_header', 'expense_footer', 'agents_can_publish', 'staff_login_path'];
+  'receipt_title', 'receipt_header', 'receipt_footer', 'receipt_terms', 'receipt_copies', 'receipt_qr', 'expense_title', 'expense_header', 'expense_footer', 'agents_can_publish', 'staff_login_path', 'brand_color'];
 
 /** Bootstrap data for dropdowns across the app. */
 r.get('/meta', asyncH((req, res) => {
@@ -53,6 +54,11 @@ r.put('/system', can('settings', 'edit'), asyncH((req, res) => {
   // the API key only changes through "Regenerate" (a form saved with an older copy must not put the old key back)
   const url = req.body.website_webhook_url;
   if (url && !/^https:\/\/[^\s/?#]+\.[^\s]*$/i.test(String(url).trim())) throw bad('The webhook URL must be a full https:// address');
+  if (req.body.brand_color !== undefined) {
+    const c = checkBrandColor(req.body.brand_color);
+    if (!c.ok) throw bad(c.error);
+    req.body.brand_color = c.hex;
+  }
   if (req.body.staff_login_path !== undefined) req.body.staff_login_path = cleanStaffPath(req.body.staff_login_path);
   for (const k of SETTING_KEYS) if (k !== 'website_api_key' && req.body[k] !== undefined) setSetting(k, k === 'website_webhook_url' ? String(req.body[k] || '').trim() : req.body[k]);
   if (req.body.print_social !== undefined) { const v = jparse(req.body.print_social, null); if (!Array.isArray(v)) throw bad('Social handles must be a list'); }
@@ -71,6 +77,20 @@ r.post('/branding/logo', can('settings', 'edit'), logoUp.single('logo'), asyncH(
 r.delete('/branding/logo', can('settings', 'edit'), asyncH((req, res) => {
   setSetting('print_logo', '');
   audit(req, 'Removed company logo', 'settings');
+  res.json({ ok: true });
+}));
+/** Logo shown at the top left of the workspace (separate from the print logo). PNG/JPG/WebP, up to 1 MB. */
+const appLogoUp = uploader('media', 'image', 1);
+r.post('/branding/app-logo', can('settings', 'edit'), appLogoUp.single('logo'), asyncH((req, res) => {
+  if (!req.file) throw bad('Choose an image file');
+  if (!/\.(png|jpe?g|webp)$/i.test(req.file.filename)) { fs.rm(req.file.path, { force: true }, () => {}); throw bad('Use a PNG, JPG or WebP logo'); }
+  setSetting('brand_logo', `media/${req.file.filename}`);
+  audit(req, 'Updated workspace logo', 'settings');
+  res.json({ brand_logo: `media/${req.file.filename}` });
+}));
+r.delete('/branding/app-logo', can('settings', 'edit'), asyncH((req, res) => {
+  setSetting('brand_logo', '');
+  audit(req, 'Removed workspace logo', 'settings');
   res.json({ ok: true });
 }));
 r.post('/system/regenerate-api-key', can('settings', 'edit'), asyncH((req, res) => {
