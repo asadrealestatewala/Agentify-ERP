@@ -20,7 +20,7 @@ export const UPLOADS = path.join(DATA_DIR, 'console-training');
 export const PRIVACY = ['unlisted', 'public', 'private'];
 export const CATEGORIES = ['System overview', 'Administration', 'Sales & CRM', 'Properties & projects', 'Accounting', 'Land & investors', 'HR & payroll', 'Website & marketing', 'Portals', 'Other'];
 const YT_UPLOAD = 'https://www.googleapis.com/upload/youtube/v3/videos';
-const TOKEN_KEY = 'youtube_refresh_token', WHO_KEY = 'youtube_account', REV_KEY = 'training_rev';
+const TOKEN_KEY = 'youtube_refresh_token', WHO_KEY = 'youtube_account', CH_ID_KEY = 'youtube_channel_id', CH_TITLE_KEY = 'youtube_channel_title', EXPECT_KEY = 'youtube_expected_channel', REV_KEY = 'training_rev';
 const posting = new Set();
 const str = (v, n) => String(v ?? '').trim().slice(0, n);
 const db = () => platformDb();
@@ -119,13 +119,40 @@ export const googleReady = () => !!appCreds('google');
 export function youtubeStatus() {
   const connected = !!getSetting(TOKEN_KEY);
   return { state: !googleReady() ? 'not_configured' : connected ? 'connected' : 'not_connected', account: connected ? getSetting(WHO_KEY) : null,
+    channel: connected ? { id: getSetting(CH_ID_KEY) || null, title: getSetting(CH_TITLE_KEY) || null } : null, expected_channel: getSetting(EXPECT_KEY) || '',
     redirect_path: '/api/platform/oauth/google/callback' };
 }
-export function saveConnection(refreshToken, account, by) {
-  if (!refreshToken) throw bad('Google did not return a long-lived permission. Remove Agentify ERP from your Google account permissions and connect again.');
-  setSetting(TOKEN_KEY, refreshToken, { secret: true, by }); setSetting(WHO_KEY, account || '', { by });
+/** Which channel will uploads land on? Asked right after the connection is made (needs the read-only YouTube permission). */
+async function lookupChannel(accessToken) {
+  try {
+    const r = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', { headers: { Authorization: `Bearer ${accessToken}` } });
+    const d = await r.json().catch(() => ({}));
+    const c = d.items?.[0];
+    return c ? { id: c.id, title: c.snippet?.title || '' } : null;
+  } catch { return null; }
 }
-export function disconnect() { setSetting(TOKEN_KEY, null); setSetting(WHO_KEY, null); }
+export async function saveConnection(refreshToken, account, by, accessToken) {
+  if (!refreshToken) throw bad('Google did not return a long-lived permission. Remove Agentify ERP from your Google account permissions and connect again.');
+  const ch = accessToken ? await lookupChannel(accessToken) : null;
+  setSetting(TOKEN_KEY, refreshToken, { secret: true, by }); setSetting(WHO_KEY, account || '', { by });
+  setSetting(CH_ID_KEY, ch?.id || null); setSetting(CH_TITLE_KEY, ch?.title || null);
+}
+export function disconnect() { for (const k of [TOKEN_KEY, WHO_KEY, CH_ID_KEY, CH_TITLE_KEY]) setSetting(k, null); }
+/** Optional safety: refuse to post unless the connected channel is this one (e.g. UC...). Empty turns the check off. */
+export function setExpectedChannel(id, by) {
+  const v = String(id || '').trim();
+  if (v && !/^UC[\w-]{20,24}$/.test(v)) throw bad('A channel ID looks like UCZ7dBMnkt2tstp1KN1znPWg (YouTube Studio > Settings > Channel > Advanced settings).');
+  setSetting(EXPECT_KEY, v || null, { by });
+}
+/** Use a video that was uploaded by hand in YouTube Studio (for example to a channel the API cannot reach). */
+export function linkExisting(key, url, by) {
+  const r = rowOf(key);
+  if (r.status === 'posting') throw bad('This video is being posted right now. Try again in a minute.');
+  const m = String(url || '').trim().match(/^https:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})(?![\w-])/);
+  if (!m) throw bad('Paste a YouTube video link, like https://www.youtube.com/watch?v=XXXXXXXXXXX');
+  db().prepare("UPDATE training_posts SET status='posted', youtube_id=?, youtube_url=?, youtube_channel=NULL, posted_at=datetime('now'), posted_by=?, error=NULL WHERE key=?").run(m[1], `https://www.youtube.com/watch?v=${m[1]}`, by || null, r.key);
+  bump();
+}
 
 const friendly = (status, data) => {
   const reason = data?.error?.errors?.[0]?.reason || data?.error?.status || '';
@@ -147,6 +174,10 @@ export function startPost(key, { privacy = 'unlisted' } = {}, by = null, deps = 
   if (st.state === 'not_configured') throw bad('YouTube is not set up yet. Add the Google client ID and secret first (Integrations > Google).');
   if (st.state === 'not_connected') throw bad('Connect the YouTube channel first.');
   if (r.youtube_url) throw bad('This video is already on YouTube.');
+  if (st.expected_channel) {
+    if (!st.channel?.id) throw bad('YouTube must be connected again before the channel can be checked against the expected channel.');
+    if (st.channel.id !== st.expected_channel) throw bad(`The connected YouTube channel is ${st.channel.title || st.channel.id} (${st.channel.id}), not the expected ${st.expected_channel}. Nothing was posted. Connect the right Google account, or use "Link a YouTube video".`);
+  }
   if (r.status === 'posting' || posting.has(r.key)) throw bad('This video is already being posted.');
   const file = fileOf(r); if (!file) throw bad('The video file is missing on the server, so it cannot be posted.');
   db().prepare("UPDATE training_posts SET status='posting', error=NULL, privacy=? WHERE key=?").run(privacy, r.key);

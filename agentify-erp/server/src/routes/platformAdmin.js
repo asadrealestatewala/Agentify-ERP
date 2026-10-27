@@ -628,6 +628,8 @@ r.post('/training-videos/:key/post', requireOperator, need('system.manage'), asy
   audit(req.operator.email, 'training-video-posting', { id: req.params.key, privacy: req.body?.privacy || 'unlisted' });
   res.status(202).json({ ok: true });
 }));
+r.put('/training-videos/youtube/expected-channel', requireOperator, need('system.manage'), asyncH((req, res) => { training.setExpectedChannel(req.body?.channel_id, req.operator.email); audit(req.operator.email, 'youtube-expected-channel-set', {}); res.json({ ok: true }); }));
+r.post('/training-videos/:key/link', requireOperator, need('system.manage'), asyncH((req, res) => { training.linkExisting(req.params.key, req.body?.url, req.operator.email); audit(req.operator.email, 'training-video-linked', { id: req.params.key }); res.json({ ok: true }); }));
 r.delete('/training-videos/:key/youtube', requireOperator, need('system.manage'), asyncH((req, res) => { const out = training.unlink(req.params.key); audit(req.operator.email, 'training-video-unlinked', { id: req.params.key }); res.json({ ok: true, ...out }); }));
 r.delete('/training-videos/:key/copy', requireOperator, need('system.manage'), asyncH((req, res) => { training.removeCopy(req.params.key); audit(req.operator.email, 'training-video-copy-deleted', { id: req.params.key }); res.json({ ok: true }); }));
 r.delete('/training-videos/:key', requireOperator, need('system.manage'), asyncH((req, res) => { training.deleteVideo(req.params.key); audit(req.operator.email, 'training-video-deleted', { id: req.params.key }); res.json({ ok: true }); }));

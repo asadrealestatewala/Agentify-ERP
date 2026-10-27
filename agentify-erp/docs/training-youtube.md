@@ -19,6 +19,8 @@ Training videos are posted to the platform's YouTube channel once, from **Consol
 6. Quota: the default is 10,000 units a day and one upload costs about 1,600, so about 6 uploads a day. Request more in the Google Cloud quota page if needed.
 7. YouTube forces videos uploaded through a Google project created after July 2020 to **private** until that project passes YouTube's API Services compliance audit. Until then, posted videos stay private whatever visibility is chosen; submit the audit form for the project to enable unlisted and public.
 
+**Which channel?** The upload API cannot choose a channel. It uses the channel that Google's sign-in picked for the connected account, which may be the personal one even when you manage a brand channel. The page shows the channel after connecting (this needs the `youtube.readonly` permission on the consent screen, so reconnect once). Save the brand channel's ID as the expected channel to refuse posts to any other. If Google never offers the brand channel, connect with the Google account that owns it, or upload by hand in YouTube Studio and use **Link a YouTube video**.
+
 **Wrong channel?** Disconnect, then connect again and choose the brand channel on the Google channel screen; each posted video shows its channel ID. Use **Unlink from YouTube** on a video to forget its link and post it again (delete the video itself in YouTube Studio; the upload permission cannot delete videos).
 
 Until steps 1 to 5 are done the page reports *Not configured* and nothing else changes.

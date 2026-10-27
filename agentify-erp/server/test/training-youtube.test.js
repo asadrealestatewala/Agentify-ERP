@@ -50,7 +50,10 @@ test('the console library reports "not configured" cleanly and refuses to post',
 
 test('posting uploads to YouTube, saves the link, and workspaces see a link instead of the file', async () => {
   setSetting('oauth_google_client_id', 'cid'); setSetting('oauth_google_client_secret', 'sec', { secret: true });
-  yt.saveConnection('refresh-token', 'channel@example.test', 'test');
+  const realFetch0 = global.fetch;
+  global.fetch = async (url, init) => (String(url).includes('youtube/v3/channels') ? new Response(JSON.stringify({ items: [{ id: 'UCpersonal0000000000000a', snippet: { title: 'Personal' } }] }), { status: 200 }) : realFetch0(url, init));
+  await yt.saveConnection('refresh-token', 'channel@example.test', 'test', 'access-0');
+  global.fetch = realFetch0;
   const { cookie } = await call(P, 'POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' });
   const seen = [];
   const realFetch = global.fetch;
@@ -113,6 +116,24 @@ test('posting uploads to YouTube, saves the link, and workspaces see a link inst
     const gone = await call('ytco.erp.test', 'GET', '/api/training/library', null, { cookie: c });
     assert.equal(gone.data.rows.find((x) => x.seed_key === 'field-coverage-agent').youtube_url, null);
   } finally { global.fetch = realFetch; }
+});
+
+test('an expected channel blocks posting to the wrong one, and a video can be linked by hand', async () => {
+  const { cookie } = await call(P, 'POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' });
+  const st = (await call(P, 'GET', `${A}/training-videos`, null, { cookie })).data.youtube;
+  assert.equal(st.channel.id, 'UCpersonal0000000000000a');
+  assert.equal((await call(P, 'PUT', `${A}/training-videos/youtube/expected-channel`, { channel_id: 'nope' }, { cookie })).status, 400);
+  assert.equal((await call(P, 'PUT', `${A}/training-videos/youtube/expected-channel`, { channel_id: 'UCbrand000000000000000b' }, { cookie })).status, 200);
+  const blocked = await call(P, 'POST', `${A}/training-videos/vendors/post`, { privacy: 'unlisted' }, { cookie });
+  assert.equal(blocked.status, 400);
+  assert.match(blocked.data.error, /not the expected/);
+  assert.equal((await call(P, 'GET', `${A}/training-videos`, null, { cookie })).data.rows.find((x) => x.key === 'vendors').status, 'ready', 'nothing was started');
+  // linking an upload made by hand
+  assert.equal((await call(P, 'POST', `${A}/training-videos/vendors/link`, { url: 'https://example.com/x' }, { cookie })).status, 400);
+  assert.equal((await call(P, 'POST', `${A}/training-videos/vendors/link`, { url: 'https://youtu.be/abcdefghijk' }, { cookie })).status, 200);
+  const row = (await call(P, 'GET', `${A}/training-videos`, null, { cookie })).data.rows.find((x) => x.key === 'vendors');
+  assert.equal(row.youtube_url, 'https://www.youtube.com/watch?v=abcdefghijk');
+  await call(P, 'PUT', `${A}/training-videos/youtube/expected-channel`, { channel_id: '' }, { cookie });
 });
 
 test('server copies can only be deleted after the video is on YouTube', async () => {

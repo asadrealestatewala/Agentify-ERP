@@ -70,7 +70,7 @@ export async function handleCallback(provider, params, req) {
     try {
       const tokens = await exchangeCode('google', params.code, redirectUri('google', req));
       const who = await googleIdentity(tokens.access_token).catch(() => ({}));
-      saveConnection(tokens.refresh_token, who.email, st.by);
+      await saveConnection(tokens.refresh_token, who.email, st.by, tokens.access_token);
       return { redirect: back('youtube=connected') };
     } catch (e) { return { redirect: back('youtube=failed'), detail: e.message }; }
   }
