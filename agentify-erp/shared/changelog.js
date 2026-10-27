@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.43', date: '2026-10-27', title: 'Download a training video from the console',
+    items: [
+      { text: 'Console > Training videos has a Download MP4 button on every video that still has a server copy, so you can upload it to YouTube by hand and then link it.', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.42', date: '2026-10-27', title: 'See which YouTube channel training videos go to',
     items: [
       { text: 'After connecting YouTube the page shows the channel uploads will go to, and you can save an expected channel ID so posting is refused if the wrong channel is connected. A video uploaded by hand in YouTube Studio can be linked with its YouTube address.', audience: 'platform', where: 'Console > System > Training videos' },
