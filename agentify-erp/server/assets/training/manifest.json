@@ -136,6 +136,43 @@
     "order": 80
   },
   {
+    "key": "field-coverage-admin",
+    "title": "Field coverage for admins and HR",
+    "description": "Turn on location sharing, set timing, retention and the employee notice, give people service areas and read the coverage list and map. Only last shared locations are shown: no route history, no background tracking.",
+    "category": "HR & payroll",
+    "seconds": 159,
+    "roles": [
+      "Super Admin",
+      "Admin",
+      "HR Manager",
+      "Sales Manager",
+      "Project Manager"
+    ],
+    "order": 82
+  },
+  {
+    "key": "field-coverage-agent",
+    "title": "Location sharing for field agents",
+    "description": "For field staff: agree to the notice, share your location once or while the app is open, stop sharing and withdraw. You choose when to share; nothing is collected in the background.",
+    "category": "HR & payroll",
+    "seconds": 115,
+    "roles": [
+      "Super Admin",
+      "Admin",
+      "Finance Manager",
+      "Sales Manager",
+      "Sales Agent",
+      "HR Manager",
+      "Accounts Staff",
+      "Project Manager",
+      "Listing Manager",
+      "Website Manager",
+      "SEO Manager",
+      "Inventory Manager"
+    ],
+    "order": 83
+  },
+  {
     "key": "vendors",
     "title": "Vendors and purchasing",
     "description": "For purchasing and finance: vendors, tenders and bids, purchases and the vendor ledger.",

@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.39', date: '2026-10-27', title: 'Training videos for field coverage',
+    items: [
+      { text: 'Two new training videos: one for administrators and HR on setting up and reading field coverage, and one for field staff on agreeing to the notice, sharing their location only when they choose, and stopping.', where: 'Training Videos' },
+    ],
+  },
+  {
     version: 'v1.38', date: '2026-10-27', title: 'The Android app now updates itself from the website',
     items: [
       { text: 'Colours of the status bar, Back behaviour and the in-app update notice are now controlled from the website, so the Android app improves without anyone reinstalling it. Only a rare change to the app file itself asks you to install a new one, and the app tells you when.', where: 'Android app' },
