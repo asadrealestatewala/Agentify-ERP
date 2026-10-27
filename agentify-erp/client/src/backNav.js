@@ -44,3 +44,22 @@ export function seedHomeEntry() {
     window.history.pushState({ __seeded: true }, '', pathname + search + hash);
   } catch { /* ignore */ }
 }
+
+let goHome = null;
+/** The router's navigate function, so Back from a screen with no history behind it can land on the home screen. */
+export function setBackHome(fn) { goHome = fn; }
+
+/**
+ * The Android app asks this on every Back press (see mobile/android MainActivity). Returns 'handled' when the web app
+ * dealt with it (closed a pop-up or menu, or went back one screen) and 'exit' only on the home screen.
+ */
+function appBack() {
+  if (layers.length) { window.history.back(); return 'handled'; }
+  const path = window.location.pathname;
+  if (path === '/' || path === '') return 'exit';
+  const idx = window.history.state?.idx;
+  if (idx > 0 || (idx === undefined && window.history.length > 1)) { window.history.back(); return 'handled'; }
+  if (goHome) { goHome('/', { replace: true }); return 'handled'; }
+  return 'exit';
+}
+if (typeof window !== 'undefined') window.__agentifyBack = appBack;

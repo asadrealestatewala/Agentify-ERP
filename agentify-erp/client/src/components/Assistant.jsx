@@ -3,6 +3,7 @@ import Icon from './Icon.jsx';
 import { api, downloadPost } from '../api.js';
 import { useToast } from '../context.jsx';
 import { date, money } from '../format.js';
+import BackLayer from './BackLayer.jsx';
 
 const START = ['How many leads this month?', 'How many projects are going on?', 'Budget utilised by project', 'Sales this month by agent', 'Receivables and overdue', 'How many leaves and salaries paid this year?', 'Balance sheet'];
 const bold = (s) => String(s).split(/(\*\*[^*]+\*\*)/g).map((p, i) => (p.startsWith('**') ? <b key={i}>{p.slice(2, -2)}</b> : p));
@@ -30,6 +31,8 @@ function AnswerTable({ t }) {
 export default function Assistant() {
   const toast = useToast();
   const [open, setOpen] = useState(false);
+  // the phone top bar has its own Ask button (the floating one is hidden there so it never covers content)
+  useEffect(() => { const show = () => setOpen(true); window.addEventListener('erp:assistant', show); return () => window.removeEventListener('erp:assistant', show); }, []);
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState(() => { try { return JSON.parse(sessionStorage.getItem('assistant-log')) || []; } catch { return []; } });
@@ -53,6 +56,7 @@ export default function Assistant() {
   return (
     <>
       {!open && <button className="assistant-fab no-print" onClick={() => setOpen(true)} aria-label="Open data assistant" title="Ask the data assistant"><Icon name="bolt" size={20} /><span>Ask</span></button>}
+      {open && <BackLayer onClose={() => setOpen(false)} />}
       {open && (
         <div className="assistant-panel no-print" role="dialog" aria-label="Data assistant">
           <div className="assistant-head">
