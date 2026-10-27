@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.38', date: '2026-10-27', title: 'The Android app now updates itself from the website',
+    items: [
+      { text: 'Colours of the status bar, Back behaviour and the in-app update notice are now controlled from the website, so the Android app improves without anyone reinstalling it. Only a rare change to the app file itself asks you to install a new one, and the app tells you when.', where: 'Android app' },
+      { text: 'New Mobile app page: set the status bar and bottom bar colours for light and dark mode, the recent-apps title, safe-area handling, and an optional update banner or minimum version.', audience: 'platform', where: 'Console > System > Mobile app' },
+    ],
+  },
+  {
     version: 'v1.37', date: '2026-10-27', title: 'Cleaner phone screens and a Back button that steps back',
     items: [
       { text: 'On phones the tables become one card per row, so nothing is cut off or blank when you scroll sideways. Report lists no longer push the table off screen.', where: 'Reports, Commissions, Leads and other lists on a phone' },

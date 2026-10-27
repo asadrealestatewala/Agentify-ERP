@@ -47,3 +47,13 @@
 
 /* contact page: the vertical icon strip repeats the tabs above it, so it is hidden below desktop width */
 @media (max-width: 1100px) { .ws-tools { display: none !important; } .ws-left { position: static; max-height: none; overflow: visible; } }
+
+/* ---------- Phone app shell: update notice and page-driven safe areas ---------- */
+.app-update-block { position: fixed; inset: 0; z-index: 400; display: grid; place-items: center; padding: 24px; background: var(--bg); }
+.app-update-block .card-b { max-width: 360px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 24px; box-shadow: var(--shadow-lg); }
+.app-update-bar { position: fixed; left: 10px; right: 10px; top: calc(10px + var(--safe-top, 0px)); z-index: 300; display: flex; align-items: center; gap: 8px; background: var(--primary); color: #fff; padding: 8px 10px 8px 14px; border-radius: 14px; box-shadow: var(--shadow-lg); font-size: 13px; }
+.app-update-bar span { flex: 1; }
+.app-update-bar .icon-btn { background: transparent; color: #fff; border: 0; width: 28px; height: 28px; font-size: 20px; line-height: 1; }
+/* when the shell hands the bars to the page (console > Mobile app > Safe areas = page) */
+html[data-insets="web"] body { padding: var(--safe-top, 0px) var(--safe-right, 0px) var(--safe-bottom, 0px) var(--safe-left, 0px); }
+@media (max-width: 800px) { html[data-insets="web"] .mtabs { bottom: calc(10px + var(--safe-bottom, 0px)); } }
