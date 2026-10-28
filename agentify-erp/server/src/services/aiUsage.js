@@ -17,6 +17,8 @@ CREATE INDEX IF NOT EXISTS idx_ai_usage_tenant ON ai_usage(tenant_id, at);`;
 let ready = false;
 const db = () => { const d = platformDb(); if (!ready) { d.exec(SCHEMA); ready = true; } return d; };
 
+export const ensureTable = () => db();
+
 /** Token counts out of a provider response; null when it reports none. */
 export function tokensOf(provider, d) {
   if (provider === 'anthropic' && d?.usage) return { input: d.usage.input_tokens || 0, output: d.usage.output_tokens || 0 };

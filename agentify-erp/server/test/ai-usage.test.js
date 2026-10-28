@@ -93,3 +93,37 @@ test('Gemini connection, AI drafts, metering, budget and the usage report', asyn
   assert.equal(over.status, 400); assert.match(over.data.error, /budget/);
   assert.equal((await as(owner, 'DELETE', '/ai/settings/key')).data.connected, false);
 });
+
+test('cost and profit: revenue per workspace and plan, costs only from entered figures, conversion needs a rate', async () => {
+  const { profit, saveCostConfig } = await import('../src/services/profitReport.js');
+  const db = platformDb();
+  const stamp = (d) => d.toISOString().replace('T', ' ').slice(0, 19);
+  const t = db.prepare("SELECT id, plan FROM tenants WHERE is_legacy=0 LIMIT 1").get()
+    || (() => { db.prepare("INSERT INTO tenants(slug, name, plan, db_file, upload_dir, subscription_status, owner_email) VALUES('acme','Acme','growth','x.db','x','active','o@acme.test')").run(); return db.prepare("SELECT id, plan FROM tenants WHERE slug='acme'").get(); })();
+  db.prepare("UPDATE tenants SET subscription_status='active' WHERE id=?").run(t.id);
+  const now = new Date(); const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  db.prepare("INSERT INTO invoices(tenant_id, provider_invoice_id, amount, currency, status, created_at) VALUES(?,?,?,?,'paid',?)").run(t.id, 'inv-profit-1', 3000, 'PKR', stamp(new Date(start.getTime() + 3600_000)));
+  let p = profit({ range: 'month' });
+  const row = p.workspaces.find((w) => w.id === t.id);
+  assert.equal(row.revenue.PKR, 3000);
+  assert.equal(row.profit, null, 'no cost figures and no exchange rate: profit is not guessed');
+  assert.ok(p.missing.some((m) => /exchange rate/.test(m)) && p.missing.some((m) => /monthly cost/.test(m)));
+  assert.equal(p.totals.complete, false);
+
+  const { saveFx } = await import('../src/regions/admin.js');
+  saveFx(db, { base: 'PKR', quote: 'USD', rate: 0.01 }, 'test');
+  saveCostConfig({ currency: 'USD', overhead_month: 5, plan_month: { [t.plan]: 4 } }, 'test');
+  p = profit({ range: 'month' });
+  const r2 = p.workspaces.find((w) => w.id === t.id);
+  assert.ok(Math.abs(r2.revenue_converted - 30) < 1e-6);
+  assert.ok(r2.direct_cost > 0 && r2.profit != null && Math.abs(r2.profit - (30 - r2.direct_cost - (r2.ai_cost || 0))) < 1e-9);
+  assert.equal(p.plans.find((x) => x.plan === t.plan).workspaces >= 1, true);
+  assert.ok(p.totals.overhead > 0 && Math.abs(p.totals.net_profit - (p.totals.workspace_profit - (p.totals.ai_unallocated || 0) - p.totals.overhead)) < 1e-9);
+  assert.throws(() => saveCostConfig({ overhead_month: -1 }, 'test'));
+
+  const owner = (await call('POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  assert.equal((await as(owner, 'GET', '/profit?range=month')).status, 200);
+  assert.equal((await as(owner, 'PUT', '/profit/config', { overhead_month: 7 })).status, 200);
+  const mgr = (await call('POST', `${A}/login`, { email: 'smm@agentify.test', password: 'Saffron#Tide2026' })).cookie;
+  assert.equal((await as(mgr, 'GET', '/profit')).status, 403);
+});

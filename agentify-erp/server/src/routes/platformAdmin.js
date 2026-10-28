@@ -45,6 +45,7 @@ import { listReviews, decideReview, deleteReview, reviewPhoto } from '../service
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
 import * as cal from '../services/contentCalendar.js';
 import * as aiu from '../services/aiUsage.js';
+import { profit, saveCostConfig } from '../services/profitReport.js';
 import multer from 'multer';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -650,6 +651,8 @@ r.post('/content/ai-draft', requireOperator, need('content.calendar'), asyncH(as
 }));
 // ---- AI usage and credits (Agentify's own Gemini connection, and what workspaces use)
 r.get('/ai/usage', requireOperator, need('finance.view'), (_req, res) => res.json(aiu.report()));
+r.get('/profit', requireOperator, need('finance.view'), asyncH((req, res) => res.json(profit(req.query))));
+r.put('/profit/config', requireOperator, need('billing.configure'), asyncH((req, res) => { const c = saveCostConfig(req.body || {}, req.operator.email); audit(req.operator.email, 'cost-config-changed', {}); res.json(c); }));
 r.get('/ai/settings', requireOperator, need('integrations.manage'), (_req, res) => res.json(aiu.settingsView()));
 r.put('/ai/settings', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const v = await aiu.saveSettings(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-settings-changed', { key_changed: !!req.body?.api_key && !/^•/.test(req.body.api_key) }); res.json(v); }));
 r.delete('/ai/settings/key', requireOperator, need('integrations.manage'), (req, res) => { aiu.disconnect(); audit(req.operator.email, 'ai-key-removed', {}); res.json(aiu.settingsView()); });

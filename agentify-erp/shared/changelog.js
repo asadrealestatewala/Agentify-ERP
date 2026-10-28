@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.49', date: '2026-10-28', title: 'Cost and profit report',
+    items: [
+      { text: 'New Cost & profit page: recognised revenue per workspace and plan against the costs you enter (monthly cost per plan, platform overhead) and AI recorded with Agentify\'s key, with margin and net profit. Figures that cannot be worked out, such as a missing cost or exchange rate, show a dash and are listed instead of guessed.', where: 'Platform console > Reports & Analytics > Cost & profit', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.48', date: '2026-10-28', title: 'AI usage and credits',
     items: [
       { text: 'New AI usage & credits page: connect Agentify\'s Gemini key, set a monthly budget and the provider prices, and see credits used and left, plus AI use by workspace, by subscription plan and by purpose. Costs are estimates from the prices you enter.', where: 'Platform console > Reports & Analytics > AI usage & credits', audience: 'platform' },
