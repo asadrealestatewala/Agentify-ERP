@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.47', date: '2026-10-28', title: 'Content calendar for social posts',
+    items: [
+      { text: 'New Content calendar: plan, schedule and record Agentify\'s own social posts, with a month view, Not yet posted and Posted lists, posting limits (per day, per channel, gap and hours) and the next time a post can go out. Scheduling is refused when a limit would be broken and names the next free time.', where: 'Platform console > Marketing > Content calendar', audience: 'platform' },
+      { text: 'New Social Media Manager console role: can use only the Content calendar, with no access to billing, workspaces or settings. Only a Super Admin can change the limits.', where: 'Platform console > Console users & roles', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.46', date: '2026-10-28', title: 'Phone and receipt fixes',
     items: [
       { text: 'On a receipt voucher the QR code no longer covers the Next due date; on a narrow screen it moves below the ledger summary. In dark mode the ledger summary on a phone is readable again.', where: 'Accounting > Receipt Vouchers' },

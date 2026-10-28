@@ -43,6 +43,7 @@ import { whatsappAccess } from '../services/whatsappAccess.js';
 import { cleanWhatsappLimits } from '../services/whatsappLimits.js';
 import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
+import * as cal from '../services/contentCalendar.js';
 import multer from 'multer';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -624,6 +625,23 @@ const videoUpload = multer({
   limits: { fileSize: 500 * 1024 * 1024, files: 1, fields: 12 },
   fileFilter: (_r, f, cb) => (['.mp4', '.webm', '.mov'].includes(path.extname(f.originalname).toLowerCase()) && /^video\//.test(f.mimetype) ? cb(null, true) : cb(bad('Choose a video file (MP4, WebM or MOV)'))),
 });
+// ---- Content calendar (Agentify's own marketing posts); the Social Media Manager role works only here
+r.get('/content', requireOperator, need('content.calendar'), (_req, res) => res.json({ ...cal.overview(), can_edit_limits: can(_req.operator, 'system.manage') }));
+r.post('/content/posts', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.createPost(req.body || {}, req.operator.email); audit(req.operator.email, 'content-post-created', { id: p.id, channel: p.channel }); res.status(201).json(p); }));
+r.put('/content/posts/:id', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.updatePost(req.params.id, req.body || {}, req.operator.email); audit(req.operator.email, 'content-post-edited', { id: p.id }); res.json(p); }));
+r.post('/content/posts/:id/schedule', requireOperator, need('content.calendar'), asyncH((req, res) => {
+  const p = cal.schedulePost(req.params.id, req.body?.scheduled_at, req.operator.email, { override: !!req.body?.override && can(req.operator, 'system.manage') });
+  audit(req.operator.email, 'content-post-scheduled', { id: p.id, at: p.scheduled_at }); res.json(p);
+}));
+r.post('/content/posts/:id/unschedule', requireOperator, need('content.calendar'), asyncH((req, res) => { res.json(cal.unschedulePost(req.params.id)); }));
+r.post('/content/posts/:id/posted', requireOperator, need('content.calendar'), asyncH((req, res) => {
+  const out = cal.markPosted(req.params.id, req.body || {}, req.operator.email, { override: false });
+  audit(req.operator.email, 'content-post-recorded-posted', { id: out.post.id, channel: out.post.channel }); res.json(out);
+}));
+r.post('/content/posts/:id/cancel', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.cancelPost(req.params.id); audit(req.operator.email, 'content-post-canceled', { id: p.id }); res.json(p); }));
+r.delete('/content/posts/:id', requireOperator, need('content.calendar'), asyncH((req, res) => { cal.deletePost(req.params.id); audit(req.operator.email, 'content-post-deleted', { id: Number(req.params.id) }); res.json({ ok: true }); }));
+r.put('/content/limits', requireOperator, need('system.manage'), asyncH((req, res) => { const l = cal.saveLimits(req.body || {}, req.operator.email); audit(req.operator.email, 'content-limits-changed', l); res.json(l); }));
+
 r.get('/training-videos', requireOperator, need('system.view'), (_req, res) => res.json({ youtube: training.youtubeStatus(), rows: training.listVideos(), roles: training.roleNames(), categories: training.CATEGORIES, privacy: training.PRIVACY }));
 r.get('/training-videos/youtube/connect', requireOperator, need('system.manage'), asyncH((req, res) => {
   if (training.youtubeStatus().state === 'not_configured') throw bad('Add the Google client ID and secret first (Integrations > Google).');

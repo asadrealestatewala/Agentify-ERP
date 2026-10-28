@@ -26,6 +26,7 @@ export const PERMISSIONS = {
   'regions.manage': 'Turn regions on or off, edit region packs, flags, rules and exchange rates',
   'regions.support': 'See regions, rules and exchange rates (read-only)',
   'admins.manage': 'Invite, change and remove console users and security rules',
+  'content.calendar': 'Plan, schedule and record Agentify marketing posts in the Content calendar',
   'mailbox.manage': 'Read, send and delete company e-mail (Mailbox) and see the sent log',
 };
 const ALL = Object.keys(PERMISSIONS);
@@ -45,6 +46,7 @@ export const ROLES = {
   technical_admin: { label: 'Technical Administrator', perms: [...VIEW, 'system.manage', 'integrations.manage', 'workspaces.support', 'audit.view'] },
   security_auditor: { label: 'Security Auditor', perms: [...VIEW, 'audit.view', 'workspaces.export'] },
   analytics_viewer: { label: 'Analytics Viewer', perms: ['dashboard.view', 'finance.view', 'analytics.view'] },
+  social_media_manager: { label: 'Social Media Manager', perms: ['content.calendar'] },
   read_only: { label: 'Read-Only Analyst', perms: VIEW },
 };
 /** Roles that hold every permission; at least one active account with one of them must always remain. */
