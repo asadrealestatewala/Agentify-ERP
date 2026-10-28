@@ -201,7 +201,7 @@ function Header({ info }) {
           <button className="lmenu" aria-label="Open menu" aria-expanded={open} onClick={() => setOpen(!open)}>☰</button>
         </nav>
       </div></header>
-      <div className={`ldrawer ${open ? 'open' : ''}`}>{[...links, ['/login', 'Sign in']].map(([to, l]) => <Link key={to} to={to}>{l}</Link>)}<div style={{ padding: '10px 16px' }}><CountrySwitch /></div></div>
+      <div className={`ldrawer ${open ? 'open' : ''}`}>{[...links, ['/login', 'Sign in']].map(([to, l]) => <NavLink key={to} to={to}>{l}</NavLink>)}<div style={{ padding: '10px 16px' }}><CountrySwitch /></div></div>
     </>
   );
 }

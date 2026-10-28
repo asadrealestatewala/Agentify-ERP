@@ -395,8 +395,7 @@
 
 /* country menu with flags */
 .glow .gx-cm{position:relative;display:inline-block}
-.glow .gx-cm-btn{display:inline-flex;align-items:center;gap:9px;height:42px;padding:0 12px;border-radius:12px;border:1px solid var(--ln);background:rgba(255,240,230,.05);color:var(--tx);font:600 14px 'Inter',sans-serif;cursor:pointer;white-space:nowrap}
-.glow[data-theme="light"] .gx-cm-btn{background:#fff}
+.glow .gx-cm-btn{display:inline-flex;align-items:center;gap:9px;height:42px;padding:0 12px;border-radius:12px;border:1px solid var(--ln);background:var(--bg2);color:var(--tx);font:600 14px 'Inter',sans-serif;cursor:pointer;white-space:nowrap}
 .glow .gx-cm-btn:hover{border-color:var(--acc)}
 .glow .gx-cm-name{max-width:170px;overflow:hidden;text-overflow:ellipsis}
 .glow .gx-cm-list{position:absolute;right:0;top:calc(100% + 6px);z-index:60;min-width:230px;margin:0;padding:6px;list-style:none;border-radius:14px;border:1px solid var(--ln);background:var(--bg2);box-shadow:0 18px 50px rgba(0,0,0,.35)}
@@ -405,7 +404,7 @@
 .glow .gx-cm-list button:hover,.glow .gx-cm-list button:focus-visible{background:rgba(52,211,153,.12)}
 .glow .gx-cm-list button[aria-selected="true"]{background:rgba(52,211,153,.18);font-weight:700}
 .glow .gx-cm-list small{color:var(--mu)}
-.glow .gx-cm.drawer{display:block;padding:12px 0}.glow .gx-cm.drawer .gx-cm-btn{width:100%;justify-content:flex-start}.glow .gx-cm.drawer .gx-cm-list{left:0;right:auto;width:100%}
+.glow .gx-cm.in-drawer{display:block;padding:12px 0}.glow .gx-cm.in-drawer .gx-cm-btn{width:100%;justify-content:flex-start}.glow .gx-cm.in-drawer .gx-cm-list{left:0;right:auto;width:100%}
 .glow .gx-cm.foot{display:block;margin-top:14px}.glow .gx-cm.foot .gx-cm-list{top:auto;bottom:calc(100% + 6px);left:0;right:auto}
 @media(max-width:1400px){.glow .gx-nav-r .gx-cm-name{max-width:120px}}
 /* between 1241 and 1400 px the bar is tight: the download button shows its icon only (name in its tooltip and label) */
@@ -450,3 +449,35 @@
 .glow .gx-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 @media (max-width:560px){.glow .gx-rf{padding:22px 18px}.glow .gx-rf-row{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.glow .gx-revs .gx-track{animation:none}.glow .gx-revs{overflow-x:auto}}
+
+/* ---- nav: the link of the section on screen is highlighted ---- */
+.glow .gx-links a.on{color:var(--tx);background:color-mix(in srgb,var(--acc) 16%,transparent);box-shadow:inset 0 -2px 0 var(--acc)}
+.glow .gx-drawer a.on{color:var(--acc);box-shadow:inset 3px 0 0 var(--acc);padding-left:12px}
+
+/* ---- drawer controls read the same in both themes: no browser-default button face ---- */
+.glow .gx-drawer button{background:none;border:0;border-bottom:1px solid var(--ln);font:inherit;font-weight:600;color:var(--tx);cursor:pointer}
+.glow .gx-drawer .gx-cm-btn{border:1px solid var(--ln);background:var(--bg2);color:var(--tx)}
+
+/* ---- tab strips scroll sideways on phones, scrollbar out of sight, fade at the cut edge ---- */
+.glow .gx-tour .h-tour-tabs,.glow .gx-hot{scrollbar-width:none;-ms-overflow-style:none}
+.glow .gx-tour .h-tour-tabs::-webkit-scrollbar,.glow .gx-hot::-webkit-scrollbar{display:none}
+@media(max-width:640px){
+  .glow .gx-tour .h-tour-tabs{scroll-snap-type:x proximity;overscroll-behavior-x:contain;-webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
+  .glow .gx-tour .h-tour-tabs button{scroll-snap-align:start}
+  .glow .gx-hot{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;margin-left:-16px;margin-right:-16px;padding:2px 16px;scroll-snap-type:x proximity;-webkit-mask-image:linear-gradient(90deg,#000 90%,transparent);mask-image:linear-gradient(90deg,#000 90%,transparent)}
+  .glow .gx-hotbtn{flex:none;scroll-snap-align:start;white-space:nowrap}
+}
+
+/* ---- phones: smaller type ---- */
+@media(max-width:480px){
+  .glow #gx-h1{font-size:clamp(28px,8.4vw,34px)}
+  .glow .gx-h2{font-size:clamp(23px,7vw,28px);margin-bottom:12px}
+  .glow .gx-final .gx-h2{font-size:clamp(22px,6.6vw,26px)}
+  .glow .gx-lead,.glow .gx-sub{font-size:15px;line-height:1.55}
+  .glow .gx-hook{font-size:16px}
+  .glow .gx-eyebrow{font-size:11px;letter-spacing:.12em}
+  .glow .gx-tour .h-tour-copy h3{font-size:19px}
+  .glow .gx-tour .h-tour-copy p,.glow .h-ticks li{font-size:14.5px}
+  .glow .gx-tour .h-tour-tabs button{font-size:13.5px;min-height:40px;padding:8px 12px}
+  .glow .gx-ticks.col{font-size:14.5px}
+}

@@ -189,7 +189,7 @@ export function VerifyEmail() {
   return (
     <Shell eyebrow="Email" title={state === 'ok' ? <>Email <em>confirmed.</em></> : state === 'err' ? <>That link <em>did not work.</em></> : <>Confirming…</>}
       lead={state === 'ok' ? 'Thank you. You can sign in and invite your team.' : state === 'err' ? msg : 'One moment.'}>
-      {state !== 'working' && <Link className="btn primary" to="/login" style={{ display: 'inline-block' }}>Go to sign in</Link>}
+      {state !== 'working' && <Link className="btn primary" to="/login">Go to sign in</Link>}
     </Shell>
   );
 }

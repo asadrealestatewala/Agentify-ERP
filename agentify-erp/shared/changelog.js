@@ -6,6 +6,14 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.46', date: '2026-10-28', title: 'Phone and receipt fixes',
+    items: [
+      { text: 'On a receipt voucher the QR code no longer covers the Next due date; on a narrow screen it moves below the ledger summary. In dark mode the ledger summary on a phone is readable again.', where: 'Accounting > Receipt Vouchers' },
+      { text: 'The current page is highlighted in the menu, including on pages opened from a list (for example a lead).', where: 'Menu and bottom tabs' },
+      { text: 'The website menu on a phone reads correctly in dark mode, the demo tab strip scrolls sideways instead of wrapping, and headings and text are a little smaller on small screens.', where: 'Website, mobile app' },
+    ],
+  },
+  {
     version: 'v1.45', date: '2026-10-28', title: 'Console sign-in: show password and reset',
     items: [
       { text: 'The console sign-in page has an eye button to show or hide the password you type, and a Reset password link that emails a one-time link (valid for 30 minutes) to choose a new password. Resetting signs out other sessions; two-factor sign-in stays on.', where: 'Platform console sign-in', audience: 'platform' },

@@ -39,7 +39,7 @@
 :root[data-theme="dark"] .recharts-tooltip-wrapper .recharts-default-tooltip { background: var(--surface-2) !important; border-color: var(--border-2) !important; }
 :root[data-theme="dark"] img { opacity: .93; }
 /* printed paper stays white and dark-on-light in every theme */
-.vp, .print-doc { --muted: #6b7686; --border: #e6e9ef; --text: #1f2937; --surface-2: #f4f6fa; background: #fff !important; color: #1f2937; }
+.vp, .print-doc { --muted: #6b7686; --border: #e6e9ef; --text: #1f2937; --surface: #fff; --surface-2: #f4f6fa; background: #fff !important; color: #1f2937; }
 .vp b, .vp span, .vp h2, .vp td { color: inherit; } .vp .vp-row span { color: #6b7686; } .vp-todo { color: #b45309 !important; }
 @media print { :root[data-theme="dark"] body { background: #fff; color: #1f2937; } }
 

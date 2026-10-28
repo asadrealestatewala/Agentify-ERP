@@ -1,7 +1,7 @@
 /* Public website (main domain). Builds on landing.css (.lp tokens: teal brand, Plus Jakarta Sans headings). */
 .lp{min-height:100vh;display:flex;flex-direction:column}.lp main{flex:1}
 .lp .lbar{background:var(--g2);color:#fff;text-align:center;font-size:14px;padding:8px 16px}
-.lp header nav a.on{color:var(--ink);font-weight:600}
+.lp header nav a.on,.lp header nav a.active{color:var(--g2);font-weight:700;box-shadow:inset 0 -2px 0 var(--g)}
 .lp .lmenu{display:none;background:none;border:1px solid var(--line);border-radius:10px;padding:8px 10px;cursor:pointer;font-size:18px;line-height:1}
 .lp .ldrawer{display:none}
 .lp .lprod{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px}
@@ -201,3 +201,10 @@ html[data-consent="open"] .lp .lsticky{display:none}
   .lp .mseg{display:flex}.lp .mseg button{flex:1;justify-content:center}
 }
 @media(prefers-reduced-motion:reduce){.lp .lbtn,.lp .lsticky,.lp .lworks-l li{transition:none}.lp .lbtn:hover{transform:none}}
+.lp .ldrawer a.active{color:var(--g2);box-shadow:inset 3px 0 0 var(--g);padding-left:10px}
+/* phones: smaller headings and body copy so a screen holds more without losing readability */
+@media(max-width:480px){
+  .lp .mhero-t h1{font-size:clamp(26px,8vw,32px);line-height:1.1}
+  .lp .mhero-t>p,.lp .mlead{font-size:15px}
+  .lp .mh2{font-size:clamp(23px,7vw,28px)}
+}
