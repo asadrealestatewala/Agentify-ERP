@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.48', date: '2026-10-28', title: 'AI usage and credits',
+    items: [
+      { text: 'New AI usage & credits page: connect Agentify\'s Gemini key, set a monthly budget and the provider prices, and see credits used and left, plus AI use by workspace, by subscription plan and by purpose. Costs are estimates from the prices you enter.', where: 'Platform console > Reports & Analytics > AI usage & credits', audience: 'platform' },
+      { text: 'The Content calendar can draft a post with AI from a short brief, within a daily limit and the monthly budget. Drafts are marked as AI drafts and are never scheduled automatically.', where: 'Platform console > Marketing > Content calendar', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.47', date: '2026-10-28', title: 'Content calendar for social posts',
     items: [
       { text: 'New Content calendar: plan, schedule and record Agentify\'s own social posts, with a month view, Not yet posted and Posted lists, posting limits (per day, per channel, gap and hours) and the next time a post can go out. Scheduling is refused when a limit would be broken and names the next free time.', where: 'Platform console > Marketing > Content calendar', audience: 'platform' },

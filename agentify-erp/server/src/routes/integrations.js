@@ -207,7 +207,7 @@ r.post('/ai/promo-script', can('content', 'edit'), asyncH(async (req, res) => {
   const style = ['friendly', 'luxury', 'urgent', 'family'].includes(req.body?.style) ? req.body.style : 'friendly';
   const lang = ['en', 'fr', 'ar', 'ur'].includes(req.body?.language) ? req.body.language : 'en';
   try {
-    const plan = await completeJson(provider, { system: 'You write short promotional videos for real estate listings. Use only the facts given; never invent features, prices, distances or claims. Reply with JSON only.',
+    const plan = await completeJson(provider, { purpose: 'promo_video', system: 'You write short promotional videos for real estate listings. Use only the facts given; never invent features, prices, distances or claims. Reply with JSON only.',
       prompt: `Facts: ${JSON.stringify(facts)}\nPhotos available: ${photos}\nTone: ${style}. Language: ${lang}.\nReturn JSON: {"title": string, "scenes": [{"caption": string (max 70 chars), "seconds": number 2-5, "photo": index starting at 0}], "voiceover": string (what a presenter could say, 60-90 words), "call_to_action": string, "hashtags": [string]}. Use 4 to 7 scenes.` });
     const scenes = (plan.scenes || []).slice(0, 8).map((x, i) => ({ caption: String(x.caption || '').slice(0, 90), seconds: Math.min(6, Math.max(2, Number(x.seconds) || 3)), photo: photos ? Math.min(photos - 1, Math.max(0, Number(x.photo) || i % photos)) : 0 }));
     res.json({ title: String(plan.title || p.title).slice(0, 120), scenes, voiceover: String(plan.voiceover || ''), call_to_action: String(plan.call_to_action || ''), hashtags: (plan.hashtags || []).slice(0, 8).map(String), photos, provider });

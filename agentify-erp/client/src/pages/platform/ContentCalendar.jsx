@@ -55,6 +55,22 @@ function PostForm({ data, post, startAt, onDone, onCancel }) {
   );
 }
 
+function AiDraftForm({ data, onDone, onCancel }) {
+  const toast = useToast();
+  const [f, setF] = useState({ channel: 'facebook', topic: '', tone: '' });
+  const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const go = async () => { setBusy(true); setErr(''); try { await api.post(`${A}/content/ai-draft`, f); toast('Draft added. Review it before scheduling.'); onDone(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  return (
+    <Modal title="Draft a post with AI" onClose={onCancel} footer={<><button className="btn" onClick={onCancel}>Cancel</button><button className="btn primary" disabled={busy} onClick={go}>{busy ? 'Writing…' : 'Write draft'}</button></>}>
+      <ErrorBox error={err} />
+      <p className="muted" style={{ marginTop: 0 }}>The AI writes only from your brief and never invents numbers, customers or claims. Always read and edit the draft before it goes out. {data.ai.drafts_left_today} AI drafts left today.</p>
+      <Field label="Channel"><Select allowEmpty={false} value={f.channel} onChange={(v) => setF({ ...f, channel: v })} options={Object.entries(data.channels).map(([v, label]) => ({ value: v, label }))} /></Field>
+      <Field label="What should the post say?" hint="Give the real facts: the feature, the audience, the call to action"><textarea className="textarea" rows={4} value={f.topic} onChange={(e) => setF({ ...f, topic: e.target.value })} maxLength={1500} /></Field>
+      <Field label="Tone (optional)"><TextInput value={f.tone} onChange={(v) => setF({ ...f, tone: v })} placeholder="Friendly, professional…" /></Field>
+    </Modal>
+  );
+}
+
 function PostedForm({ post, onDone, onCancel }) {
   const toast = useToast();
   const [f, setF] = useState({ post_url: '', at: toInput(new Date().toISOString()) });
@@ -146,7 +162,7 @@ export default function ContentCalendarPage() {
   const toast = useToast();
   const [data, setData] = useState(null); const [err, setErr] = useState('');
   const [month, setMonth] = useState(() => new Date());
-  const [tab, setTab] = useState('notposted'); const [form, setForm] = useState(null); const [posted, setPosted] = useState(null);
+  const [ai, setAi] = useState(false); const [tab, setTab] = useState('notposted'); const [form, setForm] = useState(null); const [posted, setPosted] = useState(null);
   const load = useCallback(() => api.get(`${A}/content`).then((d) => { setData(d); setErr(''); }).catch((e) => setErr(e.message)), []);
   useEffect(() => { load(); }, [load]);
   const act = async (path, ok, verb = 'post') => { try { await (verb === 'del' ? api.del(`${A}/content/posts/${path}`) : api.post(`${A}/content/posts/${path}`, {})); toast(ok); load(); } catch (e) { setErr(e.message); } };
@@ -161,6 +177,7 @@ export default function ContentCalendarPage() {
   return (
     <>
       <PageTitle title="Content calendar" sub="Plan, schedule and record Agentify's own social posts, with the posting limits and the next time a post can go out." >
+        {data.ai?.connected && <button className="btn" disabled={!data.ai.drafts_left_today} onClick={() => setAi(true)}>Draft with AI</button>}
         <button className="btn primary" onClick={() => setForm({ post: null })}>New post</button>
       </PageTitle>
       <ErrorBox error={err} />
@@ -179,6 +196,7 @@ export default function ContentCalendarPage() {
       </Card>
       {data.can_edit_limits ? <LimitsCard data={data} reload={load} /> : <Card title="Posting limits"><p className="muted" style={{ margin: 0 }}>{data.limits.per_day} posts a day in total, {data.limits.per_channel_per_day} per channel, {data.limits.min_gap_minutes} minutes apart on a channel, between {data.limits.window_start} and {data.limits.window_end} ({data.limits.timezone}). A Super Admin can change these.</p></Card>}
       {form && <PostForm data={data} post={form.post} startAt={form.startAt} onCancel={() => setForm(null)} onDone={() => { setForm(null); load(); }} />}
+      {ai && <AiDraftForm data={data} onCancel={() => setAi(false)} onDone={() => { setAi(false); load(); }} />}
       {posted && <PostedForm post={posted} onCancel={() => setPosted(null)} onDone={() => { setPosted(null); load(); }} />}
     </>
   );

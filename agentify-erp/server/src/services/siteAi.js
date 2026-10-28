@@ -147,7 +147,7 @@ export async function generateSiteDraft(rawBrief) {
   const provider = activeProvider(getSetting('ai_default', null));
   if (!provider) throw Object.assign(bad('Connect an AI provider first (Integrations, AI). Your own key is used, so nothing is shared with other companies.'), { status: 409 });
   let raw;
-  try { raw = await completeJson(provider, { system: SYSTEM, prompt: promptFor(brief), maxTokens: 4000 }); }
+  try { raw = await completeJson(provider, { purpose: 'website_builder', system: SYSTEM, prompt: promptFor(brief), maxTokens: 4000 }); }
   catch (e) { throw bad(`The AI service could not write the page: ${String(e.message || e).slice(0, 200)}`); }
   return { provider, brief: { company: brief.company }, ...cleanDraft(raw, { company: brief.company }) };
 }

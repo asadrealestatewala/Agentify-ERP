@@ -166,7 +166,7 @@ export async function writeListingText(body, stored) {
   // figures the person may keep: the facts, plus text they wrote themselves
   const allowed = [JSON.stringify(ctx.facts), ctx.existing.title, ctx.existing.short_desc, ctx.existing.description, mode === 'rewrite' ? opts.text : ''].join('\n');
   let raw;
-  try { raw = await completeJson(provider, { system: SYSTEM, prompt: promptFor(mode, opts, ctx), maxTokens: mode === 'description' ? 2000 : 900 }); }
+  try { raw = await completeJson(provider, { purpose: 'property_writer', system: SYSTEM, prompt: promptFor(mode, opts, ctx), maxTokens: mode === 'description' ? 2000 : 900 }); }
   catch (e) { throw new HttpError(502, `The AI service could not write the text: ${String(e.message || e).slice(0, 200)}`, { code: 'ai_failed' }); }
   return { provider, mode, language: opts.language, rtl: RTL_LANGUAGES.includes(opts.language), ...(mode === 'rewrite' ? { field: opts.field } : {}), ...cleanAnswer(mode, raw, allowed) };
 }
