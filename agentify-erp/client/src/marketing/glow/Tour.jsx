@@ -46,6 +46,8 @@ export default function Tour() {
   // "#tour-<tab>" (hero buttons, menu) and "#pipeline" open the tour on that screen
   useEffect(() => { const m = /^#tour-([a-z0-9]+)$/.exec(loc.hash); if (m && TABS.some((x) => x.key === m[1])) setTab(m[1]); else if (loc.hash === '#pipeline') setTab('pipeline'); else if (loc.hash === '#tour') setTab('inbox'); }, [loc.hash]);
   const t = useMemo(() => TABS.find((x) => x.key === tab), [tab]);
+  // keep the chosen tab in view when the strip scrolls sideways
+  useEffect(() => { const el = tabRefs.current[tab]; const box = el?.parentElement; if (el && box && box.scrollWidth > box.clientWidth) box.scrollTo({ left: el.offsetLeft - 12, behavior: 'smooth' }); }, [tab]);
   const choose = (k) => { setTab(k); track('tour_tab', { where: k }); };
   const onKey = (e) => {
     const i = TABS.findIndex((x) => x.key === tab);

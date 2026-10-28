@@ -33,6 +33,24 @@ function Nav({ info, theme, toggleTheme }) {
   const brand = info.content.brand || 'Agentify ERP';
   const nav = useNavigate();
   const loc = useLocation();
+  // the link of the section being read is highlighted: the last one whose top has passed the header
+  const [current, setCurrent] = useState('');
+  useEffect(() => {
+    const spy = () => {
+      const line = 110;
+      let at = '';
+      for (const [h] of NAV) {
+        const id = h === '#crm' || h === '#pipeline' ? 'tour' : h.slice(1);
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const r = el.getBoundingClientRect();
+        if (r.top <= line && r.bottom > line) at = id === 'tour' ? (window.location.hash === '#tour-pipeline' ? '#pipeline' : '#crm') : h;
+      }
+      setCurrent(at);
+    };
+    spy(); window.addEventListener('scroll', spy, { passive: true }); window.addEventListener('hashchange', spy);
+    return () => { window.removeEventListener('scroll', spy); window.removeEventListener('hashchange', spy); };
+  }, [loc.hash]);
   // "CRM" and "Pipeline" open the live demo on that screen; the other links are plain anchors
   const jump = (e, h) => {
     setOpen(false);
@@ -50,7 +68,7 @@ function Nav({ info, theme, toggleTheme }) {
     <header className={`gx-nav ${scrolled ? 'scrolled' : ''}`}>
       <div className="gx-nav-in">
         <Link to="/" className="gx-logo" aria-label={`${brand} home`}><span className="gx-mark"><Ico n="home" size={18} stroke={2.2} /></span><span className="gx-word">{brand}</span></Link>
-        <nav className="gx-links" aria-label="Main">{NAV.map(([h, l]) => <a key={h} href={h} onClick={(e) => jump(e, h)}>{l}</a>)}</nav>
+        <nav className="gx-links" aria-label="Main">{NAV.map(([h, l]) => <a key={h} href={h} onClick={(e) => jump(e, h)} className={current === h ? 'on' : ''} aria-current={current === h ? 'location' : undefined}>{l}</a>)}</nav>
         <div className="gx-nav-r">
           <button type="button" className="gx-icon-btn gx-theme-top" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}><Ico n={theme === 'dark' ? 'sun' : 'moon'} size={18} /></button>
           <span className="gx-hide-m"><CountryMenu /></span>
@@ -62,10 +80,10 @@ function Nav({ info, theme, toggleTheme }) {
       </div>
       {open && (
         <div id="gx-drawer" className="gx-drawer">
-          {NAV.map(([h, l]) => <a key={h} href={h} onClick={(e) => jump(e, h)}>{l}</a>)}
+          {NAV.map(([h, l]) => <a key={h} href={h} onClick={(e) => jump(e, h)} className={current === h ? 'on' : ''} aria-current={current === h ? 'location' : undefined}>{l}</a>)}
           <Link to="/login">Sign in</Link>
           <button type="button" onClick={toggleTheme}>{theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'}</button>
-          <CountryMenu variant="drawer" />
+          <CountryMenu variant="in-drawer" />
           {installBtn}
         </div>)}
     </header>

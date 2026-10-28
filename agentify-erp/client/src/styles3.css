@@ -342,8 +342,9 @@ a { font-weight: 600; } .btn, .nav-item, .tab, .chip, .pagination a { font-weigh
 
 
 /* receipt: ledger summary table + small QR */
-.qr-box { display: flex; gap: 14px; align-items: flex-start; margin: 16px 0 0; page-break-inside: avoid; break-inside: avoid; }
-.qr-main { flex: 1; min-width: 0; } .qr-table { width: 100%; font-size: 12px; } .qr-table th { background: #0b3d3a; color: #fff; font-size: 11px; }
+.qr-box { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; margin: 16px 0 0; page-break-inside: avoid; break-inside: avoid; }
+.qr-main { flex: 1 1 460px; min-width: 0; overflow-x: auto; } .qr-table td.num, .qr-table th.num { white-space: nowrap; } .qr-table th, .qr-table td { padding-left: 8px; padding-right: 8px; }
+@media print { .qr-box { flex-wrap: nowrap; } .qr-main { overflow: visible; } } .qr-table { width: 100%; font-size: 12px; } .qr-table th { background: #0b3d3a; color: #fff; font-size: 11px; }
 .qr-fig { margin: 0; flex: none; text-align: center; } .qr-fig img { display: block; border: 1px solid #cfd8d6; padding: 3px; border-radius: 4px; image-rendering: pixelated; } .qr-fig figcaption { font-size: 9.5px; color: #667085; margin-top: 2px; }
 .qr-meta { margin-top: 6px; font-size: 11px; color: var(--muted, #667085); } .qr-warn { margin-top: 4px; color: #b54708; }
 

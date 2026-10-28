@@ -142,7 +142,7 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
                 )}
               </>
             ) : (
-              <NavLink to={g.to} end className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title={g.label}><Icon name={g.icon} /><span className="nav-label">{t('nav.' + g.label.toLowerCase().replace(/[^a-z]+/g, '_'), g.label)}</span></NavLink>
+              <NavLink to={g.to} end={g.to === '/'} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`} title={g.label}><Icon name={g.icon} /><span className="nav-label">{t('nav.' + g.label.toLowerCase().replace(/[^a-z]+/g, '_'), g.label)}</span></NavLink>
             )}
           </div>
         ))}
@@ -207,7 +207,7 @@ function MobileTabs() {
   return (
     <>
       {evt && <div className="install-bar no-print"><span>Install the app on your phone</span><button className="btn sm primary" onClick={async () => { evt.prompt(); await evt.userChoice.catch(() => {}); setEvt(null); }}>Install</button><button className="btn sm ghost" onClick={() => setEvt(null)} aria-label="Dismiss">×</button></div>}
-      <nav className="mtabs no-print" aria-label="Quick navigation">{tabs.map(([l, to, ic]) => <NavLink key={to} to={to} end className={({ isActive }) => (isActive ? 'on' : '')}><Icon name={ic} size={20} /><span>{l}</span></NavLink>)}</nav>
+      <nav className="mtabs no-print" aria-label="Quick navigation">{tabs.map(([l, to, ic]) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive ? 'on' : '')}><Icon name={ic} size={20} /><span>{l}</span></NavLink>)}</nav>
     </>
   );
 }
