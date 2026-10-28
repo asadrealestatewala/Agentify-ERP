@@ -94,3 +94,18 @@ th.pa-sortable { cursor: pointer; user-select: none; } th.pa-sortable:hover { co
 @media (max-width: 600px) { .pa-kpis, .pa-grid2, .pa-grid3 { grid-template-columns: minmax(0, 1fr); } .pa-funnel-row { grid-template-columns: 120px 1fr 50px; } .pa-hide-sm { display: none; } }
 .pa .card-h { flex-wrap: wrap; gap: 8px; } .pa .card-h .row { flex-wrap: wrap; gap: 8px; }
 @media (max-width: 600px) { .pa .card-h .row > .input, .pa .card-h .row > select { width: 100% !important; } }
+
+/* content calendar */
+.cc-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.cc-k { font-size: 12.5px; color: var(--muted); } .cc-v { font-size: 20px; font-weight: 650; margin: 2px 0; }
+.cc-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cc-dow { font-size: 11.5px; color: var(--muted); text-align: center; padding: 2px 0; }
+.cc-day { min-height: 84px; border: 1px solid var(--border); border-radius: 8px; padding: 4px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cc-day.empty { border-color: transparent; } .cc-day.today { border-color: var(--pa-accent, #0e7c6b); }
+.cc-num { align-self: flex-start; background: none; border: 0; color: var(--muted); font-size: 12px; padding: 0 3px; cursor: pointer; }
+.cc-chip { border: 0; border-radius: 5px; padding: 2px 5px; font-size: 11.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; background: var(--grey-bg); color: var(--text); }
+.cc-chip.scheduled { background: var(--blue-bg); } .cc-chip.posted { background: var(--green-bg); color: var(--green); }
+.cc-row { display: flex; gap: 12px; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.cc-row:first-child { border-top: 0; }
+@media (max-width: 900px) { .cc-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .cc-day { min-height: 56px; } .cc-chip { font-size: 10.5px; } .cc-stats { grid-template-columns: minmax(0, 1fr); } }

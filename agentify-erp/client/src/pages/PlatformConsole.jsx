@@ -4,11 +4,14 @@ import { api } from '../api.js';
 import { useToast } from '../context.jsx';
 import Icon from '../components/Icon.jsx';
 import TwoFactor from '../components/TwoFactor.jsx';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Workspaces, WorkspaceDetail, Expiry, FILTERS } from './SuperAdmin.jsx';
-import AdminShell, { PageTitle, Allowed } from './platform/AdminShell.jsx';
+import AdminShell, { PageTitle, Allowed, useCan } from './platform/AdminShell.jsx';
 import MobileAppPage from './platform/MobileApp.jsx';
 import TrainingVideosPage from './platform/TrainingVideos.jsx';
+import CostProfitPage from './platform/CostProfit.jsx';
+import AiUsagePage from './platform/AiUsage.jsx';
+import ContentCalendarPage from './platform/ContentCalendar.jsx';
 import { AdminsPage, SessionsPage, LoginsPage, AuditPage, MaintenancePage, EmailSafetyPage } from './platform/Security.jsx';
 import { ReportsPage, ReconciliationPage } from './platform/Reports.jsx';
 import { Dashboard, HealthPage, NotificationsPage, SetupPage } from './platform/Dashboard.jsx';
@@ -414,11 +417,15 @@ function ConsoleRoutes() {
   const open = (id) => nav(`/platform/workspaces/${id}${loc.search}`);
   const wsMatch = loc.pathname.match(/^\/platform\/workspaces\/(\d+)/);
   const filterLabel = FILTERS.find(([k]) => k === new URLSearchParams(loc.search).get('status'))?.[1] || 'All workspaces';
+  const can = useCan();
   const page = (title, sub, el) => <><PageTitle title={title} sub={sub} />{el}</>;
   return (
     <>
       <Routes>
-        <Route index element={<Allowed perm="dashboard.view"><Dashboard /></Allowed>} />
+        <Route index element={can('dashboard.view') || !can('content.calendar') ? <Allowed perm="dashboard.view"><Dashboard /></Allowed> : <Navigate to="/platform/content" replace />} />
+        <Route path="profit" element={<Allowed perm="finance.view"><CostProfitPage /></Allowed>} />
+        <Route path="ai-usage" element={<Allowed perm="finance.view"><AiUsagePage /></Allowed>} />
+        <Route path="content" element={<Allowed perm="content.calendar"><ContentCalendarPage /></Allowed>} />
         <Route path="whats-new" element={<WhatsNew platform />} />
         <Route path="health" element={<Allowed perm="system.view"><HealthPage /></Allowed>} />
         <Route path="notifications" element={<Allowed perm="dashboard.view"><NotificationsPage /></Allowed>} />

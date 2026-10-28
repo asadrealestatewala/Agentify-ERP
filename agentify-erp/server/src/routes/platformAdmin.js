@@ -43,6 +43,9 @@ import { whatsappAccess } from '../services/whatsappAccess.js';
 import { cleanWhatsappLimits } from '../services/whatsappLimits.js';
 import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
+import * as cal from '../services/contentCalendar.js';
+import * as aiu from '../services/aiUsage.js';
+import { profit, saveCostConfig } from '../services/profitReport.js';
 import multer from 'multer';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -624,6 +627,37 @@ const videoUpload = multer({
   limits: { fileSize: 500 * 1024 * 1024, files: 1, fields: 12 },
   fileFilter: (_r, f, cb) => (['.mp4', '.webm', '.mov'].includes(path.extname(f.originalname).toLowerCase()) && /^video\//.test(f.mimetype) ? cb(null, true) : cb(bad('Choose a video file (MP4, WebM or MOV)'))),
 });
+// ---- Content calendar (Agentify's own marketing posts); the Social Media Manager role works only here
+r.get('/content', requireOperator, need('content.calendar'), (_req, res) => res.json({ ...cal.overview(), can_edit_limits: can(_req.operator, 'system.manage'), ai: aiu.aiStatus() }));
+r.post('/content/posts', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.createPost(req.body || {}, req.operator.email); audit(req.operator.email, 'content-post-created', { id: p.id, channel: p.channel }); res.status(201).json(p); }));
+r.put('/content/posts/:id', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.updatePost(req.params.id, req.body || {}, req.operator.email); audit(req.operator.email, 'content-post-edited', { id: p.id }); res.json(p); }));
+r.post('/content/posts/:id/schedule', requireOperator, need('content.calendar'), asyncH((req, res) => {
+  const p = cal.schedulePost(req.params.id, req.body?.scheduled_at, req.operator.email, { override: !!req.body?.override && can(req.operator, 'system.manage') });
+  audit(req.operator.email, 'content-post-scheduled', { id: p.id, at: p.scheduled_at }); res.json(p);
+}));
+r.post('/content/posts/:id/unschedule', requireOperator, need('content.calendar'), asyncH((req, res) => { res.json(cal.unschedulePost(req.params.id)); }));
+r.post('/content/posts/:id/posted', requireOperator, need('content.calendar'), asyncH((req, res) => {
+  const out = cal.markPosted(req.params.id, req.body || {}, req.operator.email, { override: false });
+  audit(req.operator.email, 'content-post-recorded-posted', { id: out.post.id, channel: out.post.channel }); res.json(out);
+}));
+r.post('/content/posts/:id/cancel', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.cancelPost(req.params.id); audit(req.operator.email, 'content-post-canceled', { id: p.id }); res.json(p); }));
+r.delete('/content/posts/:id', requireOperator, need('content.calendar'), asyncH((req, res) => { cal.deletePost(req.params.id); audit(req.operator.email, 'content-post-deleted', { id: Number(req.params.id) }); res.json({ ok: true }); }));
+r.post('/content/ai-draft', requireOperator, need('content.calendar'), asyncH(async (req, res) => {
+  const b = req.body || {};
+  if (!cal.CHANNELS[b.channel]) throw bad('Choose a channel');
+  const d = await aiu.draftPost({ channel: cal.CHANNELS[b.channel], topic: b.topic, tone: b.tone, language: b.language }, req.operator.email);
+  const post = cal.createPost({ title: d.title, body: d.body, channel: b.channel, source: 'ai' }, req.operator.email);
+  audit(req.operator.email, 'content-ai-draft', { id: post.id, channel: post.channel }); res.status(201).json(post);
+}));
+// ---- AI usage and credits (Agentify's own Gemini connection, and what workspaces use)
+r.get('/ai/usage', requireOperator, need('finance.view'), (_req, res) => res.json(aiu.report()));
+r.get('/profit', requireOperator, need('finance.view'), asyncH((req, res) => res.json(profit(req.query))));
+r.put('/profit/config', requireOperator, need('billing.configure'), asyncH((req, res) => { const c = saveCostConfig(req.body || {}, req.operator.email); audit(req.operator.email, 'cost-config-changed', {}); res.json(c); }));
+r.get('/ai/settings', requireOperator, need('integrations.manage'), (_req, res) => res.json(aiu.settingsView()));
+r.put('/ai/settings', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const v = await aiu.saveSettings(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-settings-changed', { key_changed: !!req.body?.api_key && !/^•/.test(req.body.api_key) }); res.json(v); }));
+r.delete('/ai/settings/key', requireOperator, need('integrations.manage'), (req, res) => { aiu.disconnect(); audit(req.operator.email, 'ai-key-removed', {}); res.json(aiu.settingsView()); });
+r.put('/content/limits', requireOperator, need('system.manage'), asyncH((req, res) => { const l = cal.saveLimits(req.body || {}, req.operator.email); audit(req.operator.email, 'content-limits-changed', l); res.json(l); }));
+
 r.get('/training-videos', requireOperator, need('system.view'), (_req, res) => res.json({ youtube: training.youtubeStatus(), rows: training.listVideos(), roles: training.roleNames(), categories: training.CATEGORIES, privacy: training.PRIVACY }));
 r.get('/training-videos/youtube/connect', requireOperator, need('system.manage'), asyncH((req, res) => {
   if (training.youtubeStatus().state === 'not_configured') throw bad('Add the Google client ID and secret first (Integrations > Google).');

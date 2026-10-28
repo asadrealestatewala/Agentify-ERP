@@ -20,6 +20,10 @@ const gHeaders = (key) => ({ 'x-goog-api-key': key, 'Content-Type': 'application
 /** Gemini accepts a subset of JSON Schema: drop the keywords it rejects. */
 const gSchema = (s) => (Array.isArray(s) ? s.map(gSchema) : s && typeof s === 'object' ? Object.fromEntries(Object.entries(s).filter(([k]) => !['additionalProperties', '$schema'].includes(k)).map(([k, v]) => [k, gSchema(v)])) : s);
 const slot = (p) => `ai_${p}`;
+/** Usage metering hook (services/aiUsage.js registers it); called with every model response so token counts can be recorded. */
+let usageSink = null;
+export const setUsageSink = (fn) => { usageSink = fn; };
+const metered = (provider, model, d, purpose) => { try { usageSink?.({ provider, model, d, purpose }); } catch { /* metering never breaks a call */ } return d; };
 
 async function http(url, opts = {}) {
   const res = await fetch(url, { ...opts, signal: AbortSignal.timeout(opts.timeout || 60_000) });
@@ -73,8 +77,8 @@ export async function runWithTools(provider, { system, question, history = [], t
   if (provider === 'anthropic') {
     const messages = [...history, { role: 'user', content: question }];
     for (let round = 0; round < maxRounds; round += 1) {
-      const d = await http('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': cfg.api_key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-        body: JSON.stringify({ model: cfg.model, max_tokens: 1500, system, messages, tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })) }) });
+      const d = metered('anthropic', cfg.model, await http('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': cfg.api_key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: cfg.model, max_tokens: 1500, system, messages, tools: tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.parameters })) }) }), 'workspace_assistant');
       const uses = (d.content || []).filter((b) => b.type === 'tool_use');
       if (d.stop_reason !== 'tool_use' || !uses.length) return { answer: (d.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim(), tools_used: called };
       messages.push({ role: 'assistant', content: d.content });
@@ -92,8 +96,8 @@ export async function runWithTools(provider, { system, question, history = [], t
   if (provider === 'gemini') {
     const contents = [...history.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })), { role: 'user', parts: [{ text: question }] }];
     for (let round = 0; round < maxRounds; round += 1) {
-      const d = await http(`${GEMINI}/models/${encodeURIComponent(cfg.model)}:generateContent`, { method: 'POST', headers: gHeaders(cfg.api_key),
-        body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents, tools: tools.length ? [{ functionDeclarations: tools.map((t) => ({ name: t.name, description: t.description, parameters: gSchema(t.parameters) })) }] : undefined }) });
+      const d = metered('gemini', cfg.model, await http(`${GEMINI}/models/${encodeURIComponent(cfg.model)}:generateContent`, { method: 'POST', headers: gHeaders(cfg.api_key),
+        body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents, tools: tools.length ? [{ functionDeclarations: tools.map((t) => ({ name: t.name, description: t.description, parameters: gSchema(t.parameters) })) }] : undefined }) }), 'workspace_assistant');
       const content = d.candidates?.[0]?.content;
       const calls = (content?.parts || []).filter((p) => p.functionCall);
       if (!calls.length) return { answer: (content?.parts || []).map((p) => p.text || '').join('').trim(), tools_used: called };
@@ -112,8 +116,8 @@ export async function runWithTools(provider, { system, question, history = [], t
   }
   const messages = [{ role: 'system', content: system }, ...history, { role: 'user', content: question }];
   for (let round = 0; round < maxRounds; round += 1) {
-    const d = await http(`${oaBase(provider, cfg)}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${cfg.api_key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: cfg.model, messages, tools: tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } })) }) });
+    const d = metered(provider, cfg.model, await http(`${oaBase(provider, cfg)}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${cfg.api_key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: cfg.model, messages, tools: tools.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.parameters } })) }) }), 'workspace_assistant');
     const m = d.choices?.[0]?.message;
     if (!m?.tool_calls?.length) return { answer: String(m?.content || '').trim(), tools_used: called };
     messages.push(m);
@@ -128,18 +132,18 @@ export async function runWithTools(provider, { system, question, history = [], t
 }
 
 /** One plain completion that must return JSON (used for video scripts). */
-export async function completeJson(provider, { system, prompt, maxTokens = 1800 }) {
+export async function completeJson(provider, { system, prompt, maxTokens = 1800, purpose = 'workspace_ai' }) {
   const cfg = aiConfig(provider);
   if (!cfg) throw bad('Connect an AI provider first.');
   let text;
   if (provider === 'anthropic') {
-    const d = await http('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': cfg.api_key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: cfg.model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: prompt }] }) });
+    const d = metered('anthropic', cfg.model, await http('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': cfg.api_key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: cfg.model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: prompt }] }) }), purpose);
     text = (d.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
   } else if (provider === 'gemini') {
-    const d = await http(`${GEMINI}/models/${encodeURIComponent(cfg.model)}:generateContent`, { method: 'POST', headers: gHeaders(cfg.api_key), body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: maxTokens } }) });
+    const d = metered('gemini', cfg.model, await http(`${GEMINI}/models/${encodeURIComponent(cfg.model)}:generateContent`, { method: 'POST', headers: gHeaders(cfg.api_key), body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: maxTokens } }) }), purpose);
     text = (d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
   } else {
-    const d = await http(`${oaBase(provider, cfg)}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${cfg.api_key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: cfg.model, ...(provider === 'custom' ? {} : { response_format: { type: 'json_object' } }),messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] }) });
+    const d = metered(provider, cfg.model, await http(`${oaBase(provider, cfg)}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${cfg.api_key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: cfg.model, ...(provider === 'custom' ? {} : { response_format: { type: 'json_object' } }),messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] }) }), purpose);
     text = d.choices?.[0]?.message?.content || '';
   }
   const m = text.match(/\{[\s\S]*\}/);
