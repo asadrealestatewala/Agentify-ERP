@@ -2,6 +2,7 @@
 // Financial records (sales, receipts, vouchers) are kept because accounting and tax law usually requires it, but they are
 // detached from the person's identity. What a region's law requires is a legal-review item (see docs/multi-region).
 import fs from 'node:fs';
+import { removeRef } from '../services/storage.js';
 import path from 'node:path';
 import { Router } from 'express';
 import { all, get, run, uploadDir } from '../db.js';
@@ -38,7 +39,7 @@ export function erasePerson(req, contactId, reason) {
   const c = get('SELECT id, full_name FROM contacts WHERE id=?', contactId);
   if (!c) return null;
   const files = rows('documents', 'entity_id', contactId).filter((d) => d.entity_type === 'contact');
-  for (const d of files) { try { fs.rmSync(path.resolve(uploadDir(), d.path), { force: true }); } catch { /* file already gone */ } }
+  for (const d of files) removeRef(d.path).catch(() => {}); // bucket object or legacy local file; already gone is fine
   run("DELETE FROM documents WHERE entity_type='contact' AND entity_id=?", contactId);
   run("DELETE FROM notes WHERE entity_type='contact' AND entity_id=?", contactId);
   run("DELETE FROM tasks WHERE entity_type='contact' AND entity_id=?", contactId);

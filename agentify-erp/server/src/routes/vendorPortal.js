@@ -5,7 +5,8 @@ import { all, get, run, uploadDir } from '../db.js';
 import { requireVendor } from '../rbac.js';
 import { audit, notifyPerm } from '../audit.js';
 import { asyncH, bad, forbidden, notFound, now, today, jparse, moneyText, curCode } from '../util.js';
-import { sendTable, uploader } from './helpers.js';
+import { sendTable, uploader, storedPath, discardUploads } from './helpers.js';
+import { sendStored, removeRef } from '../services/storage.js';
 import { loadExpense } from './accounting.js';
 import { expensePdf } from '../services/voucherPdf.js';
 import { vendorAccount, vendorLedger, vendorLedgerTable } from '../services/vendorAccount.js';
@@ -21,7 +22,7 @@ const mine = (req) => req.user.vendor_id;
 const vendorOf = (req) => get('SELECT * FROM vendors WHERE id=?', mine(req));
 const SEEN = "('approved','partial','paid')";
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
-const up = uploader('documents', 'documents', 25);
+const up = uploader('documents', 'documents', 25, { module: 'documents' });
 
 // ------------------------------------------------------------------ overview & registration
 r.get('/dashboard', asyncH((req, res) => {
@@ -189,7 +190,7 @@ r.get('/bids', asyncH((req, res) => {
 
 // ------------------------------------------------------------------ files (bid attachments, tender documents)
 r.post('/bids/:id(\\d+)/files', up.array('files', 5), asyncH((req, res) => {
-  const cleanup = () => (req.files || []).forEach((f) => fs.rm(f.path, { force: true }, () => {}));
+  const cleanup = () => discardUploads(req);
   try {
     const b = get('SELECT b.*, t.status tstatus, t.closes_on FROM tender_bids b JOIN tenders t ON t.id=b.tender_id WHERE b.id=? AND b.vendor_id=?', req.params.id, mine(req));
     if (!b) throw notFound('Bid not found');
@@ -197,7 +198,7 @@ r.post('/bids/:id(\\d+)/files', up.array('files', 5), asyncH((req, res) => {
     const category = ['BOQ', 'Proposal', 'Other'].includes(req.body.category) ? req.body.category : 'Other';
     if (all("SELECT 1 FROM documents WHERE entity_type='bid' AND entity_id=?", b.id).length + (req.files || []).length > 12) throw bad('A bid can have at most 12 files');
     const ids = (req.files || []).map((f) => Number(run(`INSERT INTO documents(entity_type,entity_id,category,name,path,mime,size,portal_visible,uploaded_by,created_at) VALUES('bid',?,?,?,?,?,?,1,?,?)`,
-      b.id, category, f.originalname.slice(0, 200), `documents/${f.filename}`, f.mimetype, f.size, req.user.id, now()).lastInsertRowid));
+      b.id, category, f.originalname.slice(0, 200), storedPath(f, 'documents'), f.mimetype, f.size, req.user.id, now()).lastInsertRowid));
     audit(req, 'Vendor uploaded bid file', 'tender', b.tender_id, `${ids.length} ${category} file(s)`);
     res.status(201).json({ ids });
   } catch (e) { cleanup(); throw e; }
@@ -215,14 +216,9 @@ function ownDoc(req, id) {
   } else throw notFound('File not found');
   return d;
 }
-r.get('/files/:id(\\d+)', asyncH((req, res) => {
+r.get('/files/:id(\\d+)', asyncH(async (req, res) => {
   const d = ownDoc(req, req.params.id);
-  const file = path.join(uploadDir(), d.path);
-  if (!file.startsWith(uploadDir()) || !fs.existsSync(file)) throw notFound('File missing');
-  res.setHeader('Content-Type', d.mime || 'application/octet-stream');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Disposition', `${req.query.download ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(d.name)}`);
-  res.sendFile(file);
+  await sendStored(req, res, d.path, { mime: d.mime, name: d.name, download: !!req.query.download });
 }));
 r.delete('/files/:id(\\d+)', asyncH((req, res) => {
   const d = ownDoc(req, req.params.id);
@@ -230,7 +226,7 @@ r.delete('/files/:id(\\d+)', asyncH((req, res) => {
   const b = get('SELECT b.status, t.status tstatus, t.closes_on FROM tender_bids b JOIN tenders t ON t.id=b.tender_id WHERE b.id=?', d.entity_id);
   if (b.status !== 'submitted' || effectiveStatus({ status: b.tstatus, closes_on: b.closes_on }) !== 'open') throw bad('Files can no longer be removed from this bid');
   run('DELETE FROM documents WHERE id=?', d.id);
-  fs.rm(path.join(uploadDir(), d.path), { force: true }, () => {});
+  removeRef(d.path).catch(() => {});
   res.json({ ok: true });
 }));
 

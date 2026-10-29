@@ -17,6 +17,7 @@ import { sendMail, layout } from './mailer.js';
 import { all } from '../db.js';
 import { notify } from '../audit.js';
 import { flagEligible } from './retention.js';
+import { storageSweep } from './storageAlerts.js';
 import { billingAddress } from './billingMail.js';
 
 const pdb = () => platformDb();
@@ -123,6 +124,7 @@ export async function runLifecycle({ now = Date.now() } = {}) {
       }
     } catch (e) { out.errors.push({ tenant: t.slug, error: e.message }); console.error(`[lifecycle ${t.slug}]`, e); }
   }
+  try { out.storage_alerts = await storageSweep(); } catch (e) { out.errors.push({ tenant: '*', error: e.message }); }
   try { out.retention_flagged = flagEligible(); } catch (e) { out.errors.push({ tenant: '*', error: e.message }); }
   return out;
 }

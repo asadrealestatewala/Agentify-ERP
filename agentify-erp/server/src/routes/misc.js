@@ -4,7 +4,8 @@ import path from 'node:path';
 import { all, get, run, uploadDir } from '../db.js';
 import { can, hasPerm, ownerId, requireStaff, requireAuth } from '../rbac.js';
 import { audit } from '../audit.js';
-import { uploader } from './helpers.js';
+import { uploader, storedPath, discardUploads } from './helpers.js';
+import { sendStored, removeRef } from '../services/storage.js';
 import { asyncH, bad, forbidden, notFound, now, moneyText } from '../util.js';
 
 const r = Router();
@@ -86,7 +87,7 @@ function docAccess(req, entityType, entityId, action) {
   }
   if (ownerId(req) && !['contact', 'property'].includes(entityType)) throw forbidden();
 }
-const docUp = uploader('documents', 'documents', 25);
+const docUp = uploader('documents', 'documents', 25, { module: 'documents' });
 r.get('/documents', requireStaff, asyncH((req, res) => {
   const { entity_type, entity_id } = req.query;
   docAccess(req, entity_type, entity_id, 'view');
@@ -95,31 +96,26 @@ r.get('/documents', requireStaff, asyncH((req, res) => {
 r.post('/documents', requireStaff, docUp.array('files', 10), asyncH((req, res) => {
   const { entity_type, entity_id, category } = req.body;
   try { docAccess(req, entity_type, entity_id, 'edit'); } catch (e) {
-    (req.files || []).forEach((f) => fs.rm(f.path, { force: true }, () => {}));
+    discardUploads(req);
     throw e;
   }
   const ids = (req.files || []).map((f) => Number(run(`INSERT INTO documents(entity_type,entity_id,category,name,path,mime,size,portal_visible,uploaded_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`,
-    entity_type, entity_id, category || 'Other', f.originalname.slice(0, 200), `documents/${f.filename}`, f.mimetype, f.size, req.body.portal_visible === '1' ? 1 : 0, req.user.id, now()).lastInsertRowid));
+    entity_type, entity_id, category || 'Other', f.originalname.slice(0, 200), storedPath(f, 'documents'), f.mimetype, f.size, req.body.portal_visible === '1' ? 1 : 0, req.user.id, now()).lastInsertRowid));
   audit(req, 'Uploaded document', entity_type, entity_id, `${ids.length} file(s) — ${category || 'Other'}`);
   res.status(201).json({ ids });
 }));
-r.get('/documents/:id(\\d+)/file', requireStaff, asyncH((req, res) => {
+r.get('/documents/:id(\\d+)/file', requireStaff, asyncH(async (req, res) => {
   const d = get('SELECT * FROM documents WHERE id=?', req.params.id);
   if (!d) throw notFound();
   docAccess(req, d.entity_type, d.entity_id, 'view');
-  const file = path.join(uploadDir(), d.path);
-  if (!file.startsWith(uploadDir()) || !fs.existsSync(file)) throw notFound('File missing');
-  res.setHeader('Content-Type', d.mime || 'application/octet-stream');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Disposition', `${req.query.download ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(d.name)}`);
-  res.sendFile(file);
+  await sendStored(req, res, d.path, { mime: d.mime, name: d.name, download: !!req.query.download });
 }));
 r.delete('/documents/:id(\\d+)', requireStaff, asyncH((req, res) => {
   const d = get('SELECT * FROM documents WHERE id=?', req.params.id);
   if (!d) throw notFound();
   docAccess(req, d.entity_type, d.entity_id, 'delete');
   run('DELETE FROM documents WHERE id=?', d.id);
-  fs.rm(path.join(uploadDir(), d.path), { force: true }, () => {});
+  removeRef(d.path).catch(() => {});
   audit(req, 'Deleted document', d.entity_type, d.entity_id, d.name);
   res.json({ ok: true });
 }));

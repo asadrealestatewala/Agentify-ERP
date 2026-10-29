@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import { sendStored, isStoredRef } from '../services/storage.js';
+const SLIP_MIME = { '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
+const mimeOfSlip = (ref) => SLIP_MIME[path.extname(ref).toLowerCase()] || 'application/octet-stream';
 import rateLimit from 'express-rate-limit';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -30,11 +33,11 @@ r.post('/bulk-approve', can('payments', 'create'), asyncH((req, res) => {
   }
   res.json({ approved: done.length, failed });
 }));
-r.get('/:id(\\d+)/slip', can('payments', 'view'), asyncH((req, res) => {
+r.get('/:id(\\d+)/slip', can('payments', 'view'), asyncH(async (req, res) => {
   const c = get('SELECT slip_path FROM payment_claims WHERE id=?', req.params.id);
-  const file = c?.slip_path && /^claims\/[\w.-]+$/.test(c.slip_path) ? path.join(uploadDir(), c.slip_path) : null;
-  if (!file || !fs.existsSync(file)) return res.status(404).json({ error: 'No slip attached' });
-  res.set('X-Content-Type-Options', 'nosniff').sendFile(file);
+  const ref = c?.slip_path && (isStoredRef(c.slip_path) || /^claims\/[\w.-]+$/.test(c.slip_path)) ? c.slip_path : null;
+  if (!ref) return res.status(404).json({ error: 'No slip attached' });
+  try { await sendStored(req, res, ref, { mime: mimeOfSlip(ref), name: 'payment-slip' + path.extname(ref) }); } catch (e) { if (e.status === 404) return res.status(404).json({ error: 'No slip attached' }); throw e; }
 }));
 
 // ---- auto-sync: statement import, webhook key, auto-approval switch

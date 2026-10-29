@@ -15,6 +15,7 @@ import { sendSms } from '../integrations/twilio.js';
 import { listScripts, renderScript, ensureStarterScript } from '../integrations/calls.js';
 import { canTranscribe } from '../integrations/ai.js';
 import * as M from '../integrations/meetings.js';
+import { sendStored, removeRef } from '../services/storage.js';
 
 const r = Router();
 export const roomRouter = Router();
@@ -99,9 +100,9 @@ r.get('/recordings/all', can('crm', 'view'), (req, res) => {
 });
 const recOf = (req) => { const rec = get('SELECT rr.*, m.host_user_id, m.title FROM meeting_recordings rr JOIN meetings m ON m.id=rr.meeting_id WHERE rr.id=?', Number(req.params.id)); if (!rec) throw notFound('Recording not found'); if (req.user.own_scope && rec.host_user_id !== req.user.id) throw forbidden('This is not your meeting'); return rec; };
 r.get('/recordings/:id', can('crm', 'view'), asyncH((req, res) => { const rec = recOf(req); res.json({ ...rec, path: undefined, captions: all('SELECT speaker, text, at_ms FROM meeting_transcript WHERE meeting_id=? ORDER BY id', rec.meeting_id) }); }));
-r.get('/recordings/:id/video', can('crm', 'view'), asyncH((req, res) => { const rec = recOf(req); audit(req, 'Played meeting recording', 'meeting', rec.meeting_id); res.type(rec.mime || 'video/webm').sendFile(M.recordingPath(rec.path)); }));
+r.get('/recordings/:id/video', can('crm', 'view'), asyncH(async (req, res) => { const rec = recOf(req); audit(req, 'Played meeting recording', 'meeting', rec.meeting_id); await sendStored(req, res, rec.path, { mime: rec.mime || 'video/webm', name: `meeting-${rec.meeting_id}-recording` }); }));
 r.post('/recordings/:id/transcribe', can('crm', 'edit'), asyncH(async (req, res) => { const rec = recOf(req); try { await M.transcribeMeetingRecording(rec.id); } catch (e) { throw bad(e.message); } res.json(get('SELECT transcript, transcript_status FROM meeting_recordings WHERE id=?', rec.id)); }));
-r.delete('/recordings/:id', can('settings', 'edit'), asyncH((req, res) => { const rec = recOf(req); try { fs.rmSync(M.recordingPath(rec.path), { force: true }); } catch { /* gone */ } run('DELETE FROM meeting_recordings WHERE id=?', rec.id); audit(req, 'Deleted meeting recording', 'meeting', rec.meeting_id); res.json({ ok: true }); }));
+r.delete('/recordings/:id', can('settings', 'edit'), asyncH((req, res) => { const rec = recOf(req); removeRef(rec.path).catch(() => {}); run('DELETE FROM meeting_recordings WHERE id=?', rec.id); audit(req, 'Deleted meeting recording', 'meeting', rec.meeting_id); res.json({ ok: true }); }));
 
 const mtg = (req) => { const m = get('SELECT * FROM meetings WHERE id=?', Number(req.params.id)); if (!m) throw notFound('Meeting not found'); if (!visible(req, m)) throw forbidden('This meeting is not yours'); return m; };
 r.get('/:id', can('crm', 'view'), asyncH((req, res) => { const m = mtg(req); res.json({ ...shape(m, req), invites: loadInvites(m, origin(req)), recordings: all('SELECT id, kind, size, duration, transcript_status, created_at FROM meeting_recordings WHERE meeting_id=?', m.id), caption_lines: get('SELECT COUNT(*) n FROM meeting_transcript WHERE meeting_id=?', m.id).n }); }));

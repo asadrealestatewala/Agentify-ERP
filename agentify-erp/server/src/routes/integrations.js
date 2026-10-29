@@ -7,6 +7,7 @@
 //   POST /api/integrations/sms              send a text message
 import { recordingFilter } from '../services/recordingFilters.js';
 import express, { Router } from 'express';
+import { sendStored } from '../services/storage.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { all, get, run } from '../db.js';
@@ -173,7 +174,7 @@ const recFor = (req) => {
   return rec;
 };
 r.get('/recordings/calls/:id', can('crm', 'view'), asyncH((req, res) => { const rec = recFor(req); res.json({ ...rec, path: undefined, remote_url: undefined, has_audio: !!rec.path }); }));
-r.get('/recordings/calls/:id/audio', can('crm', 'view'), asyncH((req, res) => { const rec = recFor(req); if (!rec.path) throw notFound('The audio is not available yet'); audit(req, 'Played call recording', 'call', rec.call_id); res.type('audio/mpeg').sendFile(recordingFile(rec.path)); }));
+r.get('/recordings/calls/:id/audio', can('crm', 'view'), asyncH(async (req, res) => { const rec = recFor(req); if (!rec.path) throw notFound('The audio is not available yet'); audit(req, 'Played call recording', 'call', rec.call_id); await sendStored(req, res, rec.path, { mime: 'audio/mpeg', name: `call-${rec.call_id}-recording.mp3` }); }));
 r.post('/recordings/calls/:id/transcribe', can('crm', 'edit'), asyncH(async (req, res) => { const rec = recFor(req); try { await transcribeRecording(rec.id); } catch (e) { throw bad(e.message); } res.json(get('SELECT transcript, transcript_status FROM call_recordings WHERE id=?', rec.id)); }));
 
 // ---- AI providers (the workspace's own ChatGPT / Claude key)

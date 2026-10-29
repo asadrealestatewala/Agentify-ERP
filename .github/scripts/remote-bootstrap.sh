@@ -65,6 +65,17 @@ else
   fi
 fi
 
+# Object storage settings (GitHub secrets S3_*): written to server/.env whenever the deploy has them, so they never live in git.
+# Values are never printed. Without them the app keeps storing private files on this server, as before.
+for k in S3_ENDPOINT S3_REGION S3_BUCKET S3_ACCESS_KEY S3_SECRET_KEY; do
+  v="${!k:-}"
+  if [ -n "$v" ]; then
+    { grep -v "^${k}=" "$APP_DIR/server/.env" || true; printf '%s=%s\n' "$k" "$v"; } > "$APP_DIR/server/.env.tmp"
+    chmod 600 "$APP_DIR/server/.env.tmp" && mv "$APP_DIR/server/.env.tmp" "$APP_DIR/server/.env"
+    echo "server/.env $k set"
+  fi
+done
+
 if ! have nginx; then
   echo "installing nginx"
   apt-get update -y -qq && apt-get install -y -qq nginx || echo "nginx install failed; the app will only be reachable on port 4000"

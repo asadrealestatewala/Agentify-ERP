@@ -6,6 +6,14 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.50', date: '2026-10-29', title: 'Private files in secure storage',
+    items: [
+      { text: 'Your private files (documents, payment slips, recordings and content images or videos) are now kept in secure cloud storage, in a folder that only your workspace can reach. Links to open them work for a short time and are only given to signed-in people with access.', where: 'Documents, Payments, Recordings and Content' },
+      { text: 'File storage is checked before every upload. At 80% of your plan\'s storage you get an email and a notice, and at 100% new uploads pause with a prompt to delete files or upgrade. Your existing files stay safe.', where: 'Settings > Plan & Billing' },
+      { text: 'New Storage & quotas page: used storage against the limit for every workspace, the storage in each plan, a limit for one workspace, and a live count of the storage bucket against its 250 GB total.', where: 'Platform console > Plans & Subscriptions > Storage & quotas', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.49', date: '2026-10-28', title: 'Cost and profit report',
     items: [
       { text: 'New Cost & profit page: recognised revenue per workspace and plan against the costs you enter (monthly cost per plan, platform overhead) and AI recorded with Agentify\'s key, with margin and net profit. Figures that cannot be worked out, such as a missing cost or exchange rate, show a dash and are listed instead of guessed.', where: 'Platform console > Reports & Analytics > Cost & profit', audience: 'platform' },

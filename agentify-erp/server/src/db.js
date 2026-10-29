@@ -78,6 +78,11 @@ export const uploadDir = () => currentTenant()?.upload_dir || UPLOAD_DIR;
 function migrate() {
   const cols = (t) => db.prepare(`PRAGMA table_info(${t})`).all();
   const addCol = (t, name, def) => { if (cols(t).length && !cols(t).some((c) => c.name === name)) db.exec(`ALTER TABLE ${t} ADD COLUMN ${name} ${def}`); };
+  // register of private files kept in object storage (path columns hold "s3:<file_key>"); legacy files on disk have no row
+  db.exec(`CREATE TABLE IF NOT EXISTS stored_files(
+    file_key TEXT PRIMARY KEY, tenant_id INTEGER NOT NULL, module TEXT NOT NULL, size_bytes INTEGER NOT NULL DEFAULT 0, mime_type TEXT,
+    original_name TEXT, storage_provider TEXT NOT NULL DEFAULT 'contabo_s3' CHECK(storage_provider IN ('contabo_s3','local')), created_at TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS idx_stored_files_module ON stored_files(module)`);
   addCol('training_library', 'youtube_url', 'TEXT'); // set when the video lives on YouTube; workspaces then show a link, not a file
   const hasSales = cols('sales').length > 0;
   if (hasSales) {
