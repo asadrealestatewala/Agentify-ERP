@@ -1,6 +1,6 @@
 {
   "name": "erp-server",
-  "version": "1.49.0",
+  "version": "1.50.0",
   "type": "module",
   "private": true,
   "scripts": {
@@ -10,9 +10,13 @@
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
     "platform:setup-token": "node --disable-warning=ExperimentalWarning src/cli.js setup-token",
     "platform:set-owner": "node --disable-warning=ExperimentalWarning src/cli.js set-owner",
+    "storage:migrate": "node --disable-warning=ExperimentalWarning src/cli.js storage-migrate",
     "platform:lifecycle": "node --disable-warning=ExperimentalWarning src/cli.js lifecycle"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1159.0",
+    "@aws-sdk/lib-storage": "^3.1159.0",
+    "@aws-sdk/s3-request-presigner": "^3.1159.0",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",

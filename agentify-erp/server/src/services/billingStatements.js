@@ -12,6 +12,7 @@ import { PLANS } from './plans.js';
 import { platformBrand } from './mailer.js';
 import { methodLabel } from './billing.js';
 import { billingAddress } from './billingMail.js';
+import { storageEnabled, putFile, getStream, removeRef, isStoredRef } from './storage.js';
 
 const pdb = () => platformDb();
 const TEAL = '#0e7c6b', INK = '#1f2937', GREY = '#6b7280', LINE = '#e5e7eb';
@@ -163,7 +164,7 @@ const proofDir = (tenantId) => path.join(DATA_DIR, 'billing-proofs', String(Numb
 export function sniffProof(buf) { return Object.values(PROOF_TYPES).find((t) => t.ok(buf)) || null; }
 
 /** Attach (or replace) the proof for one of this workspace's payments that is still waiting for confirmation. */
-export function saveProof(tenant, user, submissionId, file) {
+export async function saveProof(tenant, user, submissionId, file) {
   const s = pdb().prepare('SELECT * FROM payment_submissions WHERE id=? AND tenant_id=?').get(Number(submissionId), tenant.id);
   if (!s) throw new HttpError(404, 'Payment not found');
   if (s.status !== 'pending') throw bad('This payment has already been reviewed, so a new file cannot be added');
@@ -171,23 +172,33 @@ export function saveProof(tenant, user, submissionId, file) {
   if (file.buffer.length > PROOF_MAX_BYTES) throw bad('The file is over 5 MB. Choose a smaller photo or PDF.');
   const type = sniffProof(file.buffer);
   if (!type) throw bad('Upload a photo (PNG, JPG, WEBP) or a PDF of your payment receipt');
-  const dir = proofDir(tenant.id); fs.mkdirSync(dir, { recursive: true });
-  const name = `${crypto.randomBytes(16).toString('hex')}${type.ext}`;
-  fs.writeFileSync(path.join(dir, name), file.buffer, { mode: 0o600 });
-  if (s.proof_file) fs.rmSync(path.join(dir, path.basename(s.proof_file)), { force: true });
   const shown = String(file.originalname || `proof${type.ext}`).replace(/[\\/\r\n"<>:*?|]/g, '_').slice(0, 80);
+  let name;
+  if (storageEnabled()) {
+    // private: the workspace's own bucket folder; the tenant is the signed-in workspace's row, never a request field
+    name = (await putFile(file.buffer, { module: 'billing', filename: shown, mime: type.mime, tenantId: tenant.id })).ref;
+  } else {
+    const dir = proofDir(tenant.id); fs.mkdirSync(dir, { recursive: true });
+    name = `${crypto.randomBytes(16).toString('hex')}${type.ext}`;
+    fs.writeFileSync(path.join(dir, name), file.buffer, { mode: 0o600 });
+  }
+  if (isStoredRef(s.proof_file)) await removeRef(s.proof_file, { tenantId: tenant.id });
+  else if (s.proof_file) fs.rmSync(path.join(proofDir(tenant.id), path.basename(s.proof_file)), { force: true });
   pdb().prepare('UPDATE payment_submissions SET proof_file=?, proof_name=?, proof_type=?, proof_at=datetime(\'now\') WHERE id=?').run(name, shown, type.mime, s.id);
   logTenantEvent(tenant.id, 'billing:proof-uploaded', { id: s.id, by: user?.email || null });
   return { id: s.id, proof: shown };
 }
 /** Stream a proof to the owner of the payment or, from the console, to billing staff. `tenantId` null = console (any workspace). */
-export function sendProof(res, submissionId, tenantId = null) {
+export async function sendProof(res, submissionId, tenantId = null) {
   const s = pdb().prepare(`SELECT * FROM payment_submissions WHERE id=?${tenantId == null ? '' : ' AND tenant_id=?'}`).get(...[Number(submissionId), ...(tenantId == null ? [] : [tenantId])]);
   if (!s || !s.proof_file) throw new HttpError(404, 'No file was uploaded for this payment');
-  const file = path.join(proofDir(s.tenant_id), path.basename(s.proof_file));
-  if (!fs.existsSync(file)) throw new HttpError(404, 'The file is no longer available');
+  const stored = isStoredRef(s.proof_file);
+  const file = stored ? null : path.join(proofDir(s.tenant_id), path.basename(s.proof_file));
+  if (!stored && !fs.existsSync(file)) throw new HttpError(404, 'The file is no longer available');
+  let body = null;
+  if (stored) { try { body = await getStream(s.proof_file, { tenantId: s.tenant_id }); } catch { throw new HttpError(404, 'The file is no longer available'); } }
   res.setHeader('Content-Type', PROOF_TYPES[Object.keys(PROOF_TYPES).find((k) => PROOF_TYPES[k].mime === s.proof_type)]?.mime || 'application/octet-stream');
   res.setHeader('Content-Disposition', `inline; filename="${String(s.proof_name || 'proof').replace(/[^\w.\- ]/g, '_')}"`);
   res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'"); res.setHeader('Cache-Control', 'private, no-store');
-  fs.createReadStream(file).pipe(res);
+  (body || fs.createReadStream(file)).pipe(res);
 }

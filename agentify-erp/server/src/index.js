@@ -19,6 +19,7 @@ import { runLifecycle } from './services/lifecycle.js';
 import platformRoutes from './routes/platform.js';
 import billing from './routes/billing.js';
 import { billingGuard, apiAccessGuard } from './services/plans.js';
+import './services/storageAlerts.js'; // registers the 80% / 100% storage warnings that run after uploads
 import { validateInput } from './validation.js';
 import { authenticate, csrfGuard, requireStaff } from './rbac.js';
 import { HttpError } from './util.js';

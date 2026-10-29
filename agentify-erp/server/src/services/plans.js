@@ -12,6 +12,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { val, uploadDir } from '../db.js';
+import { privateBytes } from './storage.js';
+import { keepContext } from '../context.js';
 import { HttpError } from '../util.js';
 
 export const PRODUCTS = {
@@ -211,12 +213,21 @@ export function storageBytes(dir = uploadDir()) {
   return bytes;
 }
 export const forgetStorage = (dir = uploadDir()) => sizeCache.delete(dir);
+/**
+ * Everything this workspace stores: its upload folder (public website images and any legacy files not yet moved) plus the
+ * private files in object storage, which are counted exactly from the register of uploaded files.
+ */
+export const storageUsedBytes = () => storageBytes() + privateBytes();
+const GB = 1024 ** 3, MB = 1024 ** 2;
+export const bytesText = (b) => (b >= GB ? `${(b / GB).toFixed(b >= 10 * GB ? 0 : 1)} GB` : b >= MB ? `${Math.round(b / MB)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+/** The workspace's quota in bytes: the plan's storage limit unless the console set one for this workspace; null = unlimited. */
+export const storageQuotaBytes = (tenant) => { const mb = billingState(tenant).limits.storage_mb; return mb == null ? null : mb * MB; };
 
 /** Counts that plans limit: active staff logins (+ pending invitations, so you cannot invite past the limit), projects, properties and storage. */
 export function usage() {
   const seats = val('SELECT COUNT(*) FROM users u JOIN roles r ON r.id=u.role_id WHERE u.active=1 AND r.portal=0');
   const invited = val("SELECT COUNT(*) FROM auth_tokens WHERE kind='invite' AND used_at IS NULL AND expires_at>?", new Date().toISOString());
-  return { seats, invited, projects: val('SELECT COUNT(*) FROM projects'), properties: val('SELECT COUNT(*) FROM properties'), storage_mb: Math.round((storageBytes() / 1048576) * 10) / 10 };
+  return { seats, invited, projects: val('SELECT COUNT(*) FROM projects'), properties: val('SELECT COUNT(*) FROM properties'), storage_mb: Math.round((storageUsedBytes() / 1048576) * 10) / 10 };
 }
 
 export function assertSeatAvailable(tenant, { includeInvites = true, extra = 1 } = {}) {
@@ -236,11 +247,21 @@ const countLimit = (key, noun) => (tenant) => {
 };
 export const assertProjectAvailable = countLimit('projects', 'projects');
 export const assertPropertyAvailable = countLimit('properties', 'properties');
-export function assertStorageAvailable(tenant) {
+/** Refuse an upload that would not fit. `incoming` is the size of the upload in bytes (0 = only check that there is room). */
+export function assertStorageAvailable(tenant, incoming = 0) {
   const st = billingState(tenant);
   if (st.limits.storage_mb == null) return;
-  if (storageBytes() / 1048576 >= st.limits.storage_mb) throw new PlanLimitError(`Your ${st.limits.name} plan includes ${st.limits.storage_mb} MB of file storage, which is full. Delete files or upgrade.`, 'storage_limit', { limit: st.limits.storage_mb });
+  const quota = st.limits.storage_mb * MB, used = storageUsedBytes();
+  if (used + incoming <= quota && used < quota) return;
+  const full = used >= quota;
+  throw new PlanLimitError(full
+    ? `Your ${st.limits.name} plan includes ${bytesText(quota)} of file storage and it is full. Delete files or upgrade your plan to upload more.`
+    : `This upload needs ${bytesText(incoming)} but only ${bytesText(Math.max(0, quota - used))} of your ${bytesText(quota)} file storage is left. Delete files or upgrade your plan.`,
+  'storage_limit', { limit: st.limits.storage_mb, used_bytes: used, quota_bytes: quota, needed_bytes: incoming, upgrade: true });
 }
+/** Hook set by services/storageAlerts.js (80% warning, 100% notice) so plans.js does not import the mailer. */
+let afterUpload = () => {};
+export const onStorageUploaded = (fn) => { afterUpload = fn; };
 
 const LOCK_MESSAGES = {
   trial_ended: 'Your free trial has ended. Your data is safe and read-only; choose a plan to keep editing.',
@@ -260,7 +281,7 @@ export const moduleFor = (p) => Object.entries(MODULES).find(([, m]) => m.paths.
  * refused with 402. Sign-in, billing, and the public website's visitor forms stay open. Product modules, plan modules
  * and usage limits are enforced here, so hiding a menu item is never the only protection.
  */
-export function billingGuard(req, _res, next) {
+export function billingGuard(req, res, next) {
   const t = req.tenant;
   if (!t) return next();
   const st = billingState(t);
@@ -275,7 +296,12 @@ export function billingGuard(req, _res, next) {
   try {
     if (req.method === 'POST' && req.path === '/projects') assertProjectAvailable(t);
     if (req.method === 'POST' && req.path === '/properties') assertPropertyAvailable(t);
-    if (['POST', 'PUT'].includes(req.method) && /^multipart\/form-data/i.test(req.headers['content-type'] || '')) assertStorageAvailable(t);
+    if (['POST', 'PUT'].includes(req.method) && /^multipart\/form-data/i.test(req.headers['content-type'] || '')) {
+      // the request size includes the multipart framing; the exact file sizes are checked again once the upload has arrived
+      assertStorageAvailable(t, Math.max(0, (Number(req.headers['content-length']) || 0) - 4096));
+      const done = keepContext(() => { try { afterUpload(t); } catch { /* alerts never fail an upload */ } });
+      res.on('finish', () => { if (res.statusCode < 400) done(); });
+    }
   } catch (e) { return next(e); }
   next();
 }

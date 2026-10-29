@@ -3,6 +3,7 @@
 //   npm run platform:set-owner     create a Platform Owner, or reset that account's password (and turn its two-factor off); reads the email and
 //                                  the password from the first two lines of standard input, so the password never appears in a command line
 //   npm run platform:lifecycle     run the subscription lifecycle job once (trial expiry, reminders, renewals)
+//   npm run storage:migrate -- --tenant <slug>|--all [--dry-run] [--delete-local]   move a workspace's private files from the VPS disk to the bucket
 import { platformDb } from './platform.js';
 import { issueSetupToken, setupNeeded, SETUP_TOKEN_FILE } from './services/platformStaff.js';
 
@@ -33,7 +34,18 @@ if (cmd === 'setup-token') {
 } else if (cmd === 'lifecycle') {
   const { runLifecycle } = await import('./services/lifecycle.js');
   console.log(JSON.stringify(await runLifecycle(), null, 2));
+} else if (cmd === 'storage-migrate') {
+  const args = process.argv.slice(3);
+  const flag = (n) => args.includes(n);
+  const tenant = args[args.indexOf('--tenant') + 1];
+  if (!flag('--all') && (!flag('--tenant') || !tenant)) { console.error('Usage: storage-migrate --tenant <slug> | --all  [--dry-run] [--delete-local]'); process.exit(1); }
+  const { migrateTenant, migrateAll } = await import('./services/storageMigrate.js');
+  const opts = { dryRun: flag('--dry-run'), deleteLocal: flag('--delete-local'), log: console.log };
+  const res = flag('--all') ? await migrateAll(opts) : [await migrateTenant(tenant, opts)];
+  for (const r of res) console.log(`${r.slug}: ${r.files} file(s), ${(r.bytes / 1048576).toFixed(1)} MB${opts.dryRun ? ' would move' : `, moved ${r.moved}`}${r.skipped ? `, ${r.skipped} already in the bucket` : ''}${r.missing.length ? `, ${r.missing.length} missing on disk` : ''}${r.failed.length ? `, ${r.failed.length} FAILED` : ''}`);
+  for (const r of res) for (const f of r.failed) console.error(`  failed ${r.slug} ${f.file}: ${f.error}`);
+  if (res.some((r) => r.failed.length)) process.exit(2);
 } else {
-  console.error('Usage: node src/cli.js setup-token | set-owner | lifecycle');
+  console.error('Usage: node src/cli.js setup-token | set-owner | lifecycle | storage-migrate');
   process.exit(1);
 }

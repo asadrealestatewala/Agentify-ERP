@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { removeRef } from '../services/storage.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { all, get, run, tx, nextNo, uploadDir } from '../db.js';
@@ -166,7 +167,7 @@ r.delete('/:id(\\d+)', can('vendors', 'delete'), asyncH((req, res) => {
   const t = get('SELECT * FROM tenders WHERE id=?', req.params.id);
   if (!t) throw notFound('Tender not found');
   if (t.status !== 'draft' && !(t.status === 'cancelled' && !get('SELECT 1 FROM tender_bids WHERE tender_id=?', t.id))) throw bad('Only a draft (or an unbid cancelled tender) can be deleted — cancel it instead');
-  for (const d of all("SELECT * FROM documents WHERE entity_type='tender' AND entity_id=?", t.id)) fs.rm(path.join(uploadDir(), d.path), { force: true }, () => {});
+  for (const d of all("SELECT * FROM documents WHERE entity_type='tender' AND entity_id=?", t.id)) removeRef(d.path).catch(() => {});
   run("DELETE FROM documents WHERE entity_type='tender' AND entity_id=?", t.id);
   run('DELETE FROM tenders WHERE id=?', t.id);
   audit(req, 'Deleted tender', 'tender', t.id, t.tender_no);

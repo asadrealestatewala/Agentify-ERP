@@ -3,11 +3,14 @@ import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import os from 'node:os';
 import { all, get, run, insert, update, uploadDir } from '../db.js';
 import { keepContext } from '../context.js';
 import { can } from '../rbac.js';
 import { audit } from '../audit.js';
 import { sendPdf } from '../services/pdf.js';
+import { storageEnabled, putFile, removeRef } from '../services/storage.js';
+import { assertStorageAvailable } from '../services/plans.js';
 import { region } from '../util.js';
 import { asyncH, bad, notFound, jparse, now } from '../util.js';
 
@@ -134,13 +137,39 @@ function checkImages(req) {
   return bad(`This file is not a valid image: ${badOne.originalname}`);
 }
 
-/** Validated multipart upload into uploads/<dir>. Random filenames — originals never touch the disk path. */
-export function uploader(dir, kind = 'documents', maxMb = 25) {
+const TEMP_DIR = path.join(os.tmpdir(), 'agentify-erp-uploads');
+const filesOf = (req) => [...(req.file ? [req.file] : []), ...(Array.isArray(req.files) ? req.files : Object.values(req.files || {}).flat())];
+/** Reference to save in a row's `path` column: the bucket reference when the file went to object storage, else the legacy folder path. */
+export const storedPath = (f, dir) => f.stored?.ref || `${dir}/${f.filename}`;
+/** Remove uploads that were refused after they arrived (temp copy on disk, or the object already in the bucket). */
+export function discardUploads(req) {
+  for (const f of filesOf(req)) { if (f.stored) removeRef(f.stored.ref).catch(() => {}); else if (f.path) fs.rm(f.path, { force: true }, () => {}); }
+}
+async function moveToBucket(req, module) {
+  const files = filesOf(req);
+  try {
+    // the real size is known now: the whole upload must fit in what is left of the workspace's quota
+    if (req.tenant) assertStorageAvailable(req.tenant, files.reduce((n, f) => n + (f.size || 0), 0));
+    for (const f of files) {
+      f.stored = await putFile(f.path, { module, filename: f.originalname, mime: f.mimetype, size: f.size });
+      fs.rm(f.path, { force: true }, () => {});
+    }
+  } catch (e) { discardUploads(req); throw e; }
+}
+
+/**
+ * Validated multipart upload into uploads/<dir>. Random filenames — originals never touch the disk path.
+ * With `{ module }` the file is private: when object storage is configured it is streamed to the workspace's own bucket
+ * folder (the multer copy only lives briefly in the system temp folder) and `req.file.stored` describes it; without
+ * object storage it stays in uploads/<dir> exactly as before.
+ */
+export function uploader(dir, kind = 'documents', maxMb = 25, { module } = {}) {
+  const toBucket = () => !!module && storageEnabled();
   const m = multer({
     storage: multer.diskStorage({
       // resolved per request (see wrap): every tenant uploads into its own folder. The second and later files of a
       // multi-file upload arrive outside the tenant context, so uploadDir() alone would put them in the shared folder.
-      destination: (r, _f, cb) => { const target = path.join(r.uploadRoot || uploadDir(), dir); fs.mkdir(target, { recursive: true }, (e) => cb(e, target)); },
+      destination: (r, _f, cb) => { const target = r.toBucket ? TEMP_DIR : path.join(r.uploadRoot || uploadDir(), dir); fs.mkdir(target, { recursive: true }, (e) => cb(e, target)); },
       filename: (_r, f, cb) => cb(null, crypto.randomBytes(16).toString('hex') + path.extname(f.originalname).toLowerCase()),
     }),
     limits: { fileSize: maxMb * 1024 * 1024, files: 20 },
@@ -151,6 +180,15 @@ export function uploader(dir, kind = 'documents', maxMb = 25) {
     },
   });
   // multer finishes from stream events, outside the request's tenant context; restore it for the route handler
-  const wrap = (mw) => (req, res, next) => { req.uploadRoot = uploadDir(); return mw(req, res, keepContext((err) => (err || kind !== 'image' ? next(err) : next(checkImages(req))))); };
+  const wrap = (mw) => (req, res, next) => {
+    req.uploadRoot = uploadDir(); req.toBucket = toBucket();
+    return mw(req, res, keepContext((err) => {
+      if (err) { discardUploads(req); return next(err); }
+      const bad1 = kind === 'image' ? checkImages(req) : undefined;
+      if (bad1) return next(bad1);
+      if (!req.toBucket) return next();
+      moveToBucket(req, module).then(() => next(), next);
+    }));
+  };
   return { single: (f) => wrap(m.single(f)), array: (f, n) => wrap(m.array(f, n)), fields: (f) => wrap(m.fields(f)), any: () => wrap(m.any()), none: () => wrap(m.none()) };
 }

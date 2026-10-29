@@ -79,13 +79,13 @@ r.post('/manual-payment', can('settings', 'edit'), asyncH(async (req, res) => {
 
 const proofUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: PROOF_MAX_BYTES, files: 1, fields: 5 } });
 /** Photo or PDF of the payment receipt, attached to a payment that is still waiting for confirmation. */
-r.post('/payments/:id/proof', can('settings', 'edit'), (req, res, next) => proofUpload.single('file')(req, res, keepContext((e) => (e ? next(bad(e.code === 'LIMIT_FILE_SIZE' ? 'The file is over 5 MB. Choose a smaller photo or PDF.' : 'The file could not be read')) : next()))), asyncH((req, res) => {
+r.post('/payments/:id/proof', can('settings', 'edit'), (req, res, next) => proofUpload.single('file')(req, res, keepContext((e) => (e ? next(bad(e.code === 'LIMIT_FILE_SIZE' ? 'The file is over 5 MB. Choose a smaller photo or PDF.' : 'The file could not be read')) : next()))), asyncH(async (req, res) => {
   if (req.tenant.is_legacy) throw bad('This workspace is not billed');
-  const out = saveProof(req.tenant, req.user, req.params.id, req.file);
+  const out = await saveProof(req.tenant, req.user, req.params.id, req.file);
   audit(req, 'Uploaded proof of payment', 'billing', out.id, out.proof);
   res.status(201).json(out);
 }));
-r.get('/payments/:id/proof', can('settings', 'view'), (req, res) => sendProof(res, req.params.id, req.tenant.id));
+r.get('/payments/:id/proof', can('settings', 'view'), (req, res, next) => sendProof(res, req.params.id, req.tenant.id).catch(next));
 
 /** Statement of account: charges, payments and refunds with running balances, as CSV or PDF, for an optional date range. */
 r.get('/statement', can('settings', 'view'), asyncH(async (req, res) => {

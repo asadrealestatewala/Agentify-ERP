@@ -13,6 +13,8 @@ import { all, get, run, getSetting, uploadDir } from '../db.js';
 import { getSetting as platformSetting } from '../services/platformConfig.js';
 import { currentTenant } from '../context.js';
 import { currentRegion } from '../regions/runtime.js';
+import os from 'node:os';
+import { storageEnabled, putFile, getBuffer, isStoredRef, sessionTenantId } from '../services/storage.js';
 import { aiConfig, canTranscribe, transcribe } from './ai.js';
 import { now, bad, HttpError } from '../util.js';
 
@@ -185,7 +187,8 @@ export function addCaption(m, speaker, text, atMs) {
   run('INSERT INTO meeting_transcript(meeting_id, speaker, text, at_ms, created_at) VALUES(?,?,?,?,?)', m.id, String(speaker).slice(0, 60), t, atMs ?? null, now());
 }
 export const transcriptText = (meetingId) => all('SELECT speaker, text FROM meeting_transcript WHERE meeting_id=? ORDER BY id', meetingId).map((l) => `${l.speaker}: ${l.text}`).join('\n');
-const recDir = () => path.join(uploadDir(), 'recordings', 'meetings');
+// live chunks are a working file: in the system temp folder when object storage is on, in the upload folder otherwise
+const recDir = () => (storageEnabled() ? path.join(os.tmpdir(), 'agentify-erp-uploads', 'rec', String(sessionTenantId())) : path.join(uploadDir(), 'recordings', 'meetings'));
 export function appendChunk(meetingId, seq, buf) {
   fs.mkdirSync(recDir(), { recursive: true });
   const file = path.join(recDir(), `${meetingId}-live.part`);
@@ -197,9 +200,17 @@ export async function finishRecording(m, { mime, duration, uploadedBy }) {
   if (!fs.existsSync(part)) throw bad('No recording data was received.');
   const ext = String(mime || '').includes('mp4') ? 'mp4' : 'webm';
   const id = Number(run('INSERT INTO meeting_recordings(meeting_id, kind, path, size, duration, mime, uploaded_by, created_at) VALUES(?,?,?,?,?,?,?,?)', m.id, 'video', 'pending', fs.statSync(part).size, duration ? Math.round(duration) : null, mime || 'video/webm', uploadedBy, now()).lastInsertRowid);
-  const rel = path.join('recordings', 'meetings', `${m.id}-${id}.${ext}`);
-  fs.renameSync(part, path.join(uploadDir(), rel));
-  run('UPDATE meeting_recordings SET path=? WHERE id=?', rel.split(path.sep).join('/'), id);
+  let rel;
+  if (storageEnabled()) {
+    try { rel = (await putFile(part, { module: 'recordings', filename: `meeting-${m.id}-${id}.${ext}`, mime: mime || 'video/webm' })).ref; }
+    catch (e) { run('DELETE FROM meeting_recordings WHERE id=?', id); throw e; }
+    fs.rmSync(part, { force: true });
+  } else {
+    fs.mkdirSync(path.join(uploadDir(), 'recordings', 'meetings'), { recursive: true });
+    rel = path.join('recordings', 'meetings', `${m.id}-${id}.${ext}`).split(path.sep).join('/');
+    fs.renameSync(part, path.join(uploadDir(), rel));
+  }
+  run('UPDATE meeting_recordings SET path=? WHERE id=?', rel, id);
   if (m.transcribe && canTranscribe()) transcribeMeetingRecording(id).catch(() => {});
   return id;
 }
@@ -209,7 +220,7 @@ export async function transcribeMeetingRecording(recId) {
   if (rec.size > 24 * 1024 * 1024) { run("UPDATE meeting_recordings SET transcript_status='failed', error=? WHERE id=?", 'This recording is larger than the 25 MB the speech-to-text service accepts. The live captions are kept instead.', rec.id); throw bad('This recording is too large to transcribe (25 MB limit). The live caption transcript is kept.'); }
   run("UPDATE meeting_recordings SET transcript_status='working' WHERE id=?", rec.id);
   try {
-    const text = await transcribe(fs.readFileSync(path.join(uploadDir(), rec.path)), path.basename(rec.path));
+    const text = await transcribe(isStoredRef(rec.path) ? await getBuffer(rec.path) : fs.readFileSync(path.join(uploadDir(), rec.path)), path.basename(rec.path));
     run("UPDATE meeting_recordings SET transcript=?, transcript_status='done', error=NULL WHERE id=?", text, rec.id);
   } catch (e) { run("UPDATE meeting_recordings SET transcript_status='failed', error=? WHERE id=?", String(e.message).slice(0, 250), rec.id); throw e; }
 }

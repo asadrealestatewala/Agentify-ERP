@@ -9,6 +9,7 @@ import { aiConfig, canTranscribe, transcribe } from './ai.js';
 import { render } from '../../../shared/region/templates.js';
 import { currentRegion } from '../regions/runtime.js';
 import { now, today, addDays } from '../util.js';
+import { storageEnabled, putFile, getBuffer, isStoredRef } from '../services/storage.js';
 
 export const DEFAULT_ANNOUNCEMENT = 'This call may be recorded for quality and training.';
 export const callSettings = () => ({ record: getSetting('calls_record', '0') === '1', transcribe: getSetting('calls_transcribe', '1') === '1', announcement: getSetting('calls_announce', '') || DEFAULT_ANNOUNCEMENT });
@@ -62,6 +63,8 @@ export function callStats(user, range = '7d') {
 // ---- recordings
 const dirFor = (kind) => path.join(uploadDir(), 'recordings', kind);
 export function recordingFile(rel) { return path.join(uploadDir(), rel); }
+/** The audio bytes, from the bucket or (legacy) the workspace's upload folder. */
+const readRecording = (rel) => (isStoredRef(rel) ? getBuffer(rel) : fs.readFileSync(recordingFile(rel)));
 
 /** Called by the Twilio recording web hook. Stores the row, then downloads the audio and (optionally) transcribes it. */
 export function addRecording(callId, { sid, url, duration }) {
@@ -76,9 +79,13 @@ export async function fetchRecording(recId) {
     const res = await fetch(`${rec.remote_url}.mp3`, { headers: { Authorization: `Basic ${Buffer.from(`${cfg.account_sid}:${cfg.auth_token}`).toString('base64')}` }, signal: AbortSignal.timeout(120_000) });
     if (!res.ok) throw new Error(`Twilio answered ${res.status} for the recording`);
     const buf = Buffer.from(await res.arrayBuffer());
-    fs.mkdirSync(dirFor('calls'), { recursive: true });
-    const rel = path.join('recordings', 'calls', `${rec.call_id}-${rec.id}.mp3`);
-    fs.writeFileSync(path.join(uploadDir(), rel), buf);
+    let rel;
+    if (storageEnabled()) rel = (await putFile(buf, { module: 'recordings', filename: `call-${rec.call_id}-${rec.id}.mp3`, mime: 'audio/mpeg' })).ref;
+    else {
+      fs.mkdirSync(dirFor('calls'), { recursive: true });
+      rel = path.join('recordings', 'calls', `${rec.call_id}-${rec.id}.mp3`);
+      fs.writeFileSync(path.join(uploadDir(), rel), buf);
+    }
     run('UPDATE call_recordings SET path=?, size=?, error=NULL WHERE id=?', rel, buf.length, rec.id);
     if (callSettings().transcribe && canTranscribe()) await transcribeRecording(rec.id);
   } catch (e) { run('UPDATE call_recordings SET error=? WHERE id=?', String(e.message).slice(0, 250), rec.id); }
@@ -89,7 +96,7 @@ export async function transcribeRecording(recId) {
   run("UPDATE call_recordings SET transcript_status='working' WHERE id=?", rec.id);
   try {
     const lang = { fr: 'fr', ar: 'ar' }[currentRegion().config.language] || undefined;
-    const text = await transcribe(fs.readFileSync(recordingFile(rec.path)), path.basename(rec.path), lang);
+    const text = await transcribe(await readRecording(rec.path), path.basename(rec.path), lang);
     run("UPDATE call_recordings SET transcript=?, transcript_status='done', error=NULL WHERE id=?", text, rec.id);
   } catch (e) { run("UPDATE call_recordings SET transcript_status='failed', error=? WHERE id=?", String(e.message).slice(0, 250), rec.id); throw e; }
 }

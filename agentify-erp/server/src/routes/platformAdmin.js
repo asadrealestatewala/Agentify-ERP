@@ -36,6 +36,7 @@ import { listRegions, setRegionStatus, setRegionFlag, saveRule, reviewRule, list
 import { subscriptionHistory } from '../services/subscriptions.js';
 import mailboxRoutes from './platformMailbox.js';
 import { sendProof } from '../services/billingStatements.js';
+import { overview as storageOverview, syncBucket, setTotalGb, setWorkspaceQuota } from '../services/storageAlerts.js';
 import { billingAddress, billingFrom, listReceipts, resendReceipt } from '../services/billingMail.js';
 import { listInboxes, createInbox, resendConfigured } from '../services/mailbox.js';
 import emailRoutes from './platformEmail.js';
@@ -258,6 +259,24 @@ r.patch('/workspaces/:id', requireOperator, need('workspaces.edit'), asyncH((req
   if (changed.length) audit(req.operator.email, 'workspace-edited', { slug: tenant.slug, fields: changed });
   res.json(tenantDetail(tenant.id, req));
 }));
+// ---- Storage: usage against quota per workspace, the bucket total, and a live count of the bucket. Quotas themselves are edited
+// with the existing plan editor (PUT /plans/:id) and the workspace limits endpoint (PUT /workspaces/:id/entitlements).
+r.get('/storage', requireOperator, need('billing.view'), asyncH(async (_req, res) => res.json(await storageOverview())));
+r.post('/storage/sync', requireOperator, need('billing.manage'), asyncH(async (req, res) => {
+  const out = await syncBucket(req.operator.email);
+  audit(req.operator.email, 'storage-sync', { total_bytes: out.total_bytes, workspaces: out.workspaces });
+  res.json({ ...out, overview: await storageOverview() });
+}));
+r.put('/storage/workspaces/:id', requireOperator, need('billing.manage'), asyncH(async (req, res) => {
+  const t = setWorkspaceQuota(req.params.id, { mb: req.body?.storage_mb, reason: req.body?.reason }, req.operator.email);
+  audit(req.operator.email, 'storage-quota-set', { slug: t.slug, storage_mb: req.body?.storage_mb ?? 'plan', reason: req.body?.reason });
+  res.json(await storageOverview());
+}));
+r.put('/storage/total', requireOperator, need('billing.manage'), asyncH(async (req, res) => {
+  const gb = setTotalGb(req.body?.total_gb, req.operator.email);
+  audit(req.operator.email, 'storage-total-set', { total_gb: gb });
+  res.json(await storageOverview());
+}));
 r.put('/workspaces/:id/entitlements', requireOperator, need('billing.manage'), asyncH((req, res) => {
   const t = setEntitlements(req.params.id, req.body || {}, req.operator.email);
   audit(req.operator.email, 'entitlements-set', { slug: t.slug, to: t.entitlements ? JSON.parse(t.entitlements) : null, reason: req.body?.reason });
@@ -414,7 +433,7 @@ r.put('/meetings-settings', requireOperator, need('system.manage'), asyncH((req,
 }));
 // ---- Mailbox: read, reply and send company e-mail, the sent log and its settings (Platform Owner and Super Admin only)
 // ---- Billing mail: the billing@ sender, its inbox in the Mailbox, and the receipts sent for recorded payments
-r.get('/payments/:id/proof', requireOperator, need('billing.view'), (req, res) => sendProof(res, req.params.id));
+r.get('/payments/:id/proof', requireOperator, need('billing.view'), (req, res, next) => sendProof(res, req.params.id).catch(next));
 r.get('/billing-mail', requireOperator, need('billing.view'), asyncH(async (req, res) => {
   let inbox = null, inboxError = null;
   if (resendConfigured() && can(req.operator, 'mailbox.manage')) {

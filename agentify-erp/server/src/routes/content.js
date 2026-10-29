@@ -5,7 +5,8 @@ import { all, get, run, tx, uploadDir } from '../db.js';
 import { can, hasPerm, requireStaff } from '../rbac.js';
 import { audit, notify } from '../audit.js';
 import { asyncH, bad, forbidden, jparse, notFound, now, today } from '../util.js';
-import { uploader } from './helpers.js';
+import { uploader, storedPath } from './helpers.js';
+import { sendStored, removeRef } from '../services/storage.js';
 
 /**
  * Social-media content calendar. Staff plan posts (type, caption, platforms, date/time) and attach the creative.
@@ -87,40 +88,35 @@ r.delete('/posts/:id(\\d+)', can('content', 'edit'), asyncH((req, res) => {
   const p = get('SELECT * FROM content_posts WHERE id=?', req.params.id);
   if (!p) throw notFound();
   if (!mayEdit(req, p)) throw forbidden('You can only delete your own content');
-  if (p.creative_path) fs.rmSync(path.join(uploadDir(), p.creative_path), { force: true });
+  if (p.creative_path) removeRef(p.creative_path).catch(() => {});
   run('DELETE FROM content_posts WHERE id=?', p.id);
   res.json({ ok: true });
 }));
 
 // ---- creative (image / video) — private; served only through these authenticated endpoints
-const creativeUp = uploader('content', 'media', 200);
+const creativeUp = uploader('content', 'media', 200, { module: 'content' });
 r.post('/posts/:id(\\d+)/creative', can('content', 'edit'), creativeUp.single('creative'), asyncH((req, res) => {
   const p = get('SELECT * FROM content_posts WHERE id=?', req.params.id);
   if (!p) throw notFound();
   if (!mayEdit(req, p)) throw forbidden();
   if (!req.file) throw bad('Choose an image or video');
-  if (p.creative_path) fs.rmSync(path.join(uploadDir(), p.creative_path), { force: true });
+  if (p.creative_path) removeRef(p.creative_path).catch(() => {});
   run("UPDATE content_posts SET creative_path=?, creative_name=?, creative_mime=?, status=CASE WHEN status IN ('idea','planned') THEN 'ready' ELSE status END, updated_at=? WHERE id=?",
-    `content/${req.file.filename}`, req.file.originalname, req.file.mimetype, now(), p.id);
+    storedPath(req.file, 'content'), req.file.originalname, req.file.mimetype, now(), p.id);
   res.json(present(get(`${SELECT} WHERE c.id=?`, p.id)));
 }));
 r.delete('/posts/:id(\\d+)/creative', can('content', 'edit'), asyncH((req, res) => {
   const p = get('SELECT * FROM content_posts WHERE id=?', req.params.id);
   if (!p) throw notFound();
   if (!mayEdit(req, p)) throw forbidden();
-  if (p.creative_path) fs.rmSync(path.join(uploadDir(), p.creative_path), { force: true });
+  if (p.creative_path) removeRef(p.creative_path).catch(() => {});
   run('UPDATE content_posts SET creative_path=NULL, creative_name=NULL, creative_mime=NULL, updated_at=? WHERE id=?', now(), p.id);
   res.json({ ok: true });
 }));
-r.get('/posts/:id(\\d+)/creative', can('content', 'view'), asyncH((req, res) => {
+r.get('/posts/:id(\\d+)/creative', can('content', 'view'), asyncH(async (req, res) => {
   const p = get('SELECT * FROM content_posts WHERE id=?', req.params.id);
   if (!p?.creative_path) throw notFound('No creative attached');
-  const file = path.join(uploadDir(), p.creative_path);
-  if (!file.startsWith(uploadDir()) || !fs.existsSync(file)) throw notFound('File missing');
-  res.setHeader('Content-Type', p.creative_mime || 'application/octet-stream');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Disposition', `${req.query.download ? 'attachment' : 'inline'}; filename*=UTF-8''${encodeURIComponent(p.creative_name || 'creative')}`);
-  res.sendFile(file);
+  await sendStored(req, res, p.creative_path, { mime: p.creative_mime, name: p.creative_name || 'creative', download: !!req.query.download });
 }));
 
 /** Tick a platform as posted (or undo). The post becomes "posted" once every chosen platform is done. */

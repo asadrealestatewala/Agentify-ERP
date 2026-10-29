@@ -24,7 +24,8 @@ export const isMultiTenant = () => !!BASE_DOMAIN;
 export const LEGACY_SLUG = (process.env.ERP_DEFAULT_TENANT || 'default').toLowerCase();
 
 /** Columns added after the first release; added in place so existing platform databases upgrade on start-up. */
-const TENANT_COLUMNS = [['subscription_status', "TEXT NOT NULL DEFAULT 'trialing'"], ['current_period_end', 'TEXT'], ['grace_until', 'TEXT'], ['billing_interval', 'TEXT'],
+const TENANT_COLUMNS = [['storage_bucket_bytes', 'INTEGER'], ['storage_bucket_files', 'INTEGER'], ['storage_synced_at', 'TEXT'], ['storage_warned_at', 'TEXT'], ['storage_full_notified_at', 'TEXT'],
+  ['subscription_status', "TEXT NOT NULL DEFAULT 'trialing'"], ['current_period_end', 'TEXT'], ['grace_until', 'TEXT'], ['billing_interval', 'TEXT'],
   ['billing_provider', 'TEXT'], ['provider_customer_id', 'TEXT'], ['provider_subscription_id', 'TEXT'],
   // per-workspace limit overrides (JSON {seats, projects, modules}), the price this workspace pays, and profile fields
   ['entitlements', 'TEXT'], ['price_amount', 'INTEGER'], ['price_currency', 'TEXT'], ['owner_name', 'TEXT'], ['owner_phone', 'TEXT'], ['account_manager', 'TEXT'],

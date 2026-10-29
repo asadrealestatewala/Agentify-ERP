@@ -11,6 +11,7 @@ import MobileAppPage from './platform/MobileApp.jsx';
 import TrainingVideosPage from './platform/TrainingVideos.jsx';
 import CostProfitPage from './platform/CostProfit.jsx';
 import AiUsagePage from './platform/AiUsage.jsx';
+import StoragePage from './platform/Storage.jsx';
 import ContentCalendarPage from './platform/ContentCalendar.jsx';
 import { AdminsPage, SessionsPage, LoginsPage, AuditPage, MaintenancePage, EmailSafetyPage } from './platform/Security.jsx';
 import { ReportsPage, ReconciliationPage } from './platform/Reports.jsx';
@@ -424,6 +425,7 @@ function ConsoleRoutes() {
       <Routes>
         <Route index element={can('dashboard.view') || !can('content.calendar') ? <Allowed perm="dashboard.view"><Dashboard /></Allowed> : <Navigate to="/platform/content" replace />} />
         <Route path="profit" element={<Allowed perm="finance.view"><CostProfitPage /></Allowed>} />
+        <Route path="storage" element={<Allowed perm="billing.view"><StoragePage /></Allowed>} />
         <Route path="ai-usage" element={<Allowed perm="finance.view"><AiUsagePage /></Allowed>} />
         <Route path="content" element={<Allowed perm="content.calendar"><ContentCalendarPage /></Allowed>} />
         <Route path="whats-new" element={<WhatsNew platform />} />

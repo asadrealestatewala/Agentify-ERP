@@ -7,6 +7,7 @@
 // live in the platform database and are kept for legal and accounting obligations; the workspace row stays as a
 // tombstone with the deletion date. An optional final archive can be written to the backup folder first.
 import fs from 'node:fs';
+import { removeTenantPrefix } from './storage.js';
 import path from 'node:path';
 import { platformDb, getTenant, listTenants, withTenant, logTenantEvent } from '../platform.js';
 import { db, closeDb } from '../db.js';
@@ -62,6 +63,8 @@ export function deleteWorkspaceData(id, { confirm_slug, reason, owner_request = 
   closeDb(t.db_path);
   for (const f of [t.db_path, `${t.db_path}-wal`, `${t.db_path}-shm`]) fs.rmSync(f, { force: true });
   if (t.upload_dir && fs.existsSync(t.upload_dir)) fs.rmSync(t.upload_dir, { recursive: true, force: true });
+  // private files kept in object storage go with the workspace (its own tenants/{id}/ folder only)
+  removeTenantPrefix(t.id).catch(() => {});
   const dbDir = path.dirname(t.db_path);
   try { if (fs.existsSync(dbDir) && !fs.readdirSync(dbDir).length) fs.rmdirSync(dbDir); } catch { /* not empty */ }
   pdb().prepare("UPDATE tenants SET data_deleted_at=datetime('now'), custom_domain=NULL, updated_at=datetime('now') WHERE id=?").run(t.id);

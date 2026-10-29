@@ -16,7 +16,8 @@ import { receiptQr } from '../services/receiptQr.js';
 import { receiptCopiesPdf } from '../services/receiptSheet.js';
 import { receiptRecord } from '../services/customers.js';
 import { claimStateByInstallment, dues, ownClaims, proofSent, submitClaim } from '../services/claims.js';
-import { uploader } from './helpers.js';
+import { uploader, storedPath } from './helpers.js';
+import { sendStored } from '../services/storage.js';
 import { createCheckout, ownCheckout, portalGateways } from '../services/gateways.js';
 
 /**
@@ -213,9 +214,9 @@ r.get('/documents', asyncH((req, res) => {
 r.get('/promos', asyncH((_req, res) => res.json(portalPromos())));
 /** Bank / wallet details the customer can pay into (from Settings → Payment methods). */
 /** "I have paid": the customer reports a payment (with a slip) for finance to verify and turn into a receipt. */
-const slipUp = uploader('claims', 'documents', 8);
+const slipUp = uploader('claims', 'documents', 8, { module: 'claims' });
 r.post('/payment-claims', slipUp.single('slip'), asyncH((req, res) => {
-  res.status(201).json(submitClaim(req, req.body || {}, req.file ? `claims/${req.file.filename}` : null));
+  res.status(201).json(submitClaim(req, req.body || {}, req.file ? storedPath(req.file, 'claims') : null));
 }));
 r.get('/payment-claims', asyncH((req, res) => res.json(ownClaims(mine(req)))));
 r.get('/pay-online', asyncH((_req, res) => res.json(portalGateways())));
@@ -227,17 +228,12 @@ r.get('/pay-to', asyncH((_req, res) => {
   res.json(all("SELECT value name, meta FROM lookups WHERE type='payment_method' AND active=1 ORDER BY sort_order").map((m) => ({ name: m.name, ...jparse(m.meta, {}) }))
     .filter((m) => m.account_number || m.iban || m.wallet_number || m.instructions).map(({ name, kind, bank_name, account_title, account_number, iban, branch, wallet_number, instructions }) => ({ name, kind, bank_name, account_title, account_number, iban, branch, wallet_number, instructions })));
 }));
-r.get('/documents/:id(\\d+)/file', asyncH((req, res) => {
+r.get('/documents/:id(\\d+)/file', asyncH(async (req, res) => {
   const c = mine(req);
   const d = get(`SELECT d.* FROM documents d WHERE d.id=? AND ${DOC_SCOPE}`, req.params.id, c, c, c, c);
   if (!d) throw notFound();
-  const file = path.join(uploadDir(), d.path);
-  if (!file.startsWith(uploadDir()) || !fs.existsSync(file)) throw notFound('File missing');
   audit(req, 'Portal document download', 'document', d.id, d.name);
-  res.setHeader('Content-Type', d.mime || 'application/octet-stream');
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(d.name)}`);
-  res.sendFile(file);
+  await sendStored(req, res, d.path, { mime: d.mime, name: d.name });
 }));
 
 export default r;
