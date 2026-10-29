@@ -27,7 +27,7 @@ export default function PropertyPicker({ value, onChange, statuses, placeholder 
   useEffect(() => {
     if (!open) return undefined;
     setLoading(true);
-    const t = setTimeout(() => api.get('/api/properties', { q, limit: 30, sort: 'created' }).then((r) => { setRows(statuses ? r.rows.filter((p) => statuses.includes(p.status)) : r.rows); setHi(0); }).catch(() => setRows([])).finally(() => setLoading(false)), 200);
+    const t = setTimeout(() => api.get('/api/properties', { q, limit: 30, sort: 'created', ...(statuses ? { status: statuses.join(',') } : {}) }).then((r) => { setRows(statuses ? r.rows.filter((p) => statuses.includes(p.status)) : r.rows); setHi(0); }).catch(() => setRows([])).finally(() => setLoading(false)), 200);
     return () => clearTimeout(t);
   }, [q, open]); // eslint-disable-line
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function PropertyPicker({ value, onChange, statuses, placeholder 
               <span style={{ textAlign: 'right' }}><div className="mono" style={{ fontSize: 12 }}>{money(p.net_price)}</div><StatusBadge status={p.status} /></span>
             </div>
           ))}
-          {!loading && !rows.length && <div className="empty" style={{ padding: 14 }}>{q ? <>No available property matches “{q}”.</> : 'No properties available.'}</div>}
+          {!loading && !rows.length && <div className="empty" style={{ padding: 14 }}>{q ? <>No available property matches “{q}”.</> : 'No properties are open for sale. New properties stay as Draft until they are submitted and approved or published (Properties → open the property → Publish).'}</div>}
         </div>
       )}
     </div>
