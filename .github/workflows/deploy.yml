@@ -13,6 +13,11 @@ on:
         description: Deploy without running the server tests first
         type: boolean
         default: false
+      storage_migrate:
+        description: Only move private files to the object storage bucket (no deploy). dry-run lists what would move.
+        type: choice
+        options: ['none', 'dry-run', 'migrate']
+        default: 'none'
 
 concurrency:
   group: deploy
@@ -288,6 +293,15 @@ jobs:
               SSHPASS="$USED_PASS" sshpass -e rsync -az --delete -e "$transport" "$@"
             fi
           }
+
+          # Storage migration run: uses the code already installed on the server and its server/.env, then stops (no deploy).
+          # Local copies are never deleted here.
+          if [ "${{ inputs.storage_migrate }}" = "dry-run" ] || [ "${{ inputs.storage_migrate }}" = "migrate" ]; then
+            FLAGS="--all"; if [ "${{ inputs.storage_migrate }}" = "dry-run" ]; then FLAGS="--all --dry-run"; fi
+            echo "==> Storage migration ($FLAGS)"
+            remote "cd $APP_DIR/server && /opt/node22/bin/node --disable-warning=ExperimentalWarning src/cli.js storage-migrate $FLAGS"
+            exit 0
+          fi
 
           q() { printf '%q' "$1"; }
           REMOTE_ENV="JWT_SECRET=$(q "$JWT_SECRET")"
