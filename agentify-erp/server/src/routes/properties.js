@@ -79,7 +79,9 @@ function checkPlotUnique(d, existing) {
 r.get('/', can('properties', 'view'), asyncH(async (req, res) => {
   const q = req.query, where = ['1=1'], params = [];
   if (q.q) { where.push('(p.title LIKE ? OR p.plot_no LIKE ? OR p.code LIKE ? OR p.location LIKE ? OR pr.name LIKE ? OR p.file_no LIKE ? OR p.registration_no LIKE ?)'); params.push(...Array(7).fill(`%${q.q}%`)); }
-  for (const [k, col] of [['status', 'p.status'], ['project_id', 'p.project_id'], ['property_type', 'p.property_type'], ['purpose', 'p.purpose'], ['city', 'p.city'], ['agent_id', 'p.agent_id'], ['review_state', 'p.review_state'], ['file_status', 'p.file_status']]) {
+  // status accepts a comma list (e.g. status=available,featured,reserved) so pickers filter before the row limit
+  if (q.status) { const st = String(q.status).split(',').map((x) => x.trim()).filter(Boolean); if (st.length) { where.push(`p.status IN (${st.map(() => '?').join(',')})`); params.push(...st); } }
+  for (const [k, col] of [['project_id', 'p.project_id'], ['property_type', 'p.property_type'], ['purpose', 'p.purpose'], ['city', 'p.city'], ['agent_id', 'p.agent_id'], ['review_state', 'p.review_state'], ['file_status', 'p.file_status']]) {
     if (q[k]) { where.push(`${col}=?`); params.push(q[k]); }
   }
   if (q.published === '1') { where.push('p.published=1'); }

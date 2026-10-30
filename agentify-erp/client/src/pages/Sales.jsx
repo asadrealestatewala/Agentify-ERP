@@ -84,7 +84,7 @@ export function SaleForm() {
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const isHouse = mode === 'construction';
 
-  useEffect(() => { api.get('/api/properties', { limit: 300 }).then((r) => setProps(r.rows.filter((p) => ['available', 'featured', 'reserved'].includes(p.status)))).catch(() => {}); }, []);
+  useEffect(() => { api.get('/api/properties', { limit: 300, status: 'available,featured,reserved' }).then((r) => setProps(r.rows.filter((p) => ['available', 'featured', 'reserved'].includes(p.status)))).catch(() => {}); }, []);
   useEffect(() => { if (f.contact_id && !contacts.find((c) => c.id === f.contact_id)) api.get(`/api/contacts/${f.contact_id}/workspace`).then((w) => setContacts((c) => [w.contact, ...c])).catch(() => {}); /* eslint-disable-next-line */ }, [f.contact_id]);
   // the customer's existing plot purchases — a construction contract can be linked to one (no re-entry)
   useEffect(() => { if (!f.contact_id) { setPlotSales([]); return; } api.get('/api/sales', { contact_id: f.contact_id, kind: 'property', status: 'confirmed', limit: 50 }).then((r) => setPlotSales(r.rows)).catch(() => {}); }, [f.contact_id]);
