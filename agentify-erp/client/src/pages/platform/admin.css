@@ -12,7 +12,7 @@
 .pa-side { position: sticky; top: 0; height: 100vh; width: 256px; flex: 0 0 256px; background: var(--pa-side); color: var(--pa-side-text); display: flex; flex-direction: column; transition: width .18s, flex-basis .18s; z-index: 30; }
 .pa.collapsed .pa-side { width: 72px; flex-basis: 72px; }
 .pa-brand { display: flex; align-items: center; gap: 10px; padding: 18px 16px 14px; border-bottom: 1px solid rgba(255,255,255,.06); }
-.pa-logo { width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--pa-accent), #3b82f6); display: grid; place-items: center; color: #fff; font-weight: 800; flex: 0 0 36px; }
+.pa-logo { width: 36px; height: 36px; display: grid; place-items: center; flex: 0 0 36px; line-height: 0; }
 .pa-brand b { display: block; color: #fff; letter-spacing: .04em; font-size: 15px; } .pa-brand small { color: var(--pa-side-muted); font-size: 11.5px; }
 .pa.collapsed .pa-brand-text, .pa.collapsed .pa-label, .pa.collapsed .pa-caret, .pa.collapsed .pa-sub, .pa.collapsed .pa-me-text { display: none; }
 .pa-nav { flex: 1; overflow-y: auto; padding: 10px 8px; }
