@@ -14,6 +14,7 @@ import { SITE_THEMES, listingPhotos, themeConfig, themePages } from '../../site/
 import { BlogTab, FieldRow, ImagePicker, LINKS, PublishPanel, ReviewsTab, SITE_GROUPS, getPath, setPath } from './siteShared.jsx';
 import { toPuck, fromPuck } from '../../../../shared/puckAdapter.js';
 import IconPicker from './IconPicker.jsx';
+import LogoMark from '../../components/LogoMark.jsx';
 
 /**
  * The website editor ("Website studio"): one place for the whole website, laid out like a site editor.
@@ -230,7 +231,7 @@ function TopBar({ title, device, setDevice, dirty, busy, pub, onSave, onPublish,
   const { history } = usePuck();
   return (
     <div className="st-top">
-      <a className="st-wp" href="/" title="Back to the dashboard" aria-label="Back to the dashboard">⌂</a>
+      <a className="st-wp" href="/" title="Back to the dashboard" aria-label="Back to the dashboard"><LogoMark size={30} tile={false} /></a>
       <span className="st-top-title">{title}</span>
       <span className="grow" />
       <div className="st-dev" role="group" aria-label="Preview width">{DEVICES.map(([k, l, , ic]) => <button key={k} type="button" className={device === k ? 'on' : ''} onClick={() => setDevice(k)} aria-pressed={device === k} title={l}>{ic}<span> {l}</span></button>)}</div>

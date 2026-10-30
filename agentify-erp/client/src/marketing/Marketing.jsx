@@ -8,6 +8,7 @@ import { CountryCtx, useCountry } from './countryCtx.js';
 import { Loading } from '../components/ui.jsx';
 import Flag from '../components/Flag.jsx';
 import { BRANDS } from './brandIcons.js';
+import LogoMark from '../components/LogoMark.jsx';
 import { track, consent, setConsent, browserOptOut, configureGa4, attributionFields, onConsentChange } from './analytics.js';
 import { setRegion } from '../format.js';
 import { useInstallApp, APK_URL, setPlayUrl, inNativeApp } from '../installApp.js';
@@ -192,7 +193,7 @@ function Header({ info }) {
     <>
       {info.content.announcement_bar && <div className="lbar">{info.content.announcement_bar}</div>}
       <header><div className="lwrap">
-        <Link className="llogo" to="/" aria-label={`${brand} home`}><i aria-hidden>⌂</i>{brand}</Link>
+        <Link className="llogo" to="/" aria-label={`${brand} home`}><LogoMark size={28} />{brand}</Link>
         <nav aria-label="Main">
           {links.map(([to, l]) => <NavLink key={to} className="hide-m" to={to}>{l}</NavLink>)}
           <NavLink className="hide-m" to="/login">Sign in</NavLink>

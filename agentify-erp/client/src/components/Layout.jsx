@@ -1,6 +1,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Icon from './Icon.jsx';
+import LogoMark from './LogoMark.jsx';
 import { Avatar, Loading } from './ui.jsx';
 import Assistant from './Assistant.jsx';
 import Appearance from './Appearance.jsx';
@@ -125,7 +126,7 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
       <div className="brand">
         {brand.app_logo
           ? <img className="brand-logo" src={fileUrl(brand.app_logo)} alt={brand.name} />
-          : <><div className="brand-mark"><Icon name="home" size={18} stroke={2.2} /></div>
+          : <><div className="brand-mark"><LogoMark size={30} tile={false} /></div>
             <div className="brand-name">{brand.name}<small>ERP</small></div></>}
       </div>
       <button className="collapse-btn" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}><Icon name={collapsed ? 'chevR' : 'chevL'} size={12} stroke={3} /></button>

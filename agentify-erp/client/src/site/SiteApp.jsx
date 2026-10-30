@@ -9,6 +9,7 @@ import { A, safeHref, AgentCard, InquiryForm, Placeholder, PostCard, ProjectCard
 import { Markdown, SECTION_TYPES, SiteProvider, withPreview, fullPrice, imgUrl, priceText, useSite, useTitle, waLink, MoneyBox, minorOf, curCode, siteCopy, isPK, exampleAmount } from './siteCore.jsx';
 import { getRegion } from '../format.js';
 import SiteIcon, { Ic } from './SiteIcon.jsx';
+import LogoMark from '../components/LogoMark.jsx';
 import './site.css';
 
 /** Header looks a theme can choose: white (default), dark, or see-through over the first block. */
@@ -62,7 +63,7 @@ export function Header() {
         </div></div>
       )}
       <div className="wrap row">
-        <Link to="/site" className="brand" aria-label={b.name}>{b.logo ? <img src={imgUrl(b.logo)} alt={b.name} /> : <><span className="mark">⌂</span><span><b>{b.name}</b>{b.tagline && <small>{b.tagline}</small>}</span></>}</Link>
+        <Link to="/site" className="brand" aria-label={b.name}>{b.logo ? <img src={imgUrl(b.logo)} alt={b.name} /> : <><span className="mark"><LogoMark size={36} tile={false} /></span><span><b>{b.name}</b>{b.tagline && <small>{b.tagline}</small>}</span></>}</Link>
         <nav className={`nav ${open ? 'open' : ''}`} onClick={() => setOpen(false)} aria-label="Main">
           {links.map((l, i) => <A key={i} href={l.href}>{l.label}</A>)}
           {showCta && <A href={h.cta_href || '/login'} className="btn-p sm mobile-only">{h.cta_label}</A>}
@@ -97,7 +98,7 @@ export function Footer() {
       )}
       <div className="wrap fgrid">
         <div className="fabout">
-          <div className="brand light">{b.logo ? <img src={imgUrl(b.logo)} alt={b.name} /> : <><span className="mark">⌂</span><b>{b.name}</b></>}</div>
+          <div className="brand light">{b.logo ? <img src={imgUrl(b.logo)} alt={b.name} /> : <><span className="mark"><LogoMark size={36} tile={false} /></span><b>{b.name}</b></>}</div>
           <p>{f.about}</p>
           {f.show_social && <div className="social">{(config.social || []).filter((s) => safeHref(s.url)).map((s, i) => <a key={i} href={s.url} target="_blank" rel="noreferrer" aria-label={s.platform} title={s.platform}>{SOCIAL_ICON[s.platform] || '🔗'}</a>)}</div>}
         </div>
