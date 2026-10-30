@@ -204,7 +204,8 @@ export function WorkspaceDetail({ id, onClose, onChanged }) {
           </Card>}
           {!!d.notes.filter((n) => n.pinned).length && <Card title="Pinned notes">{d.notes.filter((n) => n.pinned).map((n) => <p key={n.id}>{n.body} <span className="muted">· {n.admin}</span></p>)}</Card>}
         </>}
-        {tab === 'profile' && <ProfileForm d={d} onSave={(body) => post(`${A}/workspaces/${id}`, body, 'Workspace updated', 'patch')} />}
+        {tab === 'profile' && <><ProfileForm d={d} onSave={(body) => post(`${A}/workspaces/${id}`, body, 'Workspace updated', 'patch')} />
+          {can('workspaces.edit') && <BrandCard d={d} onSave={(brandId) => post(`${A}/workspaces/${id}/brand`, { brand_id: brandId }, brandId ? 'Brand assigned: its logo and colour now apply to this workspace' : 'Removed from its brand', 'put')} />}</>}
         {tab === 'users' && <>
           <Card flush>
             <div className="table-wrap" style={{ overflow: 'visible', paddingBottom: 200 }}><table className="t"><thead><tr><th>User</th><th>Role</th><th>Sign-in</th><th>Last sign-in</th><th /></tr></thead><tbody>
@@ -379,6 +380,20 @@ function ProfileForm({ d, onSave }) {
         <Field label="Timezone"><TextInput value={f.timezone} onChange={set('timezone')} placeholder="Asia/Karachi" /></Field>
         <Field label="Currency" hint="Fixed after creation"><TextInput value={d.currency} disabled onChange={() => {}} /></Field>
       </div>
+    </Card>
+  );
+}
+
+/** Put the workspace in a brand group (shared logo and colour only; data, staff, fees and accounts stay separate). */
+function BrandCard({ d, onSave }) {
+  const [brands, setBrands] = useState(null);
+  const [pick, setPick] = useState(d.brand_id ? String(d.brand_id) : '');
+  useEffect(() => { api.get(`${A}/brands`).then(setBrands).catch(() => setBrands([])); }, []);
+  const now = brands?.find((b) => b.id === d.brand_id);
+  return (
+    <Card title="Brand group" actions={<button className="btn sm" disabled={String(d.brand_id || '') === pick} onClick={() => onSave(pick ? Number(pick) : null)}>Save</button>}>
+      <p className="muted" style={{ marginTop: 0 }}>{now ? `Part of "${now.name}". ` : 'Independent workspace. '}A brand shares only its logo and colour. This workspace keeps its own data, staff, clients, fees and accounts.</p>
+      <Field label="Brand"><select className="input" value={pick} onChange={(e) => setPick(e.target.value)} disabled={!brands}><option value="">None (independent)</option>{(brands || []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</select></Field>
     </Card>
   );
 }

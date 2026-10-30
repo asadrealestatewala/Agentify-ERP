@@ -31,7 +31,9 @@ const TENANT_COLUMNS = [['storage_bucket_bytes', 'INTEGER'], ['storage_bucket_fi
   ['entitlements', 'TEXT'], ['price_amount', 'INTEGER'], ['price_currency', 'TEXT'], ['owner_name', 'TEXT'], ['owner_phone', 'TEXT'], ['account_manager', 'TEXT'],
   // SaaS release: product chosen at signup, trial start (UTC), when a subscription was cancelled, why a trial was not granted
   ['product', "TEXT NOT NULL DEFAULT 'real_estate'"], ['trial_started_at', 'TEXT'], ['canceled_at', 'TEXT'], ['trial_note', 'TEXT'],
-  ['email_prefs', 'TEXT'], ['terms_version', 'INTEGER'], ['terms_accepted_at', 'TEXT'], ['data_deleted_at', 'TEXT'], ['close_requested_at', 'TEXT']];
+  ['email_prefs', 'TEXT'], ['terms_version', 'INTEGER'], ['terms_accepted_at', 'TEXT'], ['data_deleted_at', 'TEXT'], ['close_requested_at', 'TEXT'],
+  // brand group (services/brands.js); null means an independent workspace
+  ['brand_id', 'INTEGER']];
 
 const PLATFORM_SCHEMA = `
 CREATE TABLE IF NOT EXISTS tenants(
@@ -111,6 +113,23 @@ CREATE INDEX IF NOT EXISTS idx_tenant_notes ON tenant_notes(tenant_id, id);
 
 // added after the first release (run after the column upgrades above)
 const PLATFORM_SCHEMA_2 = `
+-- brand groups: several workspaces of one owner that share a logo and colours, nothing else (services/brands.js)
+CREATE TABLE IF NOT EXISTS brands(
+  id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE COLLATE NOCASE, owner_email TEXT, logo TEXT, primary_color TEXT, accent_color TEXT,
+  main_tenant_id INTEGER, created_by TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT);
+-- shared template library read by every workspace; a workspace may override an item with its own text (services/sharedLibrary.js)
+CREATE TABLE IF NOT EXISTS library_items(
+  id INTEGER PRIMARY KEY, type TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','retired')), created_by TEXT, updated_by TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS workspace_library_overrides(
+  tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, library_item_id INTEGER NOT NULL REFERENCES library_items(id) ON DELETE CASCADE,
+  override_content TEXT NOT NULL, base_version INTEGER NOT NULL DEFAULT 1, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY(tenant_id, library_item_id));
+-- per-workspace AI switch and daily call limit (services/aiUsage.js); no row means "on, platform default limit"
+CREATE TABLE IF NOT EXISTS workspace_ai_settings(
+  tenant_id INTEGER PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE, ai_enabled INTEGER NOT NULL DEFAULT 1, daily_call_limit INTEGER,
+  updated_by TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE INDEX IF NOT EXISTS idx_platform_audit_created ON platform_audit(created_at);
 CREATE INDEX IF NOT EXISTS idx_platform_audit_admin ON platform_audit(admin, id);
 -- the audit trail is append-only: no edits or deletions, even from the console

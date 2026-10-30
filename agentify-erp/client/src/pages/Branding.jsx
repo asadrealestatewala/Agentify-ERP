@@ -17,6 +17,7 @@ export default function Branding() {
   const { reload } = useMeta();
   const { data, reload: rl } = useFetch('/api/settings/system');
   const meta = useMeta().meta;
+  const { data: groupData } = useFetch('/api/settings/brand-group');
   const [f, setF] = useState(null);
   const [social, setSocial] = useState([]);
   const [tab, setTab] = useState('receipt');
@@ -26,6 +27,9 @@ export default function Branding() {
   }, [data]);
   if (!f || !meta) return <Loading />;
   const ro = !can('settings', 'edit');
+  const group = groupData;
+  const colourLocked = ro || !!group?.locks_color;
+  const logoLocked = ro || !!group?.locks_logo;
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   const logo = meta.settings.print_logo;
   const appLogo = meta.settings.brand_logo;
@@ -65,12 +69,13 @@ export default function Branding() {
           <Card title="Workspace colour & logo" actions={null}>
             <div className="stack" style={{ gap: 14 }}>
               <div className="muted" style={{ fontSize: 12.5 }}>Your colour replaces the default blue/teal on buttons, links and highlights for everyone in your workspace (people who picked their own accent colour keep it). Your logo appears at the top left, in place of the default mark. Leave both empty to keep the default look.</div>
+              {group && (group.locks_color || group.locks_logo) && <div className="alert info">Part of the brand group "{group.name}". {[group.locks_color && 'the colour', group.locks_logo && 'the logo'].filter(Boolean).join(' and ')} {group.locks_color && group.locks_logo ? 'are' : 'is'} set by the brand and can only be changed by the brand owner. Everything else here stays yours.</div>}
               <Field label="Brand colour" hint={colorCheck.ok ? 'Hex colour, for example #1a56db. White text must stay readable on it.' : colorCheck.error}>
                 <div className="row" style={{ gap: 8 }}>
-                  <input type="color" aria-label="Pick brand colour" disabled={ro} value={colorCheck.hex || '#2563eb'} onChange={(e) => set('brand_color', e.target.value)} style={{ width: 44, height: 36, padding: 2, border: '1px solid var(--border-2)', borderRadius: 6, background: 'transparent' }} />
-                  <input className="input" style={{ width: 130 }} disabled={ro} value={f.brand_color || ''} placeholder="Default" maxLength={7} onChange={(e) => set('brand_color', e.target.value)} />
-                  <button className="btn sm primary" disabled={ro || !colorCheck.ok} onClick={() => saveColor(f.brand_color)} style={colorCheck.hex ? { background: colorCheck.hex, borderColor: colorCheck.hex } : undefined}>Save colour</button>
-                  {(f.brand_color || meta.settings.brand_color) && !ro && <button className="btn sm" onClick={() => { set('brand_color', ''); saveColor(''); }}>Use default</button>}
+                  <input type="color" aria-label="Pick brand colour" disabled={colourLocked} value={colorCheck.hex || '#2563eb'} onChange={(e) => set('brand_color', e.target.value)} style={{ width: 44, height: 36, padding: 2, border: '1px solid var(--border-2)', borderRadius: 6, background: 'transparent' }} />
+                  <input className="input" style={{ width: 130 }} disabled={colourLocked} value={f.brand_color || ''} placeholder="Default" maxLength={7} onChange={(e) => set('brand_color', e.target.value)} />
+                  <button className="btn sm primary" disabled={colourLocked || !colorCheck.ok} onClick={() => saveColor(f.brand_color)} style={colorCheck.hex ? { background: colorCheck.hex, borderColor: colorCheck.hex } : undefined}>Save colour</button>
+                  {(f.brand_color || meta.settings.brand_color) && !colourLocked && <button className="btn sm" onClick={() => { set('brand_color', ''); saveColor(''); }}>Use default</button>}
                 </div>
               </Field>
               {colorCheck.hex && colorCheck.ok && <div className="muted" style={{ fontSize: 12 }}>Contrast of white text on this colour: {contrastOnWhite(colorCheck.hex).toFixed(1)}:1 (minimum 4.5:1). Hover shade <span style={{ background: shades(colorCheck.hex)[1], color: '#fff', padding: '1px 6px', borderRadius: 4 }}>sample</span></div>}
@@ -79,8 +84,8 @@ export default function Branding() {
                   {appLogo ? <img src={fileUrl(appLogo)} alt="Workspace logo" style={{ maxWidth: 140, maxHeight: 40, objectFit: 'contain' }} /> : <span style={{ color: '#94a3b8', fontSize: 12 }}>Default mark</span>}
                 </div>
                 <div className="grow stack" style={{ gap: 8 }}>
-                  {!ro && <FileUploader multiple={false} accept="image/png,image/jpeg,image/webp" onFiles={uploadAppLogo} label="Upload your logo (PNG, JPG, WebP — max 1 MB)" />}
-                  {appLogo && !ro && <button className="btn sm danger" style={{ width: 'fit-content' }} onClick={async () => { await api.del('/api/settings/branding/app-logo'); await refreshBrand(); reload(); toast('Workspace logo removed', 'ok'); }}>Remove logo</button>}
+                  {!logoLocked && <FileUploader multiple={false} accept="image/png,image/jpeg,image/webp" onFiles={uploadAppLogo} label="Upload your logo (PNG, JPG, WebP — max 1 MB)" />}
+                  {appLogo && !logoLocked && <button className="btn sm danger" style={{ width: 'fit-content' }} onClick={async () => { await api.del('/api/settings/branding/app-logo'); await refreshBrand(); reload(); toast('Workspace logo removed', 'ok'); }}>Remove logo</button>}
                 </div>
               </div>
             </div>

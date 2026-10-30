@@ -14,6 +14,8 @@ import { assertSeatAvailable } from '../services/plans.js';
 import { webhookSecret } from '../services/website.js';
 import { cleanStaffPath } from '../services/staffLogin.js';
 import { checkBrandColor } from '../../../shared/brandColor.js';
+import { currentTenant } from '../context.js';
+import { lockMessage, brandOfTenant } from '../services/brands.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -50,6 +52,8 @@ r.get('/system', can('settings', 'view'), (req, res) => {
   out.website_webhook_secret = webhookSecret();
   res.json(out);
 });
+/** The brand group this workspace belongs to (null for an independent workspace); its logo and colour are then set by the brand. */
+r.get('/brand-group', can('settings', 'view'), (_req, res) => res.json(currentTenant() ? brandOfTenant(currentTenant().id) : null));
 r.put('/system', can('settings', 'edit'), asyncH((req, res) => {
   // the API key only changes through "Regenerate" (a form saved with an older copy must not put the old key back)
   const url = req.body.website_webhook_url;
@@ -58,6 +62,9 @@ r.put('/system', can('settings', 'edit'), asyncH((req, res) => {
     const c = checkBrandColor(req.body.brand_color);
     if (!c.ok) throw bad(c.error);
     req.body.brand_color = c.hex;
+    // a brand group sets the colour for its workspaces; a form saved with the unchanged colour still goes through
+    const lock = lockMessage(currentTenant()?.id, 'color');
+    if (lock && c.hex !== getSetting('brand_color', '')) throw bad(lock);
   }
   if (req.body.staff_login_path !== undefined) req.body.staff_login_path = cleanStaffPath(req.body.staff_login_path);
   for (const k of SETTING_KEYS) if (k !== 'website_api_key' && req.body[k] !== undefined) setSetting(k, k === 'website_webhook_url' ? String(req.body[k] || '').trim() : req.body[k]);
@@ -81,7 +88,7 @@ r.delete('/branding/logo', can('settings', 'edit'), asyncH((req, res) => {
 }));
 /** Logo shown at the top left of the workspace (separate from the print logo). PNG/JPG/WebP, up to 1 MB. */
 const appLogoUp = uploader('media', 'image', 1);
-r.post('/branding/app-logo', can('settings', 'edit'), appLogoUp.single('logo'), asyncH((req, res) => {
+r.post('/branding/app-logo', can('settings', 'edit'), (req, _res, next) => { const m = lockMessage(currentTenant()?.id, 'logo'); next(m ? bad(m) : undefined); }, appLogoUp.single('logo'), asyncH((req, res) => {
   if (!req.file) throw bad('Choose an image file');
   if (!/\.(png|jpe?g|webp)$/i.test(req.file.filename)) { fs.rm(req.file.path, { force: true }, () => {}); throw bad('Use a PNG, JPG or WebP logo'); }
   setSetting('brand_logo', `media/${req.file.filename}`);
@@ -89,6 +96,8 @@ r.post('/branding/app-logo', can('settings', 'edit'), appLogoUp.single('logo'), 
   res.json({ brand_logo: `media/${req.file.filename}` });
 }));
 r.delete('/branding/app-logo', can('settings', 'edit'), asyncH((req, res) => {
+  const lock = lockMessage(currentTenant()?.id, 'logo');
+  if (lock) throw bad(lock);
   setSetting('brand_logo', '');
   audit(req, 'Removed workspace logo', 'settings');
   res.json({ ok: true });

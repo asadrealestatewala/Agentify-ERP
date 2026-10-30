@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Card, Empty, ErrorBox, Field, Loading, Modal, PageHead } from '../components/ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useToast } from '../context.jsx';
+import SharedLibrary from '../components/SharedLibrary.jsx';
 
 const KIND_LABEL = { offer: 'Offer', agency_agreement: 'Agency agreement', receipt_note: 'Receipt note', disclosure: 'Disclosure', letter: 'Letter' };
 const SAMPLE = { company: { name: 'Your Company' }, client: { name: 'Sample Client' }, buyer: { name: 'Sample Buyer' }, seller: { name: 'Sample Seller' }, property: { title: 'Sample Property', address: '1 Example Street' }, price: 25000000, deposit: 500000, amount: 120000, method: 'Bank transfer', reference: 'REF-1', commission_percent: 2, closing_date: '2027-01-15', start_date: '2026-11-01', end_date: '2027-05-01', subject: 'Hello' };
@@ -50,6 +51,7 @@ export default function Documents() {
           <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{preview.text}</pre>
           {preview.missing.length > 0 && <div className="muted">Values still needed: {preview.missing.join(', ')}</div>}
         </Modal>)}
+      <SharedLibrary />
     </>
   );
 }

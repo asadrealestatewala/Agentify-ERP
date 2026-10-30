@@ -46,6 +46,8 @@ import { listReviews, decideReview, deleteReview, reviewPhoto } from '../service
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
 import * as cal from '../services/contentCalendar.js';
 import * as aiu from '../services/aiUsage.js';
+import * as brands from '../services/brands.js';
+import * as lib from '../services/sharedLibrary.js';
 import { profit, saveCostConfig } from '../services/profitReport.js';
 import multer from 'multer';
 import fs from 'node:fs';
@@ -672,6 +674,35 @@ r.post('/content/ai-draft', requireOperator, need('content.calendar'), asyncH(as
 r.get('/ai/usage', requireOperator, need('finance.view'), (_req, res) => res.json(aiu.report()));
 r.get('/profit', requireOperator, need('finance.view'), asyncH((req, res) => res.json(profit(req.query))));
 r.put('/profit/config', requireOperator, need('billing.configure'), asyncH((req, res) => { const c = saveCostConfig(req.body || {}, req.operator.email); audit(req.operator.email, 'cost-config-changed', {}); res.json(c); }));
+r.get('/ai/controls', requireOperator, need('finance.view'), (_req, res) => res.json(aiu.controls()));
+r.put('/ai/controls', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiu.saveControls(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-controls-changed', { fields: Object.keys(req.body || {}) }); res.json(v); }));
+r.put('/ai/workspaces/:id(\\d+)', requireOperator, need('integrations.manage'), asyncH((req, res) => {
+  const w = aiu.saveWorkspaceAi(req.params.id, req.body || {}, req.operator.email);
+  audit(req.operator.email, 'workspace-ai-changed', { slug: w.slug, ai_enabled: w.ai_enabled, daily_call_limit: w.daily_call_limit }); res.json(w);
+}));
+// ---- Brand groups: workspaces of one owner sharing a logo and colours (nothing else is shared)
+r.get('/brands', requireOperator, need('workspaces.view'), (_req, res) => res.json(brands.listBrands()));
+r.get('/brands/:id(\\d+)', requireOperator, need('workspaces.view'), asyncH((req, res) => {
+  const b = brands.getBrand(req.params.id);
+  if (!b) throw new HttpError(404, 'Brand not found');
+  res.json({ ...b, rollup: brands.rollup(b.id, tenantSummaries(req)) });
+}));
+r.post('/brands', requireOperator, need('workspaces.edit'), asyncH((req, res) => { const b = brands.createBrand(req.body || {}, req.operator.email); audit(req.operator.email, 'brand-created', { brand: b.name }); res.status(201).json(b); }));
+r.put('/brands/:id(\\d+)', requireOperator, need('workspaces.edit'), asyncH((req, res) => { const out = brands.updateBrand(req.params.id, req.body || {}); audit(req.operator.email, 'brand-edited', { brand: out.brand.name }); res.json(out); }));
+r.delete('/brands/:id(\\d+)', requireOperator, need('workspaces.edit'), asyncH((req, res) => { const b = brands.deleteBrand(req.params.id); audit(req.operator.email, 'brand-deleted', { brand: b.name }); res.json({ ok: true }); }));
+r.put('/brands/:id(\\d+)/main', requireOperator, need('workspaces.edit'), asyncH((req, res) => { const b = brands.setMain(req.params.id, req.body?.tenant_id ?? null); audit(req.operator.email, 'brand-main-set', { brand: b.name, tenant_id: b.main_tenant_id }); res.json(b); }));
+r.put('/workspaces/:id(\\d+)/brand', requireOperator, need('workspaces.edit'), asyncH((req, res) => {
+  const out = brands.assignTenant(req.params.id, req.body?.brand_id ?? null);
+  audit(req.operator.email, out.brand ? 'workspace-brand-assigned' : 'workspace-brand-removed', { tenant_id: Number(req.params.id), brand: out.brand?.name || null });
+  res.json(out);
+}));
+// ---- Shared template library (read by every workspace; a workspace may override an item)
+r.get('/library', requireOperator, need('library.manage'), (_req, res) => res.json({ types: lib.LIBRARY_TYPES, items: lib.listItems(), drift: lib.driftReport() }));
+r.post('/library', requireOperator, need('library.manage'), asyncH((req, res) => { const i = lib.createItem(req.body || {}, req.operator.email); audit(req.operator.email, 'library-item-created', { id: i.id, title: i.title }); res.status(201).json(i); }));
+r.put('/library/:id(\\d+)', requireOperator, need('library.manage'), asyncH((req, res) => { const i = lib.updateItem(req.params.id, req.body || {}, req.operator.email); audit(req.operator.email, 'library-item-edited', { id: i.id, version: i.version }); res.json(i); }));
+r.post('/library/:id(\\d+)/:action(retire|reinstate)', requireOperator, need('library.manage'), asyncH((req, res) => {
+  const i = lib.setStatus(req.params.id, req.params.action === 'retire' ? 'retired' : 'active', req.operator.email); audit(req.operator.email, `library-item-${req.params.action}d`, { id: i.id, title: i.title }); res.json(i);
+}));
 r.get('/ai/settings', requireOperator, need('integrations.manage'), (_req, res) => res.json(aiu.settingsView()));
 r.put('/ai/settings', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const v = await aiu.saveSettings(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-settings-changed', { key_changed: !!req.body?.api_key && !/^•/.test(req.body.api_key) }); res.json(v); }));
 r.delete('/ai/settings/key', requireOperator, need('integrations.manage'), (req, res) => { aiu.disconnect(); audit(req.operator.email, 'ai-key-removed', {}); res.json(aiu.settingsView()); });

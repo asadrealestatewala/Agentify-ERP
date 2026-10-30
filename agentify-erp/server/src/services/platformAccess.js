@@ -27,6 +27,7 @@ export const PERMISSIONS = {
   'regions.support': 'See regions, rules and exchange rates (read-only)',
   'admins.manage': 'Invite, change and remove console users and security rules',
   'content.calendar': 'Plan, schedule and record Agentify marketing posts in the Content calendar',
+  'library.manage': 'Add, edit and retire items in the shared template library and see which workspaces replaced them',
   'mailbox.manage': 'Read, send and delete company e-mail (Mailbox) and see the sent log',
 };
 const ALL = Object.keys(PERMISSIONS);

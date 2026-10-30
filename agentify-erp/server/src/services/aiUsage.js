@@ -7,7 +7,7 @@ import { platformDb } from '../platform.js';
 import { getSetting, setSetting } from './platformConfig.js';
 import { currentTenant } from '../context.js';
 import { bad } from '../util.js';
-import { AI_PROVIDERS, testAi, setUsageSink } from '../integrations/ai.js';
+import { AI_PROVIDERS, testAi, setUsageSink, setUsageGate } from '../integrations/ai.js';
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS ai_usage(
   id INTEGER PRIMARY KEY, at TEXT NOT NULL, key_owner TEXT NOT NULL, provider TEXT NOT NULL, model TEXT, purpose TEXT NOT NULL,
@@ -117,4 +117,86 @@ export async function draftPost({ channel, topic, tone, language }, admin) {
   let out; try { out = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || ''); } catch { out = null; }
   if (!out?.body) throw bad('Gemini did not return a usable draft. Try again with a clearer brief.');
   return { title: String(out.title || t).slice(0, 140), body: String(out.body).slice(0, 3000) };
+}
+
+// ---- controls for AI used inside workspaces (their own keys): kill switch, monthly cap, per-feature switches, per-workspace limits
+// "A call" is one model request recorded in the ledger above. Limits are checked before a feature starts, so a request that has begun is never cut off half way.
+export const AI_FEATURES = {
+  workspace_assistant: 'Workspace data assistant', property_writer: 'Property writer', website_builder: 'Website builder AI', promo_video: 'Promo video scripts', workspace_ai: 'Other workspace AI',
+};
+const flag = (k) => getSetting(k) === '1';
+const featuresOff = () => { try { const a = JSON.parse(getSetting('ai_features_off') || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
+const dayStart = (now) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+const callsToday = (tenantId, now = new Date()) => db().prepare("SELECT COUNT(*) n FROM ai_usage WHERE key_owner='tenant' AND tenant_id=? AND at>=?").get(tenantId, dayStart(now)).n;
+const wsRow = (tenantId) => db().prepare('SELECT ai_enabled, daily_call_limit FROM workspace_ai_settings WHERE tenant_id=?').get(tenantId);
+const defaultDailyLimit = () => num('ai_ws_default_daily_limit');
+export function workspaceMonth(now = new Date()) {
+  const c = config();
+  const r = db().prepare("SELECT COUNT(*) calls, COALESCE(SUM(input_tokens),0) i, COALESCE(SUM(output_tokens),0) o FROM ai_usage WHERE key_owner='tenant' AND at>=?").get(monthStart(now));
+  const spent = cost(r.i, r.o, c);
+  const cap = num('ai_ws_monthly_cap');
+  return { calls: r.calls, input_tokens: r.i, output_tokens: r.o, spent, cap, over: cap != null && spent != null && spent >= cap };
+}
+
+/** Throws a plain-words reason when a workspace may not start an AI feature now. */
+export function assertAiAllowed(tenantId, purpose = 'workspace_ai', now = new Date()) {
+  if (flag('ai_kill_switch')) throw bad('AI is switched off for every workspace right now. Please try again later.');
+  if (featuresOff().includes(purpose)) throw bad(`${AI_FEATURES[purpose] || 'This AI feature'} is switched off at the moment.`);
+  if (workspaceMonth(now).over) throw bad('AI is paused for now because the monthly AI allowance is used up. It starts again next month or when the allowance is raised.');
+  if (!tenantId) return;
+  const ws = wsRow(tenantId);
+  if (ws && !ws.ai_enabled) throw bad('AI is switched off for this workspace. Contact Agentify support to switch it back on.');
+  const limit = ws?.daily_call_limit ?? defaultDailyLimit();
+  if (limit != null && callsToday(tenantId, now) >= limit) throw bad(`This workspace has used its ${limit} AI calls for today. The count starts again at midnight UTC.`);
+}
+setUsageGate((purpose) => assertAiAllowed(currentTenant()?.id || null, purpose));
+
+export function controls(now = new Date()) {
+  const c = config();
+  const since = monthStart(now);
+  const off = new Set(featuresOff());
+  const byFeature = db().prepare(`SELECT purpose, COUNT(*) calls, COALESCE(SUM(input_tokens),0) input_tokens, COALESCE(SUM(output_tokens),0) output_tokens
+    FROM ai_usage WHERE key_owner='tenant' AND at>=? GROUP BY purpose`).all(since).map((r) => ({ ...r, est_cost: cost(r.input_tokens, r.output_tokens, c) }));
+  const usage = new Map(db().prepare(`SELECT tenant_id, COUNT(*) calls, COALESCE(SUM(input_tokens),0) i, COALESCE(SUM(output_tokens),0) o,
+    SUM(CASE WHEN at>=? THEN 1 ELSE 0 END) today FROM ai_usage WHERE key_owner='tenant' AND at>=? AND tenant_id IS NOT NULL GROUP BY tenant_id`).all(dayStart(now), since).map((r) => [r.tenant_id, r]));
+  const def = defaultDailyLimit();
+  const workspaces = db().prepare("SELECT id, name, slug, plan, status FROM tenants ORDER BY name").all().map((t) => {
+    const s = wsRow(t.id); const u = usage.get(t.id);
+    return { ...t, ai_enabled: s ? !!s.ai_enabled : true, daily_call_limit: s?.daily_call_limit ?? null, effective_limit: s?.daily_call_limit ?? def,
+      calls_today: u?.today || 0, calls_month: u?.calls || 0, tokens_month: u ? u.i + u.o : 0, est_cost_month: u ? cost(u.i, u.o, c) : (c.price_in == null || c.price_out == null ? null : 0) };
+  });
+  return {
+    month: workspaceMonth(now), currency: c.currency, prices_set: c.price_in != null && c.price_out != null,
+    kill_switch: flag('ai_kill_switch'), default_daily_limit: def,
+    features: Object.entries(AI_FEATURES).map(([key, label]) => ({ key, label, enabled: !off.has(key), ...(byFeature.find((f) => f.purpose === key) || { calls: 0, input_tokens: 0, output_tokens: 0, est_cost: c.price_in == null || c.price_out == null ? null : 0 }) })),
+    workspaces,
+  };
+}
+
+const limitNum = (v, label, max) => { if (v === '' || v == null) return null; const n = Number(v); if (!Number.isInteger(n) || n < 0 || n > max) throw bad(`${label} must be a whole number from 0 to ${max}`); return n; };
+export function saveControls(b, by) {
+  const set = (k, v) => setSetting(k, v == null ? null : String(v), { by });
+  if ('kill_switch' in b) set('ai_kill_switch', b.kill_switch ? '1' : null);
+  if ('default_daily_limit' in b) set('ai_ws_default_daily_limit', limitNum(b.default_daily_limit, 'The default daily limit', 100000));
+  if ('monthly_cap' in b) {
+    const cap = money(b.monthly_cap, 'The monthly cap');
+    if (cap != null && (config().price_in == null || config().price_out == null)) throw bad('Enter the provider prices in AI settings first; the cap is worked out from them.');
+    set('ai_ws_monthly_cap', cap);
+  }
+  if (b.features && typeof b.features === 'object') {
+    const off = new Set(featuresOff());
+    for (const [k, on] of Object.entries(b.features)) { if (!AI_FEATURES[k]) throw bad('Unknown AI feature'); if (on) off.delete(k); else off.add(k); }
+    set('ai_features_off', off.size ? JSON.stringify([...off]) : null);
+  }
+  return controls();
+}
+export function saveWorkspaceAi(tenantId, b, by) {
+  const t = db().prepare('SELECT id FROM tenants WHERE id=?').get(Number(tenantId));
+  if (!t) throw bad('Workspace not found');
+  const prev = wsRow(t.id);
+  const enabled = b.ai_enabled === undefined ? (prev ? prev.ai_enabled : 1) : (b.ai_enabled ? 1 : 0);
+  const limit = 'daily_call_limit' in b ? limitNum(b.daily_call_limit, 'The daily limit', 100000) : (prev?.daily_call_limit ?? null);
+  db().prepare(`INSERT INTO workspace_ai_settings(tenant_id, ai_enabled, daily_call_limit, updated_by, updated_at) VALUES(?,?,?,?,datetime('now'))
+    ON CONFLICT(tenant_id) DO UPDATE SET ai_enabled=excluded.ai_enabled, daily_call_limit=excluded.daily_call_limit, updated_by=excluded.updated_by, updated_at=datetime('now')`).run(t.id, enabled, limit, by || null);
+  return controls().workspaces.find((w) => w.id === t.id);
 }

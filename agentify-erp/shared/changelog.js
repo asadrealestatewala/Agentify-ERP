@@ -6,6 +6,15 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.51', date: '2026-10-31', title: 'Shared library, brand groups and AI limits',
+    items: [
+      { text: 'New Shared library: ready-made contract wording, standard clauses, brochure layouts and email templates kept up to date for every workspace. Read them in place, or choose "Use my own version" to keep your own text for any item. Only your workspace sees your version, and you are told when the shared text has been updated since.', where: 'Documents > Shared library' },
+      { text: 'New Brands page: put several workspaces of one owner in a brand group that shares a logo and colour. The logo and colour are applied to every member straight away; data, staff, clients, fees and accounts stay separate in each workspace. A workspace page shows which brand it belongs to.', where: 'Platform console > Workspaces > Brands', audience: 'platform' },
+      { text: 'New Template library page to add, edit and retire the shared items, with a note of which workspaces use their own version and whether the shared text has moved on since.', where: 'Platform console > System > Template library', audience: 'platform' },
+      { text: 'New Workspace AI controls: a kill switch for all workspaces, a monthly cap on estimated workspace AI spend, on/off switches per AI feature, and an on/off switch and daily call limit per workspace, with calls today and cost this month for each.', where: 'Platform console > Reports & Analytics > AI usage & credits', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.50', date: '2026-10-29', title: 'Private files in secure storage',
     items: [
       { text: 'Your private files (documents, payment slips, recordings and content images or videos) are now kept in secure cloud storage, in a folder that only your workspace can reach. Links to open them work for a short time and are only given to signed-in people with access.', where: 'Documents, Payments, Recordings and Content' },
