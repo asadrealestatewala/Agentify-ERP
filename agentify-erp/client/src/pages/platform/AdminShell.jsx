@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Icon from '../../components/Icon.jsx';
+import LogoMark from '../../components/LogoMark.jsx';
 import { Empty, Menu } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { APP_VERSION } from '../../appVersion.js';
@@ -121,7 +122,7 @@ export default function AdminShell({ me, onSignOut, onChangePassword, children }
     <div className={`pa ${collapsed ? 'collapsed' : ''} ${mobile ? 'mobile-open' : ''}`}>
       <div className="pa-scrim" onClick={() => setMobile(false)} />
       <aside className="pa-side" aria-label="Super admin navigation">
-        <div className="pa-brand"><div className="pa-logo">A</div><div className="pa-brand-text"><b>AGENTIFY</b><small>ERP · Super Admin</small></div></div>
+        <div className="pa-brand"><div className="pa-logo"><LogoMark size={36} title="Agentify ERP" /></div><div className="pa-brand-text"><b>AGENTIFY</b><small>ERP · Super Admin</small></div></div>
         <nav className="pa-nav">
           {nav_.map((g) => {
             const activeGroup = g.items.some(([, to]) => isActive(loc, to));
