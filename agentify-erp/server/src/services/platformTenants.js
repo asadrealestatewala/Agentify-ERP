@@ -102,7 +102,7 @@ const tenantRow = (t, req) => ({
   subscription_status: t.subscription_status, billing_interval: t.billing_interval, billing_provider: t.billing_provider,
   trial_ends_at: t.trial_ends_at, current_period_end: t.current_period_end, grace_until: t.grace_until, custom_domain: t.custom_domain,
   timezone: t.timezone, currency: t.currency, created_at: t.created_at, url: workspaceUrl(t, req), expiry: expiryOf(t),
-  owner_name: t.owner_name || null, owner_phone: t.owner_phone || null, account_manager: t.account_manager || null,
+  brand_id: t.brand_id || null, owner_name: t.owner_name || null, owner_phone: t.owner_phone || null, account_manager: t.account_manager || null,
   price: t.price_amount != null ? { amount: t.price_amount, currency: t.price_currency, interval: t.billing_interval } : null,
   entitlements: (() => { try { return t.entitlements ? JSON.parse(t.entitlements) : null; } catch { return null; } })(),
 });

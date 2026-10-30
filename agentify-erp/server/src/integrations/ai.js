@@ -23,6 +23,9 @@ const slot = (p) => `ai_${p}`;
 /** Usage metering hook (services/aiUsage.js registers it); called with every model response so token counts can be recorded. */
 let usageSink = null;
 export const setUsageSink = (fn) => { usageSink = fn; };
+/** Allowance check (services/aiUsage.js registers it); called before a workspace model call and throws the reason when AI is not allowed. */
+let usageGate = null;
+export const setUsageGate = (fn) => { usageGate = fn; };
 const metered = (provider, model, d, purpose) => { try { usageSink?.({ provider, model, d, purpose }); } catch { /* metering never breaks a call */ } return d; };
 
 async function http(url, opts = {}) {
@@ -73,6 +76,7 @@ export const canTranscribe = () => !!(aiConfig('openai') || aiConfig('gemini'));
 export async function runWithTools(provider, { system, question, history = [], tools = [], maxRounds = 5 }) {
   const cfg = aiConfig(provider);
   if (!cfg) throw bad('Connect an AI provider first.');
+  usageGate?.('workspace_assistant');
   const called = [];
   if (provider === 'anthropic') {
     const messages = [...history, { role: 'user', content: question }];
@@ -135,6 +139,7 @@ export async function runWithTools(provider, { system, question, history = [], t
 export async function completeJson(provider, { system, prompt, maxTokens = 1800, purpose = 'workspace_ai' }) {
   const cfg = aiConfig(provider);
   if (!cfg) throw bad('Connect an AI provider first.');
+  usageGate?.(purpose);
   let text;
   if (provider === 'anthropic') {
     const d = metered('anthropic', cfg.model, await http('https://api.anthropic.com/v1/messages', { method: 'POST', headers: { 'x-api-key': cfg.api_key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, body: JSON.stringify({ model: cfg.model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: prompt }] }) }), purpose);
