@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
 import { Field } from '../components/ui.jsx';
+import PasswordInput from '../components/PasswordInput.jsx';
+import { inNativeApp } from '../installApp.js';
 import { useAuth } from '../context.jsx';
 import { api } from '../api.js';
 import { useBrand } from '../brand.js';
@@ -16,6 +18,7 @@ export default function Login({ portal = false, vendor = false, staff = false })
   const nav = useNavigate();
   const [sp] = useSearchParams();
   const next = sp.get('next') || '';
+  const native = inNativeApp();
   const [id, setId] = useState('');
   const [pw, setPw] = useState('');
   const [err, setErr] = useState('');
@@ -53,6 +56,9 @@ export default function Login({ portal = false, vendor = false, staff = false })
         {!(own && !portal) && <div className="auth2-feats">{FEATS.map(([ic, tone, l]) => <div key={l} className="auth2-feat"><span className={`ic-tile sm ic-${tone}`}><Icon name={ic} size={15} /></span>{l}</div>)}</div>}
       </div>
       <form className="auth2-card stack" onSubmit={submit}>
+        {native && !mfa && !otp && <div className="row" role="tablist" aria-label="Sign in as" style={{ gap: 6 }}>
+          {[['Employee', '/login', !portal], ['Customer', '/portal/login', portal && !vendor], ['Vendor', '/vendor/login', vendor]].map(([l, to, on]) => <Link key={l} to={to} role="tab" aria-selected={on} className={`btn${on ? ' primary' : ''}`} style={{ flex: 1, justifyContent: 'center' }}>{l}</Link>)}
+        </div>}
         <div><h2>{vendor ? t('auth.vendor_sign_in', 'Vendor sign in') : portal ? t('auth.customer_sign_in', 'Customer sign in') : t('auth.sign_in', 'Sign in')}</h2><div className="muted" style={{ marginTop: 4 }}>{vendor ? 'Use the e-mail address you registered with the company.' : portal ? 'Use the email or phone number registered with us.' : 'Welcome back. Enter your work email and password.'}</div></div>
         {(getRegion().config.languages || []).length > 1 && <label className="muted" style={{ fontSize: 13 }}>{t('lang.label', 'Language')}: <select className="input" style={{ width: 'auto', display: 'inline-block' }} value={getLanguage()} onChange={(e) => chooseLanguage(e.target.value)}>{getRegion().config.languages.map((l) => <option key={l} value={l}>{{ en: 'English', fr: 'Français', ar: 'العربية' }[l] || l}</option>)}</select></label>}
         {err && <div className="alert err" role="alert">{err}</div>}
@@ -60,10 +66,10 @@ export default function Login({ portal = false, vendor = false, staff = false })
         {otp ? <><Field label="Code from your email" hint={`We sent a 6-digit code to ${otp.hint}. It expires in 10 minutes.`}><input className="input" autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} required /></Field>
           <button type="button" className="btn ghost" onClick={again}>Send a new code</button></> : mfa ? <Field label="Authenticator code" hint="Open your authenticator app and enter the 6-digit code, or use a recovery code."><input className="input" autoFocus inputMode="text" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} required /></Field> : <>
         <Field label={portal ? t('auth.email_or_phone', 'Email or phone') : t('auth.email', 'Email')}><input className="input" autoFocus value={id} onChange={(e) => setId(e.target.value)} autoComplete="username" required /></Field>
-        <Field label={t('auth.password', 'Password')}><input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" required /></Field>
+        <Field label={t('auth.password', 'Password')}><PasswordInput value={pw} onChange={(e) => setPw(e.target.value)} required /></Field>
         </>}
         <button className="btn primary" disabled={busy}>{busy ? t('auth.signing_in', 'Signing in…') : mfa || otp ? t('auth.verify', 'Verify') : t('auth.sign_in', 'Sign in')}</button>
-        {!vendor && <div className="center muted"><Link to="/forgot-password">{t('auth.forgot', 'Forgot password?')}</Link>{!portal && !own && <> · <Link to="/signup">{t('auth.create_workspace', 'Create a workspace')}</Link></>}</div>}
+        <div className="center muted"><Link to="/forgot-password">{t('auth.forgot', 'Forgot password?')}</Link>{!portal && !own && <> · <Link to="/signup">{t('auth.create_workspace', 'Create a workspace')}</Link></>}</div>
         <div className="center muted">{portal ? <>{!own && <><Link to="/login">{t('auth.staff_sign_in', 'Staff sign in')}</Link> · </>}{vendor ? <Link to="/portal/login">Customer portal</Link> : <Link to="/vendor/login">Vendor portal</Link>}</> : <><Link to="/portal/login">Customer portal →</Link> · <Link to="/vendor/login">Vendor portal →</Link></>}</div>
         {!portal && !vendor && !mfa && !otp && brand.sso.length > 0 && (
           <div className="stack" style={{ marginTop: 4 }}>

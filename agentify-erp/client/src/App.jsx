@@ -5,6 +5,7 @@ import { api } from './api.js';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Loading } from './components/ui.jsx';
 import { useAuth } from './context.jsx';
+import { inNativeApp } from './installApp.js';
 import StaffGate from './pages/StaffGate.jsx';
 import Login from './pages/Login.jsx';
 import { AcceptInvite, ForgotPassword, ResetPassword, Signup, VerifyEmail } from './pages/AuthPages.jsx';
@@ -37,7 +38,7 @@ export default function App() {
   if (!user) {
     return (
       <Routes>
-        <Route path="/" element={<MainGate fallback={<Navigate to="/site" replace />} />} />
+        <Route path="/" element={<MainGate fallback={<Navigate to={inNativeApp() ? '/login' : '/site'} replace />} />} />
         {['/real-estate', '/construction', '/preview', '/pricing', '/contact', '/delete-account', '/download-app', '/legal/:slug'].map((p) => <Route key={p} path={p} element={<MainGate fallback={<Navigate to="/login" replace />} />} />)}
         <Route path="/portal/login" element={<Login portal />} />
         <Route path="/vendor/login" element={<Login portal vendor />} />
