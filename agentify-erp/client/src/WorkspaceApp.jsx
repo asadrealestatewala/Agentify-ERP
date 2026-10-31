@@ -54,6 +54,8 @@ const ExpenseForm = lazy(() => import('./pages/Vendors.jsx').then((m) => ({ defa
 const ExpenseList = lazy(() => import('./pages/Vendors.jsx').then((m) => ({ default: m.ExpenseList })));
 const VendorDetail = lazy(() => import('./pages/Vendors.jsx').then((m) => ({ default: m.VendorDetail })));
 const VendorLedgerPicker = lazy(() => import('./pages/Vendors.jsx').then((m) => ({ default: m.VendorLedgerPicker })));
+const DeveloperList = lazy(() => import('./pages/Developers.jsx').then((m) => ({ default: m.DeveloperList })));
+const DeveloperDetail = lazy(() => import('./pages/Developers.jsx').then((m) => ({ default: m.DeveloperDetail })));
 const VendorList = lazy(() => import('./pages/Vendors.jsx').then((m) => ({ default: m.VendorList })));
 const EmployeeDocuments = lazy(() => import('./pages/Hrm.jsx').then((m) => ({ default: m.EmployeeDocuments })));
 const EmployeeProfile = lazy(() => import('./pages/Hrm.jsx').then((m) => ({ default: m.EmployeeProfile })));
@@ -333,6 +335,9 @@ export default function App() {
         <Route path="payments/balloon" element={G('payments', <InstallmentsPage preset="balloon" />)} />
         <Route path="payments/receivables" element={G('payments', <Receivables />)} />
         <Route path="payments/history" element={G('payments', <ReceiptList title="Payment history" />)} />
+        {/* Developer partners */}
+        <Route path="developers" element={G('developers', <DeveloperList />)} />
+        <Route path="developers/:id" element={G('developers', <DeveloperDetail />)} />
         {/* Vendors */}
         <Route path="vendors" element={G('vendors', <VendorList />)} />
         <Route path="vendors/tenders" element={G('vendors', <TenderList />)} />

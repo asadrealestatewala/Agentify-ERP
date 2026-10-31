@@ -7,7 +7,7 @@ import { HttpError, forbidden } from './util.js';
 import { currentTenant } from './context.js';
 
 export const MODULES = ['dashboard', 'crm', 'sales', 'commissions', 'properties', 'projects', 'customers', 'payments', 'accounting',
-  'vendors', 'hrm', 'reports', 'settings', 'documents', 'website', 'content', 'listings', 'seo', 'construction'];
+  'vendors', 'hrm', 'reports', 'settings', 'documents', 'website', 'content', 'listings', 'seo', 'construction', 'developers'];
 export const ACTIONS = ['view', 'create', 'edit', 'delete', 'approve', 'export', 'print'];
 
 function secret() {
@@ -33,7 +33,7 @@ export function readMfaToken(tok) {
 }
 
 export function loadUser(id) {
-  const u = get(`SELECT u.id,u.name,u.email,u.phone,u.role_id,u.contact_id,u.vendor_id,u.active,u.token_version,u.email_verified,u.totp_enabled,
+  const u = get(`SELECT u.id,u.name,u.email,u.phone,u.role_id,u.contact_id,u.vendor_id,u.developer_id,u.active,u.token_version,u.email_verified,u.totp_enabled,
     r.name role, r.own_scope, r.portal FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?`, id);
   if (!u) return null;
   u.perms = new Set(all('SELECT module,action FROM role_permissions WHERE role_id=?', u.role_id).map((p) => `${p.module}:${p.action}`));
@@ -83,6 +83,13 @@ export function requirePortal(req, _res, next) {
 export function requireVendor(req, _res, next) {
   if (!req.user) return next(new HttpError(401, 'Authentication required'));
   if (!req.user.portal || !req.user.vendor_id) return next(forbidden('Vendor portal access only'));
+  next();
+}
+
+/** Developer partner portal accounts: a portal login tied to one developer record. The developer id always comes from the session. */
+export function requireDeveloper(req, _res, next) {
+  if (!req.user) return next(new HttpError(401, 'Authentication required'));
+  if (!req.user.portal || !req.user.developer_id) return next(forbidden('Developer portal access only'));
   next();
 }
 

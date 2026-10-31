@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { SCHEMA, SALES_DDL } from './schema.js';
 import { CONSTRUCTION_SCHEMA } from './constructionSchema.js';
+import { DEVELOPER_SCHEMA } from './developerSchema.js';
 import { IDENTITY_SCHEMA } from './regions/identitySchema.js';
 import { MORTGAGE_SCHEMA } from './regions/mortgageSchema.js';
 import { DOCUMENTS_SCHEMA } from './regions/documentsSchema.js';
@@ -40,7 +41,7 @@ export function openDb(file, tenant = null) {
   h.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
   handles.set(abs, h);
   try {
-    als.run({ tenant, db: h }, () => { db.exec(SCHEMA); db.exec(CONSTRUCTION_SCHEMA); db.exec(IDENTITY_SCHEMA); db.exec(MORTGAGE_SCHEMA); db.exec(DOCUMENTS_SCHEMA); db.exec(INTEGRATIONS_SCHEMA); db.exec(ONBOARDING_SCHEMA); db.exec(FIELD_SCHEMA); db.exec(GATEWAYS_SCHEMA); db.exec(EMAIL_SCHEMA); db.exec(LEAD_SCHEMA); db.exec(WHATSAPP_SCHEMA); migrate(); backfillIds(); try { syncRegionLookups(); } catch { /* lists are a convenience; never block opening the workspace */ } });
+    als.run({ tenant, db: h }, () => { db.exec(SCHEMA); db.exec(CONSTRUCTION_SCHEMA); db.exec(IDENTITY_SCHEMA); db.exec(MORTGAGE_SCHEMA); db.exec(DOCUMENTS_SCHEMA); db.exec(INTEGRATIONS_SCHEMA); db.exec(ONBOARDING_SCHEMA); db.exec(FIELD_SCHEMA); db.exec(GATEWAYS_SCHEMA); db.exec(EMAIL_SCHEMA); db.exec(LEAD_SCHEMA); db.exec(WHATSAPP_SCHEMA); migrate(); db.exec(DEVELOPER_SCHEMA); backfillIds(); try { syncRegionLookups(); } catch { /* lists are a convenience; never block opening the workspace */ } });
   } catch (e) { handles.delete(abs); h.close(); throw e; }
   return h;
 }
@@ -123,6 +124,11 @@ function migrate() {
   addCol('receipts', 'qr_payload', 'TEXT'); addCol('receipts', 'qr_at', 'TEXT');
   addCol('site_posts', 'seo_title', 'TEXT'); addCol('site_posts', 'seo_desc', 'TEXT'); addCol('site_posts', 'focus_keyword', 'TEXT');
   addCol('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 1'); addCol('users', 'totp_secret', 'TEXT'); addCol('users', 'totp_enabled', 'INTEGER NOT NULL DEFAULT 0'); addCol('users', 'recovery_codes', 'TEXT'); addCol('users', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0');
+  // developer partner portal (docs/DEVELOPER_PARTNER_PORTAL.md): own plots stay inventory_source='own' and are untouched
+  addCol('properties', 'inventory_source', "TEXT NOT NULL DEFAULT 'own'"); addCol('properties', 'developer_id', 'INTEGER'); addCol('properties', 'agreement_id', 'INTEGER');
+  for (const [c, t] of [['developer_id', 'INTEGER'], ['agreement_id', 'INTEGER'], ['booking_id', 'TEXT'], ['file_state', 'TEXT'], ['holder', "TEXT NOT NULL DEFAULT 'customer'"],
+    ['cancel_window_until', 'TEXT'], ['cancel_tiers', 'TEXT']]) addCol('sales', c, t);
+  addCol('users', 'developer_id', 'INTEGER');
   addCol('users', 'vendor_id', 'INTEGER'); addCol('vendors', 'vendor_code', 'TEXT');
   addCol('assets', 'vendor_id', 'INTEGER'); addCol('assets', 'project_id', 'INTEGER'); addCol('assets', 'warranty_until', 'TEXT'); addCol('assets', 'source', 'TEXT');
   // property visits on appointments (all nullable, so older apps and rows keep working)

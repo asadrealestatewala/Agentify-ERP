@@ -43,6 +43,7 @@ const ROLES = [
     perms: [...P(['properties'], [...RW, 'approve', 'export', 'print']), ...P(['projects', 'dashboard'], ['view'])] },
   { name: 'Customer', description: 'Customer portal only', portal: 1, perms: [] },
   { name: 'Vendor', description: 'Vendor portal only', portal: 1, perms: [] },
+  { name: 'Developer', description: 'Developer partner portal only', portal: 1, perms: [] },
 ];
 
 const L = (type, items) => items.map((it, i) => (typeof it === 'string' ? { type, value: it, sort_order: i } : { type, sort_order: i, ...it }));
@@ -69,6 +70,14 @@ const LOOKUPS = [
   ...L('dev_item_template', ['Land Development', 'Road Construction', 'Electricity', 'Sewerage', 'Boundary Wall', 'Street Development', 'Final Development']),
 ];
 
+// Developer partner portal accounts (docs/DEVELOPER_PARTNER_PORTAL.md section 7). Also added to existing workspaces by upgradePermissions().
+export const DEV_ACCOUNTS = [
+  ['1350', 'Developer Rebate Receivable', 'asset', null, '1000'], ['1450', 'Resale File Inventory', 'asset', null, '1000'],
+  ['2610', 'Developer Clearing (customer contracts)', 'liability', null, '2000'], ['2620', 'Developer Payable (taken-over files)', 'liability', null, '2000'],
+  ['4500', 'Developer Rebate Income', 'income', null, '4000'], ['4510', 'Cancellation Deduction Income', 'income', null, '4000'],
+  ['5950', 'Cost of Resold Files', 'expense', null, '5000'],
+];
+
 // [code, name, type, subtype, parentCode]
 const COA = [
   ['1000', 'Assets', 'asset', null, null], ['1100', 'Cash', 'asset', null, '1000'], ['1110', 'Company Cash Till', 'asset', 'cash', '1100'],
@@ -83,7 +92,8 @@ const COA = [
   ['5000', 'Expenses', 'expense', null, null], ['5100', 'Construction', 'expense', null, '5000'], ['5110', 'Bricks', 'expense', null, '5100'], ['5120', 'Cement', 'expense', null, '5100'],
   ['5130', 'Steel', 'expense', null, '5100'], ['5140', 'Wood', 'expense', null, '5100'], ['5150', 'Water', 'expense', null, '5100'], ['5160', 'Labour', 'expense', null, '5100'],
   ['5200', 'Marketing', 'expense', null, '5000'], ['5300', 'Salaries', 'expense', null, '5000'], ['5400', 'Utilities', 'expense', null, '5000'], ['5500', 'Transport', 'expense', null, '5000'],
-  ['5600', 'Office Expenses', 'expense', null, '5000'], ['5800', 'Assets & Equipment Purchases', 'expense', null, '5000'], ['5700', 'Commission Expense', 'expense', null, '5000'], ['5900', 'Other Expenses', 'expense', null, '5000'],
+  ['5600', 'Office Expenses', 'expense', null, '5000'], ['5800', 'Assets & Equipment Purchases', 'expense', null, '5000'], ['5700', 'Commission Expense', 'expense', null, '5000'],
+  ...DEV_ACCOUNTS, ['5900', 'Other Expenses', 'expense', null, '5000'],
 ];
 
 /** Essential configuration — always present, never demo. */
@@ -474,6 +484,16 @@ export function upgradePermissions() {
     if (!id) return;
     for (const p of perms) { const [m, a] = p.split(':'); run('INSERT OR IGNORE INTO role_permissions(role_id,module,action) VALUES(?,?,?)', id, m, a); }
   };
+  if (!getSetting('perm_upgrade_dev1')) {
+    // developer partner portal: module permissions, portal role and the pass-through accounts
+    grant('Admin', P(['developers']));
+    grant('Sales Manager', P(['developers'], ['view']));
+    if (!val("SELECT 1 FROM roles WHERE name='Developer'")) run("INSERT INTO roles(name,description,own_scope,portal,is_system) VALUES('Developer','Developer partner portal only',0,1,1)");
+    for (const [code, name, type, subtype, parent] of DEV_ACCOUNTS) {
+      if (!val('SELECT 1 FROM accounts WHERE code=?', code)) run('INSERT INTO accounts(code,name,type,subtype,parent_id,is_system) VALUES(?,?,?,?,(SELECT id FROM accounts WHERE code=?),1)', code, name, type, subtype, parent);
+    }
+    setSetting('perm_upgrade_dev1', '1');
+  }
   if (!getSetting('perm_upgrade_v2')) {
     grant('Admin', P(['website']));
     grant('Sales Manager', P(['website'], RW));

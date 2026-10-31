@@ -8,6 +8,7 @@ import { generateCommission, cancelCommission } from './commissions.js';
 import { receivePayment } from './payments.js';
 import { audit, activity, notify, notifyPerm } from '../audit.js';
 import { fireWebhook } from './website.js';
+import { developerSaleFields, logFileEvent } from './developers.js';
 
 export function planSchedule(inp) {
   const net = int(inp.sale_price) - int(inp.discount);
@@ -115,6 +116,13 @@ function createSaleTx(inp, req) {
   int(body.balloon_count), int(body.balloon_amount), int(body.balloon_interval, 6), plan.first_due, plan.final_due,
   agentId, contact.manager_id, 'confirmed', body.notes ?? null, user.id, now());
   const id = Number(r.lastInsertRowid);
+  // a plot owned by a developer: the money is the developer's, so the sale is a pass-through contract, not company revenue
+  const dev = kind === 'property' ? developerSaleFields(prop, body.sale_date) : null;
+  if (dev) {
+    run(`UPDATE sales SET developer_id=?, agreement_id=?, booking_id=?, file_state=?, holder=?, cancel_window_until=?, cancel_tiers=? WHERE id=?`,
+      dev.developer_id, dev.agreement_id, dev.booking_id, dev.file_state, dev.holder, dev.cancel_window_until, dev.cancel_tiers, id);
+    logFileEvent(id, 'booked', { to: 'active', user, amount: plan.net, note: dev.booking_id });
+  }
   for (const row of plan.rows) run('INSERT INTO installments(sale_id,seq,kind,due_date,amount) VALUES(?,?,?,?,?)', id, row.seq, row.kind, row.due_date, row.amount);
   const label = prop?.title && kind === 'property' ? prop.title : title;
 
@@ -130,7 +138,7 @@ function createSaleTx(inp, req) {
 
   const jid = postJournal({
     date: body.sale_date, memo: `${KIND_LABEL[kind]} ${saleNo} — ${label}`, refType: 'sale', refId: id, projectId, userId: user.id,
-    lines: [{ account: '1300', debit: plan.net, contactId: contact.id, saleId: id }, { account: incomeAccount(kind), credit: plan.net, contactId: contact.id, saleId: id }],
+    lines: [{ account: '1300', debit: plan.net, contactId: contact.id, saleId: id }, { account: dev ? '2610' : incomeAccount(kind), credit: plan.net, contactId: contact.id, saleId: id }],
   });
   run('UPDATE sales SET journal_id=? WHERE id=?', jid, id);
   if (inp.linked_sale_id) joinBundle(id, Number(inp.linked_sale_id), contact.id);
@@ -182,9 +190,10 @@ export function cancelSale(id, reason, req) {
     if (s.journal_id) {
       postJournal({
         memo: `Sale ${s.sale_no} cancelled`, refType: 'sale', refId: id, projectId: s.project_id, userId: req.user.id, reversalOf: s.journal_id,
-        lines: [{ account: incomeAccount(s.kind), debit: s.net_price, contactId: s.contact_id, saleId: id }, { account: '1300', credit: s.net_price, contactId: s.contact_id, saleId: id }],
+        lines: [{ account: s.developer_id ? '2610' : incomeAccount(s.kind), debit: s.net_price, contactId: s.contact_id, saleId: id }, { account: '1300', credit: s.net_price, contactId: s.contact_id, saleId: id }],
       });
     }
+    if (s.developer_id) logFileEvent(id, 'cancelled', { from: s.file_state, to: 'cancelled', user: req.user, note: reason });
     run("UPDATE sales SET status='cancelled', notes=COALESCE(notes,'')||? WHERE id=?", `\nCancelled: ${reason || ''}`, id);
     if (s.kind === 'property' && s.property_id) run("UPDATE properties SET status='available', updated_at=? WHERE id=?", now(), s.property_id);
     if (!get("SELECT 1 FROM sales WHERE contact_id=? AND status='confirmed'", s.contact_id)) run('UPDATE contacts SET is_customer=0 WHERE id=?', s.contact_id);
