@@ -8,6 +8,7 @@ export const PROMO_FILES = {
   kinetic: { vertical: 'kinetic-promo-9x16.mp4', horizontal: 'kinetic-promo-16x9.mp4' },
   receipt: { vertical: 'receipt-promo-9x16.mp4', horizontal: 'receipt-promo-16x9.mp4' },
   synq: { vertical: 'synq-promo-9x16.mp4', horizontal: 'synq-promo-16x9.mp4' },
+  global: { vertical: 'global-promo-9x16.mp4', horizontal: 'global-promo-16x9.mp4' },
 };
 export const PROMO_FILE_NAMES = Object.values(PROMO_FILES).flatMap((v) => Object.values(v));
 const SITE = 'https://agentifyerp.co';
@@ -35,6 +36,11 @@ const SERIES = {
     titlePrefix: 'ON HOLD (partner consent) Promo video 4 (Sync Technologies)',
     vertical: { body: `Every payment recorded, every receipt sent instantly. Proudly sold and supported by our seller partner, Sync Technologies.\n\nStart your free trial: agentifyerp.co\n\n${TAGS} #Payments`, notes: `${HOLD}Partner promo, vertical 9:16 (32s). Upload the file from the media address, then paste the caption.` },
     horizontal: { body: `Stop chasing paper. Agentify ERP records every payment and sends the receipt instantly. Proudly sold and supported by our seller partner, Sync Technologies.\n\nStart your free trial: agentifyerp.co\n\n${TAGS} #Payments`, notes: `${HOLD}Partner promo, horizontal 16:9 (32s). Upload the file from the media address, then paste the caption.` },
+  },
+  global: {
+    titlePrefix: 'Promo video 5 (run from anywhere)',
+    vertical: { body: `Run your agency from anywhere. Leads, sales, installments and sites in one workspace. Record a payment, pick how they paid, and the receipt is sent.\n\nTeams in Pakistan, the US, the UK, the UAE and Canada work in their own currency and rules. Start your 7-day free trial: agentifyerp.co\n\n${TAGS} #Payments`, notes: 'Run-from-anywhere promo, vertical 9:16 (32s). Figures in the video are sample data. Upload the file from the media address, then paste the caption.' },
+    horizontal: { body: `Leads, sales, installments and sites no longer live in separate places. Agentify ERP is one workspace for real estate and construction teams, with payments, receipts and customers together, in your own currency and rules.\n\nStart your 7-day free trial: agentifyerp.co\n\n${TAGS} #Payments`, notes: 'Run-from-anywhere promo, horizontal 16:9 (32s). Figures in the video are sample data. Upload the file from the media address, then paste the caption.' },
   },
 };
 const PLAN = [
