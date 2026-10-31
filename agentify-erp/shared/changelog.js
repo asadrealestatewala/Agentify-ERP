@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.53', date: '2026-10-31', title: 'Second promo video in the content calendar',
+    items: [
+      { text: 'The "Add promo video drafts" button now also adds drafts for the short 26-second promo video, in vertical and horizontal versions for the same channels. Drafts you already have are left as they are. Nothing is posted until you do it.', where: 'Platform console > Content calendar', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.52', date: '2026-10-31', title: 'Promo videos in the content calendar',
     items: [
       { text: 'New "Add promo video drafts" button: adds draft posts for the Agentify character promo video (vertical for Instagram, TikTok, YouTube Shorts and WhatsApp Status; horizontal for YouTube, LinkedIn, Facebook and X) with captions, hashtags and a public video address. Nothing is posted; review, schedule and publish each one yourself.', where: 'Platform console > Content calendar', audience: 'platform' },
