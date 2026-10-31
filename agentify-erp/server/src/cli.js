@@ -45,7 +45,14 @@ if (cmd === 'setup-token') {
   for (const r of res) console.log(`${r.slug}: ${r.files} file(s), ${(r.bytes / 1048576).toFixed(1)} MB${opts.dryRun ? ' would move' : `, moved ${r.moved}`}${r.skipped ? `, ${r.skipped} already in the bucket` : ''}${r.missing.length ? `, ${r.missing.length} missing on disk` : ''}${r.failed.length ? `, ${r.failed.length} FAILED` : ''}`);
   for (const r of res) for (const f of r.failed) console.error(`  failed ${r.slug} ${f.file}: ${f.error}`);
   if (res.some((r) => r.failed.length)) process.exit(2);
+} else if (cmd === 'storage-sync') {
+  const { syncBucket, overview } = await import('./services/storageAlerts.js');
+  const r = await syncBucket('server');
+  console.log(JSON.stringify(r));
+  const o = await overview();
+  for (const t of o.tenants) if (t.bucket_files) console.log(`${t.slug}: ${t.bucket_files} file(s), ${t.bucket_bytes} bytes in the bucket`);
+  console.log(`bucket total: ${o.bucket.used_bytes} bytes of ${o.bucket.total_gb} GB`);
 } else {
-  console.error('Usage: node src/cli.js setup-token | set-owner | lifecycle | storage-migrate');
+  console.error('Usage: node src/cli.js setup-token | set-owner | lifecycle | storage-migrate | storage-sync');
   process.exit(1);
 }
