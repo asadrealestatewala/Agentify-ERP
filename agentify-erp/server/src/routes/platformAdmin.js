@@ -45,6 +45,7 @@ import { cleanWhatsappLimits } from '../services/whatsappLimits.js';
 import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
 import * as cal from '../services/contentCalendar.js';
+import { addPromoDrafts } from '../services/promoDrafts.js';
 import * as aiu from '../services/aiUsage.js';
 import * as brands from '../services/brands.js';
 import * as lib from '../services/sharedLibrary.js';
@@ -663,6 +664,10 @@ r.post('/content/posts/:id/posted', requireOperator, need('content.calendar'), a
 }));
 r.post('/content/posts/:id/cancel', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.cancelPost(req.params.id); audit(req.operator.email, 'content-post-canceled', { id: p.id }); res.json(p); }));
 r.delete('/content/posts/:id', requireOperator, need('content.calendar'), asyncH((req, res) => { cal.deletePost(req.params.id); audit(req.operator.email, 'content-post-deleted', { id: Number(req.params.id) }); res.json({ ok: true }); }));
+r.post('/content/promo-drafts', requireOperator, need('content.calendar'), asyncH((req, res) => {
+  const out = addPromoDrafts(`${req.protocol}://${req.get('host')}`, req.operator.email);
+  audit(req.operator.email, 'content-promo-drafts-added', { added: out.added.length, skipped: out.skipped.length }); res.status(201).json(out);
+}));
 r.post('/content/ai-draft', requireOperator, need('content.calendar'), asyncH(async (req, res) => {
   const b = req.body || {};
   if (!cal.CHANNELS[b.channel]) throw bad('Choose a channel');

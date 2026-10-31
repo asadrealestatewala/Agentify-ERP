@@ -178,6 +178,7 @@ export default function ContentCalendarPage() {
     <>
       <PageTitle title="Content calendar" sub="Plan, schedule and record Agentify's own social posts, with the posting limits and the next time a post can go out." >
         {data.ai?.connected && <button className="btn" disabled={!data.ai.drafts_left_today} onClick={() => setAi(true)}>Draft with AI</button>}
+        <button className="btn" onClick={async () => { try { const r = await api.post(`${A}/content/promo-drafts`); toast(r.added.length ? `Added ${r.added.length} promo video drafts` : 'Promo video drafts are already there'); load(); } catch (e) { toast(e.message, 'err'); } }}>Add promo video drafts</button>
         <button className="btn primary" onClick={() => setForm({ post: null })}>New post</button>
       </PageTitle>
       <ErrorBox error={err} />

@@ -78,3 +78,17 @@ test('a Social Media Manager plans, schedules and records posts, and nothing els
   assert.equal((await as(smm, 'POST', `/content/posts/${p2.data.id}/cancel`)).data.status, 'canceled');
   assert.equal((await as(smm, 'DELETE', `/content/posts/${p2.data.id}`)).status, 200);
 });
+
+test('promo video drafts: one draft per channel, repeatable, and the videos are publicly served', async () => {
+  const owner = (await call('POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  const a = await as(owner, 'POST', '/content/promo-drafts');
+  assert.equal(a.status, 201, JSON.stringify(a.data));
+  assert.equal(a.data.added.length, 8);
+  assert.ok(a.data.added.every((p) => p.status === 'draft' && /\/promo-media\/characters-promo-(9x16|16x9)\.mp4$/.test(p.media_url)));
+  assert.deepEqual(a.data.added.filter((p) => p.media_url.includes('9x16')).map((p) => p.channel).sort(), ['instagram', 'tiktok', 'whatsapp', 'youtube']);
+  const b = await as(owner, 'POST', '/content/promo-drafts');
+  assert.equal(b.data.added.length, 0); assert.equal(b.data.skipped.length, 8);
+  const v = await call('GET', '/promo-media/characters-promo-9x16.mp4');
+  assert.equal(v.status, 200);
+  const other = await call('GET', '/promo-media/other.mp4'); assert.ok(typeof other.data === 'string' && !other.data.startsWith('\u0000'), 'only the two promo files are served');
+});

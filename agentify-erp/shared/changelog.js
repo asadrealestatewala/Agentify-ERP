@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.52', date: '2026-10-31', title: 'Promo videos in the content calendar',
+    items: [
+      { text: 'New "Add promo video drafts" button: adds draft posts for the Agentify character promo video (vertical for Instagram, TikTok, YouTube Shorts and WhatsApp Status; horizontal for YouTube, LinkedIn, Facebook and X) with captions, hashtags and a public video address. Nothing is posted; review, schedule and publish each one yourself.', where: 'Platform console > Content calendar', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.51', date: '2026-10-31', title: 'Shared library, brand groups and AI limits',
     items: [
       { text: 'New Shared library: ready-made contract wording, standard clauses, brochure layouts and email templates kept up to date for every workspace. Read them in place, or choose "Use my own version" to keep your own text for any item. Only your workspace sees your version, and you are told when the shared text has been updated since.', where: 'Documents > Shared library' },
