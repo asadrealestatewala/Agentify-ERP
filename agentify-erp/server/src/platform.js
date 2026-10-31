@@ -365,7 +365,8 @@ export function createTenant({ slug, name, adminName, adminEmail, adminPassword,
   const freeSite = product === 'website';
   if (!freeSite && !PRODUCT_CHOICES.includes(product)) throw bad('Choose Real Estate Brokerage or Construction Management');
   try { new Intl.DateTimeFormat('en', { timeZone: timezone }); } catch { throw bad(`Unknown timezone: ${timezone}`); }
-  const email = String(adminEmail).toLowerCase();
+  adminEmail = String(adminEmail).trim();
+  const email = adminEmail.toLowerCase();
   let days = trialDays, status = 'trialing', note = null;
   // a free website has no trial and no payment: it is simply active on its own plan
   if (freeSite) { days = null; status = 'active'; plan = 'site_free'; }
@@ -384,7 +385,7 @@ export function createTenant({ slug, name, adminName, adminEmail, adminPassword,
   const tenant = getTenant(id);
   try {
     withTenant(tenant, () => {
-      bootstrap({ companyName: tenant.name, adminName, adminEmail: String(adminEmail).toLowerCase(), adminPassword, currency: tenant.currency });
+      bootstrap({ companyName: tenant.name, adminName, adminEmail: email, adminPassword, currency: tenant.currency });
       upgradePermissions();
       syncRegionLookups();
       ensureSite({ withPosts: demo });
