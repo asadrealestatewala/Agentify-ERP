@@ -114,3 +114,32 @@ export function developerSummary(id) {
   };
 }
 export const listDevelopers = () => all('SELECT * FROM developers ORDER BY status, name').map((d) => ({ ...d, ...developerSummary(d.id) }));
+
+// ---------------------------------------------------------------- developer portal view
+/**
+ * The ONLY shape in which a developer file leaves the company. Allow-list, built field by field: it never spreads a sale,
+ * property or contact row, so CNIC, phone, e-mail, address, agent, notes and margins cannot reach the developer by accident.
+ */
+export function toDeveloperFile(sale, { detail = false } = {}) {
+  const company = get("SELECT value FROM settings WHERE key='company_name'")?.value || 'The company';
+  const prop = get('SELECT * FROM properties WHERE id=?', sale.property_id);
+  const out = {
+    id: sale.id, booking_id: sale.booking_id, booking_date: sale.sale_date, registration_no: prop?.registration_no || null,
+    plot: { title: prop?.title || null, plot_no: prop?.plot_no || null, block: prop?.block || null, type: prop?.property_type || null,
+      area_size: prop?.area_size ?? null, unit: prop?.unit || null, area_sqft: prop ? toSqft(prop.area_size, prop.unit) : null,
+      photos: prop ? all("SELECT path, caption FROM media WHERE entity_type='property' AND entity_id=? AND kind IN ('cover','gallery') ORDER BY sort_order, id", prop.id) : [] },
+    customer_name: sale.holder === 'company' ? company : get('SELECT full_name FROM contacts WHERE id=?', sale.contact_id)?.full_name || null,
+    held_by_company: sale.holder === 'company',
+    file_state: sale.file_state, contract_value: sale.net_price, paid: sale.paid_amount, outstanding: sale.net_price - sale.paid_amount,
+    status: sale.status,
+  };
+  if (detail) {
+    out.schedule = all('SELECT seq, kind, due_date, amount, paid, status, paid_date FROM installments WHERE sale_id=? ORDER BY due_date, seq', sale.id);
+    out.payments = all(`SELECT r.date, r.payment_type, r.method, rs.amount FROM receipt_sales rs JOIN receipts r ON r.id=rs.receipt_id
+      WHERE rs.sale_id=? AND r.status='valid' ORDER BY r.date, r.id`, sale.id);
+    out.history = all('SELECT event, from_state, to_state, created_at FROM file_events WHERE sale_id=? ORDER BY id', sale.id);
+  }
+  return out;
+}
+
+export const developerFiles = (developerId) => all("SELECT * FROM sales WHERE developer_id=? AND status IN ('confirmed','cancelled') ORDER BY id DESC", developerId);

@@ -10,7 +10,7 @@ import { useBrand } from '../brand.js';
 import { t, getLanguage, chooseLanguage } from '../i18n.js';
 import { getRegion } from '../format.js';
 
-export default function Login({ portal = false, vendor = false, staff = false }) {
+export default function Login({ portal = false, vendor = false, developer = false, staff = false }) {
   const { login, loginMfa, loginOtp, resendOtp, adopt } = useAuth();
   const brand = useBrand();
   // on a company's own address the page speaks for that company, never for the Agentify product
@@ -36,7 +36,7 @@ export default function Login({ portal = false, vendor = false, staff = false })
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const submit = async (e) => {
     e.preventDefault(); setBusy(true); setErr('');
-    const done = () => nav(portal ? (new RegExp(vendor ? '^/vendor(/|$)' : '^/portal(/|$)').test(next) && !next.includes('//') ? next : '/portal') : '/', { replace: true });
+    const done = () => nav(portal ? (new RegExp(developer ? '^/developer(/|$)' : vendor ? '^/vendor(/|$)' : '^/portal(/|$)').test(next) && !next.includes('//') ? next : '/portal') : '/', { replace: true });
     try {
       const u = await (mfa ? loginMfa(mfa, code) : otp ? loginOtp(otp.token, code) : login(id, pw, portal));
       if (u.mfa_required) { setMfa(u.mfa_token); setCode(''); } else if (u.otp_required) { setOtp({ token: u.otp_token, hint: u.email_hint }); setCode(''); } else done();
@@ -49,17 +49,17 @@ export default function Login({ portal = false, vendor = false, staff = false })
   return (
     <div className="auth2">
       <div className="auth2-copy">
-        <div className="brand">{own && brand.logo ? <img src={/^(https?:|data:|\/)/.test(brand.logo) ? brand.logo : `/uploads/${brand.logo}`} alt="" style={{ height: 40, maxWidth: 160, objectFit: 'contain' }} /> : <div className="brand-mark"><Icon name="home" size={18} stroke={2.2} /></div>}<div className="brand-name">{brand.name}<small>{vendor ? 'Vendor portal' : portal ? 'Customer portal' : own ? '' : 'ERP'}</small></div></div>
-        <div className="eyebrow"><i />{vendor ? 'Vendor portal' : portal ? 'Customer portal' : staff ? 'Team sign in' : own ? 'Welcome' : 'One connected system'}</div>
-        <h1>{vendor ? <>Your payments, ledger and new contracts — <em>in one calm place.</em></> : portal ? <>Your property, payments and progress — <em>in one calm place.</em></> : own ? (staff ? <>Welcome back, <em>team.</em></> : <>Welcome to <em>{brand.name}.</em></>) : <>From lead to ledger, <em>in one calm place.</em></>}</h1>
-        <p>{vendor ? 'Sign in to see what you have been paid and what is still due, download your ledger, view your registration and bid on contracts the company announces.' : portal ? 'Sign in to see your purchased properties, installment schedule, receipts and the latest site updates.' : own ? (staff ? `Sign in to the ${brand.name} workspace.` : 'Customers and partners can reach their own portal below. Sign in with the email and password you were given.') : 'CRM, inventory, projects, installments, receipts, vendors, HR and accounting — all working together, on your desk and in your pocket.'}</p>
+        <div className="brand">{own && brand.logo ? <img src={/^(https?:|data:|\/)/.test(brand.logo) ? brand.logo : `/uploads/${brand.logo}`} alt="" style={{ height: 40, maxWidth: 160, objectFit: 'contain' }} /> : <div className="brand-mark"><Icon name="home" size={18} stroke={2.2} /></div>}<div className="brand-name">{brand.name}<small>{developer ? 'Developer portal' : vendor ? 'Vendor portal' : portal ? 'Customer portal' : own ? '' : 'ERP'}</small></div></div>
+        <div className="eyebrow"><i />{developer ? 'Developer portal' : vendor ? 'Vendor portal' : portal ? 'Customer portal' : staff ? 'Team sign in' : own ? 'Welcome' : 'One connected system'}</div>
+        <h1>{developer ? <>Your plots, bookings and customer payments — <em>in one calm place.</em></> : vendor ? <>Your payments, ledger and new contracts — <em>in one calm place.</em></> : portal ? <>Your property, payments and progress — <em>in one calm place.</em></> : own ? (staff ? <>Welcome back, <em>team.</em></> : <>Welcome to <em>{brand.name}.</em></>) : <>From lead to ledger, <em>in one calm place.</em></>}</h1>
+        <p>{developer ? 'Sign in to see the files sold on your plots, their payment schedules and what customers have paid. Customer contact details are never shown.' : vendor ? 'Sign in to see what you have been paid and what is still due, download your ledger, view your registration and bid on contracts the company announces.' : portal ? 'Sign in to see your purchased properties, installment schedule, receipts and the latest site updates.' : own ? (staff ? `Sign in to the ${brand.name} workspace.` : 'Customers and partners can reach their own portal below. Sign in with the email and password you were given.') : 'CRM, inventory, projects, installments, receipts, vendors, HR and accounting — all working together, on your desk and in your pocket.'}</p>
         {!(own && !portal) && <div className="auth2-feats">{FEATS.map(([ic, tone, l]) => <div key={l} className="auth2-feat"><span className={`ic-tile sm ic-${tone}`}><Icon name={ic} size={15} /></span>{l}</div>)}</div>}
       </div>
       <form className="auth2-card stack" onSubmit={submit}>
         {native && !mfa && !otp && <div className="row" role="tablist" aria-label="Sign in as" style={{ gap: 6 }}>
-          {[['Employee', '/login', !portal], ['Customer', '/portal/login', portal && !vendor], ['Vendor', '/vendor/login', vendor]].map(([l, to, on]) => <Link key={l} to={to} role="tab" aria-selected={on} className={`btn${on ? ' primary' : ''}`} style={{ flex: 1, justifyContent: 'center' }}>{l}</Link>)}
+          {[['Employee', '/login', !portal], ['Customer', '/portal/login', portal && !vendor && !developer], ['Vendor', '/vendor/login', vendor], ['Developer', '/developer/login', developer]].map(([l, to, on]) => <Link key={l} to={to} role="tab" aria-selected={on} className={`btn${on ? ' primary' : ''}`} style={{ flex: 1, justifyContent: 'center' }}>{l}</Link>)}
         </div>}
-        <div><h2>{vendor ? t('auth.vendor_sign_in', 'Vendor sign in') : portal ? t('auth.customer_sign_in', 'Customer sign in') : t('auth.sign_in', 'Sign in')}</h2><div className="muted" style={{ marginTop: 4 }}>{vendor ? 'Use the e-mail address you registered with the company.' : portal ? 'Use the email or phone number registered with us.' : 'Welcome back. Enter your work email and password.'}</div></div>
+        <div><h2>{developer ? 'Developer sign in' : vendor ? t('auth.vendor_sign_in', 'Vendor sign in') : portal ? t('auth.customer_sign_in', 'Customer sign in') : t('auth.sign_in', 'Sign in')}</h2><div className="muted" style={{ marginTop: 4 }}>{developer ? 'Use the e-mail address the company registered for you.' : vendor ? 'Use the e-mail address you registered with the company.' : portal ? 'Use the email or phone number registered with us.' : 'Welcome back. Enter your work email and password.'}</div></div>
         {(getRegion().config.languages || []).length > 1 && <label className="muted" style={{ fontSize: 13 }}>{t('lang.label', 'Language')}: <select className="input" style={{ width: 'auto', display: 'inline-block' }} value={getLanguage()} onChange={(e) => chooseLanguage(e.target.value)}>{getRegion().config.languages.map((l) => <option key={l} value={l}>{{ en: 'English', fr: 'Français', ar: 'العربية' }[l] || l}</option>)}</select></label>}
         {err && <div className="alert err" role="alert">{err}</div>}
         {note && <div className="alert ok" role="status">{note}</div>}

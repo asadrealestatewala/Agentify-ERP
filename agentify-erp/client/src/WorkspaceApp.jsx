@@ -112,6 +112,10 @@ const ListingApprovals = lazy(() => import('./pages/ListingApprovals.jsx'));
 const SeoManager = lazy(() => import('./pages/SeoManager.jsx'));
 const PaymentClaims = lazy(() => import('./pages/PaymentClaims.jsx'));
 const BotKnowledge = lazy(() => import('./pages/BotKnowledge.jsx'));
+const DeveloperLayout = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperLayout })));
+const DeveloperDashboard = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperDashboard })));
+const DeveloperFiles = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperFiles })));
+const DeveloperFile = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperFile })));
 const VendorBids = lazy(() => import('./pages/VendorPortal.jsx').then((m) => ({ default: m.VendorBids })));
 const VendorDashboard = lazy(() => import('./pages/VendorPortal.jsx').then((m) => ({ default: m.VendorDashboard })));
 const VendorLayout = lazy(() => import('./pages/VendorPortal.jsx').then((m) => ({ default: m.VendorLayout })));
@@ -204,13 +208,24 @@ export default function App() {
         {['/real-estate', '/construction', '/preview', '/pricing', '/contact', '/delete-account', '/download-app', '/legal/:slug'].map((p) => <Route key={p} path={p} element={<MainGate fallback={<Navigate to="/login" replace />} />} />)}
         <Route path="/portal/login" element={<Login portal />} />
         <Route path="/vendor/login" element={<Login portal vendor />} />
+        <Route path="/developer/login" element={<Login portal developer />} />
         <Route path="/login" element={<MainGate fallback={<Login />} />} />
         <Route path="/signup" element={<MainGate fallback={<Signup />} />} />
         <Route path="/forgot-password" element={<MainGate fallback={<ForgotPassword />} />} />
         <Route path="/reset-password/:token" element={<MainGate fallback={<ResetPassword />} />} />
         <Route path="/invite/:token" element={<MainGate fallback={<AcceptInvite />} />} />
         <Route path="/:slug" element={<StaffGate />} />
-        <Route path="*" element={<Navigate to={loc.pathname.startsWith('/portal') ? `/portal/login?next=${encodeURIComponent(loc.pathname)}` : loc.pathname.startsWith('/vendor') ? `/vendor/login?next=${encodeURIComponent(loc.pathname)}` : '/login'} replace />} />
+        <Route path="*" element={<Navigate to={loc.pathname.startsWith('/portal') ? `/portal/login?next=${encodeURIComponent(loc.pathname)}` : loc.pathname.startsWith('/vendor') ? `/vendor/login?next=${encodeURIComponent(loc.pathname)}` : loc.pathname.startsWith('/developer') ? `/developer/login?next=${encodeURIComponent(loc.pathname)}` : '/login'} replace />} />
+      </Routes>
+    );
+  }
+  if (user.portal && user.developer_id) {
+    return (
+      <Routes>
+        <Route path="/developer" element={<DeveloperLayout />}>
+          <Route index element={<DeveloperDashboard />} /><Route path="files" element={<DeveloperFiles />} /><Route path="files/:id" element={<DeveloperFile />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/developer" replace />} />
       </Routes>
     );
   }

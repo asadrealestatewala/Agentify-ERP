@@ -10,6 +10,7 @@ export const CHANGELOG = [
     items: [
       { text: 'New Developers page: record the partner developers whose plots you sell, with an agreement for each (rates, rebate percentages and the cancellation window with its deduction tiers). On a plot, set the source to Developer and choose the developer and agreement.', where: 'Developers' },
       { text: 'Selling a developer\'s plot creates a booking ID and keeps the contract out of your revenue: the customer pays the developer, so the sale is held as a pass-through. Direct receipts on these files are switched off until the developer approval step arrives. Your own plots and houses are not affected.', where: 'Sales & Bookings' },
+      { text: 'Developers can sign in to their own portal to see the files sold on their plots: booking ID, registration number, plot size, photos, customer name and the payment schedule. Customer CNIC, phone and e-mail are never shown. Create the login from the developer\'s page.', where: 'Developers > developer > Create portal login' },
     ],
   },
   {

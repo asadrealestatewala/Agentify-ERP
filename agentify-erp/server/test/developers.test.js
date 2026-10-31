@@ -128,3 +128,36 @@ test('developer data is isolated between workspaces and needs the module permiss
   ok(await a.post('/api/developers', { name: 'Only In A' }), 201);
   assert.equal(ok(await b.get('/api/developers')).length, 0);
 });
+
+test('developer portal: own files only, allow-listed fields, no CNIC or phone anywhere', async () => {
+  const w = await workspace('devportal');
+  const mkDev = async (name, email) => {
+    const d = ok(await w.post('/api/developers', { name, email }), 201);
+    const ag = ok(await w.post(`/api/developers/${d.id}/agreements`, { title: 'A', cancel_window_days: 90, cancel_tiers: [{ pct: 20 }] }), 201);
+    const login = ok(await w.post(`/api/developers/${d.id}/portal-login`, {}), 201);
+    const dc = (await call(w.host, 'POST', '/api/auth/login', { identifier: login.login, password: login.password, portal: true })).cookie;
+    return { d, ag, get: (u) => call(w.host, 'GET', u, null, { cookie: dc }) };
+  };
+  const one = await mkDev('Dev One', 'one@dev.test'); const two = await mkDev('Dev Two', 'two@dev.test');
+  const plot = ok(await w.post('/api/properties', { title: 'Plot 7', plot_no: '7', area_size: 10, unit: 'Marla', total_price: 4_000_000, inventory_source: 'developer', developer_id: one.d.id, agreement_id: one.ag.id }), 201);
+  ok(await w.post(`/api/properties/${plot.id}/publish`));
+  const c = ok(await w.post('/api/contacts', { full_name: 'Sana Malik', phone: '+92 300 5551234', cnic: '35202-1234567-1', email: 'sana@private.test' }), 201);
+  const sale = ok(await w.post('/api/sales', { contact_id: c.id, property_id: plot.id, sale_price: 4_000_000, discount: 0, booking_amount: 400_000, num_installments: 6, first_due: month() }), 201);
+
+  const dash = ok(await one.get('/api/developer/dashboard'));
+  assert.equal(dash.files, 1); assert.equal(dash.contract_value, 4_000_000);
+  const files = ok(await one.get('/api/developer/files'));
+  assert.equal(files.length, 1);
+  assert.equal(files[0].customer_name, 'Sana Malik'); assert.match(files[0].booking_id, /^BK-/); assert.equal(files[0].plot.area_sqft, 2722.5);
+  const detail = ok(await one.get(`/api/developer/files/${sale.id}`));
+  assert.equal(detail.schedule.length, 7);
+  const everything = JSON.stringify([dash, files, detail, ok(await one.get('/api/developer/plots'))]);
+  for (const secret of ['5551234', '35202', '1234567', 'sana@private.test', '+92 300']) assert.ok(!everything.includes(secret), `leaked ${secret}`);
+  for (const k of ['cnic', 'phone', 'email', 'agent', 'notes', 'contact_id']) assert.ok(!new RegExp(`"${k}[a-z_]*"`).test(everything), `field ${k} present`);
+
+  // another developer sees nothing of it; staff cannot use the developer API; the developer API needs a developer session
+  assert.equal(ok(await two.get('/api/developer/files')).length, 0);
+  assert.equal((await two.get(`/api/developer/files/${sale.id}`)).status, 404);
+  assert.equal((await w.get('/api/developer/files')).status, 403);
+  assert.equal((await call(w.host, 'GET', '/api/developer/files')).status, 401);
+});
