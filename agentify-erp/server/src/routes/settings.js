@@ -122,7 +122,8 @@ r.get('/users', can('settings', 'view'), (req, res) => {
     FROM users u JOIN roles r ON r.id=u.role_id WHERE r.portal=0 ORDER BY u.id`));
 });
 r.post('/users', can('settings', 'create'), asyncH(async (req, res) => {
-  const { name, email, phone, password, role_id } = req.body;
+  const { name, phone, password, role_id } = req.body;
+  const email = String(req.body.email || '').trim();
   if (!name || !email || !role_id) throw bad('Name, email and role are required');
   await assertEmailAllowed(email);
   if (!password || String(password).length < 8) throw bad('Password must be at least 8 characters');

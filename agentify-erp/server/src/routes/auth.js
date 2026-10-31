@@ -32,7 +32,7 @@ r.post('/login', loginLimiter, asyncH((req, res) => {
   const { identifier, password } = req.body || {};
   if (!identifier || !password) throw bad('Email/phone and password are required');
   const id = String(identifier).trim();
-  const row = get('SELECT * FROM users WHERE (lower(email)=lower(?) OR phone=?) AND active=1', id, id);
+  const row = get('SELECT * FROM users WHERE (lower(trim(email))=lower(?) OR trim(phone)=?) AND active=1', id, id);
   if (!row || !bcrypt.compareSync(String(password), row.password_hash)) {
     audit(req, 'Failed login', 'user', null, id);
     if (row) noteFailedLogin(req, row);
