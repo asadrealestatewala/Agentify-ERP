@@ -101,7 +101,10 @@ test('cost and profit: revenue per workspace and plan, costs only from entered f
   const t = db.prepare("SELECT id, plan FROM tenants WHERE is_legacy=0 LIMIT 1").get()
     || (() => { db.prepare("INSERT INTO tenants(slug, name, plan, db_file, upload_dir, subscription_status, owner_email) VALUES('acme','Acme','growth','x.db','x','active','o@acme.test')").run(); return db.prepare("SELECT id, plan FROM tenants WHERE slug='acme'").get(); })();
   db.prepare("UPDATE tenants SET subscription_status='active' WHERE id=?").run(t.id);
-  const now = new Date(); const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  // the report's month is the platform-local month (Asia/Karachi by default), not the UTC month: they differ in the last hours of a UTC month day.
+  // Midday UTC on the first local day falls on the same date in both, so the invoice always lands inside the report's month.
+  const { resolveRange } = await import('../src/services/platformMetrics.js');
+  const start = new Date(`${resolveRange({ range: 'month' }).from}T11:00:00Z`);
   db.prepare("INSERT INTO invoices(tenant_id, provider_invoice_id, amount, currency, status, created_at) VALUES(?,?,?,?,'paid',?)").run(t.id, 'inv-profit-1', 3000, 'PKR', stamp(new Date(start.getTime() + 3600_000)));
   let p = profit({ range: 'month' });
   const row = p.workspaces.find((w) => w.id === t.id);
