@@ -54,6 +54,8 @@ const ExpenseForm = lazy(() => import('./pages/Vendors.jsx').then((m) => ({ defa
 const ExpenseList = lazy(() => import('./pages/Vendors.jsx').then((m) => ({ default: m.ExpenseList })));
 const VendorDetail = lazy(() => import('./pages/Vendors.jsx').then((m) => ({ default: m.VendorDetail })));
 const VendorLedgerPicker = lazy(() => import('./pages/Vendors.jsx').then((m) => ({ default: m.VendorLedgerPicker })));
+const DeveloperList = lazy(() => import('./pages/Developers.jsx').then((m) => ({ default: m.DeveloperList })));
+const DeveloperDetail = lazy(() => import('./pages/Developers.jsx').then((m) => ({ default: m.DeveloperDetail })));
 const VendorList = lazy(() => import('./pages/Vendors.jsx').then((m) => ({ default: m.VendorList })));
 const EmployeeDocuments = lazy(() => import('./pages/Hrm.jsx').then((m) => ({ default: m.EmployeeDocuments })));
 const EmployeeProfile = lazy(() => import('./pages/Hrm.jsx').then((m) => ({ default: m.EmployeeProfile })));
@@ -110,6 +112,10 @@ const ListingApprovals = lazy(() => import('./pages/ListingApprovals.jsx'));
 const SeoManager = lazy(() => import('./pages/SeoManager.jsx'));
 const PaymentClaims = lazy(() => import('./pages/PaymentClaims.jsx'));
 const BotKnowledge = lazy(() => import('./pages/BotKnowledge.jsx'));
+const DeveloperLayout = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperLayout })));
+const DeveloperDashboard = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperDashboard })));
+const DeveloperFiles = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperFiles })));
+const DeveloperFile = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperFile })));
 const VendorBids = lazy(() => import('./pages/VendorPortal.jsx').then((m) => ({ default: m.VendorBids })));
 const VendorDashboard = lazy(() => import('./pages/VendorPortal.jsx').then((m) => ({ default: m.VendorDashboard })));
 const VendorLayout = lazy(() => import('./pages/VendorPortal.jsx').then((m) => ({ default: m.VendorLayout })));
@@ -202,13 +208,24 @@ export default function App() {
         {['/real-estate', '/construction', '/preview', '/pricing', '/contact', '/delete-account', '/download-app', '/legal/:slug'].map((p) => <Route key={p} path={p} element={<MainGate fallback={<Navigate to="/login" replace />} />} />)}
         <Route path="/portal/login" element={<Login portal />} />
         <Route path="/vendor/login" element={<Login portal vendor />} />
+        <Route path="/developer/login" element={<Login portal developer />} />
         <Route path="/login" element={<MainGate fallback={<Login />} />} />
         <Route path="/signup" element={<MainGate fallback={<Signup />} />} />
         <Route path="/forgot-password" element={<MainGate fallback={<ForgotPassword />} />} />
         <Route path="/reset-password/:token" element={<MainGate fallback={<ResetPassword />} />} />
         <Route path="/invite/:token" element={<MainGate fallback={<AcceptInvite />} />} />
         <Route path="/:slug" element={<StaffGate />} />
-        <Route path="*" element={<Navigate to={loc.pathname.startsWith('/portal') ? `/portal/login?next=${encodeURIComponent(loc.pathname)}` : loc.pathname.startsWith('/vendor') ? `/vendor/login?next=${encodeURIComponent(loc.pathname)}` : '/login'} replace />} />
+        <Route path="*" element={<Navigate to={loc.pathname.startsWith('/portal') ? `/portal/login?next=${encodeURIComponent(loc.pathname)}` : loc.pathname.startsWith('/vendor') ? `/vendor/login?next=${encodeURIComponent(loc.pathname)}` : loc.pathname.startsWith('/developer') ? `/developer/login?next=${encodeURIComponent(loc.pathname)}` : '/login'} replace />} />
+      </Routes>
+    );
+  }
+  if (user.portal && user.developer_id) {
+    return (
+      <Routes>
+        <Route path="/developer" element={<DeveloperLayout />}>
+          <Route index element={<DeveloperDashboard />} /><Route path="files" element={<DeveloperFiles />} /><Route path="files/:id" element={<DeveloperFile />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/developer" replace />} />
       </Routes>
     );
   }
@@ -333,6 +350,9 @@ export default function App() {
         <Route path="payments/balloon" element={G('payments', <InstallmentsPage preset="balloon" />)} />
         <Route path="payments/receivables" element={G('payments', <Receivables />)} />
         <Route path="payments/history" element={G('payments', <ReceiptList title="Payment history" />)} />
+        {/* Developer partners */}
+        <Route path="developers" element={G('developers', <DeveloperList />)} />
+        <Route path="developers/:id" element={G('developers', <DeveloperDetail />)} />
         {/* Vendors */}
         <Route path="vendors" element={G('vendors', <VendorList />)} />
         <Route path="vendors/tenders" element={G('vendors', <TenderList />)} />

@@ -72,6 +72,7 @@ export function receivePayment(inp, req) {
       if (!sale) throw bad('Sale not found');
       if (sale.contact_id !== contact.id) throw bad('Sale does not belong to this customer');
       if (sale.status !== 'confirmed') throw bad('Payments can only be recorded against confirmed sales');
+      if (sale.developer_id && sale.holder === 'customer') throw bad(`${sale.sale_no} is a developer file: the customer pays the developer, and the payment is recorded once the developer approves it. Direct receipts are not available for it yet.`);
       return { sale, amount: w.amount, allocations: [], settled: 0, advance: 0 };
     });
     const acc = assertTreasury(inp.account_id);

@@ -47,6 +47,8 @@ import promos from './routes/promos.js';
 import announcements from './routes/announcements.js';
 import training from './routes/training.js';
 import construction from './routes/construction.js';
+import developers from './routes/developers.js';
+import developerPortal from './routes/developerPortal.js';
 import regionRoutes from './routes/region.js';
 import mortgageRoutes from './regions/mortgage.js';
 import documentRoutes from './regions/documents.js';
@@ -180,6 +182,8 @@ export function createApp() {
   app.use('/api/announcements', announcements);
   app.use('/api/training', training);
   app.use('/api/construction', construction);
+  app.use('/api/developers', developers);
+  app.use('/api/developer', developerPortal);
   app.use('/api/region', regionRoutes);
   app.use('/api/mortgage', mortgageRoutes);
   app.use('/api/documents', documentRoutes);

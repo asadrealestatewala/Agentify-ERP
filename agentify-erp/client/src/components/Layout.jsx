@@ -55,6 +55,7 @@ const NAV = [
     ['Income Statement', '/accounting/income-statement'], ['Balance Sheet', '/accounting/balance-sheet'], ['Account Statement', '/accounting/statement'], ['Cash / Till', '/accounting/treasury'], ['Bank Accounts', '/accounting/banks'], ['Journal / Transactions', '/accounting/journals'] ] },
   { label: 'Payments', icon: 'card', module: 'payments', children: [
     ['Customer Payment Reports', '/payments/claims'], ['Installments', '/payments/installments'], ['Advance Payments', '/payments/advance'], ['Balloon Payments', '/payments/balloon'], ['Receivables', '/payments/receivables'], ['Payment History', '/payments/history'] ] },
+  { label: 'Developers', icon: 'building', module: 'developers', children: [['Developers', '/developers']] },
   { label: 'Vendors', icon: 'truck', module: 'vendors', children: [
     ['Vendors', '/vendors'], ['Tenders & Bids', '/vendors/tenders'], ['Vendor Ledger', '/vendors/ledger'], ['Purchases', '/vendors/purchases'], ['Credit Book', '/vendors/credit-book'] ] },
   { label: 'HRM', icon: 'briefcase', module: 'hrm', children: [

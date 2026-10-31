@@ -25,7 +25,7 @@ const linkLimiter = rateLimit({ windowMs: 60_000, limit: Number(process.env.LOGI
 
 export const sessionPayload = (u) => ({
   id: u.id, name: u.name, email: u.email, role: u.role, portal: !!u.portal, own_scope: !!u.own_scope, isSuper: u.isSuper,
-  contact_id: u.contact_id, vendor_id: u.vendor_id || null, email_verified: u.email_verified !== 0, totp_enabled: !!u.totp_enabled, perms: u.isSuper ? ['*'] : [...u.perms],
+  contact_id: u.contact_id, vendor_id: u.vendor_id || null, developer_id: u.developer_id || null, email_verified: u.email_verified !== 0, totp_enabled: !!u.totp_enabled, perms: u.isSuper ? ['*'] : [...u.perms],
 });
 
 r.post('/login', loginLimiter, asyncH((req, res) => {
