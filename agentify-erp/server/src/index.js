@@ -117,6 +117,11 @@ export function createApp() {
   const onMain = (req) => isMultiTenant() && !resolveTenant(req.hostname);
   app.get('/sitemap.xml', (req, res, next) => (onMain(req) ? res.type('application/xml').send(platformSitemap(req)) : next()));
   app.get('/robots.txt', (req, res, next) => (onMain(req) ? res.type('text/plain').send(platformRobots(req)) : next()));
+  // promo videos for the content calendar: fixed file names only, public so social networks and managers can fetch them
+  const PROMO_DIR = path.join(here, '..', 'assets', 'promo');
+  for (const f of ['characters-promo-9x16.mp4', 'characters-promo-16x9.mp4']) {
+    app.get(`/promo-media/${f}`, (_req, res) => res.sendFile(path.join(PROMO_DIR, f), { maxAge: '1d', headers: { 'X-Content-Type-Options': 'nosniff' } }));
+  }
   app.use(tenantContext);
   // a customer's own domain shows the website only; sign-in and the ERP stay on the workspace address
   app.use(websiteOnlyOnCustomDomain);
