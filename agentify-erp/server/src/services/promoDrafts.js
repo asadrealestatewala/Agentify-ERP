@@ -6,11 +6,14 @@ import { listPosts, createPost } from './contentCalendar.js';
 export const PROMO_FILES = {
   characters: { vertical: 'characters-promo-9x16.mp4', horizontal: 'characters-promo-16x9.mp4' },
   kinetic: { vertical: 'kinetic-promo-9x16.mp4', horizontal: 'kinetic-promo-16x9.mp4' },
+  receipt: { vertical: 'receipt-promo-9x16.mp4', horizontal: 'receipt-promo-16x9.mp4' },
+  synq: { vertical: 'synq-promo-9x16.mp4', horizontal: 'synq-promo-16x9.mp4' },
 };
 export const PROMO_FILE_NAMES = Object.values(PROMO_FILES).flatMap((v) => Object.values(v));
 const SITE = 'https://agentifyerp.co';
 const TAGS = '#AgentifyERP #RealEstate #Construction #PropTech #ERP';
 
+const HOLD = 'DO NOT POST: this video shows the seller partner Sync Technologies\' logo and name, and the partner\'s consent to use them is not confirmed yet. Keep this as a draft until the owner confirms consent in writing. ';
 // Each video has its own caption per shape. Titles stay the same once shipped: they are how a re-run knows a draft exists.
 const SERIES = {
   characters: {
@@ -22,6 +25,16 @@ const SERIES = {
     titlePrefix: 'Promo video 2 (fast)',
     vertical: { body: `A buyer is calling. Nobody picks up. Lost lead? Not anymore.\n\nSales, accounts and construction in one system, with Agentify ERP. Start your 7-day free trial: agentifyerp.co\n\n${TAGS} #Leads`, notes: 'Fast promo, vertical 9:16 (26s). Upload the file from the media address, then paste the caption.' },
     horizontal: { body: `Never lose a lead to a missed call. Agentify ERP puts sales, accounts and construction in one system: payments on time, sites on schedule, customers always in the loop.\n\nStart your 7-day free trial: agentifyerp.co\n\n${TAGS} #Leads`, notes: 'Fast promo, horizontal 16:9 (26s). Upload the file from the media address, then paste the caption.' },
+  },
+  receipt: {
+    titlePrefix: 'Promo video 3 (receipts)',
+    vertical: { body: `Where is your receipt? Lost in chats. Buried in emails. Gone in a file.\n\nWith Agentify ERP every payment is recorded and the receipt goes out instantly. Start your free trial: agentifyerp.co\n\n${TAGS} #Payments`, notes: 'Receipts promo, vertical 9:16 (27s). Upload the file from the media address, then paste the caption.' },
+    horizontal: { body: `Stop chasing paper. Agentify ERP records every payment and sends the receipt instantly, with installments, sites and customers all in one place.\n\nStart your free trial: agentifyerp.co\n\n${TAGS} #Payments`, notes: 'Receipts promo, horizontal 16:9 (27s). Upload the file from the media address, then paste the caption.' },
+  },
+  synq: {
+    titlePrefix: 'ON HOLD (partner consent) Promo video 4 (Sync Technologies)',
+    vertical: { body: `Every payment recorded, every receipt sent instantly. Proudly sold and supported by our seller partner, Sync Technologies.\n\nStart your free trial: agentifyerp.co\n\n${TAGS} #Payments`, notes: `${HOLD}Partner promo, vertical 9:16 (32s). Upload the file from the media address, then paste the caption.` },
+    horizontal: { body: `Stop chasing paper. Agentify ERP records every payment and sends the receipt instantly. Proudly sold and supported by our seller partner, Sync Technologies.\n\nStart your free trial: agentifyerp.co\n\n${TAGS} #Payments`, notes: `${HOLD}Partner promo, horizontal 16:9 (32s). Upload the file from the media address, then paste the caption.` },
   },
 };
 const PLAN = [

@@ -83,11 +83,14 @@ test('promo video drafts: one draft per channel, repeatable, and the videos are 
   const owner = (await call('POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
   const a = await as(owner, 'POST', '/content/promo-drafts');
   assert.equal(a.status, 201, JSON.stringify(a.data));
-  assert.equal(a.data.added.length, 16);
-  assert.ok(a.data.added.every((p) => p.status === 'draft' && /\/promo-media\/(characters|kinetic)-promo-(9x16|16x9)\.mp4$/.test(p.media_url)));
+  assert.equal(a.data.added.length, 32);
+  assert.ok(a.data.added.every((p) => p.status === 'draft' && /\/promo-media\/(characters|kinetic|receipt|synq)-promo-(9x16|16x9)\.mp4$/.test(p.media_url)));
   assert.deepEqual(a.data.added.filter((p) => p.media_url.includes('kinetic-promo-9x16')).map((p) => p.channel).sort(), ['instagram', 'tiktok', 'whatsapp', 'youtube']);
+  const hold = a.data.added.filter((p) => p.media_url.includes('synq-promo'));
+  assert.equal(hold.length, 8);
+  assert.ok(hold.every((p) => p.status === 'draft' && /^ON HOLD/.test(p.title) && /DO NOT POST/.test(p.notes)), 'partner drafts are flagged');
   const b = await as(owner, 'POST', '/content/promo-drafts');
-  assert.equal(b.data.added.length, 0); assert.equal(b.data.skipped.length, 16);
-  for (const f of ['characters-promo-9x16.mp4', 'kinetic-promo-16x9.mp4']) assert.equal((await call('GET', `/promo-media/${f}`)).status, 200);
+  assert.equal(b.data.added.length, 0); assert.equal(b.data.skipped.length, 32);
+  for (const f of ['characters-promo-9x16.mp4', 'kinetic-promo-16x9.mp4', 'receipt-promo-9x16.mp4', 'synq-promo-16x9.mp4']) assert.equal((await call('GET', `/promo-media/${f}`)).status, 200);
   const other = await call('GET', '/promo-media/other.mp4'); assert.ok(typeof other.data === 'string' && !other.data.startsWith('\u0000'), 'only the two promo files are served');
 });
