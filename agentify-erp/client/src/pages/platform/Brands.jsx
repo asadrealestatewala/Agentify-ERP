@@ -47,7 +47,7 @@ function ColourField({ label, value, onChange, hint }) {
 
 function Editor({ brand, canEdit, onClose, reload }) {
   const toast = useToast();
-  const [f, setF] = useState({ name: brand?.name || '', owner_email: brand?.owner_email || '', primary_color: brand?.primary_color || '', accent_color: brand?.accent_color || '', logo: brand?.logo || null });
+  const [f, setF] = useState({ name: brand?.name || '', owner_email: brand?.owner_email || '', primary_color: brand?.primary_color || '', accent_color: brand?.accent_color || '', logo: brand?.logo || null, brochure_item_id: brand?.brochure_item_id || '' });
   const [detail, setDetail] = useState(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
@@ -79,6 +79,12 @@ function Editor({ brand, canEdit, onClose, reload }) {
         <Field label="Owner email" hint="The person who runs these workspaces (for your reference)"><TextInput value={f.owner_email} onChange={set('owner_email')} disabled={ro} placeholder="owner@company.com" /></Field>
         <ColourField label="Primary colour" value={f.primary_color} onChange={ro ? () => {} : set('primary_color')} hint="Used as the workspace colour in every member. Must be dark enough for white text." />
         <ColourField label="Accent colour" value={f.accent_color} onChange={ro ? () => {} : set('accent_color')} hint="Kept with the brand for later use; not shown in the app yet." />
+        {brand && <Field label="Default brochure layout" hint="Every workspace in this brand uses this layout from the shared library unless it keeps its own version.">
+          <select className="input" value={f.brochure_item_id || ''} disabled={ro || !detail} onChange={(e) => set('brochure_item_id')(e.target.value ? Number(e.target.value) : '')}>
+            <option value="">None (each workspace chooses)</option>
+            {(detail?.brochure_options || []).map((o) => <option key={o.id} value={o.id}>{o.title}</option>)}
+          </select>
+        </Field>}
         <Field label="Logo" hint="PNG, JPG or WebP. Shown at the top left of every member workspace.">
           <div className="row" style={{ gap: 10 }}>
             {f.logo ? <img src={f.logo} alt="Brand logo" style={{ height: 40, maxWidth: 140, objectFit: 'contain', border: '1px solid var(--line, #e5e7eb)', borderRadius: 6, padding: 4, background: '#fff' }} /> : <span className="muted">No logo</span>}

@@ -30,7 +30,7 @@ export default function SharedLibrary() {
         <div className="table-wrap"><table className="t"><thead><tr><th>Item</th><th>Kind</th><th>Version</th><th /></tr></thead><tbody>
           {d.items.map((i) => (
             <tr key={i.id}>
-              <td><b>{i.title}</b>{i.overridden && <span className="pill blue" style={{ marginLeft: 6 }}>Your version</span>}{i.shared_changed && <span className="pill amber" style={{ marginLeft: 6 }}>Shared text updated</span>}</td>
+              <td><b>{i.title}</b>{i.brand_default && !i.overridden && <span className="pill green" style={{ marginLeft: 6 }}>Your brand's default brochure</span>}{i.overridden && <span className="pill blue" style={{ marginLeft: 6 }}>Your version</span>}{i.shared_changed && <span className="pill amber" style={{ marginLeft: 6 }}>Shared text updated</span>}</td>
               <td>{i.type_label}</td><td>v{i.version}</td>
               <td className="right nowrap">
                 <button className="btn sm" onClick={() => setOpen({ item: i, text: i.content, editing: false })}>View</button>

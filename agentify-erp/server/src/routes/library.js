@@ -5,7 +5,7 @@ import { asyncH, notFound } from '../util.js';
 import { can, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { currentTenant } from '../context.js';
-import { effectiveFor, setOverride, clearOverride, LIBRARY_TYPES } from '../services/sharedLibrary.js';
+import { effectiveFor, brochureLayoutFor, setOverride, clearOverride, LIBRARY_TYPES } from '../services/sharedLibrary.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -16,6 +16,7 @@ const tenantId = () => {
 };
 
 r.get('/', can('crm', 'view'), asyncH((_req, res) => res.json({ types: LIBRARY_TYPES, items: effectiveFor(tenantId()) })));
+r.get('/brochure', can('crm', 'view'), asyncH((_req, res) => res.json(brochureLayoutFor(tenantId()))));
 r.put('/:id/override', can('settings', 'edit'), asyncH((req, res) => {
   const item = setOverride(tenantId(), req.params.id, req.body?.content, req.user?.email || null);
   audit(req, 'Used own version of a shared template', 'library', item.id, item.title);

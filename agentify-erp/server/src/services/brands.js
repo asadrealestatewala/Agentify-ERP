@@ -19,10 +19,12 @@ const EXT = { png: 'png', jpeg: 'jpg', webp: 'webp' };
 const members = (brandId) => pdb().prepare('SELECT id, slug, name, status, plan, owner_email FROM tenants WHERE brand_id=? ORDER BY id').all(brandId);
 const present = (b) => b && {
   id: b.id, name: b.name, owner_email: b.owner_email || null, logo: b.logo || null, primary_color: b.primary_color || null, accent_color: b.accent_color || null,
-  main_tenant_id: b.main_tenant_id || null, created_at: b.created_at, updated_at: b.updated_at,
+  main_tenant_id: b.main_tenant_id || null, brochure_item_id: b.brochure_item_id || null, created_at: b.created_at, updated_at: b.updated_at,
   workspaces: members(b.id).map((t) => ({ ...t, main: t.id === b.main_tenant_id })),
 };
 export function getBrand(id) { return present(pdb().prepare('SELECT * FROM brands WHERE id=?').get(Number(id))); }
+/** Active brochure layouts a brand can pin as its default. */
+export const brochureOptions = () => pdb().prepare("SELECT id, title FROM library_items WHERE type='brochure_layout' AND status='active' ORDER BY title").all();
 export const listBrands = () => pdb().prepare('SELECT * FROM brands ORDER BY name').all().map(present);
 
 /** The brand a workspace belongs to, with the fields that lock its own Branding page; null for an independent workspace. */
@@ -49,14 +51,19 @@ function clean(b, prev = {}) {
     logo = b.logo || null;
     if (logo && (!LOGO_RE.test(logo) || logo.length > MAX_LOGO)) throw bad('The logo must be a PNG, JPG or WebP image of about 100 KB or less');
   }
-  return { name, owner_email: owner, logo, primary_color: colour(b.primary_color, 'Primary colour', prev.primary_color), accent_color: colour(b.accent_color, 'Accent colour', prev.accent_color) };
+  let brochure = prev.brochure_item_id || null;
+  if (b.brochure_item_id !== undefined) {
+    brochure = b.brochure_item_id ? Number(b.brochure_item_id) : null;
+    if (brochure && !pdb().prepare("SELECT 1 FROM library_items WHERE id=? AND type='brochure_layout' AND status='active'").get(brochure)) throw bad('Choose an active brochure layout from the shared library');
+  }
+  return { brochure_item_id: brochure, name, owner_email: owner, logo, primary_color: colour(b.primary_color, 'Primary colour', prev.primary_color), accent_color: colour(b.accent_color, 'Accent colour', prev.accent_color) };
 }
 
 export function createBrand(b, by) {
   const v = clean(b);
   if (pdb().prepare('SELECT 1 FROM brands WHERE name=?').get(v.name)) throw bad('A brand with that name already exists');
-  const id = Number(pdb().prepare('INSERT INTO brands(name, owner_email, logo, primary_color, accent_color, created_by, updated_at) VALUES(?,?,?,?,?,?,datetime(\'now\'))')
-    .run(v.name, v.owner_email, v.logo, v.primary_color, v.accent_color, by || null).lastInsertRowid);
+  const id = Number(pdb().prepare('INSERT INTO brands(name, owner_email, logo, primary_color, accent_color, brochure_item_id, created_by, updated_at) VALUES(?,?,?,?,?,?,?,datetime(\'now\'))')
+    .run(v.name, v.owner_email, v.logo, v.primary_color, v.accent_color, v.brochure_item_id, by || null).lastInsertRowid);
   return getBrand(id);
 }
 
@@ -66,8 +73,8 @@ export function updateBrand(id, b) {
   const v = clean(b, prev);
   const dup = pdb().prepare('SELECT id FROM brands WHERE name=? AND id<>?').get(v.name, prev.id);
   if (dup) throw bad('A brand with that name already exists');
-  pdb().prepare("UPDATE brands SET name=?, owner_email=?, logo=?, primary_color=?, accent_color=?, updated_at=datetime('now') WHERE id=?")
-    .run(v.name, v.owner_email, v.logo, v.primary_color, v.accent_color, prev.id);
+  pdb().prepare("UPDATE brands SET name=?, owner_email=?, logo=?, primary_color=?, accent_color=?, brochure_item_id=?, updated_at=datetime('now') WHERE id=?")
+    .run(v.name, v.owner_email, v.logo, v.primary_color, v.accent_color, v.brochure_item_id, prev.id);
   return { brand: getBrand(prev.id), sync: syncBrand(prev.id) };
 }
 

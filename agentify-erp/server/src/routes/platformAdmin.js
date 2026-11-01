@@ -696,7 +696,7 @@ r.get('/brands', requireOperator, need('workspaces.view'), (_req, res) => res.js
 r.get('/brands/:id(\\d+)', requireOperator, need('workspaces.view'), asyncH((req, res) => {
   const b = brands.getBrand(req.params.id);
   if (!b) throw new HttpError(404, 'Brand not found');
-  res.json({ ...b, rollup: brands.rollup(b.id, tenantSummaries(req)) });
+  res.json({ ...b, rollup: brands.rollup(b.id, tenantSummaries(req)), brochure_options: brands.brochureOptions() });
 }));
 r.post('/brands', requireOperator, need('workspaces.edit'), asyncH((req, res) => { const b = brands.createBrand(req.body || {}, req.operator.email); audit(req.operator.email, 'brand-created', { brand: b.name }); res.status(201).json(b); }));
 r.put('/brands/:id(\\d+)', requireOperator, need('workspaces.edit'), asyncH((req, res) => { const out = brands.updateBrand(req.params.id, req.body || {}); audit(req.operator.email, 'brand-edited', { brand: out.brand.name }); res.json(out); }));

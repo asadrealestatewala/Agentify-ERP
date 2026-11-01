@@ -62,7 +62,26 @@ export function effectiveFor(tenantId) {
     overridden: r.override_content != null, content: r.override_content ?? r.shared_content, shared_content: r.shared_content,
     // the shared text was edited after this workspace made its own copy
     shared_changed: r.override_content != null && r.version > (r.base_version || 1),
+    brand_default: r.id === brandBrochureId(tenantId),
   }));
+}
+
+/** The brochure layout the workspace's brand group pinned as its default (null for an independent workspace or no pick). */
+function brandBrochureId(tenantId) {
+  const b = pdb().prepare('SELECT b.brochure_item_id id FROM tenants t JOIN brands b ON b.id=t.brand_id WHERE t.id=?').get(Number(tenantId));
+  return b?.id || null;
+}
+
+/**
+ * Which brochure layout a workspace uses: its own version of a brochure layout wins; otherwise the layout its brand group pinned;
+ * otherwise none. `source` says why, so the app can explain it.
+ */
+export function brochureLayoutFor(tenantId) {
+  const all = effectiveFor(tenantId).filter((i) => i.type === 'brochure_layout');
+  const own = all.find((i) => i.overridden);
+  if (own) return { ...own, source: 'workspace' };
+  const inherited = all.find((i) => i.brand_default);
+  return inherited ? { ...inherited, source: 'brand' } : null;
 }
 
 export function setOverride(tenantId, itemId, content, by) {

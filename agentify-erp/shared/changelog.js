@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.64', date: '2026-11-01', title: 'Brand groups share a brochure layout',
+    items: [
+      { text: 'If your workspace belongs to a brand group, the group can pick a default brochure layout that every branch uses. A branch can still keep its own version, and the Shared library marks which layout is your brand\'s default.', where: 'Settings > Shared library' },
+      { text: 'Pick a default brochure layout for a brand from the shared library. Workspaces that keep their own version are not changed.', audience: 'platform', where: 'Console > Brands' },
+    ],
+  },
+  {
     version: 'v1.63', date: '2026-11-01', title: 'Report an AI suggestion',
     items: [
       { text: 'Every AI suggestion in the property writer now has a "Report this suggestion" button. Use it when the text has wrong facts, is unsafe or misleading, or reads badly. Only the suggestion and your reason are sent for review.', where: 'Properties > Add or edit property > Write with AI' },
