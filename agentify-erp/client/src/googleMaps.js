@@ -10,7 +10,11 @@ let loadP = null;
 let failed = false;
 const listeners = new Set();
 
-const fetchConfig = () => (cfgP ||= api.get('/api/platform/maps-config').then((c) => c?.google || null).catch(() => null));
+export const DEFAULT_MAPS = { provider: 'maplibre', google: null, maplibre: { styles: { streets: 'https://tiles.openfreemap.org/styles/liberty', light: 'https://tiles.openfreemap.org/styles/positron' }, maptiler: null } };
+/** The whole map configuration (cached). If the request fails the free provider is used. */
+export const fetchMapsConfig = () => (cfgP ||= api.get('/api/platform/maps-config').then((c) => (c && c.maplibre ? c : DEFAULT_MAPS)).catch(() => DEFAULT_MAPS));
+export const onGoogleFail = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
+const fetchConfig = () => fetchMapsConfig().then((c) => c.google || null);
 
 export function loadGoogleMaps() {
   if (failed) return Promise.reject(new Error('maps-failed'));

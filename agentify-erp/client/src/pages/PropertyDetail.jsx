@@ -8,6 +8,7 @@ import { useAuth, useFetch } from '../context.jsx';
 import { date, money } from '../format.js';
 import { PropertyActions, WebsiteBadge } from './Properties.jsx';
 import RegionFields from '../components/RegionFields.jsx';
+import NavigateButton from '../components/NavigateButton.jsx';
 import PortalsCard from '../components/PortalsCard.jsx';
 import { VisitsPanel } from '../components/Visits.jsx';
 
@@ -51,6 +52,7 @@ export default function PropertyDetail() {
                     <KV items={[['Purpose', p.purpose], ['Type', p.property_type], ['Project', p.project ? <Link to={`/projects/${p.project.id}`}>{p.project.name}</Link> : null], ['Block / sector', [p.block, p.sector].filter(Boolean).join(' / ')], ['Plot number', p.plot_no], ['File number', p.file_no], ['Registration number', p.registration_no], ['File status', p.file_status ? <StatusBadge status={p.file_status} tone={{ Active: 'green', Inactive: 'grey', Suspended: 'red', Defaulted: 'red', Paused: 'amber' }[p.file_status]} /> : null], ['File notes', p.file_notes], ['City', p.city], ['Location', p.location], ['Address', p.address], ['GPS', p.lat && p.lng ? `${p.lat}, ${p.lng}` : null]]} />
                     <KV items={[['Area', p.area_size ? `${p.area_size} ${p.unit}` : null], ['Total price', money(p.total_price)], ['Price per unit', p.price_per_unit ? money(p.price_per_unit) : null], ['Discount', money(p.discount)], ['Net price', <b>{money(p.net_price)}</b>], ['Installments', yes(!!p.installment_available)], ['Ready for possession', yes(!!p.ready_possession)], ['Agent', p.agent_name]]} />
                   </div>
+                  {p.lat && p.lng && <div><NavigateButton lat={p.lat} lng={p.lng} label={p.title}>Navigate to this property</NavigateButton></div>}
                   {feats.length > 0 && <div><div className="section-title" style={{ marginTop: 0 }}>Features</div><div className="row wrap">{feats.map(([k, v]) => <span key={k} className="tag">{FEATURE_LABEL[k] || k}{v === true ? '' : `: ${v}`}</span>)}</div></div>}
                   {p.amenities.length > 0 && <div><div className="section-title" style={{ marginTop: 0 }}>Amenities</div><div className="row wrap">{p.amenities.map((a) => <span key={a} className="tag">{a}</span>)}</div></div>}
                   {(p.short_desc || p.description) && <div><div className="section-title" style={{ marginTop: 0 }}>Description</div><p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{p.description || p.short_desc}</p></div>}

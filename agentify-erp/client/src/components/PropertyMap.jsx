@@ -1,12 +1,14 @@
 import { lazy, Suspense } from 'react';
-import { useMaps } from '../googleMaps.js';
+import { useMapEngine } from '../mapEngine.js';
 
-// Google Maps when the platform has a key, OpenStreetMap (Leaflet) otherwise. Same props either way.
+// Free MapLibre map by default, Google Maps when the platform owner chose it, Leaflet only on browsers without WebGL. Same props everywhere.
 const Osm = lazy(() => import('./PropertyMapOsm.jsx'));
 const Google = lazy(() => import('./PropertyMapGoogle.jsx'));
+const Libre = lazy(() => import('./PropertyMapLibre.jsx'));
 
 export default function PropertyMap(props) {
-  const m = useMaps();
+  const m = useMapEngine();
   const h = props.height || 260;
-  return <Suspense fallback={<div style={{ height: h }} />}>{m === 'ready' ? <Google {...props} /> : m === 'off' ? <Osm {...props} /> : <div style={{ height: h }} />}</Suspense>;
+  const View = m === 'google' ? Google : m === 'maplibre' ? Libre : m === 'off' ? Osm : null;
+  return <Suspense fallback={<div style={{ height: h }} />}>{View ? <View {...props} /> : <div style={{ height: h }} />}</Suspense>;
 }

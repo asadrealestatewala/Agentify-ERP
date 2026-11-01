@@ -8,6 +8,7 @@ import http from 'node:http';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'erp-geo-'));
 process.env.ERP_DATA_DIR = dir;
+process.env.GEOCODE_PROVIDER = 'nominatim';
 process.env.ERP_UPLOAD_DIR = path.join(dir, 'uploads');
 process.env.ERP_DB = path.join(dir, 'legacy.db');
 process.env.ERP_PLATFORM_DB = path.join(dir, 'platform.db');

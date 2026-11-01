@@ -7,6 +7,7 @@ import { api } from '../api.js';
 import { useAuth, useToast } from '../context.jsx';
 import { dateTime, getRegion } from '../format.js';
 import { t, getLanguage } from '../i18n.js';
+import NavigateButton from './NavigateButton.jsx';
 import { OUTCOMES, msToWall, haversineM, validCoord, proximity, formatDistance } from '../../../shared/visits.js';
 
 export const KINDS = [['viewing', 'Viewing'], ['site_visit', 'Site visit'], ['meeting', 'Meeting'], ['call', 'Call'], ['signing', 'Signing'], ['other', 'Other']];
@@ -180,6 +181,7 @@ export function VisitSheet({ id, onClose, onChange }) {
           {d.contact_id && <> · <Link to={`/contacts/${d.contact_id}`}>{d.contact_name}</Link></>} · {d.user_name}
           {d.location && <> · {d.location}</>}
         </div>
+        {d.has_property_location && <NavigateButton lat={d.property_lat} lng={d.property_lng} label={d.property_title}>{t('visits.navigate', 'Navigate to the property')}</NavigateButton>}
         {d.notes && <div>{d.notes}</div>}
         {d.checks.map((c) => <CheckLine key={c.id} c={c} a={d} />)}
         {d.outcome && <div className="card" style={{ padding: 10 }}><b>{t('visits.outcome', 'Outcome')}:</b> {t(`visits.outcome.${d.outcome}`, OUTCOME_LABEL[d.outcome])}{d.outcome_notes && <div>{d.outcome_notes}</div>}

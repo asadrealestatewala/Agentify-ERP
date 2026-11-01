@@ -32,11 +32,17 @@ foreground-only. There is no route history and no background tracking.
   days (default 30) and ends foreground sessions that went quiet. Withdrawing consent deletes the location at once.
 * **Plans.** The API is the `field` plan module (`/field` paths in `services/plans.js`). Plans with `modules: null` include
   it; plans or overrides that list modules explicitly must add `field`.
-* **Map.** A live Google map (`client/src/components/LiveMap.jsx`) when the platform has a browser key
-  (`GOOGLE_MAPS_API_KEY`, see `services/maps.js` and `GET /api/platform/maps-config`): initials markers coloured by
-  freshness, smooth movement between readings, Map/Satellite, Street View, accuracy circle, refresh every 15 s.
-  Without a key (or if Google rejects it) it falls back to the free OpenStreetMap embed. Setting *Map* to
-  *No embedded map* leaves the list and links only.
+* **Map.** A live map of agents (`client/src/components/LiveMapLibre.jsx`) on free MapLibre GL vector tiles (OpenFreeMap), no key needed:
+  initials markers coloured by freshness, smooth movement between readings, accuracy circle, refresh every 15 s. At most 150
+  markers are drawn (the picked agent, then the most recently seen); the pulsing halo is switched off above 40. Google Maps
+  (`LiveMap.jsx`) is used only when `MAP_PROVIDER=google` (or the platform setting `map_provider`) AND `GOOGLE_MAPS_API_KEY` is set;
+  if Google rejects the key the page switches to the free map. Browsers without WebGL fall back to the OpenStreetMap embed.
+  Optional `MAPTILER_API_KEY` adds a Map/Satellite switch. Config comes from `GET /api/platform/maps-config` (`services/maps.js`).
+  Setting *Map* to *No embedded map* leaves the list and links only. The *Navigate* button (`shared/navigate.js`) opens Google Maps,
+  or Apple Maps first on Apple devices, with directions; it needs no key.
+* **Place search** (property editor) uses Photon (free, no key) first, LocationIQ first when `LOCATIONIQ_KEY` is set, and the public
+  Nominatim as the last resort (`services/geocode.js`, `GEOCODE_PROVIDER` pins the first choice). Calls are spaced per provider,
+  answers cached for a day, a 429 is retried once then falls through to the next provider.
 * **Time and units.** Stored as UTC ISO; shown in the workspace timezone with the zone name. Accuracy is stored in metres
   and shown in feet for imperial regions.
 

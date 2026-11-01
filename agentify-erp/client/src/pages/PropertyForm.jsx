@@ -7,6 +7,7 @@ import { api, fileUrl } from '../api.js';
 import { useAuth, useFetch, useLookups, useToast } from '../context.jsx';
 import { money, getRegion } from '../format.js';
 import ListingAiWriter from '../components/ListingAiWriter.jsx';
+import NavigateButton from '../components/NavigateButton.jsx';
 const PropertyMap = lazy(() => import('../components/PropertyMap.jsx'));
 
 const PK_UNITS = ['Marla', 'Kanal', 'Sq Ft', 'Sq Yards', 'Sq Meter'];
@@ -219,7 +220,7 @@ export default function PropertyForm() {
               <li key={i} style={{ borderTop: i ? '1px solid var(--border)' : 'none' }}><button type="button" title={o.full} onClick={() => { typedCoords.current = true; setF((x) => ({ ...x, lat: o.lat, lng: o.lng })); setGeo((g) => ({ ...g, kind: 'ok', msg: `Pinned: ${o.label}. Drag the pin to fine-tune.` })); }}
                 style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between', gap: 10, textAlign: 'left', padding: '8px 12px', border: 0, cursor: 'pointer', font: 'inherit', background: on ? 'var(--primary-l)' : 'transparent', color: 'inherit', fontWeight: on ? 600 : 400 }}>
                 <span style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{o.label}</span><span className="muted" style={{ fontSize: 11, flex: 'none' }}>{on ? 'Selected' : o.level === 'street' ? 'Street' : 'Area'}</span></button></li>); })}</ul></div>}
-          {hasPin ? (<div><Suspense fallback={<Loading />}><PropertyMap lat={Number(f.lat)} lng={Number(f.lng)} onMove={(la, ln) => { typedCoords.current = true; setF((x) => ({ ...x, lat: la, lng: ln })); setGeo((g) => ({ ...g, kind: 'ok', msg: 'Pin moved. Latitude and longitude updated from the pin.', options: g.options })); }} /></Suspense><a href={`https://www.google.com/maps?q=${f.lat},${f.lng}`} target="_blank" rel="noreferrer" className="muted">Open in Google Maps ↗</a></div>)
+          {hasPin ? (<div><Suspense fallback={<Loading />}><PropertyMap lat={Number(f.lat)} lng={Number(f.lng)} onMove={(la, ln) => { typedCoords.current = true; setF((x) => ({ ...x, lat: la, lng: ln })); setGeo((g) => ({ ...g, kind: 'ok', msg: 'Pin moved. Latitude and longitude updated from the pin.', options: g.options })); }} /></Suspense><div style={{ marginTop: 6 }}><NavigateButton lat={f.lat} lng={f.lng} label={f.title} /></div></div>)
             : <div className="dropzone" style={{ cursor: 'default' }}><Icon name="map" size={20} /><div>Type a location above, or enter GPS coordinates, to preview the map location.</div></div>}
         </Section>
 
