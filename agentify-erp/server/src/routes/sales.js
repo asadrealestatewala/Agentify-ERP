@@ -9,6 +9,7 @@ import { receiptCopiesPdf } from '../services/receiptSheet.js';
 import { customerSearchClause, receiptRecord } from '../services/customers.js';
 import { sendTable } from './helpers.js';
 import { asyncH, bad, forbidden, notFound, int, now, today, moneyText, region } from '../util.js';
+import { assertUserEmailFree } from '../services/uniqueEmail.js';
 import { createSale, cancelSale, planSchedule, saleSummary, ensurePortalUser } from '../services/sales.js';
 import { sendPdf } from '../services/pdf.js';
 import { scheduleFor } from '../services/schedule.js';
@@ -167,6 +168,7 @@ r.post('/customers/:id(\\d+)/portal-access', can('customers', 'edit'), asyncH((r
     audit(req, 'Reset portal password', 'contact', c.id, c.full_name);
     return res.json({ login: u.email || u.phone });
   }
+  assertUserEmailFree(c.email); // "This email already exists" rather than a vague refusal
   const created = ensurePortalUser(c.id);
   if (!created) throw bad('The customer needs a unique email or phone to receive portal access');
   if (password) {

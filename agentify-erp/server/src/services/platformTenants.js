@@ -4,7 +4,7 @@
 import { billingAddress } from './billingMail.js';
 import fs from 'node:fs';
 import bcrypt from 'bcryptjs';
-import { platformDb, listTenants, getTenant, withTenant, logTenantEvent, BASE_DOMAIN, isMultiTenant, createTenant, setTenantStatus } from '../platform.js';
+import { platformDb, listTenants, getTenant, withTenant, logTenantEvent, BASE_DOMAIN, isMultiTenant, createTenant, assertOwnerEmailFree, setTenantStatus } from '../platform.js';
 import { all, get, run, val } from '../db.js';
 import { billingState, usage, PLANS, PLAN_SETTINGS, MODULES, PRODUCTS, tenantProducts } from './plans.js';
 import { refundsFor, tenantAddons, listAddons } from './commerce.js';
@@ -308,6 +308,7 @@ export function setOwner(id, ownerEmail) {
 export function createWorkspace(b, req) {
   const trialDays = b.trial_days === undefined || b.trial_days === '' ? PLAN_SETTINGS.default_trial_days : Math.trunc(Number(b.trial_days));
   if (!(trialDays >= 0 && trialDays <= 365)) throw bad('Trial days must be between 0 and 365');
+  assertOwnerEmailFree(b.admin_email);
   const t = createTenant({ slug: b.slug, name: b.company_name, adminName: String(b.admin_name || '').trim() || 'Admin', adminEmail: b.admin_email, adminPassword: b.admin_password,
     timezone: b.timezone || 'Asia/Karachi', currency: b.currency || 'PKR', demo: !!b.demo, trialDays: trialDays || null, product: b.product || 'real_estate',
     region: b.region || 'PK', sub_region: b.sub_region || null, language: b.language || null });

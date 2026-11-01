@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { userWithEmail } from './uniqueEmail.js';
 import { ensureCustomerCode } from './customers.js';
 import crypto from 'node:crypto';
 import { get, all, run, tx, nextNo } from '../db.js';
@@ -53,7 +54,7 @@ export function ensurePortalUser(contactId) {
   const existing = get('SELECT id FROM users WHERE contact_id=?', contactId);
   if (existing) return null;
   if (!c.email && !c.phone) return null;
-  if (c.email && get('SELECT id FROM users WHERE email=?', c.email)) return null;
+  if (c.email && userWithEmail(c.email)) return null; // one email, one account: the sale still goes through without a second login
   const role = get("SELECT id FROM roles WHERE name='Customer'");
   const pwd = crypto.randomBytes(5).toString('hex');
   run('INSERT INTO users(name,email,phone,password_hash,role_id,contact_id,created_at) VALUES(?,?,?,?,?,?,?)',

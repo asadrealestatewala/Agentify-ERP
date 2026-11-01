@@ -243,6 +243,7 @@ export function createApp() {
     if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'File is too large' });
     if (err.name === 'MulterError') return res.status(400).json({ error: err.message });
     if (err.type === 'entity.parse.failed') return req.originalUrl.startsWith('/api/v1/') ? res.status(400).json({ error: { code: 'invalid_json', message: 'The request body is not valid JSON' } }) : res.status(400).json({ error: 'Invalid JSON' });
+    if (/UNIQUE constraint failed: (users\.email|index 'idx_users_email_ci')/.test(err.message || '')) return res.status(409).json({ error: 'This email already exists. One email can belong to only one account.', code: 'email_exists', field: 'email' });
     if (/UNIQUE constraint failed/.test(err.message || '')) return res.status(409).json({ error: 'A record with this unique value already exists' });
     console.error(err);
     recordError(err, req);

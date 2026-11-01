@@ -1,5 +1,6 @@
 // One-time links for staff invitations and password resets. The token is shown once (in the email / to the inviting admin);
 // only its SHA-256 hash is stored, so a copy of the database cannot be used to take over an account.
+import { assertUserEmailFree } from './uniqueEmail.js';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { all, get, run, tx, getSetting } from '../db.js';
@@ -34,7 +35,7 @@ function lookup(kind, token) {
 export async function createInvite(req, { email, name, roleId }) {
   const e = String(email || '').trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) throw bad('A valid email address is required');
-  if (get('SELECT 1 FROM users WHERE lower(email)=?', e)) throw bad('A user with this email already exists');
+  assertUserEmailFree(e);
   await assertEmailAllowed(e);
   if (!get('SELECT email_verified FROM users WHERE id=?', req.user.id)?.email_verified) throw bad('Confirm your own email address before inviting people (check your inbox, or resend the link from the banner)');
   assertSeatAvailable(req.tenant);
@@ -60,7 +61,7 @@ export function acceptInvite(token, { name, password }, tenant) {
   return tx(() => {
     const t = lookup('invite', token);
     if (!t) throw new HttpError(404, 'This invitation is invalid or has expired. Ask your admin for a new one.');
-    if (get('SELECT 1 FROM users WHERE lower(email)=lower(?)', t.email)) throw bad('A user with this email already exists');
+    assertUserEmailFree(t.email);
     assertSeatAvailable(tenant, { includeInvites: false }); // this invitation's own seat is already reserved
     const role = get('SELECT * FROM roles WHERE id=?', t.role_id);
     if (!role) throw bad('The role for this invitation no longer exists. Ask your admin for a new invitation.');

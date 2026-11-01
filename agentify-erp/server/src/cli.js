@@ -2,6 +2,7 @@
 //   npm run platform:setup-token   print a fresh one-time token for /platform/first-run (only while no console account exists)
 //   npm run platform:set-owner     create a Platform Owner, or reset that account's password (and turn its two-factor off); reads the email and
 //                                  the password from the first two lines of standard input, so the password never appears in a command line
+//   npm run email:duplicates       list emails used by more than one account in any workspace (read-only)
 //   npm run platform:lifecycle     run the subscription lifecycle job once (trial expiry, reminders, renewals)
 //   npm run storage:migrate -- --tenant <slug>|--all [--dry-run] [--delete-local]   move a workspace's private files from the VPS disk to the bucket
 import { platformDb } from './platform.js';
@@ -31,6 +32,16 @@ if (cmd === 'setup-token') {
     db.prepare("INSERT INTO platform_audit(admin, action, detail) VALUES(?,?,?)").run('server', 'owner-created', email.trim().toLowerCase());
     console.log(`Platform Owner created: ${email.trim().toLowerCase()}`);
   }
+} else if (cmd === 'email-duplicates') {
+  // read-only report: emails used by more than one login (or employee / vendor / developer record), per workspace. Nothing is changed.
+  const { listTenants, withTenant } = await import('./platform.js');
+  const { duplicateEmailReport } = await import('./services/uniqueEmail.js');
+  let total = 0;
+  for (const t of listTenants()) {
+    const rows = withTenant(t, () => duplicateEmailReport());
+    for (const r of rows) { total++; console.log(`${t.slug}\t${r.kind}\t${r.email}\t${r.count} records (ids ${r.ids.join(', ')})`); }
+  }
+  console.log(total ? `${total} duplicate email(s) found. Nothing was changed; review them in each workspace.` : 'No duplicate emails found.');
 } else if (cmd === 'lifecycle') {
   const { runLifecycle } = await import('./services/lifecycle.js');
   console.log(JSON.stringify(await runLifecycle(), null, 2));

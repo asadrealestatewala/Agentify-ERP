@@ -37,7 +37,7 @@ import { sitesDomain } from '../platform.js';
 import { locate, geoConfigured } from '../services/geo.js';
 import { handleCallback } from '../services/oauthFlow.js';
 import { PROVIDERS, appCreds, authorizeUrl, readState, redirectUri, signState, mainOrigin } from '../services/oauthApps.js';
-import { BASE_DOMAIN, platformDb, resolveTenant, withTenant, isMultiTenant, createTenant, validateSlug, listTenants, getTenant, setTenantStatus, RESERVED_SLUGS } from '../platform.js';
+import { BASE_DOMAIN, platformDb, resolveTenant, withTenant, isMultiTenant, createTenant, assertOwnerEmailFree, validateSlug, listTenants, getTenant, setTenantStatus, RESERVED_SLUGS } from '../platform.js';
 
 const r = Router();
 r.use('/admin', adminRoutes);
@@ -154,6 +154,7 @@ r.post('/signup', signupLimiter, asyncH(async (req, res) => {
     const who = String(google ? google.email : b.admin_email || '').trim().toLowerCase();
     if (who && platformDb().prepare("SELECT 1 FROM tenants WHERE product='website' AND lower(owner_email)=?").get(who)) throw new HttpError(409, 'There is already a free website for this email address. Sign in to it, or use another email.');
   }
+  assertOwnerEmailFree(google ? google.email : b.admin_email);
   const tenant = createTenant({
     slug: b.slug, name: b.company_name, adminName: String(b.admin_name || (google && google.name) || '').trim() || 'Admin', adminEmail: google ? google.email : b.admin_email, adminPassword: google ? crypto.randomBytes(24).toString('base64url') : b.admin_password,
     timezone: b.timezone || 'Asia/Karachi', currency: b.currency || 'PKR', region: b.region || 'PK', sub_region: b.sub_region || null, language: b.language || null, demo: !free && b.sample_data === true && String(b.region || 'PK').toUpperCase() !== 'PK', product: free ? 'website' : b.product || 'real_estate', trialPolicy: !free,

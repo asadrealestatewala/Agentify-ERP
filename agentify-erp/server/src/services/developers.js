@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { assertUserEmailFree } from './uniqueEmail.js';
 import crypto from 'node:crypto';
 import { get, all, run, nextNo, val } from '../db.js';
 import { now, bad, int, num, jparse, addDays, region } from '../util.js';
@@ -94,11 +95,11 @@ export function createDeveloperPortalUser(developerId, password) {
   const pw = password ? String(password) : `${crypto.randomBytes(4).toString('hex')}-${crypto.randomInt(1000, 9999)}`;
   const hash = bcrypt.hashSync(pw, 10);
   const existing = get('SELECT id FROM users WHERE developer_id=?', developerId);
+  assertUserEmailFree(email, existing?.id || 0);
   if (existing) {
     run('UPDATE users SET password_hash=?, token_version=token_version+1, active=1, email=? WHERE id=?', hash, email, existing.id);
     return { created: false, login: email, password: pw };
   }
-  if (get('SELECT 1 FROM users WHERE lower(email)=?', email)) throw bad('Another account already uses this e-mail');
   let role = val("SELECT id FROM roles WHERE name='Developer'");
   if (!role) role = Number(run("INSERT INTO roles(name,description,own_scope,portal,is_system) VALUES('Developer','Developer partner portal only',0,1,1)").lastInsertRowid);
   run('INSERT INTO users(name,email,phone,password_hash,role_id,active,developer_id,created_at) VALUES(?,?,?,?,?,1,?,?)', d.name, email, d.phone || null, hash, role, developerId, now());
