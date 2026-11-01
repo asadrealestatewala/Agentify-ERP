@@ -10,11 +10,23 @@ const dow = (d) => new Date(`${d}T00:00:00Z`).getUTCDay();
 const lastDay = (month) => { const [y, m] = month.split('-').map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); };
 
 /** The employee record behind a login (linked by user_id; falls back to a matching e-mail once). */
+const normName = (n) => String(n || '').toLowerCase().replace(/[^a-z]/g, '');
+/** Two names agree when one contains the other ("Kiran" / "Kiran Shah"); an empty name never agrees. */
+const sameName = (a, b) => { const x = normName(a), y = normName(b); return !!x && !!y && (x.includes(y) || y.includes(x)); };
+/**
+ * The employee record that belongs to a login — only ever the one explicitly linked to it. A record that merely shares
+ * the login's email is adopted only when the names agree as well (an owner or admin whose email was typed onto
+ * someone else's record must never inherit that person's details). A previously mis-adopted link is undone here.
+ */
 export function employeeOf(user) {
   let e = get('SELECT * FROM employees WHERE user_id=?', user.id);
+  if (e && user.email && String(e.email || '').toLowerCase() === String(user.email).toLowerCase() && !sameName(e.name, user.name)) {
+    run('UPDATE employees SET user_id=NULL WHERE id=? AND user_id=?', e.id, user.id);
+    e = null;
+  }
   if (!e && user.email) {
-    e = get('SELECT * FROM employees WHERE user_id IS NULL AND lower(email)=lower(?)', user.email);
-    if (e) run('UPDATE employees SET user_id=? WHERE id=?', user.id, e.id);
+    const c = get('SELECT * FROM employees WHERE user_id IS NULL AND lower(email)=lower(?)', user.email);
+    if (c && sameName(c.name, user.name)) { e = c; run('UPDATE employees SET user_id=? WHERE id=?', user.id, e.id); }
   }
   return e || null;
 }
