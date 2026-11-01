@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.58', date: '2026-11-01', title: 'One email, one account',
+    items: [
+      { text: 'An email address can now belong to only one account. Adding a user, an invitation, an employee, a vendor, a developer or a portal login with an email that is already in use shows "This email already exists" instead of creating a second account. Capital letters and spaces make no difference.', where: 'Settings > Users, HR > Employees, Vendors, Developers' },
+      { text: 'You can still change a user\'s role; the same email just cannot be used for a second role.', where: 'Settings > Users' },
+    ],
+  },
+  {
     version: 'v1.57', date: '2026-11-01', title: 'Developer partners: Plot source on the property form, list fix and a tutorial video',
     items: [
       { text: 'New video in Training videos: "Developer partners (joint-venture plots)" walks through adding a developer and agreement, marking plots as developer plots, selling them and the read-only developer portal. Payment approval by the developer, rebates and cancellations are not part of this update yet.', where: 'Training videos' },

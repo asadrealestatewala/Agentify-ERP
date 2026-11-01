@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { assertUserEmailFree } from '../services/uniqueEmail.js';
 import path from 'node:path';
 import { Router } from 'express';
 import { snapshotCurrent } from '../services/backup.js';
@@ -127,7 +128,7 @@ r.post('/users', can('settings', 'create'), asyncH(async (req, res) => {
   if (!name || !email || !role_id) throw bad('Name, email and role are required');
   await assertEmailAllowed(email);
   if (!password || String(password).length < 8) throw bad('Password must be at least 8 characters');
-  if (get('SELECT id FROM users WHERE lower(email)=lower(?)', email)) throw bad('A user with this email already exists');
+  assertUserEmailFree(email);
   const role = get('SELECT * FROM roles WHERE id=?', role_id);
   if (!role) throw bad('Role not found');
   assertSeatAvailable(req.tenant);
@@ -170,7 +171,9 @@ r.post('/users/:id/2fa/reset', can('settings', 'edit'), asyncH((req, res) => {
 r.put('/users/:id', can('settings', 'edit'), asyncH((req, res) => {
   const u = get('SELECT u.*, r.name role FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?', req.params.id);
   if (!u) throw notFound();
-  const { name, email, phone, password, role_id, active } = req.body;
+  const { name, phone, password, role_id, active } = req.body;
+  const email = req.body.email === undefined || req.body.email === null ? undefined : String(req.body.email).trim();
+  if (email !== undefined) { if (!email) throw bad('Email is required'); assertUserEmailFree(email, u.id); }
   if (u.role === 'Super Admin' && !req.user.isSuper) throw bad('Only a Super Admin can modify a Super Admin');
   if (u.id === req.user.id && active === false) throw bad('You cannot deactivate your own account');
   const newRole = role_id ? get('SELECT * FROM roles WHERE id=?', role_id) : null;

@@ -138,6 +138,13 @@ function migrate() {
     db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_key ON appointments(created_by, client_key) WHERE client_key IS NOT NULL');
     db.exec('CREATE INDEX IF NOT EXISTS idx_appointments_property ON appointments(property_id); CREATE INDEX IF NOT EXISTS idx_appointments_contact ON appointments(contact_id)');
   }
+  // one email, one account: a case-insensitive unique index on login emails. If the workspace already has duplicates the index is skipped (nothing is
+  // changed or deleted) and they are listed in the log and by `npm run email:duplicates`; the server still refuses every new duplicate.
+  try { db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_ci ON users(lower(trim(email))) WHERE email IS NOT NULL AND trim(email)<>''"); }
+  catch (e) {
+    const dup = db.prepare("SELECT lower(trim(email)) email, COUNT(*) n FROM users WHERE email IS NOT NULL AND trim(email)<>'' GROUP BY lower(trim(email)) HAVING COUNT(*)>1").all();
+    console.warn(`[email] ${dup.length} login email(s) are used by more than one account, so the unique-email index was not added: ${dup.map((d) => `${d.email} x${d.n}`).join(', ') || e.message}`);
+  }
   addCol('work_tasks', 'onboarding_item_id', 'INTEGER'); // the onboarding checklist item a task was created for
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_notif_dedupe ON notifications(user_id, dedupe) WHERE dedupe IS NOT NULL');
   db.exec('CREATE INDEX IF NOT EXISTS idx_sales_contact ON sales(contact_id); CREATE INDEX IF NOT EXISTS idx_sales_agent ON sales(agent_id); CREATE INDEX IF NOT EXISTS idx_sales_bundle ON sales(bundle_id);');

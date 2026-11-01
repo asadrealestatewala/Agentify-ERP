@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { assertRecordEmailFree } from '../services/uniqueEmail.js';
 import { all, get, run, tx, insert, update, nextNo } from '../db.js';
 import { can, hasPerm, requireStaff } from '../rbac.js';
 import { createVendorPortalUser } from '../services/vendorAccount.js';
@@ -202,7 +203,7 @@ const VBASE = `SELECT vendors.*,
   FROM vendors`;
 crud(vend, {
   table: 'vendors', module: 'vendors', cols: ['vendor_code', 'name', 'company', 'phone', 'email', 'address', 'cnic_tax', 'category', 'bank_details', 'payment_terms', 'notes', 'active', 'created_at'],
-  before: (data, _r, existing) => { if (!existing && !data.vendor_code) data.vendor_code = nextNo('VND', 'VND', 4); if (existing) delete data.vendor_code; },
+  before: (data, _r, existing) => { if (data.email !== undefined && data.email !== null) { data.email = String(data.email).trim() || null; assertRecordEmailFree('vendors', data.email, existing); } if (!existing && !data.vendor_code) data.vendor_code = nextNo('VND', 'VND', 4); if (existing) delete data.vendor_code; },
   search: ['vendors.name', 'vendors.company', 'vendors.phone', 'vendors.vendor_code'], filters: ['category'], required: ['name'], select: VBASE, orderBy: 'vendors.name', label: 'vendor',
   canDelete: (v) => { if (get('SELECT 1 FROM expense_vouchers WHERE vendor_id=?', v.id)) throw bad('Vendor has transactions — mark inactive instead'); },
 });

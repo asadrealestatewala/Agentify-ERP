@@ -338,6 +338,15 @@ export function validateSlug(slug) {
  * Nothing is shared with other tenants. If anything fails the half-made tenant is removed again.
  */
 const emailHash = (e) => crypto.createHash('sha256').update(`trial:${String(e).trim().toLowerCase()}`).digest('hex');
+/**
+ * A workspace owner's email must not also be a console (platform staff) account. The same person may still own several workspaces:
+ * each is a separate database, and the one-trial-per-email rule already covers the trial side of that.
+ */
+export function assertOwnerEmailFree(email) {
+  const e = String(email || '').trim().toLowerCase();
+  if (e && pget('SELECT 1 FROM platform_admins WHERE lower(trim(email))=? LIMIT 1', e))
+    throw new HttpError(409, 'This email already exists. Use a different email address for the workspace.', { code: 'email_exists', field: 'admin_email' });
+}
 /** Has this owner email already had a free trial on the platform? (only a hash of the address is kept) */
 export const trialUsed = (email) => !!pget('SELECT 1 FROM trial_claims WHERE email_hash=?', emailHash(email));
 

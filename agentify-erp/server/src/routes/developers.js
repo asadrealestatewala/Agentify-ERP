@@ -1,5 +1,6 @@
 // Developer partner management for company staff (/api/developers). Permission module: developers.
 // The developers' own portal is a separate router with its own session scoping.
+import { assertRecordEmailFree } from '../services/uniqueEmail.js';
 import { Router } from 'express';
 import { all, get, run, insert, update } from '../db.js';
 import { can, requireStaff } from '../rbac.js';
@@ -26,6 +27,7 @@ r.get('/', can('developers', 'view'), (req, res) => {
 r.post('/', can('developers', 'create'), asyncH((req, res) => {
   const d = req.body || {};
   if (!String(d.name || '').trim()) throw bad('Enter the developer’s name');
+  if (d.email !== undefined && d.email !== null) { d.email = String(d.email).trim() || null; assertRecordEmailFree('developers', d.email); }
   const id = insert('developers', { ...d, name: String(d.name).trim(), status: 'active', created_by: req.user.id, created_at: now() }, [...DEV_COLS, 'created_by', 'created_at']);
   audit(req, 'Added developer', 'developer', id, d.name);
   res.status(201).json({ id });
@@ -45,6 +47,7 @@ r.put('/:id', can('developers', 'edit'), asyncH((req, res) => {
   const body = { ...req.body };
   if (body.name !== undefined && !String(body.name).trim()) throw bad('Enter the developer’s name');
   if (body.status !== undefined && !['active', 'inactive'].includes(body.status)) throw bad('Status must be active or inactive');
+  if (body.email !== undefined && body.email !== null) { body.email = String(body.email).trim() || null; assertRecordEmailFree('developers', body.email, d); }
   update('developers', d.id, body, DEV_COLS);
   audit(req, 'Edited developer', 'developer', d.id, d.name);
   res.json({ ok: true });
