@@ -20,6 +20,7 @@ import { quote, recordRedemption, setTenantAddon, recordRefund } from './commerc
 import { recordServerEvent } from './analytics.js';
 import { sendPaymentReceipt, billingAddress } from './billingMail.js';
 import { billingUrl } from './lifecycle.js';
+import { localDay } from './platformTime.js';
 
 /** Explicit subscription states (see services/plans.js billingState). */
 export const SUB_STATUSES = ['trialing', 'pending', 'active', 'past_due', 'canceled', 'expired'];
@@ -231,7 +232,7 @@ export async function approveSubmission(id, decisionNote, decidedBy = null) {
   if (!s) throw new HttpError(404, 'Payment not found');
   if (s.status !== 'pending') throw bad(`This payment was already ${s.status}`);
   const tenant = getTenant(s.tenant_id);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDay();
   const current = tenant.subscription_status === 'active' && tenant.current_period_end && tenant.current_period_end > today && tenant.plan === s.plan ? tenant.current_period_end : today;
   const periodEnd = addMonths(current, s.interval === 'year' ? 12 : 1);
   db.exec('BEGIN IMMEDIATE');

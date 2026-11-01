@@ -11,8 +11,9 @@ import { expiryOf, tenantSummaries } from './platformTenants.js';
 import { stripeView } from './platformConfig.js';
 import { listBackups } from './backup.js';
 import { bad } from '../util.js';
+import { PLATFORM_TZ, localToday } from './platformTime.js';
 
-export const PLATFORM_TZ = process.env.PLATFORM_TZ || 'Asia/Karachi';
+export { PLATFORM_TZ };
 const pdb = () => platformDb();
 
 // ---------------------------------------------------------------- time
@@ -21,7 +22,7 @@ function offsetMin(when = Date.now()) {
   const local = Date.parse(`${new Date(when).toLocaleString('sv-SE', { timeZone: PLATFORM_TZ }).replace(' ', 'T')}Z`);
   return Math.round((local - Math.floor(when / 1000) * 1000) / 60000);
 }
-export const localToday = () => new Date().toLocaleString('sv-SE', { timeZone: PLATFORM_TZ }).slice(0, 10);
+export { localToday };
 export const addDays = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 const daysBetween = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 864e5);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
