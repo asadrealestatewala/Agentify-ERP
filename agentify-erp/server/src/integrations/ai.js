@@ -161,6 +161,7 @@ export async function transcribe(buffer, filename = 'audio.mp3', language) {
   const cfg = aiConfig('openai');
   if (!cfg && aiConfig('gemini')) return transcribeGemini(buffer, filename, language);
   if (!cfg) throw new Error('Transcripts need a connected OpenAI (ChatGPT) or Gemini key.');
+  usageGate?.('speech_to_text');
   const form = new FormData();
   form.append('file', new Blob([buffer]), filename);
   form.append('model', 'whisper-1');
@@ -169,6 +170,7 @@ export async function transcribe(buffer, filename = 'audio.mp3', language) {
   const res = await fetch('https://api.openai.com/v1/audio/transcriptions', { method: 'POST', headers: { Authorization: `Bearer ${cfg.api_key}` }, body: form, signal: AbortSignal.timeout(180_000) });
   const text = await res.text();
   if (!res.ok) { let m = text; try { m = JSON.parse(text).error.message; } catch { /* plain */ } throw new Error(m || `OpenAI answered ${res.status}`); }
+  metered('openai', 'whisper-1', { audio_bytes: buffer.length }, 'speech_to_text');
   return text.trim();
 }
 
@@ -176,11 +178,13 @@ const AUDIO_MIME = { mp3: 'audio/mp3', wav: 'audio/wav', webm: 'audio/webm', ogg
 /** Speech to text with Gemini: the audio goes inline, so it is limited to about 18 MB. */
 async function transcribeGemini(buffer, filename, language) {
   const cfg = aiConfig('gemini');
+  usageGate?.('speech_to_text');
   if (buffer.length > 18 * 1024 * 1024) throw new Error('This recording is too large to transcribe with Gemini (18 MB limit).');
   const mime = AUDIO_MIME[String(filename).split('.').pop().toLowerCase()] || 'audio/mp3';
   const d = await http(`${GEMINI}/models/${encodeURIComponent(cfg.model)}:generateContent`, { method: 'POST', headers: gHeaders(cfg.api_key), timeout: 180_000,
     body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: `Transcribe this recording word for word${language ? ` in language code ${language}` : ''}. Label speakers as Speaker 1, Speaker 2 when you can tell them apart. Return only the transcript.` }, { inline_data: { mime_type: mime, data: buffer.toString('base64') } }] }] }) });
   const text = (d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim();
   if (!text) throw new Error('Gemini returned no transcript.');
+  metered('gemini', cfg.model, d, 'speech_to_text');
   return text;
 }

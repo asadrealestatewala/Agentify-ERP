@@ -191,6 +191,7 @@ export function platformDb() {
   const ps = new Set(pdb.prepare('PRAGMA table_info(payment_submissions)').all().map((c) => c.name));
   for (const [c, def] of [['proof_file', 'TEXT'], ['proof_name', 'TEXT'], ['proof_type', 'TEXT'], ['proof_at', 'TEXT']]) if (!ps.has(c)) pdb.exec(`ALTER TABLE payment_submissions ADD COLUMN ${c} ${def}`);
   pdb.exec(PLATFORM_SCHEMA_2);
+  if (!new Set(pdb.prepare('PRAGMA table_info(workspace_ai_settings)').all().map((c) => c.name)).has('stt_daily_limit')) pdb.exec('ALTER TABLE workspace_ai_settings ADD COLUMN stt_daily_limit INTEGER');
   if (!pdb.prepare('PRAGMA table_info(training_posts)').all().some((c) => c.name === 'youtube_channel')) pdb.exec('ALTER TABLE training_posts ADD COLUMN youtube_channel TEXT');
   for (const [c, def] of REGION_COLUMNS) if (!have.has(c)) pdb.exec(`ALTER TABLE tenants ADD COLUMN ${c} ${def}`);
   initRegions(pdb);
