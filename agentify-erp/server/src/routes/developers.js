@@ -13,7 +13,15 @@ const DEV_COLS = ['name', 'company', 'phone', 'email', 'ntn', 'address', 'bank_d
 const dev = (id) => get('SELECT * FROM developers WHERE id=?', id) || (() => { throw notFound('Developer not found'); })();
 const agreementOf = (devId, id) => get('SELECT * FROM developer_agreements WHERE id=? AND developer_id=?', id, devId) || (() => { throw notFound('Agreement not found'); })();
 
-r.get('/', can('developers', 'view'), (_req, res) => res.json(listDevelopers()));
+r.get('/', can('developers', 'view'), (req, res) => {
+  const rows = listDevelopers();
+  if (req.query.page === undefined) return res.json(rows); // plain list (property form picker)
+  // the table screen asks for pages: search, then slice
+  const q = String(req.query.q || '').trim().toLowerCase();
+  const hit = q ? rows.filter((d) => [d.name, d.company, d.phone, d.email].some((v) => String(v || '').toLowerCase().includes(q))) : rows;
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 25)), page = Math.max(1, Number(req.query.page) || 1);
+  res.json({ rows: hit.slice((page - 1) * limit, page * limit), total: hit.length });
+});
 
 r.post('/', can('developers', 'create'), asyncH((req, res) => {
   const d = req.body || {};

@@ -6,6 +6,14 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.57', date: '2026-11-01', title: 'Developer partners: Plot source on the property form, list fix and a tutorial video',
+    items: [
+      { text: 'New video in Training videos: "Developer partners (joint-venture plots)" walks through adding a developer and agreement, marking plots as developer plots, selling them and the read-only developer portal. Payment approval by the developer, rebates and cancellations are not part of this update yet.', where: 'Training videos' },
+      { text: 'The property form now has a Plot source field (Pakistan workspaces with the Developers permission): choose Own, or Developer and then the developer and one of its agreements.', where: 'Properties > Add Property' },
+      { text: 'The Developers list now shows your developers (it appeared empty after v1.56).', where: 'Developers' },
+    ],
+  },
+  {
     version: 'v1.56', date: '2026-10-31', title: 'Developer partners (joint-venture plots)',
     items: [
       { text: 'New Developers page: record the partner developers whose plots you sell, with an agreement for each (rates, rebate percentages and the cancellation window with its deduction tiers). On a plot, set the source to Developer and choose the developer and agreement.', where: 'Developers' },
