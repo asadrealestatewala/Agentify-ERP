@@ -121,6 +121,9 @@ export default function PropertyForm() {
   }, [geoKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const feat = (k, v) => setF((x) => ({ ...x, features: { ...x.features, [k]: v } }));
   const pk = getRegion().config.region === 'PK';
+  // Pakistan joint-venture plots: the source decides whose plot it is (own or a partner developer's)
+  const devList = useFetch(pk && can('developers', 'view') ? '/api/developers' : null);
+  const devOne = useFetch(f.inventory_source === 'developer' && f.developer_id ? `/api/developers/${f.developer_id}` : null);
   const groupOf = (label) => getRegion().config.property_types?.find((t) => t.label === label)?.group;
   const isHouse = pk ? HOUSE_TYPES.includes(f.property_type) : ['Houses', 'Apartments'].includes(groupOf(f.property_type));
   const isPlot = pk ? PLOT_TYPES.includes(f.property_type) : groupOf(f.property_type) === 'Land';
@@ -186,6 +189,17 @@ export default function PropertyForm() {
             <Field label="Plot / unit number"><input className="input" value={f.plot_no ?? ''} onChange={(e) => set('plot_no', e.target.value)} placeholder="e.g. 2B" /></Field>
             {pk && <Field label="File number"><input className="input" value={f.file_no ?? ''} onChange={(e) => set('file_no', e.target.value)} placeholder="e.g. FL-12B" /></Field>}
             <Field label="Registration number"><input className="input" value={f.registration_no ?? ''} onChange={(e) => set('registration_no', e.target.value)} placeholder="e.g. REG-2026-0412" /></Field>
+            {pk && can('developers', 'view') && (
+              <Field label="Plot source" hint="Own plots are sold by the company as usual. Developer plots belong to a partner developer, who receives the customer's money.">
+                <Select value={f.inventory_source || 'own'} onChange={(v) => setF((x) => ({ ...x, inventory_source: v || 'own', ...(v === 'developer' ? {} : { developer_id: null, agreement_id: null }) }))} allowEmpty={false}
+                  options={[{ value: 'own', label: 'Own (company)' }, { value: 'developer', label: 'Developer (joint venture)' }]} disabled={locked} />
+              </Field>)}
+            {pk && f.inventory_source === 'developer' && (
+              <Field label="Developer" required><Select value={f.developer_id} onChange={(v) => setF((x) => ({ ...x, developer_id: v ? Number(v) : null, agreement_id: null }))} placeholder="Choose developer" disabled={locked}
+                options={(devList.data || []).filter((d) => d.status === 'active').map((d) => ({ value: d.id, label: d.name }))} /></Field>)}
+            {pk && f.inventory_source === 'developer' && (
+              <Field label="Agreement" required><Select value={f.agreement_id} onChange={(v) => set('agreement_id', v ? Number(v) : null)} placeholder={f.developer_id ? 'Choose agreement' : 'Choose a developer first'} disabled={locked || !f.developer_id}
+                options={(devOne.data?.agreements || []).filter((a) => a.status === 'active').map((a) => ({ value: a.id, label: a.title }))} /></Field>)}
             {pk && <Field label="File status" hint="Is the file against this plot still running?"><Select value={f.file_status ?? ''} onChange={(v) => set('file_status', v)} placeholder="Not set" options={['Active', 'Inactive', 'Paused', 'Defaulted', 'Suspended']} /></Field>}
             {pk && <Field label="File notes"><input className="input" value={f.file_notes ?? ''} onChange={(e) => set('file_notes', e.target.value)} placeholder="e.g. Suspended by the authority until NOC" /></Field>}
             <Field label="City"><input className="input" value={f.city ?? ''} onChange={(e) => set('city', e.target.value)} /></Field>

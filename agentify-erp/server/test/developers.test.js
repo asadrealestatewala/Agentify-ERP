@@ -100,6 +100,11 @@ test('developers, agreements, plots and developer files', async () => {
   const rcpt = await w.post('/api/receipts', { contact_id: customer.id, sale_id: sale.id, amount: 200_000, payment_type: 'Booking Payment', method: 'Cash', account_id: acc.id });
   assert.equal(rcpt.status, 400); assert.match(rcpt.data.error || JSON.stringify(rcpt.data), /developer file/i);
 
+  // the Developers table asks for pages ({rows,total}); the plain call (property form picker) stays an array
+  const paged = ok(await w.get('/api/developers?page=1&limit=25&q=green'));
+  assert.equal(paged.total, 1); assert.equal(paged.rows[0].name, 'Green Valley Developers'); assert.equal(ok(await w.get('/api/developers?page=1&q=zzz')).total, 0);
+  assert.ok(Array.isArray(ok(await w.get('/api/developers'))));
+
   // developer view for staff
   const detail = ok(await w.get(`/api/developers/${d.id}`));
   assert.equal(detail.files, 1); assert.equal(detail.contract_value, 2_000_000); assert.equal(detail.agreements.length, 1); assert.equal(detail.plots, 1);

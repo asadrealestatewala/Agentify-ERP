@@ -200,5 +200,19 @@
       "Admin"
     ],
     "order": 90
+  },
+  {
+    "key": "developer-partners",
+    "title": "Developer partners (joint-venture plots)",
+    "description": "For Pakistan workspaces that sell a developer's plots: add the developer and agreement, mark plots as developer plots, sell them, and give the developer a read-only portal. Payment approval, rebates and cancellations are not live yet.",
+    "category": "Sales & CRM",
+    "seconds": 231,
+    "roles": [
+      "Sales Manager",
+      "Finance Manager",
+      "Super Admin",
+      "Admin"
+    ],
+    "order": 95
   }
 ]
