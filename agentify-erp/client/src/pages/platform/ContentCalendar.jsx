@@ -1,6 +1,7 @@
 // Content calendar: Agentify's own marketing posts. Planned, scheduled and posted items, the posting limits and the next
 // time a post can go out. A Social Media Manager works only on this page. Nothing here posts to a network by itself:
-// the manager publishes on the channel and records it ("Mark as posted").
+// the manager publishes on the channel and records it ("Mark as posted"), or approves a scheduled post for auto-posting to a
+// connected Facebook / Instagram / LinkedIn / TikTok account (off until a Super Admin switches it on).
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, ErrorBox, Field, Loading, Modal, Select, Tabs, TextInput } from '../../components/ui.jsx';
 import { api } from '../../api.js';
@@ -136,19 +137,23 @@ function Month({ posts, month, setMonth, onDay, onOpen }) {
   );
 }
 
-function PostList({ rows, empty, onEdit, onPosted, act }) {
+function PostList({ rows, empty, onEdit, onPosted, act, auto, approve }) {
   if (!rows.length) return <p className="muted">{empty}</p>;
   return rows.map((p) => {
     const late = p.status === 'scheduled' && new Date(p.scheduled_at) < new Date();
     return (
       <div key={p.id} className="cc-row">
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ fontWeight: 600 }}>{p.title} <span className={`pill ${TONE[p.status]}`}>{p.status}</span>{late && <> <span className="pill red">Overdue</span></>}{p.source === 'ai' && <> <span className="pill purple">AI draft</span></>}</div>
+          <div style={{ fontWeight: 600 }}>{p.title} <span className={`pill ${TONE[p.status]}`}>{p.status}</span>{late && <> <span className="pill red">Overdue</span></>}{p.source === 'ai' && <> <span className="pill purple">AI draft</span></>}{p.auto_post ? <> <span className="pill green" title={`Approved by ${p.auto_by || 'a person'}`}>Auto-post approved</span></> : null}{p.posted_by === 'auto-post' ? <> <span className="pill grey">Posted automatically</span></> : null}</div>
           <div className="cell-sub">{p.channel_label}{when(p) ? ` · ${fmt(when(p))}` : ' · no date yet'}{p.post_url ? <> · <a href={p.post_url} target="_blank" rel="noreferrer">View post</a></> : null}</div>
+          {p.auto_error && p.status !== 'posted' && <div className="cell-sub" style={{ color: 'var(--danger, #b42318)' }}>Auto-post stopped: {p.auto_error}</div>}
           {p.body && <p className="muted" style={{ margin: '4px 0 0', fontSize: 13.5, whiteSpace: 'pre-wrap' }}>{p.body.length > 220 ? `${p.body.slice(0, 220)}…` : p.body}</p>}
         </div>
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
           {p.status !== 'posted' && p.status !== 'canceled' && <><button className="btn sm" onClick={() => onEdit(p)}>Edit</button><button className="btn sm primary" onClick={() => onPosted(p)}>Mark as posted</button></>}
+          {p.status === 'scheduled' && auto?.channels.includes(p.channel) && (p.auto_post
+            ? <button className="btn sm" onClick={() => act(`${p.id}/auto-post`, 'Auto-post withdrawn', 'post', { enabled: false })}>Withdraw auto-post</button>
+            : <button className="btn sm" onClick={() => approve(p)}>Approve auto-post</button>)}
           {p.status === 'scheduled' && <button className="btn sm" onClick={() => act(`${p.id}/unschedule`, 'Moved back to drafts')}>Unschedule</button>}
           {(p.status === 'draft' || p.status === 'scheduled') && <button className="btn sm" onClick={() => act(`${p.id}/cancel`, 'Canceled')}>Cancel</button>}
           {(p.status === 'draft' || p.status === 'canceled') && <button className="btn sm" onClick={() => { if (window.confirm(`Delete “${p.title}”?`)) act(p.id, 'Deleted', 'del'); }}>Delete</button>}
@@ -158,6 +163,47 @@ function PostList({ rows, empty, onEdit, onPosted, act }) {
   });
 }
 
+const APPS = { meta: 'Facebook and Instagram', linkedin: 'LinkedIn', tiktok: 'TikTok' };
+const PROVIDER_LABEL = { facebook: 'Facebook Page', instagram: 'Instagram', linkedin: 'LinkedIn', tiktok: 'TikTok' };
+function AutopostCard({ data, reload }) {
+  const toast = useToast();
+  const ap = data.autopost; const admin = data.can_edit_limits;
+  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search); const r = q.get('autopost');
+    if (!r) return;
+    toast(r === 'connected' ? 'Account connected' : r === 'cancelled' ? 'Connection cancelled' : `Could not connect${q.get('why') ? `: ${q.get('why')}` : ''}`, r === 'connected' ? undefined : 'err');
+    window.history.replaceState({}, '', window.location.pathname);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const go = async (fn, ok) => { setBusy(true); setErr(''); try { await fn(); if (ok) toast(ok); reload(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const connect = (app) => go(async () => { const { url } = await api.get(`${A}/content/autopost/connect/${app}`); window.location.href = url; });
+  return (
+    <Card title="Auto-posting">
+      <ErrorBox error={err} />
+      <p className="muted" style={{ marginTop: 0 }}>Connected accounts can publish approved posts by themselves. Nothing is ever posted unless a person approves that exact post (Approve auto-post on a scheduled post) and the switch below is on. Editing an approved post or changing its time withdraws the approval. A failed post stops and shows the channel's message; it is never retried. Posts that say DO NOT POST or ON HOLD can never be approved. Channels without an account here (X, YouTube, WhatsApp, TikTok without a connection) stay manual.</p>
+      <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+        <span className={`pill ${ap.enabled ? 'green' : 'grey'}`}>{ap.enabled ? 'Auto-posting is ON' : 'Auto-posting is OFF'}</span>
+        <span className="cell-sub">{ap.waiting} approved post{ap.waiting === 1 ? '' : 's'} waiting</span>
+        {admin && <button className="btn sm" disabled={busy} onClick={() => { if (!ap.enabled && !window.confirm('Switch auto-posting on? Approved posts will go out by themselves at their scheduled time.')) return; go(() => api.put(`${A}/content/autopost/enabled`, { enabled: !ap.enabled }), ap.enabled ? 'Auto-posting switched off' : 'Auto-posting switched on'); }}>{ap.enabled ? 'Switch off' : 'Switch on'}</button>}
+      </div>
+      <div style={{ fontWeight: 600, marginBottom: 6 }}>Connected accounts</div>
+      {ap.accounts.length ? ap.accounts.map((a) => (
+        <div key={a.id} className="cc-row">
+          <div style={{ flex: 1, minWidth: 0 }}>{a.name} <span className="pill grey">{PROVIDER_LABEL[a.provider] || a.provider}</span>{ap.use[a.provider] === a.id ? <> <span className="pill green">Used for {data.channels[a.provider]}</span></> : null}
+            <div className="cell-sub">Connected by {a.connected_by || 'unknown'} · {fmt(a.connected_at)}</div></div>
+          {admin && <div className="row" style={{ gap: 6 }}>
+            {ap.use[a.provider] !== a.id && <button className="btn sm" disabled={busy} onClick={() => go(() => api.put(`${A}/content/autopost/use/${a.provider}`, { account_id: a.id }), 'Account chosen')}>Use this one</button>}
+            <button className="btn sm" disabled={busy} onClick={() => { if (window.confirm(`Disconnect ${a.name}? Posts approved for it are withdrawn.`)) go(() => api.del(`${A}/content/autopost/accounts/${a.id}`), 'Disconnected'); }}>Disconnect</button>
+          </div>}
+        </div>)) : <p className="muted" style={{ margin: '0 0 8px' }}>No account connected yet.</p>}
+      {admin ? <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+        {Object.entries(APPS).map(([app, label]) => <button key={app} className="btn sm" disabled={busy || !ap.apps[app]} title={ap.apps[app] ? '' : `Add the ${label} app keys under Integrations first`} onClick={() => connect(app)}>Connect {label}</button>)}
+      </div> : <p className="cell-sub">A Super Admin connects accounts and switches auto-posting on.</p>}
+      <p className="cell-sub" style={{ marginBottom: 0 }}>Facebook and Instagram, LinkedIn and TikTok each review the app before it may post for a real account; until they approve it a post fails with their message. TikTok posts go out as private drafts for now. LinkedIn video is not supported yet.</p>
+    </Card>
+  );
+}
+
 export default function ContentCalendarPage() {
   const toast = useToast();
   const [data, setData] = useState(null); const [err, setErr] = useState('');
@@ -165,7 +211,12 @@ export default function ContentCalendarPage() {
   const [ai, setAi] = useState(false); const [tab, setTab] = useState('notposted'); const [form, setForm] = useState(null); const [posted, setPosted] = useState(null);
   const load = useCallback(() => api.get(`${A}/content`).then((d) => { setData(d); setErr(''); }).catch((e) => setErr(e.message)), []);
   useEffect(() => { load(); }, [load]);
-  const act = async (path, ok, verb = 'post') => { try { await (verb === 'del' ? api.del(`${A}/content/posts/${path}`) : api.post(`${A}/content/posts/${path}`, {})); toast(ok); load(); } catch (e) { setErr(e.message); } };
+  const act = async (path, ok, verb = 'post', body = {}) => { try { await (verb === 'del' ? api.del(`${A}/content/posts/${path}`) : api.post(`${A}/content/posts/${path}`, body)); toast(ok); load(); } catch (e) { setErr(e.message); } };
+  const approve = async (p) => {
+    const chan = data.channels[p.channel] || p.channel;
+    if (!window.confirm(`Approve “${p.title}” to be posted automatically to ${chan} at ${fmt(p.scheduled_at)}?\n\nIt goes out by itself at that time, only while auto-posting is switched on. Editing the post or changing its time withdraws this approval.`)) return;
+    try { const out = await api.post(`${A}/content/posts/${p.id}/auto-post`, {}); toast(out.warnings?.length ? `Approved. Note: ${out.warnings.join('. ')}` : data.autopost.enabled ? 'Approved. It will go out at the scheduled time.' : 'Approved, but auto-posting is switched off, so nothing is posted yet.'); load(); } catch (e) { setErr(e.message); }
+  };
   if (err && !data) return <ErrorBox error={err} />;
   if (!data) return <Loading />;
   const posts = data.posts.map((p) => ({ ...p, channel_label: data.channels[p.channel] || p.channel }));
@@ -192,9 +243,10 @@ export default function ContentCalendarPage() {
       <Card title="Posts">
         <Tabs value={tab} onChange={setTab} tabs={[{ key: 'notposted', label: 'Not yet posted', count: notPosted.length }, { key: 'posted', label: 'Posted', count: done.length }]} />
         <div style={{ marginTop: 10 }}>
-          {tab === 'notposted' ? <PostList rows={notPosted} empty="Nothing waiting. Add a post to start the calendar." onEdit={edit} onPosted={setPosted} act={act} /> : <PostList rows={done} empty="Nothing has been recorded as posted yet." onEdit={edit} onPosted={setPosted} act={act} />}
+          {tab === 'notposted' ? <PostList rows={notPosted} empty="Nothing waiting. Add a post to start the calendar." onEdit={edit} onPosted={setPosted} act={act} auto={data.autopost} approve={approve} /> : <PostList rows={done} empty="Nothing has been recorded as posted yet." onEdit={edit} onPosted={setPosted} act={act} />}
         </div>
       </Card>
+      <AutopostCard data={data} reload={load} />
       {data.can_edit_limits ? <LimitsCard data={data} reload={load} /> : <Card title="Posting limits"><p className="muted" style={{ margin: 0 }}>{data.limits.per_day} posts a day in total, {data.limits.per_channel_per_day} per channel, {data.limits.min_gap_minutes} minutes apart on a channel, between {data.limits.window_start} and {data.limits.window_end} ({data.limits.timezone}). A Super Admin can change these.</p></Card>}
       {form && <PostForm data={data} post={form.post} startAt={form.startAt} onCancel={() => setForm(null)} onDone={() => { setForm(null); load(); }} />}
       {ai && <AiDraftForm data={data} onCancel={() => setAi(false)} onDone={() => { setAi(false); load(); }} />}

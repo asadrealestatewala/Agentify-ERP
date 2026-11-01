@@ -6,6 +6,14 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.61', date: '2026-11-01', title: 'Auto-posting for the content calendar and an Urdu promo video',
+    items: [
+      { text: 'The content calendar can now post by itself. Connect Facebook Pages, Instagram, LinkedIn or TikTok accounts, switch auto-posting on, then approve individual scheduled posts. Nothing goes out without that approval, editing a post or changing its time withdraws it, posts marked DO NOT POST or ON HOLD can never be approved, and a failed post stops with the channel\'s message instead of retrying.', audience: 'platform', where: 'Console > Marketing > Content calendar > Auto-posting' },
+      { text: 'Facebook and Instagram videos (Reels) can be posted from a video address. LinkedIn video and channels without a connection (X, YouTube, WhatsApp) stay manual.', audience: 'platform', where: 'Console > Marketing > Content calendar' },
+      { text: 'New Urdu promo video (vertical and horizontal) with Urdu on-screen text and a spoken voice-over. "Add promo video drafts" adds its drafts for each channel; read and listen to it with a native Urdu speaker before posting.', audience: 'platform', where: 'Console > Marketing > Content calendar > Add promo video drafts' },
+    ],
+  },
+  {
     version: 'v1.60', date: '2026-11-01', title: 'Free, smooth street maps and a Navigate button',
     items: [
       { text: 'Maps are now smoother and street-accurate on every device, with no map account needed. Field Coverage shows each agent as a marker that glides to their new position and refreshes about every 15 seconds; on busy teams only the most recent agents are drawn so phones stay fast.', where: 'My Space > Field Coverage' },

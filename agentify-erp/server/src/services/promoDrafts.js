@@ -9,6 +9,7 @@ export const PROMO_FILES = {
   receipt: { vertical: 'receipt-promo-9x16.mp4', horizontal: 'receipt-promo-16x9.mp4' },
   synq: { vertical: 'synq-promo-9x16.mp4', horizontal: 'synq-promo-16x9.mp4' },
   global: { vertical: 'global-promo-9x16.mp4', horizontal: 'global-promo-16x9.mp4' },
+  urdu: { vertical: 'urdu-promo-9x16.mp4', horizontal: 'urdu-promo-16x9.mp4' },
 };
 export const PROMO_FILE_NAMES = Object.values(PROMO_FILES).flatMap((v) => Object.values(v));
 const SITE = 'https://agentifyerp.co';
@@ -16,6 +17,7 @@ const TAGS = '#AgentifyERP #RealEstate #Construction #PropTech #ERP';
 
 const HOLD = 'DO NOT POST: this video shows the seller partner Sync Technologies\' logo and name, and the partner\'s consent to use them is not confirmed yet. Keep this as a draft until the owner confirms consent in writing. ';
 // Each video has its own caption per shape. Titles stay the same once shipped: they are how a re-run knows a draft exists.
+const URDU_NOTE = 'Urdu promo with a spoken voice-over. The voice is a neural Hindi voice reading the same spoken Hindustani, so a native Urdu speaker should listen to it and read the on-screen text before it is posted. ';
 const SERIES = {
   characters: {
     titlePrefix: 'Promo video',
@@ -41,6 +43,11 @@ const SERIES = {
     titlePrefix: 'Promo video 5 (run from anywhere)',
     vertical: { body: `Run your agency from anywhere. Leads, sales, installments and sites in one workspace. Record a payment, pick how they paid, and the receipt is sent.\n\nTeams in Pakistan, the US, the UK, the UAE and Canada work in their own currency and rules. Start your 7-day free trial: agentifyerp.co\n\n${TAGS} #Payments`, notes: 'Run-from-anywhere promo, vertical 9:16 (32s). Figures in the video are sample data. Upload the file from the media address, then paste the caption.' },
     horizontal: { body: `Leads, sales, installments and sites no longer live in separate places. Agentify ERP is one workspace for real estate and construction teams, with payments, receipts and customers together, in your own currency and rules.\n\nStart your 7-day free trial: agentifyerp.co\n\n${TAGS} #Payments`, notes: 'Run-from-anywhere promo, horizontal 16:9 (32s). Figures in the video are sample data. Upload the file from the media address, then paste the caption.' },
+  },
+  urdu: {
+    titlePrefix: 'Promo video 6 (Urdu)',
+    vertical: { body: `گاہک کی کال آئی اور کسی نے فون نہیں اٹھایا؟ اب نہیں۔\n\nایجنٹیفائی ای آر پی کے ساتھ ہر لیڈ کو فوری جواب ملتا ہے، چوبیس گھنٹے۔ سیلز، اکاؤنٹس اور کنسٹرکشن ایک ہی سسٹم میں۔\n\nسات دن کا مفت ٹرائل شروع کریں: agentifyerp.co\n\n${TAGS} #Urdu`, notes: `${URDU_NOTE}Urdu promo, vertical 9:16 (34s). Upload the file from the media address, then paste the caption.` },
+    horizontal: { body: `ادائیگیاں وقت پر، سائٹس شیڈول کے مطابق، کسٹمر ہمیشہ باخبر۔ ایجنٹیفائی ای آر پی ریئل اسٹیٹ اور کنسٹرکشن ٹیموں کے لیے سیلز، اکاؤنٹس اور سائٹس کو ایک ہی سسٹم میں جمع کرتا ہے۔\n\nسات دن کا مفت ٹرائل شروع کریں: agentifyerp.co\n\n${TAGS} #Urdu`, notes: `${URDU_NOTE}Urdu promo, horizontal 16:9 (34s). Upload the file from the media address, then paste the caption.` },
   },
 };
 const PLAN = [
