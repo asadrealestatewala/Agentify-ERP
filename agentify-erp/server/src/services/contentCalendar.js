@@ -16,8 +16,22 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS content_posts(
   status TEXT NOT NULL DEFAULT 'draft', scheduled_at TEXT, posted_at TEXT, post_url TEXT, source TEXT NOT NULL DEFAULT 'manual', notes TEXT,
   created_by TEXT, posted_by TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT);
 CREATE INDEX IF NOT EXISTS idx_content_posts_status ON content_posts(status, scheduled_at);`;
+// Auto-posting approval lives on the post itself (see contentAutopost.js): auto_post is 1 only while a person's approval stands.
+const AUTO_COLS = [['auto_post', 'INTEGER NOT NULL DEFAULT 0'], ['auto_by', 'TEXT'], ['auto_at', 'TEXT'], ['auto_error', 'TEXT'], ['auto_state', 'TEXT'], ['auto_started_at', 'TEXT']];
 let ready = false;
-const db = () => { const d = platformDb(); if (!ready) { d.exec(SCHEMA); ready = true; } return d; };
+const db = () => {
+  const d = platformDb();
+  if (!ready) {
+    d.exec(SCHEMA);
+    const have = new Set(d.prepare('PRAGMA table_info(content_posts)').all().map((c) => c.name));
+    for (const [c, t] of AUTO_COLS) if (!have.has(c)) d.exec(`ALTER TABLE content_posts ADD COLUMN ${c} ${t}`);
+    ready = true;
+  }
+  return d;
+};
+export const resetCalendarForTests = () => { ready = false; };
+/** Takes a person's auto-post approval away. Called whenever what was approved (content, channel or time) changes. */
+const revoke = (id) => db().prepare('UPDATE content_posts SET auto_post=0, auto_by=NULL, auto_at=NULL WHERE id=? AND auto_post=1 AND auto_state IS NULL').run(Number(id));
 
 // ---- limits
 const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -80,7 +94,7 @@ export function nextSlot(posts, limits, { channel, after = new Date(), exclude =
 }
 
 // ---- rows
-const COLS = 'id, title, body, channel, media_url, link, status, scheduled_at, posted_at, post_url, source, notes, created_by, posted_by, created_at, updated_at';
+const COLS = 'id, title, body, channel, media_url, link, status, scheduled_at, posted_at, post_url, source, notes, created_by, posted_by, created_at, updated_at, auto_post, auto_by, auto_at, auto_error, auto_state';
 export const listPosts = () => db().prepare(`SELECT ${COLS} FROM content_posts ORDER BY COALESCE(posted_at, scheduled_at, created_at) DESC LIMIT 1000`).all();
 export const getPost = (id) => db().prepare(`SELECT ${COLS} FROM content_posts WHERE id=?`).get(Number(id)) || (() => { throw notFound('Post not found'); })();
 
@@ -121,6 +135,7 @@ export function updatePost(id, b, by) {
   if (p.status === 'posted') throw bad('A post that went out cannot be edited. Duplicate it instead.');
   const f = { ...fields(b, true) };
   const keys = Object.keys(f);
+  if (keys.some((k) => f[k] !== (p[k] ?? null))) revoke(p.id); // new content needs a new approval
   if (keys.length) db().prepare(`UPDATE content_posts SET ${keys.map((k) => `${k}=?`).join(', ')}, updated_at=datetime('now') WHERE id=?`).run(...keys.map((k) => f[k]), p.id);
   // a changed channel can break the limits of an already scheduled time
   if (p.status === 'scheduled' && f.channel && f.channel !== p.channel) assertAllowed({ ...p, ...f }, new Date(p.scheduled_at), by, {});
@@ -132,10 +147,11 @@ export function schedulePost(id, at, by, { override = false } = {}) {
   const when_ = new Date(iso(at, 'time'));
   if (when_ < new Date(Date.now() - 60_000)) throw bad('Choose a time in the future');
   assertAllowed(p, when_, by, { override });
+  if (p.scheduled_at !== when_.toISOString()) revoke(p.id); // a new time needs a new approval
   db().prepare("UPDATE content_posts SET status='scheduled', scheduled_at=?, updated_at=datetime('now') WHERE id=?").run(when_.toISOString(), p.id);
   return getPost(id);
 }
-export function unschedulePost(id) { const p = getPost(id); if (p.status !== 'scheduled') throw bad('Only a scheduled post can go back to draft'); db().prepare("UPDATE content_posts SET status='draft', scheduled_at=NULL, updated_at=datetime('now') WHERE id=?").run(p.id); return getPost(id); }
+export function unschedulePost(id) { const p = getPost(id); if (p.status !== 'scheduled') throw bad('Only a scheduled post can go back to draft'); revoke(p.id); db().prepare("UPDATE content_posts SET status='draft', scheduled_at=NULL, updated_at=datetime('now') WHERE id=?").run(p.id); return getPost(id); }
 /** Records that the manager published the post on the channel. Counts against the limits like a scheduled post. */
 export function markPosted(id, b, by, { override = false } = {}) {
   const p = getPost(id);
@@ -148,7 +164,7 @@ export function markPosted(id, b, by, { override = false } = {}) {
   db().prepare("UPDATE content_posts SET status='posted', posted_at=?, post_url=?, posted_by=?, updated_at=datetime('now') WHERE id=?").run(at.toISOString(), post_url, by, p.id);
   return { post: getPost(id), warnings: override ? [] : why };
 }
-export function cancelPost(id) { const p = getPost(id); if (p.status === 'posted') throw bad('A post that went out cannot be canceled.'); db().prepare("UPDATE content_posts SET status='canceled', updated_at=datetime('now') WHERE id=?").run(p.id); return getPost(id); }
+export function cancelPost(id) { const p = getPost(id); if (p.status === 'posted') throw bad('A post that went out cannot be canceled.'); revoke(p.id); db().prepare("UPDATE content_posts SET status='canceled', updated_at=datetime('now') WHERE id=?").run(p.id); return getPost(id); }
 export function deletePost(id) { const p = getPost(id); if (p.status === 'posted' || p.status === 'scheduled') throw bad('Cancel the post first. Posted items are kept as a record.'); db().prepare('DELETE FROM content_posts WHERE id=?').run(p.id); }
 
 /** Everything the calendar page needs in one answer. */

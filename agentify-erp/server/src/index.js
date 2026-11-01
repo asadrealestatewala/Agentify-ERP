@@ -11,6 +11,7 @@ import { uploadDir, get } from './db.js';
 import { scheduleBackups } from './services/backup.js';
 import { tenantContext, bootstrapTenants, forEachTenant, forEachTenantAsync, isMultiTenant, resolveTenant, BASE_DOMAIN } from './platform.js';
 import { runDuePosts } from './integrations/social.js';
+import { runDueAutoposts } from './services/contentAutopost.js';
 import { injectMeta, platformSitemap, platformRobots, MARKETING_ROUTES } from './services/marketing.js';
 import { injectSiteMeta, websiteOnlyOnCustomDomain, freeSiteToSitesDomain } from './services/siteHost.js';
 import { ensureFirstAdmin } from './services/platformAuth.js';
@@ -274,6 +275,9 @@ if (isMain) {
   // scheduled social posts go out within a minute of their time
   const socialTick = () => forEachTenantAsync(() => runDuePosts()).then(() => markJob('social-posts')).catch((e) => markJob('social-posts', e));
   setInterval(socialTick, 60 * 1000).unref();
+  // Agentify's own approved content-calendar posts go out within a minute of their time (only while the platform switch is on)
+  const autopostTick = () => runDueAutoposts().then(() => markJob('content-autopost')).catch((e) => markJob('content-autopost', e));
+  setInterval(autopostTick, 60 * 1000).unref();
   // events for websites that subscribed through the Integration API: failed deliveries are retried here
   const webhookTick = () => forEachTenantAsync(() => runDueDeliveries()).then(() => markJob('webhook-deliveries')).catch((e) => markJob('webhook-deliveries', e));
   setInterval(webhookTick, 60 * 1000).unref();

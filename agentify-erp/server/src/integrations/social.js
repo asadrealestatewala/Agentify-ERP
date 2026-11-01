@@ -15,27 +15,29 @@ const jfetch = async (url, opts = {}) => {
   return d;
 };
 
-/** Called after a successful OAuth sign-in for purpose "social" (inside the workspace). */
-export async function onSocialConnected(provider, tokens, userId) {
+/** What a sign-in with a provider gives access to: one entry per Page, Instagram account, profile or channel. */
+export async function discoverAccounts(provider, tokens) {
   const token = tokens.access_token;
+  const found = [];
   if (provider === 'meta') {
     const pages = await jfetch(`${GRAPH}/me/accounts?fields=id,name,access_token,instagram_business_account{id,username}&limit=50&access_token=${encodeURIComponent(token)}`);
     for (const p of pages.data || []) {
-      upsertAccount('facebook', p.id, p.name, { token: p.access_token }, null, userId);
-      if (p.instagram_business_account) upsertAccount('instagram', p.instagram_business_account.id, `@${p.instagram_business_account.username}`, { token: p.access_token }, { page_id: p.id }, userId);
+      found.push({ provider: 'facebook', externalId: p.id, name: p.name, secret: { token: p.access_token }, meta: null });
+      if (p.instagram_business_account) found.push({ provider: 'instagram', externalId: p.instagram_business_account.id, name: `@${p.instagram_business_account.username}`, secret: { token: p.access_token }, meta: { page_id: p.id } });
     }
-    return;
-  }
-  if (provider === 'linkedin') {
+  } else if (provider === 'linkedin') {
     const me = await jfetch('https://api.linkedin.com/v2/userinfo', { headers: { Authorization: `Bearer ${token}` } });
-    upsertAccount('linkedin', me.sub, me.name || 'LinkedIn profile', { token, expires_at: Date.now() + (tokens.expires_in || 5_000_000) * 1000 }, null, userId);
-    return;
-  }
-  if (provider === 'tiktok') {
+    found.push({ provider: 'linkedin', externalId: me.sub, name: me.name || 'LinkedIn profile', secret: { token, expires_at: Date.now() + (tokens.expires_in || 5_000_000) * 1000 }, meta: null });
+  } else if (provider === 'tiktok') {
     const me = await jfetch('https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name', { headers: { Authorization: `Bearer ${token}` } });
     const u = me.data?.user || {};
-    upsertAccount('tiktok', u.open_id || tokens.open_id, u.display_name || 'TikTok account', { token, refresh_token: tokens.refresh_token }, null, userId);
+    found.push({ provider: 'tiktok', externalId: u.open_id || tokens.open_id, name: u.display_name || 'TikTok account', secret: { token, refresh_token: tokens.refresh_token }, meta: null });
   }
+  return found;
+}
+/** Called after a successful OAuth sign-in for purpose "social" (inside the workspace). */
+export async function onSocialConnected(provider, tokens, userId) {
+  for (const a of await discoverAccounts(provider, tokens)) upsertAccount(a.provider, a.externalId, a.name, a.secret, a.meta, userId);
 }
 function upsertAccount(provider, externalId, name, secret, meta, userId) {
   run(`INSERT INTO social_connections(provider, external_id, name, token_enc, meta, connected_by, connected_at, status) VALUES(?,?,?,?,?,?,?, 'connected')
@@ -45,24 +47,44 @@ function upsertAccount(provider, externalId, name, secret, meta, userId) {
 export const listAccounts = () => all('SELECT id, provider, external_id, name, connected_at, status FROM social_connections ORDER BY provider, name');
 export const removeAccount = (id) => { run("DELETE FROM social_posts WHERE account_id=? AND status IN ('scheduled','failed')", id); run('DELETE FROM social_connections WHERE id=?', id); };
 const secretOf = (acc) => JSON.parse(decrypt(acc.token_enc));
+export const isVideoUrl = (u) => /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(String(u || ''));
+/** Instagram prepares a video before it can be published; waits for it. Tests shorten the wait. */
+export const timing = { igPollMs: 5000, igMaxPolls: 36 };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Publishes one post now. Returns the provider's post id. */
 export async function publishToAccount(acc, post) {
   const { token } = secretOf(acc);
   if (acc.provider === 'facebook') {
     const body = new URLSearchParams({ access_token: token });
+    if (isVideoUrl(post.media_url)) {
+      body.set('file_url', post.media_url); body.set('description', post.message);
+      const d = await jfetch(`${GRAPH}/${acc.external_id}/videos`, { method: 'POST', body });
+      return d.id;
+    }
     if (post.media_url) { body.set('url', post.media_url); body.set('caption', post.message); }
     else { body.set('message', post.message); if (post.link) body.set('link', post.link); }
     const d = await jfetch(`${GRAPH}/${acc.external_id}/${post.media_url ? 'photos' : 'feed'}`, { method: 'POST', body });
     return d.post_id || d.id;
   }
   if (acc.provider === 'instagram') {
-    if (!post.media_url) throw new Error('Instagram posts need a picture. Add an image address.');
-    const made = await jfetch(`${GRAPH}/${acc.external_id}/media`, { method: 'POST', body: new URLSearchParams({ image_url: post.media_url, caption: post.message, access_token: token }) });
+    if (!post.media_url) throw new Error('Instagram posts need a picture or video. Add a media address.');
+    const video = isVideoUrl(post.media_url);
+    const made = await jfetch(`${GRAPH}/${acc.external_id}/media`, { method: 'POST', body: new URLSearchParams({ ...(video ? { media_type: 'REELS', video_url: post.media_url } : { image_url: post.media_url }), caption: post.message, access_token: token }) });
+    if (video) {
+      for (let i = 0; ; i += 1) {
+        const st = await jfetch(`${GRAPH}/${made.id}?fields=status_code&access_token=${encodeURIComponent(token)}`);
+        if (st.status_code === 'FINISHED') break;
+        if (st.status_code === 'ERROR' || st.status_code === 'EXPIRED') throw new Error('Instagram could not process the video. Check that the address is public and the video is a normal MP4.');
+        if (i >= timing.igMaxPolls) throw new Error('Instagram is still preparing the video. It was not published; check the account before trying again.');
+        await sleep(timing.igPollMs);
+      }
+    }
     const pub = await jfetch(`${GRAPH}/${acc.external_id}/media_publish`, { method: 'POST', body: new URLSearchParams({ creation_id: made.id, access_token: token }) });
     return pub.id;
   }
   if (acc.provider === 'linkedin') {
+    if (isVideoUrl(post.media_url)) throw new Error('LinkedIn video posts are not supported yet. Post this one by hand, or remove the video address.');
     const body = { author: `urn:li:person:${acc.external_id}`, lifecycleState: 'PUBLISHED', specificContent: { 'com.linkedin.ugc.ShareContent': { shareCommentary: { text: post.message }, shareMediaCategory: post.link ? 'ARTICLE' : 'NONE', ...(post.link ? { media: [{ status: 'READY', originalUrl: post.link }] } : {}) } }, visibility: { 'com.linkedin.ugc.MemberNetworkVisibility': 'PUBLIC' } };
     const res = await fetch('https://api.linkedin.com/v2/ugcPosts', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'X-Restli-Protocol-Version': '2.0.0' }, body: JSON.stringify(body), signal: AbortSignal.timeout(20_000) });
     const d = await res.json().catch(() => ({}));

@@ -54,8 +54,9 @@ import multer from 'multer';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { authorizeUrl, signState, mainOrigin, redirectUri } from '../services/oauthApps.js';
+import { authorizeUrl, signState, mainOrigin, redirectUri, appCreds, PROVIDERS } from '../services/oauthApps.js';
 import * as training from '../services/trainingYoutube.js';
+import * as autopost from '../services/contentAutopost.js';
 import { freeSitesConfig, saveFreeSites, checkFreeSitesDns } from '../services/freeSites.js';
 
 const r = Router();
@@ -650,7 +651,7 @@ const videoUpload = multer({
   fileFilter: (_r, f, cb) => (['.mp4', '.webm', '.mov'].includes(path.extname(f.originalname).toLowerCase()) && /^video\//.test(f.mimetype) ? cb(null, true) : cb(bad('Choose a video file (MP4, WebM or MOV)'))),
 });
 // ---- Content calendar (Agentify's own marketing posts); the Social Media Manager role works only here
-r.get('/content', requireOperator, need('content.calendar'), (_req, res) => res.json({ ...cal.overview(), can_edit_limits: can(_req.operator, 'system.manage'), ai: aiu.aiStatus() }));
+r.get('/content', requireOperator, need('content.calendar'), (_req, res) => res.json({ ...cal.overview(), can_edit_limits: can(_req.operator, 'system.manage'), ai: aiu.aiStatus(), autopost: autopost.autopostStatus((a) => !!appCreds(a)) }));
 r.post('/content/posts', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.createPost(req.body || {}, req.operator.email); audit(req.operator.email, 'content-post-created', { id: p.id, channel: p.channel }); res.status(201).json(p); }));
 r.put('/content/posts/:id', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.updatePost(req.params.id, req.body || {}, req.operator.email); audit(req.operator.email, 'content-post-edited', { id: p.id }); res.json(p); }));
 r.post('/content/posts/:id/schedule', requireOperator, need('content.calendar'), asyncH((req, res) => {
@@ -711,6 +712,23 @@ r.post('/library/:id(\\d+)/:action(retire|reinstate)', requireOperator, need('li
 r.get('/ai/settings', requireOperator, need('integrations.manage'), (_req, res) => res.json(aiu.settingsView()));
 r.put('/ai/settings', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const v = await aiu.saveSettings(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-settings-changed', { key_changed: !!req.body?.api_key && !/^•/.test(req.body.api_key) }); res.json(v); }));
 r.delete('/ai/settings/key', requireOperator, need('integrations.manage'), (req, res) => { aiu.disconnect(); audit(req.operator.email, 'ai-key-removed', {}); res.json(aiu.settingsView()); });
+// Auto-posting: the master switch and connections need system.manage; approving one post needs only the calendar permission.
+r.put('/content/autopost/enabled', requireOperator, need('system.manage'), asyncH((req, res) => { const on = autopost.setAutoEnabled(!!req.body?.enabled, req.operator.email); audit(req.operator.email, on ? 'content-autopost-on' : 'content-autopost-off', {}); res.json({ enabled: on }); }));
+r.get('/content/autopost/connect/:app', requireOperator, need('system.manage'), asyncH((req, res) => {
+  const app = req.params.app;
+  if (!['meta', 'linkedin', 'tiktok'].includes(app)) throw bad('Unknown app');
+  if (!appCreds(app)) throw bad(`Add the ${PROVIDERS[app].label} app keys first (Integrations).`);
+  const state = signState({ purpose: 'content-social', origin: mainOrigin(req), by: req.operator.email });
+  res.json({ url: authorizeUrl(app, 'social', { state, redirect: redirectUri(app, req) }) });
+}));
+r.delete('/content/autopost/accounts/:id(\\d+)', requireOperator, need('system.manage'), asyncH((req, res) => { autopost.removeConnection(req.params.id); audit(req.operator.email, 'content-autopost-account-removed', { id: Number(req.params.id) }); res.json({ ok: true }); }));
+r.put('/content/autopost/use/:channel', requireOperator, need('system.manage'), asyncH((req, res) => { autopost.chooseAccount(req.params.channel, req.body?.account_id); audit(req.operator.email, 'content-autopost-account-chosen', { channel: req.params.channel }); res.json({ ok: true }); }));
+r.post('/content/posts/:id/auto-post', requireOperator, need('content.calendar'), asyncH((req, res) => {
+  const on = req.body?.enabled !== false;
+  const p = autopost.setAutoPost(req.params.id, on, req.operator.email);
+  audit(req.operator.email, on ? 'content-post-autopost-approved' : 'content-post-autopost-withdrawn', { id: p.id, channel: p.channel, at: p.scheduled_at });
+  res.json({ post: p, warnings: on ? autopost.limitWarnings(p) : [] });
+}));
 r.put('/content/limits', requireOperator, need('system.manage'), asyncH((req, res) => { const l = cal.saveLimits(req.body || {}, req.operator.email); audit(req.operator.email, 'content-limits-changed', l); res.json(l); }));
 
 r.get('/training-videos', requireOperator, need('system.view'), (_req, res) => res.json({ youtube: training.youtubeStatus(), rows: training.listVideos(), roles: training.roleNames(), categories: training.CATEGORIES, privacy: training.PRIVACY }));

@@ -6,6 +6,7 @@ import { saveIntegration } from '../integrations/store.js';
 import { appCreds, exchangeCode, readState, redirectUri, signState, PROVIDERS } from './oauthApps.js';
 import { onSocialConnected } from '../integrations/social.js';
 import { saveConnection } from './trainingYoutube.js';
+import { connectFromOAuth } from './contentAutopost.js';
 
 const CODES = `CREATE TABLE IF NOT EXISTS oauth_login_codes(code TEXT PRIMARY KEY, tenant_id INTEGER NOT NULL, user_id INTEGER NOT NULL, provider TEXT NOT NULL, expires_at INTEGER NOT NULL);`;
 let ready = false;
@@ -73,6 +74,16 @@ export async function handleCallback(provider, params, req) {
       await saveConnection(tokens.refresh_token, who.email, st.by, tokens.access_token);
       return { redirect: back('youtube=connected') };
     } catch (e) { return { redirect: back('youtube=failed'), detail: e.message }; }
+  }
+  // The Super Admin connecting Agentify's own Facebook / Instagram / LinkedIn / TikTok accounts for content auto-posting.
+  if (st.purpose === 'content-social') {
+    const back = (q) => `${st.origin}/platform/content?${q}`;
+    if (params.error) return { redirect: back(`autopost=${params.error === 'access_denied' ? 'cancelled' : 'failed'}`) };
+    try {
+      const tokens = await exchangeCode(provider, params.code, redirectUri(provider, req));
+      await connectFromOAuth(provider, tokens, st.by);
+      return { redirect: back(`autopost=connected&app=${provider}`) };
+    } catch (e) { return { redirect: back(`autopost=failed&why=${encodeURIComponent(String(e.message).slice(0, 160))}`), detail: e.message }; }
   }
   const fail = (code) => `${st.origin}${st.purpose === 'login' ? '/login' : '/settings/integrations'}?oauth_error=${encodeURIComponent(code)}`;
   if (params.error) return { redirect: fail(params.error === 'access_denied' ? 'cancelled' : params.error) };
