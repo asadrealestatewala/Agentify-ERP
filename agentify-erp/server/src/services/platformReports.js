@@ -10,6 +10,7 @@ import { expiryOf, tenantSummaries, storageOf } from './platformTenants.js';
 import { listBackups } from './backup.js';
 import { recentErrors } from './maintenance.js';
 import { bad, HttpError } from '../util.js';
+import { localDay } from './platformTime.js';
 
 const pdb = () => platformDb();
 const n = (v) => Number(v || 0);
@@ -86,7 +87,7 @@ export const REPORTS = {
         rows.push({ workspace: t.name, slug: t.slug, owner: t.owner_email, state: e.locked ? 'Read-only' : 'Payment failed (grace)', since: e.date, plan: PLANS[t.plan]?.name || t.plan, amount: t.price_amount, currency: t.price_currency || 'PKR' });
       }
       for (const s of pdb().prepare("SELECT s.*, t.name, t.slug, t.owner_email FROM payment_submissions s JOIN tenants t ON t.id=s.tenant_id WHERE s.status='pending'").all()) {
-        rows.push({ workspace: s.name, slug: s.slug, owner: s.owner_email, state: `Transfer to confirm (${s.method} ${s.reference})`, since: s.created_at.slice(0, 10), plan: PLANS[s.plan]?.name || s.plan, amount: s.amount, currency: s.currency });
+        rows.push({ workspace: s.name, slug: s.slug, owner: s.owner_email, state: `Transfer to confirm (${s.method} ${s.reference})`, since: localDay(s.created_at), plan: PLANS[s.plan]?.name || s.plan, amount: s.amount, currency: s.currency });
       }
       return { columns: [['workspace', 'Workspace'], ['slug', 'Address'], ['owner', 'Owner'], ['state', 'State'], ['since', 'Date'], ['plan', 'Plan'], ['amount', 'Amount'], ['currency', 'Currency']], rows };
     },
@@ -224,7 +225,7 @@ export function reconcile() {
     db.prepare("SELECT i.id, i.provider_invoice_id reference, i.amount, i.currency, t.name workspace FROM invoices i JOIN tenants t ON t.id=i.tenant_id WHERE i.provider_invoice_id LIKE 'local-%' AND NOT EXISTS(SELECT 1 FROM payment_submissions s WHERE 'local-' || s.id = i.provider_invoice_id AND s.status='approved')").all(), 'No orphan invoices');
   add('amounts-match', 'Invoice amounts equal the approved payment amounts', 'error',
     db.prepare("SELECT s.id, s.reference, s.amount payment_amount, i.amount invoice_amount, t.name workspace FROM payment_submissions s JOIN invoices i ON i.provider_invoice_id='local-' || s.id JOIN tenants t ON t.id=s.tenant_id WHERE s.amount<>i.amount OR s.currency<>i.currency").all(), 'All amounts match');
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDay();
   add('active-period', 'Active subscriptions have a valid plan and paid-until date', 'warning',
     listTenants().filter((t) => !t.is_legacy && t.status === 'active' && t.subscription_status === 'active' && (!PLANS[t.plan] || !t.current_period_end || t.current_period_end < today))
       .map((t) => ({ workspace: t.name, plan: t.plan, paid_until: t.current_period_end || null, problem: !PLANS[t.plan] ? 'Unknown plan' : !t.current_period_end ? 'No paid-until date' : 'Paid-until date has passed but still marked active' })), 'All consistent');

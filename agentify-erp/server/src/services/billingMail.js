@@ -6,6 +6,7 @@ import { platformDb } from '../platform.js';
 import { getSetting } from './platformConfig.js';
 import { setBillingIdentity, sendMail, layout, mailReady } from './mailer.js';
 import { PLANS } from './plans.js';
+import { localDay } from './platformTime.js';
 
 export const DEFAULT_BILLING_ADDRESS = 'billing@agentifyerp.co';
 /** The billing mailbox address (console can override it with the `billing_mail_address` setting or BILLING_MAIL_ADDRESS). */
@@ -65,7 +66,7 @@ export async function sendPaymentReceipt(key, p) {
     const amount = Math.round(Number(p.amount) || 0);
     if (!key || amount <= 0 || !p.reference) return { sent: false, skipped: true };
     const ins = d.prepare('INSERT OR IGNORE INTO billing_receipts(receipt_key,tenant_id,to_addr,amount,currency,plan,interval,method,reference,paid_on,period_end) VALUES(?,?,?,?,?,?,?,?,?,?,?)')
-      .run(String(key), p.tenant_id ?? null, p.to || null, amount, String(p.currency || '').toUpperCase(), p.plan || null, p.interval || null, p.method || null, String(p.reference).slice(0, 120), p.paid_on || new Date().toISOString().slice(0, 10), p.period_end || null);
+      .run(String(key), p.tenant_id ?? null, p.to || null, amount, String(p.currency || '').toUpperCase(), p.plan || null, p.interval || null, p.method || null, String(p.reference).slice(0, 120), p.paid_on || localDay(), p.period_end || null);
     if (!ins.changes) return { sent: false, duplicate: true };
     const row = d.prepare('SELECT * FROM billing_receipts WHERE receipt_key=?').get(String(key));
     return { sent: await deliver(row), id: row.id };

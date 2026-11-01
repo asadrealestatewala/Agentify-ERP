@@ -8,6 +8,7 @@ import PDFDocument from 'pdfkit';
 import { platformDb, logTenantEvent } from '../platform.js';
 import { DATA_DIR } from '../db.js';
 import { bad, HttpError } from '../util.js';
+import { localDay } from './platformTime.js';
 import { PLANS } from './plans.js';
 import { platformBrand } from './mailer.js';
 import { methodLabel } from './billing.js';
@@ -18,6 +19,8 @@ const pdb = () => platformDb();
 const TEAL = '#0e7c6b', INK = '#1f2937', GREY = '#6b7280', LINE = '#e5e7eb';
 const money = (n, cur) => `${cur ? `${cur} ` : ''}${Number(n || 0).toLocaleString('en-US')}`;
 const day = (v) => String(v || '').slice(0, 10);
+/** Calendar day of a stored UTC timestamp in the platform timezone (a late-evening payment must not land on the previous day). */
+const stamp = (v) => (v ? localDay(v) : '');
 const planName = (p) => PLANS[p]?.name || p || '';
 export const invoiceNumber = (inv) => `INV-${String(inv.created_at || '').slice(0, 4) || '0000'}-${String(inv.id).padStart(5, '0')}`;
 const submissionOf = (inv) => { const m = /^local-(\d+)$/.exec(inv.provider_invoice_id || ''); return m ? pdb().prepare('SELECT * FROM payment_submissions WHERE id=? AND tenant_id=?').get(Number(m[1]), inv.tenant_id) : null; };
@@ -44,11 +47,11 @@ export function ledger(tenantId, { from, to } = {}) {
   for (const i of pdb().prepare('SELECT * FROM invoices WHERE tenant_id=?').all(tenantId)) {
     const sub = submissionOf(i);
     const desc = `${planName(i.plan) || 'Subscription'}${i.period_start ? ` (${day(i.period_start)} to ${day(i.period_end)})` : ''}`;
-    all.push({ date: day(i.created_at), at: i.created_at, ord: 0, description: `Invoice ${invoiceNumber(i)}: ${desc}`, reference: i.provider_invoice_id || '', method: methodOf(i, sub), charge: i.amount, payment: 0, refund: 0, currency: i.currency });
-    if (i.status === 'paid') all.push({ date: day(i.created_at), at: i.created_at, ord: 1, description: `Payment received (${methodOf(i, sub)})`, reference: sub?.reference || i.provider_invoice_id || '', method: methodOf(i, sub), charge: 0, payment: i.amount, refund: 0, currency: i.currency });
+    all.push({ date: stamp(i.created_at), at: i.created_at, ord: 0, description: `Invoice ${invoiceNumber(i)}: ${desc}`, reference: i.provider_invoice_id || '', method: methodOf(i, sub), charge: i.amount, payment: 0, refund: 0, currency: i.currency });
+    if (i.status === 'paid') all.push({ date: stamp(i.created_at), at: i.created_at, ord: 1, description: `Payment received (${methodOf(i, sub)})`, reference: sub?.reference || i.provider_invoice_id || '', method: methodOf(i, sub), charge: 0, payment: i.amount, refund: 0, currency: i.currency });
   }
   for (const r of pdb().prepare('SELECT r.*, i.provider_invoice_id inv_ref, i.currency inv_cur FROM refunds r LEFT JOIN invoices i ON i.id=r.invoice_id WHERE r.tenant_id=?').all(tenantId)) {
-    all.push({ date: day(r.created_at), at: r.created_at, ord: 2, description: `Refund${r.reason ? `: ${r.reason}` : ''}`, reference: r.provider_refund_id || r.inv_ref || '', method: '', charge: 0, payment: 0, refund: r.amount, currency: r.currency || r.inv_cur || '' });
+    all.push({ date: stamp(r.created_at), at: r.created_at, ord: 2, description: `Refund${r.reason ? `: ${r.reason}` : ''}`, reference: r.provider_refund_id || r.inv_ref || '', method: '', charge: 0, payment: 0, refund: r.amount, currency: r.currency || r.inv_cur || '' });
   }
   all.sort((a, b) => String(a.at).localeCompare(String(b.at)) || a.ord - b.ord);
   // balance due = charges - payments; net paid = payments - refunds. Both run from the first record ever, so a date range keeps correct opening figures.
@@ -128,7 +131,7 @@ export function invoicePdf(tenant, inv) {
   return pdfBuffer((doc) => {
     const { M, W } = header(doc, inv.status === 'paid' ? 'Payment receipt' : 'Invoice', invoiceNumber(inv));
     const kv = (label, value, x, y, w = 240) => { doc.font('Helvetica').fontSize(8.5).fillColor(GREY).text(label, x, y, { width: w }); doc.font('Helvetica-Bold').fontSize(10).fillColor(INK).text(value || '-', x, doc.y, { width: w }); };
-    const y0 = doc.y; kv('Billed to', `${tenant.name}${tenant.owner_email ? `\n${tenant.owner_email}` : ''}`, M, y0); kv('Date', day(inv.created_at), M + 300, y0, 200);
+    const y0 = doc.y; kv('Billed to', `${tenant.name}${tenant.owner_email ? `\n${tenant.owner_email}` : ''}`, M, y0); kv('Date', stamp(inv.created_at), M + 300, y0, 200);
     doc.y = Math.max(doc.y, y0 + 56) + 6; const y1 = doc.y;
     kv('Status', inv.status === 'paid' ? 'PAID' : String(inv.status).toUpperCase(), M, y1); kv('Payment method', methodOf(inv, sub), M + 300, y1, 200);
     doc.y = y1 + 44; const y2 = doc.y; kv('Reference', sub?.reference || inv.provider_invoice_id || '', M, y2); kv('Period covered', inv.period_start ? `${day(inv.period_start)} to ${day(inv.period_end)}` : '-', M + 300, y2, 200);

@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.61', date: '2026-11-01', title: 'Payment dates now show the right day',
+    items: [
+      { text: 'A payment made late in the evening could be dated the day before on statements, invoices and receipts. Dates now follow your local calendar day.', where: 'Settings > Plan & Billing > Statement and invoices' },
+      { text: 'Console finance reports, the pending-transfers list, reconciliation and approval period dates now all use the console timezone, so they agree with the dashboard.', audience: 'platform', where: 'Console > Reports' },
+    ],
+  },
+  {
     version: 'v1.60', date: '2026-11-01', title: 'Free, smooth street maps and a Navigate button',
     items: [
       { text: 'Maps are now smoother and street-accurate on every device, with no map account needed. Field Coverage shows each agent as a marker that glides to their new position and refreshes about every 15 seconds; on busy teams only the most recent agents are drawn so phones stay fast.', where: 'My Space > Field Coverage' },
