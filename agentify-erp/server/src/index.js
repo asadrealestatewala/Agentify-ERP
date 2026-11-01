@@ -53,6 +53,7 @@ import regionRoutes from './routes/region.js';
 import mortgageRoutes from './regions/mortgage.js';
 import documentRoutes from './regions/documents.js';
 import libraryRoutes from './routes/library.js';
+import aiFlagRoutes from './routes/aiFlags.js';
 import privacyRoutes from './regions/privacy.js';
 import integrationRoutes from './routes/integrations.js';
 import appointmentRoutes, { runVisitReminders } from './routes/appointments.js';
@@ -188,6 +189,7 @@ export function createApp() {
   app.use('/api/mortgage', mortgageRoutes);
   app.use('/api/documents', documentRoutes);
   app.use('/api/library', libraryRoutes);
+  app.use('/api/ai-flags', aiFlagRoutes);
   app.use('/api/privacy', privacyRoutes);
   app.use('/api/integrations', integrationRoutes);
   app.use('/api/appointments', appointmentRoutes);

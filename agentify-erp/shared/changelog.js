@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.63', date: '2026-11-01', title: 'Report an AI suggestion',
+    items: [
+      { text: 'Every AI suggestion in the property writer now has a "Report this suggestion" button. Use it when the text has wrong facts, is unsafe or misleading, or reads badly. Only the suggestion and your reason are sent for review.', where: 'Properties > Add or edit property > Write with AI' },
+      { text: 'New review queue of reported AI answers with the workspace, reason and text; mark each Reviewed or Dismissed, or reopen it.', audience: 'platform', where: 'Console > AI usage & credits > Flagged AI answers' },
+    ],
+  },
+  {
     version: 'v1.62', date: '2026-11-01', title: 'Limits for call and meeting transcripts',
     items: [
       { text: 'Turning a call or meeting recording into a transcript now counts toward your workspace\'s AI allowance and can be paused when your plan\'s AI allowance is used up.', where: 'Calls > Recordings; Meetings' },

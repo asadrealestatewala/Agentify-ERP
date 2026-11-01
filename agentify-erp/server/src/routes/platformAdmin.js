@@ -47,6 +47,7 @@ import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requ
 import * as cal from '../services/contentCalendar.js';
 import { addPromoDrafts } from '../services/promoDrafts.js';
 import * as aiu from '../services/aiUsage.js';
+import * as aiFlags from '../services/aiFlags.js';
 import * as brands from '../services/brands.js';
 import * as lib from '../services/sharedLibrary.js';
 import { profit, saveCostConfig } from '../services/profitReport.js';
@@ -684,6 +685,11 @@ r.put('/ai/controls', requireOperator, need('integrations.manage'), asyncH((req,
 r.put('/ai/workspaces/:id(\\d+)', requireOperator, need('integrations.manage'), asyncH((req, res) => {
   const w = aiu.saveWorkspaceAi(req.params.id, req.body || {}, req.operator.email);
   audit(req.operator.email, 'workspace-ai-changed', { slug: w.slug, ai_enabled: w.ai_enabled, daily_call_limit: w.daily_call_limit }); res.json(w);
+}));
+r.get('/ai/flags', requireOperator, need('finance.view'), (req, res) => res.json(aiFlags.list({ status: req.query.status })));
+r.put('/ai/flags/:id(\\d+)', requireOperator, need('integrations.manage'), asyncH((req, res) => {
+  const f = aiFlags.resolve(req.params.id, req.body || {}, req.operator.email);
+  audit(req.operator.email, 'ai-flag-reviewed', { id: Number(req.params.id), status: req.body?.status }); res.json(f);
 }));
 // ---- Brand groups: workspaces of one owner sharing a logo and colours (nothing else is shared)
 r.get('/brands', requireOperator, need('workspaces.view'), (_req, res) => res.json(brands.listBrands()));
