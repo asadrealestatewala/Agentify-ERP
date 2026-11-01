@@ -10,6 +10,7 @@ import { Markdown, SECTION_TYPES, SiteProvider, withPreview, fullPrice, imgUrl, 
 import { getRegion } from '../format.js';
 import SiteIcon, { Ic } from './SiteIcon.jsx';
 import LogoMark from '../components/LogoMark.jsx';
+import SitePropertyMap from './SitePropertyMap.jsx';
 import './site.css';
 
 /** Header looks a theme can choose: white (default), dark, or see-through over the first block. */
@@ -267,7 +268,7 @@ function PropertyPage() {
           {(p.description || p.short) && <section className="box"><h3>Description</h3><Markdown text={p.description || p.short} /></section>}
           {(p.amenities.length > 0 || feats.length > 0) && <section className="box"><h3>Features & amenities</h3><div className="chips2">{[...feats, ...p.amenities].map((a) => <span key={a}>✓ {a}</span>)}</div></section>}
           {p.videos.length > 0 && <section className="box"><h3>Video</h3>{p.videos.map((v) => (yt(v) ? <div key={v} className="video"><iframe title="Property video" src={yt(v)} allowFullScreen loading="lazy" /></div> : <p key={v}><a href={v} target="_blank" rel="noreferrer">▶ Watch video</a></p>))}</section>}
-          {map && <section className="box"><h3>Location</h3><iframe title="Map" className="map" src={map} loading="lazy" /><a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer">Open in Google Maps ↗</a></section>}
+          {map && <section className="box"><h3>Location</h3><SitePropertyMap lat={Number(p.lat)} lng={Number(p.lng)} /><a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer">Open in Google Maps ↗</a></section>}
           {p.installment && <section className="box"><h3>Installment plan</h3><InstallmentCalculator price={p.price} compact /></section>}
         </div>
         <aside className="pside">

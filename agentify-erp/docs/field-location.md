@@ -32,8 +32,11 @@ foreground-only. There is no route history and no background tracking.
   days (default 30) and ends foreground sessions that went quiet. Withdrawing consent deletes the location at once.
 * **Plans.** The API is the `field` plan module (`/field` paths in `services/plans.js`). Plans with `modules: null` include
   it; plans or overrides that list modules explicitly must add `field`.
-* **Map.** Reuses the free OpenStreetMap embed already allowed by the CSP, for the selected agent, plus a link. Setting
-  *Map* to *No embedded map* leaves the list and links only. No paid map service is used.
+* **Map.** A live Google map (`client/src/components/LiveMap.jsx`) when the platform has a browser key
+  (`GOOGLE_MAPS_API_KEY`, see `services/maps.js` and `GET /api/platform/maps-config`): initials markers coloured by
+  freshness, smooth movement between readings, Map/Satellite, Street View, accuracy circle, refresh every 15 s.
+  Without a key (or if Google rejects it) it falls back to the free OpenStreetMap embed. Setting *Map* to
+  *No embedded map* leaves the list and links only.
 * **Time and units.** Stored as UTC ISO; shown in the workspace timezone with the zone name. Accuracy is stored in metres
   and shown in feet for imperial regions.
 

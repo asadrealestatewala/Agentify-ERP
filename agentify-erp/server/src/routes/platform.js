@@ -28,6 +28,7 @@ import * as stripe from '../services/stripe.js';
 import { handlePlatformWebhook, settlePlatformCheckout } from '../services/platformGateways.js';
 import { stripeConfig, getSetting } from '../services/platformConfig.js';
 import { publicAppConfig } from '../services/appConfig.js';
+import { publicMapsConfig } from '../services/maps.js';
 import { selectableRegions, listCountries } from '../regions/index.js';
 import { GLOBAL_CRM_COPY } from '../regions/marketingCopy.js';
 import { mayIssueCertificate } from '../integrations/domains.js';
@@ -57,6 +58,12 @@ r.get('/app-config', (req, res) => {
   try { name = resolveTenant(req.hostname)?.name || ''; } catch { /* unknown host: platform name */ }
   res.setHeader('Cache-Control', 'public, max-age=300');
   res.json(publicAppConfig(name));
+});
+
+// which map the pages draw: Google Maps when the platform has a browser key, otherwise OpenStreetMap (key is public by design, see services/maps.js)
+r.get('/maps-config', (_req, res) => {
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json(publicMapsConfig());
 });
 
 r.get('/site', (req, res) => {
