@@ -4,7 +4,7 @@ import { audit } from '../audit.js';
 import { asyncH, bad } from '../util.js';
 import {
   myStatus, acceptNotice, withdrawConsent, startForeground, stopSharing, submitLocation, reportLocationError, setAvailability,
-  setServiceArea, teamList, teamScope, fieldSettings, saveFieldSettings, _forbiddenUnlessVisible,
+  setServiceArea, routeFor, teamList, teamScope, fieldSettings, saveFieldSettings, _forbiddenUnlessVisible,
 } from '../services/fieldLocation.js';
 
 /**
@@ -48,12 +48,19 @@ r.put('/team/:userId(\\d+)/area', can('hrm', 'edit'), asyncH((req, res) => {
   res.json(out);
 }));
 
+/** Replay data for one person: GET /team/:userId/route?from=ISO&to=ISO (max 3 days). Viewing a route is logged. */
+r.get('/team/:userId(\\d+)/route', asyncH((req, res) => {
+  const out = routeFor(req.user, req.params.userId, req.query.from, req.query.to);
+  if (out.enabled) audit(req, 'Field route viewed', 'user', req.params.userId, `${out.count} points`);
+  res.json(out);
+}));
+
 r.get('/settings', can('settings', 'view'), (_req, res) => res.json(fieldSettings()));
 r.put('/settings', can('settings', 'edit'), asyncH((req, res) => {
   const before = fieldSettings();
   const s = saveFieldSettings(req.body);
   audit(req, 'Location sharing settings updated', 'settings', 'field_location',
-    { enabled: s.enabled, foreground_allowed: s.foreground_allowed, retention_days: s.retention_days, notice_version: s.notice_version, notice_changed: s.notice_version !== before.notice_version });
+    { enabled: s.enabled, route_history: s.route_history, foreground_allowed: s.foreground_allowed, retention_days: s.retention_days, notice_version: s.notice_version, notice_changed: s.notice_version !== before.notice_version });
   res.json(s);
 }));
 

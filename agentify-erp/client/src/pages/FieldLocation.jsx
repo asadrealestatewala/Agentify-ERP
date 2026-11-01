@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import Icon from '../components/Icon.jsx';
 import { Card, ConfirmDialog, Empty, ErrorBox, Field, KV, Loading, PageHead, Select, StatusBadge, Toggle } from '../components/ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useFetch, useToast } from '../context.jsx';
@@ -138,6 +139,7 @@ const osmLink = (lat, lng) => `https://www.openstreetmap.org/?mlat=${lat}&mlon=$
 
 const LiveMap = lazy(() => import('../components/LiveMap.jsx'));
 const LiveMapLibre = lazy(() => import('../components/LiveMapLibre.jsx'));
+const RouteReplay = lazy(() => import('../components/RouteReplay.jsx'));
 
 export function FieldCoverage() {
   const maps = useMapEngine();
@@ -149,6 +151,7 @@ export function FieldCoverage() {
   const [fresh, setFresh] = useState('');
   const [avail, setAvail] = useState('');
   const [q, setQ] = useState('');
+  const [replay, setReplay] = useState(false);
   useEffect(() => { const id = setInterval(() => { if (document.visibilityState === 'visible') reload(); }, 15_000); return () => clearInterval(id); }, [reload]);
 
   const rows = useMemo(() => (data?.agents || []).filter((a) => (!fresh || a.freshness === fresh) && (!avail || a.availability === avail)
@@ -207,12 +210,18 @@ export function FieldCoverage() {
               {picked && (
                 <div style={{ marginTop: 8 }}>
                   <div className="muted" style={{ fontSize: 12 }}>{whenText(picked.location.captured_at)} ({ageText(picked.age_minutes)}) · {accuracyText(picked.location.accuracy_m)}. A device reading, not proof of presence.{live && s.map_provider !== 'none' ? ' Updates about every 15 seconds while this page is open.' : ''}</div>
-                  <div className="row wrap" style={{ gap: 12, marginTop: 4 }}><NavigateButton lat={picked.location.lat} lng={picked.location.lng} label={picked.name} /><a href={osmLink(picked.location.lat, picked.location.lng)} target="_blank" rel="noreferrer">Open in OpenStreetMap ↗</a></div>
+                  <div className="row wrap" style={{ gap: 12, marginTop: 4 }}><NavigateButton lat={picked.location.lat} lng={picked.location.lng} label={picked.name} /><a href={osmLink(picked.location.lat, picked.location.lng)} target="_blank" rel="noreferrer">Open in OpenStreetMap ↗</a>
+                    {s.route_history && <button className="btn sm" onClick={() => setReplay((x) => !x)} aria-expanded={replay}><Icon name="history" size={14} /> {replay ? 'Hide route replay' : 'Replay route'}</button>}</div>
                 </div>
               )}
               {s.map_provider === 'none' && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>The embedded map is turned off in the settings; use the list and the map link.</div>}
             </Card>
           </div>
+          {replay && picked && s.route_history && (
+            <Card title={`Route replay: ${picked.name}`}>
+              <Suspense fallback={<Loading />}><RouteReplay key={picked.user_id} agent={picked} onClose={() => setReplay(false)} /></Suspense>
+            </Card>
+          )}
         </>
       )}
       {can('settings', 'edit') && <FieldSettings onSaved={reload} />}
@@ -229,7 +238,7 @@ function FieldSettings({ onSaved }) {
   const up = (k) => (v) => setF((x) => ({ ...x, [k]: v }));
   const save = async () => {
     try {
-      await api.put('/api/field/settings', { enabled: f.enabled, foreground_allowed: f.foreground_allowed, interval_seconds: Number(f.interval_seconds), fresh_minutes: Number(f.fresh_minutes),
+      await api.put('/api/field/settings', { enabled: f.enabled, route_history: !!f.route_history, foreground_allowed: f.foreground_allowed, interval_seconds: Number(f.interval_seconds), fresh_minutes: Number(f.fresh_minutes),
         stale_minutes: Number(f.stale_minutes), retention_days: Number(f.retention_days), map_provider: f.map_provider, notice: f.notice });
       toast('Location settings saved', 'ok'); reload(); onSaved?.();
     } catch (e) { toast(e.message, 'err'); }
@@ -239,11 +248,12 @@ function FieldSettings({ onSaved }) {
     <Card title="Location sharing settings" actions={<button className="btn primary sm" onClick={save}>Save settings</button>}>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
         <Toggle value={f.enabled} onChange={up('enabled')} label="Allow employees to share their location" />
+        <Toggle value={!!f.route_history} onChange={up('route_history')} label="Keep a route history so managers can replay a day (off by default; employees must agree again)" />
         <Toggle value={f.foreground_allowed} onChange={up('foreground_allowed')} label="Allow sharing while the app is open (otherwise one-time only)" />
         {num('interval_seconds', 'Send every (seconds)', '30 to 1800, while the app is open')}
         {num('fresh_minutes', 'Fresh for (minutes)', 'Older readings are refused when sent')}
         {num('stale_minutes', 'Stale after (minutes)')}
-        {num('retention_days', 'Delete last location after (days)', '1 to 365')}
+        {num('retention_days', 'Delete last location and routes after (days)', '1 to 365')}
         <Field label="Map"><Select allowEmpty={false} value={f.map_provider} onChange={up('map_provider')} options={[{ value: 'auto', label: 'Live map (free street map; Google Maps only if the platform owner switches it on)' }, { value: 'none', label: 'No embedded map (list and links only)' }]} /></Field>
       </div>
       <Field label="Notice shown to employees" hint={`Version ${f.notice_version}. Changing the text asks every employee to agree again. These settings and this notice do not by themselves make the workspace legally compliant; check local employment and privacy rules.`}>

@@ -1,7 +1,7 @@
 # Field-agent location sharing and coverage
 
 Employees can share their **last-known location** with their manager and HR. It is explicit, employee-started and
-foreground-only. There is no route history and no background tracking.
+foreground-only. There is no background tracking. A route history for replay exists only when an admin switches it on (see *Route replay*).
 
 ## How it works
 
@@ -45,6 +45,27 @@ foreground-only. There is no route history and no background tracking.
   answers cached for a day, a 429 is retried once then falls through to the next provider.
 * **Time and units.** Stored as UTC ISO; shown in the workspace timezone with the zone name. Accuracy is stored in metres
   and shown in feet for imperial regions.
+
+## Route replay (v1.61)
+
+* **Off by default.** Setting `route_history` (Field Coverage → Location sharing settings). Turning it on rewrites the "No route history is kept"
+  sentence of the notice (or appends a route sentence to a custom notice) and bumps the notice version, so every employee has to agree again.
+  Turning it off deletes every saved route and restores the sentence (also a new version).
+* **What is stored.** Table `field_points` (user, lat, lng, accuracy, capture time, source). A point is added with each accepted reading, unless the
+  person moved under 10 m in under 5 minutes. Nothing is added by the app in the background; only readings the employee chose to share.
+* **Who sees it.** Same rule as the coverage list (reporting line, HR, Super Admin): `GET /api/field/team/:userId/route?from&to` (max 3 days, max 5000
+  points, readings worse than 500 m accuracy left out). Each view is written to the audit log.
+* **Deleted** with the retention purge (`retention_days`), when the employee withdraws consent, and when route history is switched off.
+* **UI.** *Replay route* under the map on Field Coverage (`client/src/components/RouteReplay.jsx`): day picker (workspace timezone), play/pause, 1-8×, slider.
+  Lines are straight between readings; gaps mean no sharing.
+
+## Directions in the app (v1.61)
+
+`GET /api/directions?from=lat,lng&to=lat,lng&mode=driving|walking|cycling` (staff only, 30/min per user, `DIRECTIONS_LIMIT`). Free routing, no key:
+OSRM on `routing.openstreetmap.de` (car/bike/foot servers; `OSRM_URL` overrides, with `{profile}`), falling back to Valhalla on `valhalla1.openstreetmap.de`
+(`VALHALLA_URL`). Calls are spaced, cached 5 minutes and only the two coordinates leave the server (`services/directions.js`). The *Directions in the app*
+button (`NavigateButton` → `DirectionsModal.jsx`) shows the route line and written steps; *Follow me* uses the foreground GPS only while the window is open.
+The public OSM servers are for light use; point `OSRM_URL`/`VALHALLA_URL` at your own server before heavy traffic.
 
 ## Android app
 

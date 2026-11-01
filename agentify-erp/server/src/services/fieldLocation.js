@@ -1,4 +1,6 @@
-// Field-agent location sharing: explicit, employee-started sharing of a last-known position, never a route history.
+// Field-agent location sharing: explicit, employee-started sharing of a last-known position. A route history (replay) is
+// kept only when an admin switches the workspace setting route_history on, which also changes the notice so every employee
+// has to read and accept it again.
 //
 // Rules this module enforces (the routes in routes/field.js only call into it):
 // * Off for the whole workspace until an admin turns it on, and off for each employee until they accept the current
@@ -22,13 +24,16 @@ export const LOCATION_ERRORS = ['denied', 'unavailable', 'timeout', 'unsupported
 // 'auto' = Google Maps when the platform has a key, OpenStreetMap otherwise; 'osm_embed' is the older name for the OpenStreetMap-only choice and is read as 'auto'
 export const MAP_PROVIDERS = ['auto', 'osm_embed', 'none'];
 
+export const NO_ROUTE = 'No route history is kept. ';
+export const ROUTE_NOTICE = 'While you are sharing, the places you share are also kept as a route, so your manager and HR can replay where you went during that time. '
+  + 'Routes are deleted automatically after the retention period. ';
 export const DEFAULT_NOTICE = 'When you choose to share, your manager and HR can see your last shared location, when it was taken and how accurate it was. '
   + 'Nothing is shared until you press Share. One-time sharing sends a single reading; "Share while the app is open" sends a reading every few minutes '
-  + 'only while this app is open on your screen, and stops when you press Stop sharing, sign out or close the app. No route history is kept and nothing is '
-  + 'collected in the background. Your last location is deleted automatically after the retention period. You can stop and withdraw at any time.';
+  + 'only while this app is open on your screen, and stops when you press Stop sharing, sign out or close the app. ' + NO_ROUTE
+  + 'Nothing is collected in the background. Your last location is deleted automatically after the retention period. You can stop and withdraw at any time.';
 
 export const DEFAULTS = Object.freeze({
-  enabled: false, foreground_allowed: true, interval_seconds: 120, fresh_minutes: 10, stale_minutes: 60, retention_days: 30,
+  enabled: false, route_history: false, foreground_allowed: true, interval_seconds: 120, fresh_minutes: 10, stale_minutes: 60, retention_days: 30,
   map_provider: 'auto', notice: DEFAULT_NOTICE, notice_version: 1,
 });
 
@@ -37,7 +42,7 @@ const clampInt = (v, lo, hi, def) => { const n = Math.trunc(Number(v)); return N
 export function fieldSettings() {
   const s = { ...DEFAULTS, ...jparse(getSetting('field_location'), {}) };
   return {
-    enabled: s.enabled === true, foreground_allowed: s.foreground_allowed !== false,
+    enabled: s.enabled === true, route_history: s.route_history === true, foreground_allowed: s.foreground_allowed !== false,
     interval_seconds: clampInt(s.interval_seconds, 30, 1800, DEFAULTS.interval_seconds),
     fresh_minutes: clampInt(s.fresh_minutes, 1, 240, DEFAULTS.fresh_minutes),
     stale_minutes: Math.max(clampInt(s.stale_minutes, 2, 1440, DEFAULTS.stale_minutes), clampInt(s.fresh_minutes, 1, 240, DEFAULTS.fresh_minutes) + 1),
@@ -52,6 +57,7 @@ export function saveFieldSettings(body = {}) {
   const cur = fieldSettings();
   const next = { ...cur };
   if ('enabled' in body) next.enabled = body.enabled === true || body.enabled === 'true' || body.enabled === 1;
+  if ('route_history' in body) next.route_history = body.route_history === true || body.route_history === 'true' || body.route_history === 1;
   if ('foreground_allowed' in body) next.foreground_allowed = !!body.foreground_allowed && body.foreground_allowed !== 'false';
   for (const [k, lo, hi] of [['interval_seconds', 30, 1800], ['fresh_minutes', 1, 240], ['stale_minutes', 2, 1440], ['retention_days', 1, 365]]) {
     if (!(k in body)) continue;
@@ -69,9 +75,24 @@ export function saveFieldSettings(body = {}) {
     if (text.length < 40) throw bad('The employee notice must explain what is shared (at least 40 characters)');
     if (text !== cur.notice) { next.notice = text.slice(0, 4000); next.notice_version = cur.notice_version + 1; }
   }
+  // switching route history on or off rewrites the notice sentence about it and bumps the version: everyone agrees again
+  if (next.route_history !== cur.route_history) {
+    const text = noticeWithRoute(next.notice, next.route_history);
+    const bumped = next.notice_version !== cur.notice_version;
+    if (text !== next.notice) next.notice = text.slice(0, 4000);
+    if (!bumped) next.notice_version = cur.notice_version + 1;
+  }
   setSetting('field_location', JSON.stringify(next));
   if (!next.enabled && cur.enabled) run("UPDATE field_agents SET sharing='off', sharing_session=NULL WHERE sharing<>'off'");
+  if (!next.route_history) run('DELETE FROM field_points');
   return fieldSettings();
+}
+
+/** The notice sentence about routes: replaces the "no route history" sentence (or the route sentence) so it always matches the setting. */
+export function noticeWithRoute(notice, on) {
+  const yes = ROUTE_NOTICE.trim(); const no = NO_ROUTE.trim();
+  if (on) return notice.includes(yes) ? notice : notice.includes(no) ? notice.replace(no, yes) : `${notice.trim()} ${yes}`;
+  return notice.includes(yes) ? notice.replace(yes, no) : notice;
 }
 
 const iso = (ms = Date.now()) => new Date(ms).toISOString();
@@ -108,6 +129,7 @@ export function acceptNotice(uid, version) {
 export function withdrawConsent(uid) {
   run('UPDATE field_consents SET withdrawn_at=? WHERE user_id=? AND withdrawn_at IS NULL', iso(), uid);
   run(`UPDATE field_agents SET sharing='off', sharing_session=NULL, lat=NULL, lng=NULL, accuracy_m=NULL, captured_at=NULL, received_at=NULL, source=NULL, updated_at=? WHERE user_id=?`, iso(), uid);
+  run('DELETE FROM field_points WHERE user_id=?', uid);
   return consentOf(uid);
 }
 
@@ -157,6 +179,7 @@ export function submitLocation(uid, body = {}, nowMs = Date.now()) {
   if (row.captured_at && Date.parse(row.captured_at) >= cap) return { ok: true, ignored: 'older_than_current', status: statusFor(rowOf(uid), s, nowMs) };
   run(`UPDATE field_agents SET lat=?, lng=?, accuracy_m=?, captured_at=?, received_at=?, source=?, last_error=NULL, last_error_at=NULL, updated_at=? WHERE user_id=?`,
     Math.round(lat * 1e6) / 1e6, Math.round(lng * 1e6) / 1e6, Math.round(acc * 10) / 10, iso(cap), iso(nowMs), mode, iso(nowMs), uid);
+  if (s.route_history) addRoutePoint(uid, Math.round(lat * 1e6) / 1e6, Math.round(lng * 1e6) / 1e6, Math.round(acc * 10) / 10, iso(cap), mode);
   return { ok: true, status: statusFor(rowOf(uid), s, nowMs) };
 }
 
@@ -201,7 +224,7 @@ function statusFor(row, s, nowMs = Date.now()) {
 
 export function myStatus(uid) {
   const s = fieldSettings();
-  return { settings: { enabled: s.enabled, foreground_allowed: s.foreground_allowed, interval_seconds: s.interval_seconds, fresh_minutes: s.fresh_minutes,
+  return { settings: { enabled: s.enabled, route_history: s.route_history, foreground_allowed: s.foreground_allowed, interval_seconds: s.interval_seconds, fresh_minutes: s.fresh_minutes,
     stale_minutes: s.stale_minutes, retention_days: s.retention_days, notice: s.notice, notice_version: s.notice_version },
   consent: consentOf(uid, s), status: statusFor(rowOf(uid), s) };
 }
@@ -236,7 +259,7 @@ export function teamList(user, nowMs = Date.now()) {
   });
   return { scope: sc.all ? 'all' : 'reports', settings: publicSettings(s), agents };
 }
-const publicSettings = (s) => ({ enabled: s.enabled, foreground_allowed: s.foreground_allowed, fresh_minutes: s.fresh_minutes, stale_minutes: s.stale_minutes,
+const publicSettings = (s) => ({ enabled: s.enabled, route_history: s.route_history, foreground_allowed: s.foreground_allowed, fresh_minutes: s.fresh_minutes, stale_minutes: s.stale_minutes,
   retention_days: s.retention_days, map_provider: s.map_provider, interval_seconds: s.interval_seconds });
 
 /**
@@ -247,9 +270,50 @@ export function purgeFieldLocations(nowMs = Date.now()) {
   const s = fieldSettings();
   const cutoff = iso(nowMs - s.retention_days * 864e5);
   const purged = run(`UPDATE field_agents SET lat=NULL, lng=NULL, accuracy_m=NULL, captured_at=NULL, received_at=NULL, source=NULL WHERE captured_at IS NOT NULL AND captured_at < ?`, cutoff).changes;
+  const points = run('DELETE FROM field_points WHERE captured_at < ?', cutoff).changes;
   const quiet = iso(nowMs - Math.max(s.stale_minutes * 60_000, s.interval_seconds * 3000));
   const ended = run(`UPDATE field_agents SET sharing='off', sharing_session=NULL WHERE sharing='foreground' AND COALESCE(received_at, sharing_started_at, '') < ?`, quiet).changes;
-  return { purged, ended };
+  return { purged, ended, points };
+}
+
+// ---- Route history (replay). Only written while the workspace setting route_history is on; employees agreed to it in the notice.
+const R = 6371000;
+export function metres(aLat, aLng, bLat, bLng) {
+  const rad = Math.PI / 180;
+  const dLat = (bLat - aLat) * rad; const dLng = (bLng - aLng) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(aLat * rad) * Math.cos(bLat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+/** Appends a reading to the route unless the person has not moved (under 10 m) in the last 5 minutes, so a parked phone adds little. */
+function addRoutePoint(uid, lat, lng, acc, capturedAt, source) {
+  const last = get('SELECT lat,lng,captured_at FROM field_points WHERE user_id=? ORDER BY captured_at DESC LIMIT 1', uid);
+  if (last) {
+    const dt = Date.parse(capturedAt) - Date.parse(last.captured_at);
+    if (dt <= 0) return;
+    if (dt < 5 * 60_000 && metres(last.lat, last.lng, lat, lng) < 10) return;
+  }
+  run('INSERT INTO field_points(user_id,lat,lng,accuracy_m,captured_at,source) VALUES(?,?,?,?,?,?)', uid, lat, lng, acc, capturedAt, source);
+}
+
+export const MAX_ROUTE_SPAN_MS = 3 * 864e5;
+const MAX_ROUTE_POINTS = 5000;
+/**
+ * The saved route of one person between two instants, for the replay. Same visibility rule as the coverage list. Readings less
+ * accurate than 500 m are left out so one bad fix does not draw a spike. Distance is the sum of the legs between kept points.
+ */
+export function routeFor(user, agentId, fromIso, toIso) {
+  _forbiddenUnlessVisible(user, agentId);
+  const s = fieldSettings();
+  const from = Date.parse(String(fromIso || '')); const to = Date.parse(String(toIso || ''));
+  if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from) throw bad('Choose a start and an end time for the route');
+  if (to - from > MAX_ROUTE_SPAN_MS) throw bad('A route can cover at most 3 days at a time');
+  if (!s.route_history) return { enabled: false, points: [], distance_m: 0, count: 0 };
+  const rows = all('SELECT lat,lng,accuracy_m,captured_at FROM field_points WHERE user_id=? AND captured_at>=? AND captured_at<=? AND (accuracy_m IS NULL OR accuracy_m<=500) ORDER BY captured_at LIMIT ?',
+    Number(agentId), iso(from), iso(to), MAX_ROUTE_POINTS);
+  let distance = 0;
+  for (let i = 1; i < rows.length; i++) distance += metres(rows[i - 1].lat, rows[i - 1].lng, rows[i].lat, rows[i].lng);
+  return { enabled: true, retention_days: s.retention_days, points: rows, count: rows.length, distance_m: Math.round(distance),
+    started_at: rows[0]?.captured_at || null, ended_at: rows.at(-1)?.captured_at || null };
 }
 
 export const _forbiddenUnlessVisible = (user, agentId) => { if (!canSeeAgent(user, agentId)) throw forbidden('This employee is not in your team'); };
