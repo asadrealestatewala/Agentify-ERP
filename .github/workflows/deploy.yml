@@ -120,6 +120,11 @@ jobs:
           # Google Maps browser key (optional; without it the app keeps using OpenStreetMap)
           ENV_GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
           ENV_GOOGLE_MAPS_MAP_ID: ${{ secrets.GOOGLE_MAPS_MAP_ID }}
+          # Free maps need no key. Optional: MAP_PROVIDER (maplibre|google), MAPTILER_API_KEY (satellite), LOCATIONIQ_KEY / GEOCODE_PROVIDER (place search)
+          ENV_MAP_PROVIDER: ${{ secrets.MAP_PROVIDER }}
+          ENV_MAPTILER_API_KEY: ${{ secrets.MAPTILER_API_KEY }}
+          ENV_LOCATIONIQ_KEY: ${{ secrets.LOCATIONIQ_KEY }}
+          ENV_GEOCODE_PROVIDER: ${{ secrets.GEOCODE_PROVIDER }}
           # object storage for tenant files (optional; all five together switch it on)
           ENV_S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
           ENV_S3_REGION: ${{ secrets.S3_REGION }}
@@ -317,7 +322,7 @@ jobs:
           REMOTE_ENV="$REMOTE_ENV ERP_BASE_DOMAIN=$(q "$BASE_DOMAIN")"
           REMOTE_ENV="$REMOTE_ENV PLATFORM_ADMIN_EMAIL=$(q "${ENV_PLATFORM_ADMIN_EMAIL:-}")"
           REMOTE_ENV="$REMOTE_ENV PLATFORM_ADMIN_PASSWORD=$(q "${ENV_PLATFORM_ADMIN_PASSWORD:-}")"
-          for k in S3_ENDPOINT S3_REGION S3_BUCKET S3_ACCESS_KEY S3_SECRET_KEY GOOGLE_MAPS_API_KEY GOOGLE_MAPS_MAP_ID; do
+          for k in S3_ENDPOINT S3_REGION S3_BUCKET S3_ACCESS_KEY S3_SECRET_KEY GOOGLE_MAPS_API_KEY GOOGLE_MAPS_MAP_ID MAP_PROVIDER MAPTILER_API_KEY LOCATIONIQ_KEY GEOCODE_PROVIDER; do
             v="ENV_$k"; v="$(trim "${!v:-}")"
             if [ -n "$v" ]; then REMOTE_ENV="$REMOTE_ENV $k=$(q "$v")"; fi
           done

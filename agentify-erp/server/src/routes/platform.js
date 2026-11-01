@@ -60,10 +60,11 @@ r.get('/app-config', (req, res) => {
   res.json(publicAppConfig(name));
 });
 
-// which map the pages draw: Google Maps when the platform has a browser key, otherwise OpenStreetMap (key is public by design, see services/maps.js)
+// which map the pages draw: free MapLibre by default, Google when chosen and keyed (browser keys are public by design, see services/maps.js)
 r.get('/maps-config', (_req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=300');
-  res.json(publicMapsConfig());
+  let choice = ''; try { choice = getSetting('map_provider') || ''; } catch { /* no platform db yet */ }
+  res.json(publicMapsConfig(process.env, choice));
 });
 
 r.get('/site', (req, res) => {

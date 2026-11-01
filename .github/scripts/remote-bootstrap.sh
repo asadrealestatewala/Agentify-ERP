@@ -67,7 +67,7 @@ fi
 
 # Object storage settings (GitHub secrets S3_*): written to server/.env whenever the deploy has them, so they never live in git.
 # Values are never printed. Without them the app keeps storing private files on this server, as before.
-for k in S3_ENDPOINT S3_REGION S3_BUCKET S3_ACCESS_KEY S3_SECRET_KEY GOOGLE_MAPS_API_KEY GOOGLE_MAPS_MAP_ID; do
+for k in S3_ENDPOINT S3_REGION S3_BUCKET S3_ACCESS_KEY S3_SECRET_KEY GOOGLE_MAPS_API_KEY GOOGLE_MAPS_MAP_ID MAP_PROVIDER MAPTILER_API_KEY LOCATIONIQ_KEY GEOCODE_PROVIDER; do
   v="${!k:-}"
   if [ -n "$v" ]; then
     { grep -v "^${k}=" "$APP_DIR/server/.env" || true; printf '%s=%s\n' "$k" "$v"; } > "$APP_DIR/server/.env.tmp"

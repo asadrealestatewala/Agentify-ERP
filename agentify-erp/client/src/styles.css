@@ -318,6 +318,11 @@ a.stat { color: inherit; text-decoration: none; } a.stat:hover { border-color: #
 
 /* live map of field agents (Google Maps) */
 .lm-wrap { position: relative; }
+.mp-toggle { position: absolute; left: 10px; bottom: 28px; z-index: 2; display: inline-flex; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.3); background: #fff; }
+.lm-wrap .mp-toggle { bottom: auto; top: 48px; }
+.mp-toggle button { border: 0; background: #fff; color: #10201c; font: 600 12px/1 system-ui, sans-serif; padding: 8px 10px; min-height: 32px; cursor: pointer; }
+.mp-toggle button.on { background: var(--primary, #0e7c6b); color: #fff; }
+.maplibregl-map { font-family: inherit; }
 .lm-map { width: 100%; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
 .lm-fit { position: absolute; left: 10px; top: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
 .lm-pin { display: flex; flex-direction: column; align-items: center; cursor: pointer; transform: translateY(0); }

@@ -6,6 +6,15 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.60', date: '2026-11-01', title: 'Free, smooth street maps and a Navigate button',
+    items: [
+      { text: 'Maps are now smoother and street-accurate on every device, with no map account needed. Field Coverage shows each agent as a marker that glides to their new position and refreshes about every 15 seconds; on busy teams only the most recent agents are drawn so phones stay fast.', where: 'My Space > Field Coverage' },
+      { text: 'The property location pin and the map on public listing pages use the same new map. Searching for a place is faster and kinder to slow connections.', where: 'Properties > Add property; website listing pages' },
+      { text: 'New Navigate button on a property and on a visit: it opens Google Maps (or Apple Maps on iPhone and Mac) with directions to the exact spot.', where: 'Properties > a property; Visits; Field Coverage' },
+      { text: 'The free map is the default. Google Maps stays available as an option where a Google key is added (MAP_PROVIDER=google); an optional MapTiler key (MAPTILER_API_KEY) adds a Satellite view, and an optional LocationIQ key (LOCATIONIQ_KEY) adds a second place-search source.', audience: 'platform', where: 'Deployment' },
+    ],
+  },
+  {
     version: 'v1.59', date: '2026-11-01', title: 'Live Google Maps for field agents and properties',
     items: [
       { text: 'Field Coverage now shows a live Google map: every agent appears as a marker with their initials and a colour for how fresh the reading is, markers glide to the new position, and the page refreshes about every 15 seconds. Switch between Map and Satellite, zoom to street level, or use Street View.', where: 'My Space > Field Coverage' },

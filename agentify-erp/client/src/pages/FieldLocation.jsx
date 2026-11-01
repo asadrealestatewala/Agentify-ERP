@@ -5,7 +5,8 @@ import { api } from '../api.js';
 import { useAuth, useFetch, useToast } from '../context.jsx';
 import { t } from '../i18n.js';
 import { getRegion } from '../format.js';
-import { useMaps } from '../googleMaps.js';
+import { useMapEngine } from '../mapEngine.js';
+import NavigateButton from '../components/NavigateButton.jsx';
 import {
   subscribe, getSharing, shareOnce, startForeground, stopSharing, ERROR_TEXT, whenText, accuracyText, ageText,
   FRESH_TONE, FRESH_LABEL, AVAIL_LABEL, AVAIL_TONE,
@@ -136,10 +137,11 @@ const osmEmbed = (lat, lng) => `https://www.openstreetmap.org/export/embed.html?
 const osmLink = (lat, lng) => `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=16/${lat}/${lng}`;
 
 const LiveMap = lazy(() => import('../components/LiveMap.jsx'));
-const googleLink = (lat, lng) => `https://www.google.com/maps?q=${lat},${lng}`;
+const LiveMapLibre = lazy(() => import('../components/LiveMapLibre.jsx'));
 
 export function FieldCoverage() {
-  const maps = useMaps();
+  const maps = useMapEngine();
+  const live = maps === 'google' || maps === 'maplibre';
   const { can } = useAuth();
   const toast = useToast();
   const { data, error, reload } = useFetch('/api/field/team');
@@ -200,12 +202,12 @@ export function FieldCoverage() {
             </Card>
             <Card title={picked ? `Map: ${picked.name}` : 'Map'}>
               {!picked && <Empty icon="map">No shared locations yet.</Empty>}
-              {s.map_provider !== 'none' && picked && maps === 'ready' && <Suspense fallback={<Loading />}><LiveMap agents={rows} selectedId={picked.user_id} onSelect={setSel} height={380} /></Suspense>}
+              {s.map_provider !== 'none' && picked && live && <Suspense fallback={<Loading />}>{maps === 'google' ? <LiveMap agents={rows} selectedId={picked.user_id} onSelect={setSel} height={380} /> : <LiveMapLibre agents={rows} selectedId={picked.user_id} onSelect={setSel} height={380} />}</Suspense>}
               {s.map_provider !== 'none' && picked && maps === 'off' && <iframe title={`Last location of ${picked.name}`} src={osmEmbed(picked.location.lat, picked.location.lng)} loading="lazy" style={{ width: '100%', height: 320, border: 0, borderRadius: 8 }} />}
               {picked && (
                 <div style={{ marginTop: 8 }}>
-                  <div className="muted" style={{ fontSize: 12 }}>{whenText(picked.location.captured_at)} ({ageText(picked.age_minutes)}) · {accuracyText(picked.location.accuracy_m)}. A device reading, not proof of presence.{maps === 'ready' && s.map_provider !== 'none' ? ' Updates about every 15 seconds while this page is open.' : ''}</div>
-                  <a href={maps === 'ready' ? googleLink(picked.location.lat, picked.location.lng) : osmLink(picked.location.lat, picked.location.lng)} target="_blank" rel="noreferrer">{maps === 'ready' ? 'Open in Google Maps ↗' : 'Open in OpenStreetMap ↗'}</a>
+                  <div className="muted" style={{ fontSize: 12 }}>{whenText(picked.location.captured_at)} ({ageText(picked.age_minutes)}) · {accuracyText(picked.location.accuracy_m)}. A device reading, not proof of presence.{live && s.map_provider !== 'none' ? ' Updates about every 15 seconds while this page is open.' : ''}</div>
+                  <div className="row wrap" style={{ gap: 12, marginTop: 4 }}><NavigateButton lat={picked.location.lat} lng={picked.location.lng} label={picked.name} /><a href={osmLink(picked.location.lat, picked.location.lng)} target="_blank" rel="noreferrer">Open in OpenStreetMap ↗</a></div>
                 </div>
               )}
               {s.map_provider === 'none' && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>The embedded map is turned off in the settings; use the list and the map link.</div>}
@@ -242,7 +244,7 @@ function FieldSettings({ onSaved }) {
         {num('fresh_minutes', 'Fresh for (minutes)', 'Older readings are refused when sent')}
         {num('stale_minutes', 'Stale after (minutes)')}
         {num('retention_days', 'Delete last location after (days)', '1 to 365')}
-        <Field label="Map"><Select allowEmpty={false} value={f.map_provider} onChange={up('map_provider')} options={[{ value: 'auto', label: 'Live map (Google Maps when the platform has a key, otherwise OpenStreetMap)' }, { value: 'none', label: 'No embedded map (list and links only)' }]} /></Field>
+        <Field label="Map"><Select allowEmpty={false} value={f.map_provider} onChange={up('map_provider')} options={[{ value: 'auto', label: 'Live map (free street map; Google Maps only if the platform owner switches it on)' }, { value: 'none', label: 'No embedded map (list and links only)' }]} /></Field>
       </div>
       <Field label="Notice shown to employees" hint={`Version ${f.notice_version}. Changing the text asks every employee to agree again. These settings and this notice do not by themselves make the workspace legally compliant; check local employment and privacy rules.`}>
         <textarea className="input" rows={5} dir="auto" value={f.notice} onChange={(e) => up('notice')(e.target.value)} />

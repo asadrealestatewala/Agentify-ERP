@@ -1,48 +1,110 @@
-// Address to coordinates for the property editor, using OpenStreetMap's public Nominatim search (no key, no paid provider).
-// Nominatim's usage policy asks for a real User-Agent, at most one request per second and cached answers, so this keeps a
-// small in-memory cache and spaces calls out. Only the typed place text and the workspace country code leave the server.
+// Address to coordinates for the property editor. Providers, in order (a failure or rate limit falls through to the next):
+//   photon     (default) komoot's free Photon search on OpenStreetMap data, no key, built for search-as-you-type
+//   locationiq used first when LOCATIONIQ_KEY is set (free tier, Nominatim-compatible answers)
+//   nominatim  OpenStreetMap's public search, last resort only
+// Set GEOCODE_PROVIDER=photon|locationiq|nominatim to pin the first choice. Photon and Nominatim ask for a real User-Agent,
+// spaced calls and cached answers, so this keeps a small in-memory cache and spaces calls out per provider. Only the typed place
+// text and the workspace country code leave the server. Photon answers are converted to the Nominatim row shape below.
 //
 // Street-level search: people type the street, the colony and the city into any field, so the fields' roles are not trusted.
 // The pieces are tried from the widest to the most specific to find an "anchor" area, then each more specific piece is searched
 // only inside that area (viewbox, bounded), with spelling variants. A piece that resolves inside the anchor gives a street or
 // colony level pin; only when none does is the answer marked approximate.
-const ENDPOINT = process.env.GEOCODE_URL || 'https://nominatim.openstreetmap.org/search';
+const NOMINATIM_URL = process.env.GEOCODE_URL || 'https://nominatim.openstreetmap.org/search';
+const PHOTON_URL = process.env.PHOTON_URL || 'https://photon.komoot.io/api/';
+const LOCATIONIQ_URL = process.env.LOCATIONIQ_URL || 'https://us1.locationiq.com/v1/search';
 const TTL = 24 * 60 * 60_000;
 const MAX_CACHE = 500;
-const MAX_CALLS = 8; // searches per lookup (each is spaced by a second)
+const MAX_CALLS = 8; // searches per lookup (each is spaced)
+const GAP = { photon: 350, locationiq: 600, nominatim: 1100 };
 const cache = new Map(); // key -> { at, rows }
-let last = Promise.resolve();
-let lastAt = 0;
+const chains = {}; // provider -> promise chain, so each provider is called one at a time
+const lastAt = {};
 
 const ISO = { UK: 'gb' }; // region pack codes that differ from the ISO country code
 export const cleanQuery = (q) => String(q ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
 
-/** Runs one call at a time with at least a second between calls to the provider. */
-function spaced(fn) {
-  const run = last.then(async () => {
-    const wait = lastAt + 1100 - Date.now();
+/** Runs one call at a time per provider with its minimum gap between calls. */
+function spaced(provider, fn) {
+  const run = (chains[provider] || Promise.resolve()).then(async () => {
+    const wait = (lastAt[provider] || 0) + GAP[provider] - Date.now();
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    try { return await fn(); } finally { lastAt = Date.now(); }
+    try { return await fn(); } finally { lastAt[provider] = Date.now(); }
   });
-  last = run.catch(() => {});
+  chains[provider] = run.catch(() => {});
   return run;
+}
+
+/** Providers to try, first choice first. Nominatim is always the last resort. */
+export function providerChain(env = process.env) {
+  const want = String(env.GEOCODE_PROVIDER || '').toLowerCase();
+  const hasIq = /^[A-Za-z0-9._-]{8,80}$/.test(String(env.LOCATIONIQ_KEY || '').trim());
+  const first = want === 'nominatim' ? ['nominatim'] : want === 'locationiq' && hasIq ? ['locationiq'] : want === 'photon' ? ['photon'] : hasIq ? ['locationiq', 'photon'] : ['photon'];
+  return [...new Set([...first, 'nominatim'])];
 }
 
 const countryOf = (country) => (/^[a-z]{2}$/i.test(country) ? (ISO[country.toUpperCase()] || country.toLowerCase()) : '');
 
-/** One raw Nominatim search; `extra` are additional URL parameters. Cached by the full URL. */
-async function raw(q, cc, extra = {}) {
-  const url = `${ENDPOINT}?${new URLSearchParams({ q, format: 'jsonv2', limit: '6', addressdetails: '1', 'accept-language': 'en', ...(cc ? { countrycodes: cc } : {}), ...extra })}`;
-  const hit = cache.get(url);
-  if (hit && Date.now() - hit.at < TTL) return { rows: hit.rows, cached: true };
-  const rows = await spaced(async () => {
+const PHOTON_KIND = { house: 'house', street: 'road', locality: 'neighbourhood', district: 'city_district', city: 'city', county: 'county', state: 'state', country: 'country', other: 'other' };
+/** Photon GeoJSON features as Nominatim-style rows, narrowed to the country when one is given. */
+export function photonRows(json, cc = '') {
+  const feats = Array.isArray(json?.features) ? json.features : [];
+  return feats.filter((f) => f?.geometry?.type === 'Point' && Array.isArray(f.geometry.coordinates)).map((f) => {
+    const p = f.properties || {};
+    const [lon, lat] = f.geometry.coordinates;
+    const kind = PHOTON_KIND[p.type] || 'other';
+    const ext = Array.isArray(p.extent) && p.extent.length === 4 ? [p.extent[3], p.extent[1], p.extent[0], p.extent[2]].map(String) : undefined; // [south, north, west, east]
+    const street = p.type === 'street' ? p.name : p.street;
+    const address = { road: street, neighbourhood: p.type === 'locality' ? p.name : undefined, suburb: p.district || (p.type === 'locality' ? undefined : p.locality), city: p.city, county: p.county, state: p.state, postcode: p.postcode, country: p.country, country_code: String(p.countrycode || '').toLowerCase() };
+    const name = p.name || '';
+    return { lat: String(lat), lon: String(lon), name, addresstype: kind, type: kind, boundingbox: ext, address,
+      display_name: [name, street && street !== name ? street : '', p.district, p.city, p.state, p.country].filter(Boolean).join(', ') };
+  }).filter((r) => !cc || !r.address.country_code || r.address.country_code === cc);
+}
+
+function urlFor(provider, q, cc, extra) {
+  if (provider === 'photon') {
+    const sp = new URLSearchParams({ q, limit: '8', lang: 'en' });
+    if (extra.viewbox) { const [l, t, r, b] = String(extra.viewbox).split(','); sp.set('bbox', `${l},${b},${r},${t}`); } // Photon wants minLon,minLat,maxLon,maxLat
+    return `${PHOTON_URL}?${sp}`;
+  }
+  const base = { q, format: 'jsonv2', limit: '6', addressdetails: '1', 'accept-language': 'en', ...(cc ? { countrycodes: cc } : {}), ...extra };
+  if (provider === 'locationiq') return `${LOCATIONIQ_URL}?${new URLSearchParams({ ...base, key: String(process.env.LOCATIONIQ_KEY).trim(), format: 'json', normalizeaddress: '1' })}`;
+  return `${NOMINATIM_URL}?${new URLSearchParams(base)}`;
+}
+
+class RateLimited extends Error {}
+
+async function fetchRows(provider, url, cc) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     const res = await fetch(url, { headers: { 'User-Agent': 'agentify-erp/1.0 (property location search)', Accept: 'application/json' }, signal: AbortSignal.timeout(8000) });
+    if (res.status === 429) {
+      const wait = Math.min(3000, (Number(res.headers.get('retry-after')) || 1) * 1000);
+      if (attempt === 0) { await new Promise((r) => setTimeout(r, wait)); continue; }
+      throw new RateLimited(`${provider} is busy`);
+    }
     if (!res.ok) throw new Error(`Map search answered ${res.status}`);
-    return res.json();
-  });
-  if (cache.size >= MAX_CACHE) cache.delete(cache.keys().next().value);
-  cache.set(url, { at: Date.now(), rows: Array.isArray(rows) ? rows : [] });
-  return { rows: Array.isArray(rows) ? rows : [], cached: false };
+    const json = await res.json();
+    return provider === 'photon' ? photonRows(json, cc) : Array.isArray(json) ? json : [];
+  }
+  throw new RateLimited(`${provider} is busy`);
+}
+
+/** One raw search; `extra` are additional URL parameters (viewbox, bounded). Cached by the full URL; falls through the provider chain. */
+async function raw(q, cc, extra = {}) {
+  let lastErr;
+  for (const provider of providerChain()) {
+    const url = urlFor(provider, q, cc, extra);
+    const hit = cache.get(url);
+    if (hit && Date.now() - hit.at < TTL) return { rows: hit.rows, cached: true };
+    try {
+      const rows = await spaced(provider, () => fetchRows(provider, url, cc));
+      if (cache.size >= MAX_CACHE) cache.delete(cache.keys().next().value);
+      cache.set(url, { at: Date.now(), rows });
+      return { rows, cached: false };
+    } catch (e) { lastErr = e; }
+  }
+  throw lastErr || new Error('Map search is not available');
 }
 
 const AREA_KINDS = new Set(['country', 'state', 'region', 'state_district', 'county', 'city', 'town', 'village', 'municipality', 'district', 'city_district', 'administrative', 'postcode']);
