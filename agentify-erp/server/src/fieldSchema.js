@@ -9,4 +9,9 @@ CREATE TABLE IF NOT EXISTS field_agents(
 CREATE TABLE IF NOT EXISTS field_consents(
   user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   notice_version INTEGER NOT NULL, accepted_at TEXT NOT NULL, withdrawn_at TEXT);
+-- route history: only written while the workspace setting route_history is on (off by default); see services/fieldLocation.js
+CREATE TABLE IF NOT EXISTS field_points(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  lat REAL NOT NULL, lng REAL NOT NULL, accuracy_m REAL, captured_at TEXT NOT NULL, source TEXT);
+CREATE INDEX IF NOT EXISTS idx_field_points_user_time ON field_points(user_id, captured_at);
 `;

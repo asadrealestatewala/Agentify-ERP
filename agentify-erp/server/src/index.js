@@ -35,6 +35,7 @@ import site from './routes/site.js';
 import siteAdmin from './routes/siteAdmin.js';
 import staff from './routes/staff.js';
 import field from './routes/field.js';
+import directionsRoute from './routes/directions.js';
 import { purgeFieldLocations } from './services/fieldLocation.js';
 import insights from './routes/insights.js';
 import tenders from './routes/tenders.js';
@@ -170,6 +171,7 @@ export function createApp() {
   app.use('/api/goals', goals);
   app.use('/api/staff', staff);
   app.use('/api/field', field);
+  app.use('/api/directions', directionsRoute);
   app.use('/api/insights', insights);
   app.use('/api/tenders', tenders);
   app.use('/api/listings', listings);

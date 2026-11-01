@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.61', date: '2026-11-02', title: 'Directions inside the app and route replay',
+    items: [
+      { text: 'New Directions in the app button next to Navigate: pick drive, walk or cycle and see the route on the map with written turn-by-turn steps, the distance and the time. Tick Follow me to see your own dot and the next turn while the window is open. It uses free OpenStreetMap routing, needs no account, and your start position is only used to ask for the route.', where: 'Properties > a property; Visits; Field Coverage' },
+      { text: 'Route replay: when an admin turns on route history, a manager can pick a day for one of their team and press Play to watch the places that person shared, in order, with a time slider and speed buttons. Route history is off by default, it only records while the person is sharing, employees must read and agree to the updated notice first, routes are deleted after the retention period (or at once if the person withdraws), and every view is logged.', where: 'My Space > Field Coverage > Replay route; settings under Location sharing settings' },
+    ],
+  },
+  {
     version: 'v1.60', date: '2026-11-01', title: 'Free, smooth street maps and a Navigate button',
     items: [
       { text: 'Maps are now smoother and street-accurate on every device, with no map account needed. Field Coverage shows each agent as a marker that glides to their new position and refreshes about every 15 seconds; on busy teams only the most recent agents are drawn so phones stay fast.', where: 'My Space > Field Coverage' },
