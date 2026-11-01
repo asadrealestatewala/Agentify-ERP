@@ -1440,3 +1440,23 @@ test('payment workflow: due → in process → under verification → paid, What
   assert.equal((await fin.post('/api/payment-claims/statement', { csv: 'Name,Notes\nx,y' })).status, 400, 'columns must be recognisable');
   reset();
 });
+
+test('my space never shows another employee: no link means account details only', async () => {
+  const admin = await sa();
+  const owner = get("SELECT * FROM users WHERE email='admin@expertdevelopers.pk'");
+  const victim = get("SELECT * FROM employees WHERE user_id=(SELECT id FROM users WHERE email='agent2@expertdevelopers.pk')");
+  // Simulate the bug: someone else's record carrying the Super Admin's email, already (wrongly) linked to them.
+  run('UPDATE employees SET user_id=NULL WHERE user_id=?', owner.id);
+  run('UPDATE employees SET email=?, user_id=? WHERE id=?', owner.email, owner.id, victim.id);
+  const p = await admin.get('/api/staff/me/profile');
+  assert.equal(p.status, 200);
+  assert.equal(p.data.employee ?? null, null, 'no foreign employee record');
+  assert.equal(p.data.user.email, owner.email);
+  assert.deepEqual(p.data.assets, []);
+  assert.equal((await admin.get('/api/staff/me/attendance')).status, 400);
+  assert.equal((await admin.get('/api/staff/me/payroll')).status, 400);
+  assert.equal((await admin.get('/api/staff/me/leaves')).status, 400);
+  // An unlinked record with matching email but a different name is not adopted either.
+  assert.equal(get('SELECT user_id FROM employees WHERE id=?', victim.id).user_id, null);
+  run('UPDATE employees SET email=? WHERE id=?', 'agent2@expertdevelopers.pk', victim.id);
+});
