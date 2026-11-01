@@ -6,6 +6,14 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.59', date: '2026-11-01', title: 'Live Google Maps for field agents and properties',
+    items: [
+      { text: 'Field Coverage now shows a live Google map: every agent appears as a marker with their initials and a colour for how fresh the reading is, markers glide to the new position, and the page refreshes about every 15 seconds. Switch between Map and Satellite, zoom to street level, or use Street View.', where: 'My Space > Field Coverage' },
+      { text: 'The property location pin and the map on public listing pages use Google Maps for street-accurate results. Where Google Maps is not switched on yet, the existing OpenStreetMap maps keep working.', where: 'Properties > Add property; website listing pages' },
+      { text: 'Switching on Google Maps needs a Google Maps browser key on the platform (GOOGLE_MAPS_API_KEY deploy secret).', audience: 'platform', where: 'Deployment' },
+    ],
+  },
+  {
     version: 'v1.58', date: '2026-11-01', title: 'One email, one account',
     items: [
       { text: 'An email address can now belong to only one account. Adding a user, an invitation, an employee, a vendor, a developer or a portal login with an email that is already in use shows "This email already exists" instead of creating a second account. Capital letters and spaces make no difference.', where: 'Settings > Users, HR > Employees, Vendors, Developers' },

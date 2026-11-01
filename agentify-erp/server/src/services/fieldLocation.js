@@ -19,7 +19,8 @@ export { FIELD_SCHEMA } from '../fieldSchema.js';
 
 export const AVAILABILITY = ['available', 'busy', 'on_break', 'off_duty', 'unknown'];
 export const LOCATION_ERRORS = ['denied', 'unavailable', 'timeout', 'unsupported'];
-export const MAP_PROVIDERS = ['osm_embed', 'none'];
+// 'auto' = Google Maps when the platform has a key, OpenStreetMap otherwise; 'osm_embed' is the older name for the OpenStreetMap-only choice and is read as 'auto'
+export const MAP_PROVIDERS = ['auto', 'osm_embed', 'none'];
 
 export const DEFAULT_NOTICE = 'When you choose to share, your manager and HR can see your last shared location, when it was taken and how accurate it was. '
   + 'Nothing is shared until you press Share. One-time sharing sends a single reading; "Share while the app is open" sends a reading every few minutes '
@@ -28,7 +29,7 @@ export const DEFAULT_NOTICE = 'When you choose to share, your manager and HR can
 
 export const DEFAULTS = Object.freeze({
   enabled: false, foreground_allowed: true, interval_seconds: 120, fresh_minutes: 10, stale_minutes: 60, retention_days: 30,
-  map_provider: 'osm_embed', notice: DEFAULT_NOTICE, notice_version: 1,
+  map_provider: 'auto', notice: DEFAULT_NOTICE, notice_version: 1,
 });
 
 const clampInt = (v, lo, hi, def) => { const n = Math.trunc(Number(v)); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def; };
@@ -41,7 +42,7 @@ export function fieldSettings() {
     fresh_minutes: clampInt(s.fresh_minutes, 1, 240, DEFAULTS.fresh_minutes),
     stale_minutes: Math.max(clampInt(s.stale_minutes, 2, 1440, DEFAULTS.stale_minutes), clampInt(s.fresh_minutes, 1, 240, DEFAULTS.fresh_minutes) + 1),
     retention_days: clampInt(s.retention_days, 1, 365, DEFAULTS.retention_days),
-    map_provider: MAP_PROVIDERS.includes(s.map_provider) ? s.map_provider : DEFAULTS.map_provider,
+    map_provider: s.map_provider === 'none' ? 'none' : 'auto',
     notice: String(s.notice || DEFAULT_NOTICE).slice(0, 4000), notice_version: clampInt(s.notice_version, 1, 1e6, 1),
   };
 }
@@ -61,7 +62,7 @@ export function saveFieldSettings(body = {}) {
   if (next.stale_minutes <= next.fresh_minutes) throw bad('"Stale after" must be longer than "fresh for"');
   if ('map_provider' in body) {
     if (!MAP_PROVIDERS.includes(body.map_provider)) throw bad('Unknown map option');
-    next.map_provider = body.map_provider;
+    next.map_provider = body.map_provider === 'none' ? 'none' : 'auto';
   }
   if ('notice' in body) {
     const text = String(body.notice || '').trim();
