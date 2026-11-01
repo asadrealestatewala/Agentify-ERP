@@ -51,8 +51,8 @@ function Table({ title, rows, cols, empty }) {
 function WorkspaceControls({ canEdit }) {
   const toast = useToast();
   const [c, setC] = useState(null); const [err, setErr] = useState('');
-  const [g, setG] = useState({ default_daily_limit: '', monthly_cap: '' });
-  const load = useCallback(() => api.get(`${A}/ai/controls`).then((x) => { setC(x); setG({ default_daily_limit: x.default_daily_limit ?? '', monthly_cap: x.month.cap ?? '' }); setErr(''); }).catch((e) => setErr(e.message)), []);
+  const [g, setG] = useState({ default_daily_limit: '', default_stt_daily_limit: '', monthly_cap: '' });
+  const load = useCallback(() => api.get(`${A}/ai/controls`).then((x) => { setC(x); setG({ default_daily_limit: x.default_daily_limit ?? '', default_stt_daily_limit: x.default_stt_daily_limit ?? '', monthly_cap: x.month.cap ?? '' }); setErr(''); }).catch((e) => setErr(e.message)), []);
   useEffect(() => { load(); }, [load]);
   const put = async (url, body, msg) => { try { await api.put(url, body); toast(msg); load(); } catch (e) { toast(e.message, 'err'); } };
   if (err && !c) return <ErrorBox error={err} />;
@@ -62,13 +62,14 @@ function WorkspaceControls({ canEdit }) {
   return (
     <>
       <Card title="Workspace AI controls" actions={c.kill_switch ? <span className="pill red">AI is switched off for all workspaces</span> : <span className="pill green">AI is on</span>}>
-        <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>These apply to AI that workspaces run with their own provider keys (data assistant, property writer, website builder, promo video scripts). Limits are checked before a feature starts. Agentify's own Gemini drafts have their own budget above. Speech-to-text transcripts are not counted or limited yet.</p>
+        <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>These apply to AI that workspaces run with their own provider keys (data assistant, property writer, website builder, promo video scripts). Limits are checked before a feature starts. Agentify's own Gemini drafts have their own budget above. Call and meeting transcripts (speech to text) are counted as calls, can be switched off below, and can have their own daily limit.</p>
         {canEdit && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12, alignItems: 'end' }}>
             <Field label="Default daily calls per workspace" hint="Empty means no limit. A workspace's own limit below wins."><input className="input" type="number" min={0} value={g.default_daily_limit} onChange={(e) => setG({ ...g, default_daily_limit: e.target.value })} /></Field>
+            <Field label="Default daily transcripts per workspace" hint="Call and meeting recordings turned into text. Empty means no separate limit."><input className="input" type="number" min={0} value={g.default_stt_daily_limit} onChange={(e) => setG({ ...g, default_stt_daily_limit: e.target.value })} /></Field>
             <Field label={`Monthly cap on workspace AI (${cur})`} hint={c.prices_set ? 'Estimated from the prices above; AI pauses for everyone when reached' : 'Enter the provider prices first'}><input className="input" type="number" min={0} step="any" value={g.monthly_cap} disabled={!c.prices_set} onChange={(e) => setG({ ...g, monthly_cap: e.target.value })} /></Field>
             <div className="row" style={{ gap: 8 }}>
-              <button className="btn primary" onClick={() => put(`${A}/ai/controls`, { default_daily_limit: g.default_daily_limit, ...(c.prices_set ? { monthly_cap: g.monthly_cap } : {}) }, 'Limits saved')}>Save limits</button>
+              <button className="btn primary" onClick={() => put(`${A}/ai/controls`, { default_daily_limit: g.default_daily_limit, default_stt_daily_limit: g.default_stt_daily_limit, ...(c.prices_set ? { monthly_cap: g.monthly_cap } : {}) }, 'Limits saved')}>Save limits</button>
               <button className={`btn ${c.kill_switch ? '' : 'danger'}`} onClick={() => { if (c.kill_switch || window.confirm('Switch AI off for every workspace now? Features that use AI stop until you switch it back on.')) put(`${A}/ai/controls`, { kill_switch: !c.kill_switch }, c.kill_switch ? 'AI is on again' : 'AI is switched off for all workspaces'); }}>{c.kill_switch ? 'Switch AI back on' : 'Kill switch'}</button>
             </div>
           </div>)}
@@ -78,20 +79,24 @@ function WorkspaceControls({ canEdit }) {
         cols={[['Feature', (r) => r.label], ['Calls', (r) => n0(r.calls), 1], ['Tokens', (r) => n0(r.input_tokens + r.output_tokens), 1], ['Est. cost', (r) => est(r.est_cost), 1],
           ['Switch', (r) => (canEdit ? <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={r.enabled} onChange={(e) => put(`${A}/ai/controls`, { features: { [r.key]: e.target.checked } }, `${r.label} ${e.target.checked ? 'on' : 'off'}`)} aria-label={`${r.label} on or off`} />{r.enabled ? 'On' : 'Off'}</label> : r.enabled ? 'On' : 'Off')]]} />
       <Card title="Workspace AI by workspace" flush>
-        <div className="table-wrap"><table className="table"><thead><tr><th>Workspace</th><th>Plan</th><th className="num">Calls today</th><th className="num">Daily limit</th><th className="num">Calls this month</th><th className="num">Est. cost this month</th><th>AI</th></tr></thead><tbody>
-          {c.workspaces.map((w) => <WsRow key={w.id} w={w} canEdit={canEdit} est={est} def={c.default_daily_limit} save={(body) => put(`${A}/ai/workspaces/${w.id}`, body, `${w.name}: saved`)} />)}
+        <div className="table-wrap"><table className="table"><thead><tr><th>Workspace</th><th>Plan</th><th className="num">Calls today</th><th className="num">Daily limit</th><th className="num">Daily transcripts</th><th className="num">Calls this month</th><th className="num">Est. cost this month</th><th>AI</th></tr></thead><tbody>
+          {c.workspaces.map((w) => <WsRow key={w.id} w={w} canEdit={canEdit} est={est} def={c.default_daily_limit} defStt={c.default_stt_daily_limit} save={(body) => put(`${A}/ai/workspaces/${w.id}`, body, `${w.name}: saved`)} />)}
         </tbody></table></div>
       </Card>
     </>
   );
 }
-function WsRow({ w, canEdit, est, save, def }) {
+function WsRow({ w, canEdit, est, save, def, defStt }) {
+  const [stt, setStt] = useState(w.stt_daily_limit ?? '');
+  useEffect(() => { setStt(w.stt_daily_limit ?? ''); }, [w.stt_daily_limit]);
+  const sttDirty = String(w.stt_daily_limit ?? '') !== String(stt);
   const [lim, setLim] = useState(w.daily_call_limit ?? '');
   useEffect(() => { setLim(w.daily_call_limit ?? ''); }, [w.daily_call_limit]);
   const dirty = String(w.daily_call_limit ?? '') !== String(lim);
   return (
     <tr><td>{w.name} <span className="muted">{w.slug}</span></td><td>{w.plan}</td><td className="num">{n0(w.calls_today)}</td>
       <td className="num">{canEdit ? <span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}><input className="input" style={{ width: 90 }} type="number" min={0} value={lim} placeholder={def != null ? `${def} (default)` : 'No limit'} onChange={(e) => setLim(e.target.value)} aria-label={`${w.name} daily call limit`} />{dirty && <button className="btn sm" onClick={() => save({ daily_call_limit: lim })}>Save</button>}</span> : (w.effective_limit ?? 'No limit')}</td>
+      <td className="num">{canEdit ? <span className="row" style={{ gap: 6, justifyContent: 'flex-end' }}><input className="input" style={{ width: 90 }} type="number" min={0} value={stt} placeholder={defStt != null ? `${defStt} (default)` : 'No limit'} onChange={(e) => setStt(e.target.value)} aria-label={`${w.name} daily transcript limit`} />{sttDirty && <button className="btn sm" onClick={() => save({ stt_daily_limit: stt })}>Save</button>}</span> : (w.stt_daily_limit ?? defStt ?? 'No limit')}</td>
       <td className="num">{n0(w.calls_month)}</td><td className="num">{est(w.est_cost_month)}</td>
       <td>{canEdit ? <button className={`btn sm ${w.ai_enabled ? '' : 'danger'}`} onClick={() => save({ ai_enabled: !w.ai_enabled })}>{w.ai_enabled ? 'On' : 'Off'}</button> : (w.ai_enabled ? 'On' : 'Off')}</td></tr>
   );

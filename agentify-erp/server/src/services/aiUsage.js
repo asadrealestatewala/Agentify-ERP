@@ -34,7 +34,7 @@ export function record({ keyOwner, provider, model, purpose, tenantId = null, to
   } catch { /* metering must never break the feature it measures */ }
 }
 // calls made inside a workspace with the workspace's own key
-setUsageSink(({ provider, model, d, purpose }) => { const tokens = tokensOf(provider, d); if (tokens) record({ keyOwner: 'tenant', provider, model, purpose: purpose || 'workspace_ai', tenantId: currentTenant()?.id || null, tokens }); });
+setUsageSink(({ provider, model, d, purpose }) => { const tokens = tokensOf(provider, d) || (purpose === 'speech_to_text' ? { input: 0, output: 0 } : null); if (tokens) record({ keyOwner: 'tenant', provider, model, purpose: purpose || 'workspace_ai', tenantId: currentTenant()?.id || null, tokens }); });
 
 // ---- platform Gemini connection and budget
 const num = (k) => { const v = getSetting(k); return v == null || v === '' ? null : Number(v); };
@@ -122,14 +122,16 @@ export async function draftPost({ channel, topic, tone, language }, admin) {
 // ---- controls for AI used inside workspaces (their own keys): kill switch, monthly cap, per-feature switches, per-workspace limits
 // "A call" is one model request recorded in the ledger above. Limits are checked before a feature starts, so a request that has begun is never cut off half way.
 export const AI_FEATURES = {
-  workspace_assistant: 'Workspace data assistant', property_writer: 'Property writer', website_builder: 'Website builder AI', promo_video: 'Promo video scripts', workspace_ai: 'Other workspace AI',
+  workspace_assistant: 'Workspace data assistant', property_writer: 'Property writer', website_builder: 'Website builder AI', promo_video: 'Promo video scripts', speech_to_text: 'Call and meeting transcripts (speech to text)', workspace_ai: 'Other workspace AI',
 };
 const flag = (k) => getSetting(k) === '1';
 const featuresOff = () => { try { const a = JSON.parse(getSetting('ai_features_off') || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
 const dayStart = (now) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
 const callsToday = (tenantId, now = new Date()) => db().prepare("SELECT COUNT(*) n FROM ai_usage WHERE key_owner='tenant' AND tenant_id=? AND at>=?").get(tenantId, dayStart(now)).n;
-const wsRow = (tenantId) => db().prepare('SELECT ai_enabled, daily_call_limit FROM workspace_ai_settings WHERE tenant_id=?').get(tenantId);
+const wsRow = (tenantId) => db().prepare('SELECT ai_enabled, daily_call_limit, stt_daily_limit FROM workspace_ai_settings WHERE tenant_id=?').get(tenantId);
 const defaultDailyLimit = () => num('ai_ws_default_daily_limit');
+const defaultSttLimit = () => num('ai_ws_stt_daily_limit');
+const sttToday = (tenantId, now = new Date()) => db().prepare("SELECT COUNT(*) n FROM ai_usage WHERE key_owner='tenant' AND tenant_id=? AND purpose='speech_to_text' AND at>=?").get(tenantId, dayStart(now)).n;
 export function workspaceMonth(now = new Date()) {
   const c = config();
   const r = db().prepare("SELECT COUNT(*) calls, COALESCE(SUM(input_tokens),0) i, COALESCE(SUM(output_tokens),0) o FROM ai_usage WHERE key_owner='tenant' AND at>=?").get(monthStart(now));
@@ -148,6 +150,10 @@ export function assertAiAllowed(tenantId, purpose = 'workspace_ai', now = new Da
   if (ws && !ws.ai_enabled) throw bad('AI is switched off for this workspace. Contact Agentify support to switch it back on.');
   const limit = ws?.daily_call_limit ?? defaultDailyLimit();
   if (limit != null && callsToday(tenantId, now) >= limit) throw bad(`This workspace has used its ${limit} AI calls for today. The count starts again at midnight UTC.`);
+  if (purpose === 'speech_to_text') {
+    const stt = ws?.stt_daily_limit ?? defaultSttLimit();
+    if (stt != null && sttToday(tenantId, now) >= stt) throw bad(`This workspace has used its ${stt} transcripts for today. The count starts again at midnight UTC.`);
+  }
 }
 setUsageGate((purpose) => assertAiAllowed(currentTenant()?.id || null, purpose));
 
@@ -162,12 +168,12 @@ export function controls(now = new Date()) {
   const def = defaultDailyLimit();
   const workspaces = db().prepare("SELECT id, name, slug, plan, status FROM tenants ORDER BY name").all().map((t) => {
     const s = wsRow(t.id); const u = usage.get(t.id);
-    return { ...t, ai_enabled: s ? !!s.ai_enabled : true, daily_call_limit: s?.daily_call_limit ?? null, effective_limit: s?.daily_call_limit ?? def,
+    return { ...t, ai_enabled: s ? !!s.ai_enabled : true, daily_call_limit: s?.daily_call_limit ?? null, stt_daily_limit: s?.stt_daily_limit ?? null, effective_limit: s?.daily_call_limit ?? def,
       calls_today: u?.today || 0, calls_month: u?.calls || 0, tokens_month: u ? u.i + u.o : 0, est_cost_month: u ? cost(u.i, u.o, c) : (c.price_in == null || c.price_out == null ? null : 0) };
   });
   return {
     month: workspaceMonth(now), currency: c.currency, prices_set: c.price_in != null && c.price_out != null,
-    kill_switch: flag('ai_kill_switch'), default_daily_limit: def,
+    kill_switch: flag('ai_kill_switch'), default_daily_limit: def, default_stt_daily_limit: defaultSttLimit(),
     features: Object.entries(AI_FEATURES).map(([key, label]) => ({ key, label, enabled: !off.has(key), ...(byFeature.find((f) => f.purpose === key) || { calls: 0, input_tokens: 0, output_tokens: 0, est_cost: c.price_in == null || c.price_out == null ? null : 0 }) })),
     workspaces,
   };
@@ -178,6 +184,7 @@ export function saveControls(b, by) {
   const set = (k, v) => setSetting(k, v == null ? null : String(v), { by });
   if ('kill_switch' in b) set('ai_kill_switch', b.kill_switch ? '1' : null);
   if ('default_daily_limit' in b) set('ai_ws_default_daily_limit', limitNum(b.default_daily_limit, 'The default daily limit', 100000));
+  if ('default_stt_daily_limit' in b) set('ai_ws_stt_daily_limit', limitNum(b.default_stt_daily_limit, 'The default daily transcript limit', 100000));
   if ('monthly_cap' in b) {
     const cap = money(b.monthly_cap, 'The monthly cap');
     if (cap != null && (config().price_in == null || config().price_out == null)) throw bad('Enter the provider prices in AI settings first; the cap is worked out from them.');
@@ -196,7 +203,8 @@ export function saveWorkspaceAi(tenantId, b, by) {
   const prev = wsRow(t.id);
   const enabled = b.ai_enabled === undefined ? (prev ? prev.ai_enabled : 1) : (b.ai_enabled ? 1 : 0);
   const limit = 'daily_call_limit' in b ? limitNum(b.daily_call_limit, 'The daily limit', 100000) : (prev?.daily_call_limit ?? null);
-  db().prepare(`INSERT INTO workspace_ai_settings(tenant_id, ai_enabled, daily_call_limit, updated_by, updated_at) VALUES(?,?,?,?,datetime('now'))
-    ON CONFLICT(tenant_id) DO UPDATE SET ai_enabled=excluded.ai_enabled, daily_call_limit=excluded.daily_call_limit, updated_by=excluded.updated_by, updated_at=datetime('now')`).run(t.id, enabled, limit, by || null);
+  const stt = 'stt_daily_limit' in b ? limitNum(b.stt_daily_limit, 'The daily transcript limit', 100000) : (prev?.stt_daily_limit ?? null);
+  db().prepare(`INSERT INTO workspace_ai_settings(tenant_id, ai_enabled, daily_call_limit, stt_daily_limit, updated_by, updated_at) VALUES(?,?,?,?,?,datetime('now'))
+    ON CONFLICT(tenant_id) DO UPDATE SET ai_enabled=excluded.ai_enabled, daily_call_limit=excluded.daily_call_limit, stt_daily_limit=excluded.stt_daily_limit, updated_by=excluded.updated_by, updated_at=datetime('now')`).run(t.id, enabled, limit, stt, by || null);
   return controls().workspaces.find((w) => w.id === t.id);
 }

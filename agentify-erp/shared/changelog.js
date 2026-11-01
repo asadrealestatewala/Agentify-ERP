@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.62', date: '2026-11-01', title: 'Limits for call and meeting transcripts',
+    items: [
+      { text: 'Turning a call or meeting recording into a transcript now counts toward your workspace\'s AI allowance and can be paused when your plan\'s AI allowance is used up.', where: 'Calls > Recordings; Meetings' },
+      { text: 'Speech-to-text is now metered in the AI ledger, can be switched off on its own, and has a separate daily transcript limit (default and per workspace).', audience: 'platform', where: 'Console > AI usage & credits' },
+    ],
+  },
+  {
     version: 'v1.61', date: '2026-11-01', title: 'Payment dates now show the right day',
     items: [
       { text: 'A payment made late in the evening could be dated the day before on statements, invoices and receipts. Dates now follow your local calendar day.', where: 'Settings > Plan & Billing > Statement and invoices' },
