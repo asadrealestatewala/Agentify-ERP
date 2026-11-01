@@ -102,6 +102,42 @@ function WsRow({ w, canEdit, est, save, def, defStt }) {
   );
 }
 
+/** AI answers that people in workspaces reported (wrong facts, unsafe, misleading). Review, then mark reviewed or dismissed. */
+function FlagsQueue({ canEdit }) {
+  const toast = useToast();
+  const [d, setD] = useState(null); const [err, setErr] = useState(''); const [all, setAll] = useState(false);
+  const load = useCallback(() => api.get(`${A}/ai/flags${all ? '' : '?status=open'}`).then((x) => { setD(x); setErr(''); }).catch((e) => setErr(e.message)), [all]);
+  useEffect(() => { load(); }, [load]);
+  const act = async (id, status) => {
+    const resolution = status === 'open' ? '' : window.prompt(status === 'reviewed' ? 'What was done? (optional)' : 'Why is this dismissed? (optional)', '');
+    if (resolution === null) return;
+    try { await api.put(`${A}/ai/flags/${id}`, { status, resolution }); toast('Saved'); load(); } catch (e) { toast(e.message, 'err'); }
+  };
+  if (err) return <ErrorBox error={err} />;
+  if (!d) return null;
+  return (
+    <Card title="Flagged AI answers" actions={<span className={`pill ${d.open ? 'amber' : 'green'}`}>{d.open} open</span>}>
+      <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>Answers that people in workspaces pressed Report on. Only the text they reported, their reason and their workspace are kept.</p>
+      <label className="row" style={{ gap: 6, marginBottom: 8 }}><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />Show reviewed and dismissed too</label>
+      {!d.rows.length ? <p className="muted">{all ? 'Nothing has been reported yet.' : 'No open reports.'}</p> : (
+        <div className="table-wrap"><table className="table"><thead><tr><th>When</th><th>Workspace</th><th>Feature</th><th>Reason</th><th>Reported text</th><th>Status</th><th /></tr></thead><tbody>
+          {d.rows.map((r) => (
+            <tr key={r.id}>
+              <td className="nowrap">{String(r.created_at).slice(0, 16)}</td>
+              <td>{r.workspace || '—'} <span className="muted">{r.slug}</span></td>
+              <td>{r.feature_label}</td>
+              <td>{r.reason_label}{r.note && <div className="cell-sub">{r.note}</div>}</td>
+              <td style={{ maxWidth: 360, whiteSpace: 'pre-wrap' }}>{r.output.length > 400 ? `${r.output.slice(0, 400)}…` : r.output}</td>
+              <td><span className={`pill ${r.status === 'open' ? 'amber' : r.status === 'reviewed' ? 'green' : 'grey'}`}>{r.status}</span>{r.resolution && <div className="cell-sub">{r.resolution}</div>}</td>
+              <td className="right nowrap">{canEdit && (r.status === 'open'
+                ? <><button className="btn sm" onClick={() => act(r.id, 'reviewed')}>Reviewed</button> <button className="btn sm" onClick={() => act(r.id, 'dismissed')}>Dismiss</button></>
+                : <button className="btn sm" onClick={() => act(r.id, 'open')}>Reopen</button>)}</td>
+            </tr>))}
+        </tbody></table></div>)}
+    </Card>
+  );
+}
+
 export default function AiUsagePage() {
   const can = useCan();
   const [d, setD] = useState(null); const [err, setErr] = useState('');
@@ -134,6 +170,7 @@ export default function AiUsagePage() {
       <Table title="By use (last 30 days)" rows={d.by_purpose} empty="No AI calls recorded yet."
         cols={[['Use', (r) => PURPOSES[r.purpose] || r.purpose], ['Key', (r) => OWNER[r.key_owner]], ['Calls', (r) => n0(r.calls), 1], ['Tokens', tok, 1], ['Est. cost', (r) => est(r.est_cost), 1]]} />
       <WorkspaceControls canEdit={can('integrations.manage')} />
+      <FlagsQueue canEdit={can('integrations.manage')} />
       {can('integrations.manage') ? <Settings s={s} reload={load} /> : <Card title="AI settings"><p className="muted" style={{ margin: 0 }}>Your role cannot change the AI connection or budget.</p></Card>}
     </>
   );

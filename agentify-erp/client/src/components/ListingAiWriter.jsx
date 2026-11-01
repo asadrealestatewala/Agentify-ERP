@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import Icon from './Icon.jsx';
 import { Drawer, Field, Select, Spinner } from './ui.jsx';
+import ReportAi from './ReportAi.jsx';
 import { api } from '../api.js';
 import { getLanguage, t } from '../i18n.js';
 import { useToast } from '../context.jsx';
@@ -101,6 +102,7 @@ export default function ListingAiWriter({ mode: initialMode, form, propertyId, s
             <Preview single value={x.edit} onChange={(v) => edit(['titles', i], v)} lang={result.language} />
             <Warnings items={x.warnings} />
             <div className="row" style={{ marginTop: 8, justifyContent: rtl ? 'flex-start' : 'flex-end' }}><button className="btn sm" onClick={() => apply('title', x.edit)}>{replaceLabel('title')}</button></div>
+            <ReportAi feature="property_writer" output={x.edit} />
           </div>))}
         {result?.short && [['short', 'short_desc', 2, t('ai_writer.short', 'Short description')], ['full', 'description', 9, t('ai_writer.full', 'Full description')]].map(([k, field, rows, label]) => (
           <div key={k} className="card" style={{ padding: 12 }}>
@@ -111,6 +113,7 @@ export default function ListingAiWriter({ mode: initialMode, form, propertyId, s
               {field === 'description' && current?.description && <button className="btn sm" onClick={() => apply(field, result[k].edit, 'append')}>{t('ai_writer.append', 'Add below current text')}</button>}
               <button className="btn sm" onClick={() => apply(field, result[k].edit)}>{replaceLabel(field)}</button>
             </div>
+            <ReportAi feature="property_writer" output={result[k].edit} />
           </div>))}
         {result?.text && (
           <div className="card" style={{ padding: 12 }}>
@@ -118,6 +121,7 @@ export default function ListingAiWriter({ mode: initialMode, form, propertyId, s
             <Preview value={result.text.edit} onChange={(v) => edit(['text'], v)} lang={result.language} rows={result.field === 'description' ? 6 : 2} single={result.field === 'title'} />
             <Warnings items={result.text.warnings} />
             <div className="row" style={{ marginTop: 8, justifyContent: rtl ? 'flex-start' : 'flex-end' }}><button className="btn sm" onClick={() => apply(result.field, result.text.edit, 'selection')}>{t('ai_writer.replace_sel', 'Replace selected text')}</button></div>
+            <ReportAi feature="property_writer" output={result.text.edit} />
           </div>)}
       </div>
     </Drawer>
