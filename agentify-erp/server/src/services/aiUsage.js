@@ -15,11 +15,13 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS ai_usage(
   tenant_id INTEGER, plan TEXT, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, ok INTEGER NOT NULL DEFAULT 1, admin TEXT);
 CREATE INDEX IF NOT EXISTS idx_ai_usage_at ON ai_usage(at);
 CREATE INDEX IF NOT EXISTS idx_ai_usage_tenant ON ai_usage(tenant_id, at);
+-- Creative Studio credits per workspace per month (used credits are summed from ai_usage.credits); null allowance = platform default
+CREATE TABLE IF NOT EXISTS ai_tenant_credits(tenant_id INTEGER PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE, monthly_credits INTEGER, topup_credits INTEGER NOT NULL DEFAULT 0, topup_month TEXT, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')));
 -- manual price pins for the AI price list (services/aiPricing.js); no row means "use the 3-month average or the default"
 CREATE TABLE IF NOT EXISTS ai_prices(feature TEXT PRIMARY KEY, override_usd REAL, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')));`;
 // v1.65 metering columns: every platform-key call records what was used and what it cost in US dollars and rupees.
 // Older rows keep NULL here and stay valid (they only have tokens).
-const USAGE_COLUMNS = [['feature', 'TEXT'], ['user_id', 'INTEGER'], ['unit', 'TEXT'], ['units', 'REAL'], ['usd', 'REAL'], ['usd_pkr', 'REAL'], ['pkr', 'REAL']];
+const USAGE_COLUMNS = [['credits', 'REAL'], ['feature', 'TEXT'], ['user_id', 'INTEGER'], ['unit', 'TEXT'], ['units', 'REAL'], ['usd', 'REAL'], ['usd_pkr', 'REAL'], ['pkr', 'REAL']];
 let ready = false;
 const db = () => {
   const d = platformDb();
@@ -27,6 +29,9 @@ const db = () => {
     d.exec(SCHEMA);
     const have = new Set(d.prepare('PRAGMA table_info(ai_usage)').all().map((c) => c.name));
     for (const [c, def] of USAGE_COLUMNS) if (!have.has(c)) d.exec(`ALTER TABLE ai_usage ADD COLUMN ${c} ${def}`);
+    // per-workspace limit for calls made with Agentify's own key (separate from daily_call_limit, which covers the workspace's own key)
+    const ws = new Set(d.prepare('PRAGMA table_info(workspace_ai_settings)').all().map((c) => c.name));
+    if (!ws.has('platform_daily_limit')) d.exec('ALTER TABLE workspace_ai_settings ADD COLUMN platform_daily_limit INTEGER');
     d.exec('CREATE INDEX IF NOT EXISTS idx_ai_usage_feature ON ai_usage(feature, at)');
     ready = true;
   }
@@ -43,11 +48,11 @@ export function tokensOf(provider, d) {
   return null;
 }
 /** One ledger row. Platform-key calls also pass feature, unit/units, usd (and the rupee rate in force) so cost can be shown per feature and tenant. */
-export function record({ keyOwner, provider, model, purpose, tenantId = null, tokens, ok = true, admin = null, feature = null, userId = null, unit = null, units = null, usd = null, usdPkr = null }) {
+export function record({ keyOwner, provider, model, purpose, tenantId = null, tokens, ok = true, admin = null, credits = null, feature = null, userId = null, unit = null, units = null, usd = null, usdPkr = null }) {
   try {
     const t = tenantId ? db().prepare('SELECT plan FROM tenants WHERE id=?').get(tenantId) : null;
-    db().prepare('INSERT INTO ai_usage(at, key_owner, provider, model, purpose, tenant_id, plan, input_tokens, output_tokens, ok, admin, feature, user_id, unit, units, usd, usd_pkr, pkr) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-      .run(new Date().toISOString(), keyOwner, provider, model || null, purpose, tenantId, t?.plan || null, tokens?.input || 0, tokens?.output || 0, ok ? 1 : 0, admin, feature, userId, unit, units, usd, usdPkr, usd != null && usdPkr != null ? usd * usdPkr : null);
+    db().prepare('INSERT INTO ai_usage(at, key_owner, provider, model, purpose, tenant_id, plan, input_tokens, output_tokens, ok, admin, credits, feature, user_id, unit, units, usd, usd_pkr, pkr) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(new Date().toISOString(), keyOwner, provider, model || null, purpose, tenantId, t?.plan || null, tokens?.input || 0, tokens?.output || 0, ok ? 1 : 0, admin, credits, feature, userId, unit, units, usd, usdPkr, usd != null && usdPkr != null ? usd * usdPkr : null);
   } catch { /* metering must never break the feature it measures */ }
 }
 // calls made inside a workspace with the workspace's own key
@@ -135,11 +140,15 @@ export async function draftPost({ channel, topic, tone, language }, admin) {
 // ---- controls for AI used inside workspaces (their own keys): kill switch, monthly cap, per-feature switches, per-workspace limits
 // "A call" is one model request recorded in the ledger above. Limits are checked before a feature starts, so a request that has begun is never cut off half way.
 export const AI_FEATURES = {
+  // features that use Agentify's own key (metered in services/aiGateway.js, checked in services/aiGate.js)
+  ask_assistant: 'Ask assistant (Gemini)', creative_post: 'Creative posts', creative_video: 'Creative videos', video_voice: 'Video voices', brand_story: 'Brand stories', translation: 'Translation', content_draft: 'Agentify post drafts',
   workspace_assistant: 'Workspace data assistant', property_writer: 'Property writer', website_builder: 'Website builder AI', promo_video: 'Promo video scripts', workspace_ai: 'Other workspace AI',
 };
-const flag = (k) => getSetting(k) === '1';
-const featuresOff = () => { try { const a = JSON.parse(getSetting('ai_features_off') || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
-const dayStart = (now) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+export const num2 = num;
+export const monthStartOf = (now) => monthStart(now);
+export const flag = (k) => getSetting(k) === '1';
+export const featuresOff = () => { try { const a = JSON.parse(getSetting('ai_features_off') || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
+export const dayStart = (now) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
 const callsToday = (tenantId, now = new Date()) => db().prepare("SELECT COUNT(*) n FROM ai_usage WHERE key_owner='tenant' AND tenant_id=? AND at>=?").get(tenantId, dayStart(now)).n;
 const wsRow = (tenantId) => db().prepare('SELECT ai_enabled, daily_call_limit FROM workspace_ai_settings WHERE tenant_id=?').get(tenantId);
 const defaultDailyLimit = () => num('ai_ws_default_daily_limit');
@@ -196,6 +205,12 @@ export function saveControls(b, by) {
     if (cap != null && (config().price_in == null || config().price_out == null)) throw bad('Enter the provider prices in AI settings first; the cap is worked out from them.');
     set('ai_ws_monthly_cap', cap);
   }
+  // limits for Agentify's own key (checked by aiGate.js): USD amounts, whole-number uses/credits
+  const usd = (v, label) => { if (v === '' || v == null) return null; const n = Number(v); if (!Number.isFinite(n) || n < 0 || n > 1e6) throw bad(`${label} must be an amount in US dollars from 0 to 1,000,000`); return n; };
+  if ('budget_usd_month' in b) set('ai_budget_usd_month', usd(b.budget_usd_month, 'The monthly AI budget'));
+  if ('video_budget_usd_month' in b) set('ai_video_budget_usd_month', usd(b.video_budget_usd_month, 'The video budget'));
+  if ('platform_daily_limit' in b) set('ai_platform_daily_limit', limitNum(b.platform_daily_limit, 'The daily limit', 100000));
+  if ('default_monthly_credits' in b) set('ai_default_monthly_credits', limitNum(b.default_monthly_credits, 'The default monthly credits', 10_000_000));
   if (b.features && typeof b.features === 'object') {
     const off = new Set(featuresOff());
     for (const [k, on] of Object.entries(b.features)) { if (!AI_FEATURES[k]) throw bad('Unknown AI feature'); if (on) off.delete(k); else off.add(k); }
@@ -209,7 +224,8 @@ export function saveWorkspaceAi(tenantId, b, by) {
   const prev = wsRow(t.id);
   const enabled = b.ai_enabled === undefined ? (prev ? prev.ai_enabled : 1) : (b.ai_enabled ? 1 : 0);
   const limit = 'daily_call_limit' in b ? limitNum(b.daily_call_limit, 'The daily limit', 100000) : (prev?.daily_call_limit ?? null);
-  db().prepare(`INSERT INTO workspace_ai_settings(tenant_id, ai_enabled, daily_call_limit, updated_by, updated_at) VALUES(?,?,?,?,datetime('now'))
-    ON CONFLICT(tenant_id) DO UPDATE SET ai_enabled=excluded.ai_enabled, daily_call_limit=excluded.daily_call_limit, updated_by=excluded.updated_by, updated_at=datetime('now')`).run(t.id, enabled, limit, by || null);
+  const pLimit = 'platform_daily_limit' in b ? limitNum(b.platform_daily_limit, 'The daily limit', 100000) : (prev?.platform_daily_limit ?? null);
+  db().prepare(`INSERT INTO workspace_ai_settings(tenant_id, ai_enabled, daily_call_limit, platform_daily_limit, updated_by, updated_at) VALUES(?,?,?,?,?,datetime('now'))
+    ON CONFLICT(tenant_id) DO UPDATE SET ai_enabled=excluded.ai_enabled, daily_call_limit=excluded.daily_call_limit, platform_daily_limit=excluded.platform_daily_limit, updated_by=excluded.updated_by, updated_at=datetime('now')`).run(t.id, enabled, limit, pLimit, by || null);
   return controls().workspaces.find((w) => w.id === t.id);
 }
