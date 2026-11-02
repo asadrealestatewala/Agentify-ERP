@@ -37,6 +37,14 @@ export default function Assistant() {
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState(() => { try { return JSON.parse(sessionStorage.getItem('assistant-log')) || []; } catch { return []; } });
   const end = useRef(null);
+  // the floating button shrinks to an icon bubble while the page scrolls (so it never hides buttons or text) and re-expands when idle, hovered or focused
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    let t;
+    const onScroll = () => { setCompact(true); clearTimeout(t); t = setTimeout(() => setCompact(false), 1800); };
+    document.addEventListener('scroll', onScroll, { capture: true, passive: true });
+    return () => { document.removeEventListener('scroll', onScroll, { capture: true }); clearTimeout(t); };
+  }, []);
   useEffect(() => { const h = () => setOpen(true); window.addEventListener('erp:assistant', h); return () => window.removeEventListener('erp:assistant', h); }, []);
   useEffect(() => { try { sessionStorage.setItem('assistant-log', JSON.stringify(log.slice(-12))); } catch { /* ignore */ } end.current?.scrollIntoView({ block: 'end' }); }, [log, open]);
 
@@ -55,7 +63,7 @@ export default function Assistant() {
 
   return (
     <>
-      {!open && <button className="assistant-fab no-print" onClick={() => setOpen(true)} aria-label="Open data assistant" title="Ask the data assistant"><Icon name="bolt" size={20} /><span>Ask</span></button>}
+      {!open && <button className={`assistant-fab no-print${compact ? ' compact' : ''}`} onClick={() => setOpen(true)} aria-label="Open data assistant" title="Ask the data assistant"><Icon name="bolt" size={20} /><span>Ask</span></button>}
       {open && <BackLayer onClose={() => setOpen(false)} />}
       {open && (
         <div className="assistant-panel no-print" role="dialog" aria-label="Data assistant">
