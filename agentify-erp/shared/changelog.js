@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.66', date: '2026-11-02', title: 'Creative Studio: video reels with voice-over',
+    items: [
+      { text: 'Make a short vertical video reel (8 seconds) from a description, with an optional English or Urdu voice-over. You see the credit cost first and confirm it. The reel is made in the background, you can leave the page, and you get a notification when it is ready. If it fails, your credits are returned.', where: 'Menu > Creative Studio > Video reels', guide: 'creative-studio' },
+    ],
+  },
+  {
     version: 'v1.65', date: '2026-11-02', title: 'Creative Studio: brand stories and post images',
     items: [
       { text: 'New Creative Studio: save your brand once, then have AI write a brand story with captions in English or Urdu and create post images in square, portrait or story size. Save or download what you like.', where: 'Menu > Creative Studio', guide: 'creative-studio' },

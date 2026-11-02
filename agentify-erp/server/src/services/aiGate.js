@@ -29,7 +29,7 @@ export function spentUsd({ feature = null, now = new Date() } = {}) {
     ? db().prepare("SELECT COALESCE(SUM(usd),0) s FROM ai_usage WHERE key_owner='platform' AND feature=? AND at>=?").get(feature, since).s
     : db().prepare("SELECT COALESCE(SUM(usd),0) s FROM ai_usage WHERE key_owner='platform' AND at>=?").get(since).s;
 }
-export const usesToday = (tenantId, now = new Date()) => db().prepare("SELECT COUNT(*) n FROM ai_usage WHERE key_owner='platform' AND tenant_id=? AND at>=?").get(tenantId, dayStart(now)).n;
+export const usesToday = (tenantId, now = new Date()) => db().prepare("SELECT COUNT(*) n FROM ai_usage WHERE key_owner='platform' AND tenant_id=? AND purpose<>'refund' AND at>=?").get(tenantId, dayStart(now)).n;
 
 /** Credits a workspace may spend this month (allowance + any top-up made this month), or null for no limit. */
 export function creditsAllowance(tenantId, now = new Date()) {

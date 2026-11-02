@@ -9,7 +9,7 @@ import { bad } from '../util.js';
 export const FEATURES = {
   ask_assistant: { label: 'Ask assistant', unit: 'call', per: 'one question', usd: 0.002 },
   creative_post: { label: 'Creative posts', unit: 'image', per: 'one post image', usd: 0.04 },
-  creative_video: { label: 'Creative videos', unit: 'video_second', per: 'one second of video', usd: 0.4 },
+  creative_video: { label: 'Creative videos', unit: 'video_second', per: 'one second of video', usd: 0.15 },
   video_voice_en: { label: 'Video voice (English)', unit: 'character', per: '1,000 characters', usd: 0.016, scale: 1000 },
   video_voice_ur: { label: 'Video voice (Urdu)', unit: 'character', per: '1,000 characters', usd: 0.016, scale: 1000 },
   brand_story: { label: 'Brand stories', unit: 'call', per: 'one brand story', usd: 0.01 },

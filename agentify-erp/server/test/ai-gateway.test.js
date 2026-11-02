@@ -58,7 +58,7 @@ test('price list: defaults, then the 3-month average, then a manual pin', () => 
   pricing.setOverride('creative_post', '', 'test');
   assert.equal(pricing.unitPrice('creative_post').source, 'average');
   assert.throws(() => pricing.setOverride('creative_post', -1), /number of US dollars/);
-  assert.ok(Math.abs(pricing.costUsd({ feature: 'creative_video', unit: 'video_second', units: 8 }) - 3.2) < 1e-9);
+  assert.ok(Math.abs(pricing.costUsd({ feature: 'creative_video', unit: 'video_second', units: 8 }) - 1.2) < 1e-9);
 });
 
 test('USD to PKR rate: live, manual override, fallback, and bad input', async () => {

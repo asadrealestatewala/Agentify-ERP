@@ -1,9 +1,9 @@
 // Figures and settings for the console's AI page that concern Agentify's OWN key: cost per feature and workspace in USD and rupees,
 // the price list, limits, credits, the dollar rate and the provider connections. Reads the ledger written by aiGateway.js.
-import { getSetting, setSetting } from './platformConfig.js';
+import { getSetting, setSetting, audit } from './platformConfig.js';
 import { bad } from '../util.js';
 import { listReports, openReportCount } from './aiReports.js';
-import { imageModel } from './aiGateway.js';
+import { imageModel, videoModel, voiceFor, azureTest, azureSpeak, DEFAULT_VOICES, SAMPLE_TEXT } from './aiGateway.js';
 import { config, monthStartOf, ensureTable, featuresOff } from './aiUsage.js';
 import { FEATURES, priceList, textPrices } from './aiPricing.js';
 import { getRate, displayCurrency } from './fxRate.js';
@@ -53,8 +53,32 @@ export function overview(now = new Date()) {
     technical: {
       gemini: { added: !!c.key, key_hint: c.key ? `…${c.key.slice(-4)}` : null, text_model: c.model },
       azure: azureStatus(),
-      models: Object.entries(FEATURES).map(([key, f]) => ({ key, label: f.label, model: key.startsWith('video_voice') ? 'Azure Speech (neural voice)' : key === 'creative_post' ? `Gemini image model (${imageModel()})` : key === 'creative_video' ? 'Gemini Veo (set when Creative Studio is built)' : c.model })),
+      models: Object.entries(FEATURES).map(([key, f]) => ({ key, label: f.label, model: key.startsWith('video_voice') ? `Azure Speech (${voiceFor(key.endsWith('_ur') ? 'Urdu' : 'English')})` : key === 'creative_post' ? `Gemini image model (${imageModel()})` : key === 'creative_video' ? `Gemini Veo (${videoModel()})` : c.model })),
     },
     reported: listReports({ handled: false, limit: 50 }), reported_open: openReportCount(),
   };
+}
+
+// ---- video voices (console): the English and Urdu voice, a connection test and a Hear it preview
+export const voicesView = () => ({ selected: { English: voiceFor('English'), Urdu: voiceFor('Urdu') }, defaults: DEFAULT_VOICES, azure: azureStatus() });
+export async function testAzure(by) {
+  const voices = await azureTest();
+  audit(by, 'ai-azure-tested', {});
+  return { ok: true, voices, ...voicesView() };
+}
+const VOICE = /^[a-z]{2,3}-[A-Z]{2}-[A-Za-z0-9]+Neural$/;
+export function saveVoices(b, by) {
+  for (const [k, slot, loc] of [['English', 'azure_voice_en', 'en-'], ['Urdu', 'azure_voice_ur', 'ur-']]) {
+    if (!(k in b)) continue;
+    const v = String(b[k] || '').trim();
+    if (v && (!VOICE.test(v) || !v.startsWith(loc))) throw bad(`Choose a ${k} voice from the list.`);
+    setSetting(slot, v || null, { by });
+  }
+  return voicesView();
+}
+/** A short sample of a voice, as base64 mp3. Counts as a platform use (voice characters) with no workspace. */
+export async function previewVoice(lang, voice) {
+  const l = lang === 'Urdu' ? 'Urdu' : 'English';
+  const mp3 = await azureSpeak({ lang: l, text: SAMPLE_TEXT[l], voice: voice || undefined });
+  return { audio: mp3.toString('base64'), mime: 'audio/mpeg' };
 }

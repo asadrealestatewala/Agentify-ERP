@@ -9,7 +9,7 @@ import { SCREEN_NOTES } from './screenNotes.js';
 
 export const GUIDES = {
   'creative-studio': {
-    title: 'Creative Studio: brand story and post images', since: 'v1.65', module: 'Creative Studio',
+    title: 'Creative Studio: brand story, post images and video reels', since: 'v1.66', module: 'Creative Studio',
     who: 'Roles with the Content permission, in workspaces where AI is switched on and credits are left',
     keywords: ['creative', 'studio', 'brand story', 'caption', 'captions', 'post', 'image', 'images', 'social media', 'instagram', 'facebook', 'credits', 'ai', 'urdu', 'report'],
     steps: [
@@ -17,12 +17,14 @@ export const GUIDES = {
       'On Brand profile, check your brand name, business type, tone and colors, add a short true description of your business, then Save. It starts from your Branding settings.',
       'On Brand story, choose English or Urdu, optionally say what the story should focus on, and write it. You get a story and three captions to copy.',
       'On Post images, describe the post, choose Square, Portrait or Story size and how many options, then create. Save the ones you like or Download them.',
+      'On Video reels, describe the reel and, if you like, type a voice-over (English or Urdu). Read the cost warning, confirm it, and leave the page. You are notified when the reel is ready and can play, download or delete it there.',
       'Saved images and every brand story are kept under My creations. If a result is wrong or unsuitable, press Report.',
     ],
-    limits: ['A story costs 1 credit and each image 3 credits; credits reset every month and the page shows what is left.', 'Requests for harmful, illegal or deceptive content are refused and cost nothing.', 'Video reels and voice-overs are not part of this release.'],
+    limits: ['A story costs 1 credit and each image 3 credits; credits reset every month and the page shows what is left.', 'Requests for harmful, illegal or deceptive content are refused and cost nothing.', 'A reel is 8 seconds and costs 8 credits per second plus 1 credit per 100 voice-over characters. Longer reels are not available yet. The voice-over plays as a separate audio file next to the video.', 'You can have 2 reels being made at once.'],
     faq: [
       { q: 'Why is Creative Studio missing from my menu?', a: 'It only shows when AI is switched on for your workspace and you still have credits this month. Contact support to top up or switch AI on.' },
       { q: 'Does the AI invent facts about my business?', a: 'It is told to use only what you saved in the brand profile and your description. Check every result before posting and use Report if something is wrong.' },
+      { q: 'My reel failed. Did I lose credits?', a: 'No. A reel that fails or is refused is refunded in full, and you are notified.' },
       { q: 'Where are my images kept?', a: 'Saved images go to your workspace\'s own file storage and count toward your storage limit. Unsaved options disappear when you leave the page.' },
     ],
     internal: ['Credits are set per workspace (or by default) in the console AI page; a refused or blocked request is not charged.', 'Reports appear in the console AI page under Reported AI answers.'],

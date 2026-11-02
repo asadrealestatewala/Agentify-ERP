@@ -8,6 +8,7 @@ import { uploadDir } from '../db.js';
 import { currentTenant } from '../context.js';
 import { sendStored, isStoredRef, removeRef } from '../services/storage.js';
 import * as cs from '../services/creativeStudio.js';
+import * as jobs from '../services/creativeJobs.js';
 import { createReport } from '../services/aiReports.js';
 
 /** Creative Studio: brand profile, brand stories and post images. Uses the Content permission. */
@@ -36,6 +37,26 @@ r.delete('/items/:id(\\d+)', can('content', 'delete'), asyncH(async (req, res) =
   const it = cs.removeItem(req.params.id);
   if (it.file_ref) { if (isStoredRef(it.file_ref)) await removeRef(it.file_ref).catch(() => {}); else fs.rm(path.resolve(uploadDir(), it.file_ref), { force: true }, () => {}); }
   audit(req, 'Creative item deleted', 'creative', it.id, it.title); res.json({ ok: true });
+}));
+// ---- video reels (8 seconds, vertical) with an optional voice-over; made in the background
+r.post('/reels/quote', can('content', 'view'), (req, res) => res.json(jobs.quote(req.body || {})));
+r.post('/reels', can('content', 'create'), asyncH(async (req, res) => { const out = await jobs.startReel(req.body || {}, req.user); audit(req, 'Reel started', 'creative', out.id, `${out.credits_used} credits`); res.status(201).json(out); }));
+r.get('/reels', can('content', 'view'), (_req, res) => res.json(jobs.listJobs()));
+const sendFileRef = async (req, res, ref, mime, name) => {
+  if (!ref) return res.status(404).json({ error: 'No file' });
+  if (isStoredRef(ref)) return sendStored(req, res, ref, { mime, name, download: !!req.query.download });
+  const f = path.resolve(uploadDir(), ref);
+  if (!f.startsWith(path.resolve(uploadDir()) + path.sep) || !fs.existsSync(f)) return res.status(404).json({ error: 'File missing' });
+  res.setHeader('X-Content-Type-Options', 'nosniff'); res.setHeader('Content-Type', mime);
+  if (req.query.download) res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+  return res.sendFile(f);
+};
+r.get('/reels/:id(\\d+)/video', can('content', 'view'), asyncH((req, res) => { const j = jobs.getJob(req.params.id); return sendFileRef(req, res, j.video_ref, 'video/mp4', `reel-${j.id}.mp4`); }));
+r.get('/reels/:id(\\d+)/voice', can('content', 'view'), asyncH((req, res) => { const j = jobs.getJob(req.params.id); return sendFileRef(req, res, j.audio_ref, 'audio/mpeg', `reel-${j.id}-voice.mp3`); }));
+r.delete('/reels/:id(\\d+)', can('content', 'delete'), asyncH((req, res) => {
+  const out = jobs.removeJob(req.params.id);
+  for (const ref of out.local) fs.rm(path.resolve(uploadDir(), ref), { force: true }, () => {});
+  audit(req, 'Reel deleted', 'creative', Number(req.params.id), null); res.json({ ok: true });
 }));
 /** Flag a result as wrong, unsafe or poor; Agentify reviews these. */
 r.post('/report', can('content', 'view'), asyncH((req, res) => {

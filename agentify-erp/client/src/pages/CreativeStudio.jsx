@@ -1,6 +1,7 @@
 // Creative Studio: save your brand, then have AI write a brand story with captions and create post images in your brand's look.
 // Everything goes through Agentify's AI service; each use spends workspace credits and the page shows what is left.
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, Empty, ErrorBox, Field, Loading, PageHead, Tabs } from '../components/ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useToast } from '../context.jsx';
@@ -111,6 +112,57 @@ function Posts({ st, refresh, brandSaved, onSaved }) {
   );
 }
 
+
+function Reels({ st, refresh, brandSaved }) {
+  const toast = useToast(); const { can } = useAuth();
+  const [f, setF] = useState({ description: '', script: '', language: st.languages[0] }); const [q, setQ] = useState(null); const [rows, setRows] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [confirm, setConfirm] = useState(false);
+  const load = useCallback(() => api.get('/api/creative/reels').then(setRows).catch(() => setRows([])), []);
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { const t = setTimeout(() => api.post('/api/creative/reels/quote', { script: f.script }).then(setQ).catch(() => {}), 250); return () => clearTimeout(t); }, [f.script]);
+  // while a reel is being made, look again every 15 seconds
+  const making = (rows || []).some((r) => r.status === 'video');
+  useEffect(() => { if (!making) return undefined; const t = setInterval(() => { load(); refresh(); }, 15000); return () => clearInterval(t); }, [making, load, refresh]);
+  const start = async () => { setBusy(true); setErr(''); try { await api.post('/api/creative/reels', { ...f, accept_cost: q.total }); toast('Your reel is being made. We will tell you when it is ready.'); setConfirm(false); setF({ ...f, description: '', script: '' }); load(); refresh(); } catch (e) { setErr(e.message); setConfirm(false); } finally { setBusy(false); } };
+  const del = async (r) => { if (!window.confirm(`Delete "${r.title}"?`)) return; try { await api.del(`/api/creative/reels/${r.id}`); toast('Deleted'); load(); } catch (e) { toast(e.message, 'err'); } };
+  const canMake = st.available && brandSaved && st.features.creative_video;
+  return (
+    <>
+      <Card title="Make a reel">
+        <ErrorBox error={err} />
+        <p className="muted" style={{ marginTop: 0 }}>A vertical video of {st.reel_seconds} seconds. It takes a few minutes, you can leave this page, and we will notify you when it is ready.</p>
+        <Field label="Describe the reel" required><textarea className="input" rows={3} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} maxLength={600} placeholder="A sunrise over our new apartment tower, slow drone shot" /></Field>
+        <Field label="Voice-over (optional)" hint={st.voice_ready ? 'Leave empty for no voice-over. Up to 600 characters.' : 'Voice-overs are not available yet.'}><textarea className="input" rows={3} value={f.script} onChange={(e) => setF({ ...f, script: e.target.value })} maxLength={600} disabled={!st.voice_ready} dir={f.language === 'Urdu' ? 'rtl' : 'ltr'} /></Field>
+        {f.script.trim() && <Field label="Voice language"><select className="input" style={{ maxWidth: 220 }} value={f.language} onChange={(e) => setF({ ...f, language: e.target.value })}>{st.languages.map((l) => <option key={l}>{l}</option>)}</select></Field>}
+        <div className="callout" role="note" style={{ padding: 12, borderRadius: 8, background: 'var(--surface-2, #f1f5f4)', margin: '8px 0' }}>
+          <b>Cost warning:</b> this reel uses <b>{q ? q.total : '…'} credits</b> ({q?.video} for the video{q?.voice ? `, ${q.voice} for the voice-over` : ''}). Video is the most expensive thing here. {st.credits.left != null ? `You have ${st.credits.left} left this month.` : ''} If the reel fails, the credits are returned.
+        </div>
+        {!confirm ? <button className="btn primary" disabled={busy || !canMake || !q || f.description.trim().length < 10} onClick={() => setConfirm(true)}>Make my reel…</button>
+          : <div className="row" style={{ gap: 8 }}><button className="btn primary" disabled={busy} onClick={start}>{busy ? 'Starting…' : `Yes, use ${q.total} credits`}</button><button className="btn" onClick={() => setConfirm(false)}>Cancel</button></div>}
+        {!brandSaved && <span className="muted" style={{ marginInlineStart: 8 }}>Save your brand profile first.</span>}
+      </Card>
+      <div style={{ ...grid, marginTop: 12 }}>
+        {(rows || []).map((r) => (
+          <Card key={r.id} title={r.title || 'Reel'}>
+            {r.status === 'video' && <p style={{ margin: 0 }}><span className="pill amber">Making your video…</span><span className="muted"> Started {dateTime(r.created_at)}. This usually takes a few minutes.</span></p>}
+            {r.status === 'failed' && <p style={{ margin: 0 }}><span className="pill red">Failed</span> {r.error} Your credits were returned.</p>}
+            {r.status === 'done' && (
+              <>
+                <video src={`/api/creative/reels/${r.id}/video`} controls playsInline preload="metadata" style={{ width: '100%', borderRadius: 6, maxHeight: 420, background: '#000' }} />
+                {r.has_audio ? <div style={{ marginTop: 8 }}><div className="muted" style={{ fontSize: 13 }}>Voice-over ({r.language}), plays on its own:</div><audio src={`/api/creative/reels/${r.id}/voice`} controls style={{ width: '100%' }} /></div> : null}
+                <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+                  <a className="btn sm" href={`/api/creative/reels/${r.id}/video?download=1`}>Download video</a>
+                  {r.has_audio ? <a className="btn sm" href={`/api/creative/reels/${r.id}/voice?download=1`}>Download voice</a> : null}
+                  <ReportButton feature="creative_video" prompt={r.prompt} output={`reel ${r.id}`} />
+                </div>
+              </>)}
+            <div className="row" style={{ gap: 6, marginTop: 8, alignItems: 'center' }}><span className="muted" style={{ fontSize: 12 }}>{dateTime(r.created_at)} · {r.credits} credits</span>{r.status !== 'video' && can('content', 'delete') && <button className="btn sm danger" onClick={() => del(r)}>Delete</button>}</div>
+          </Card>))}
+      </div>
+      {rows && !rows.length && <Empty title="No reels yet" hint="Describe a reel above to make your first one." />}
+    </>
+  );
+}
+
 function Mine({ version }) {
   const toast = useToast(); const { can } = useAuth();
   const [rows, setRows] = useState(null);
@@ -135,7 +187,7 @@ function Mine({ version }) {
 }
 
 export default function CreativeStudio() {
-  const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [tab, setTab] = useState('brand'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false);
+  const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'reels', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'brand'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false);
   const refresh = useCallback(() => api.get('/api/creative/status').then((x) => { setSt(x); setErr(''); }).catch((e) => setErr(e.message)), []);
   const checkBrand = useCallback(() => api.get('/api/creative/brand').then((b) => setBrandSaved(!!b.saved)).catch(() => {}), []);
   useEffect(() => { refresh(); checkBrand(); }, [refresh, checkBrand]);
@@ -144,17 +196,18 @@ export default function CreativeStudio() {
   const left = st.credits.left;
   return (
     <>
-      <PageHead title="Creative Studio" sub="Write your brand story and create post images that match your brand. Each use spends credits." />
+      <PageHead title="Creative Studio" sub="Write your brand story, create post images and short video reels that match your brand. Each use spends credits." />
       <div className="row" style={{ gap: 12, marginBottom: 12, flexWrap: 'wrap' }} data-tour="creative-credits">
         <span className={`pill ${st.available ? 'green' : 'red'}`}>{st.available ? 'Ready' : 'Not available'}</span>
         <span>Credits left this month: <b>{left == null ? 'No limit' : left}</b>{st.credits.allowance != null ? ` of ${st.credits.allowance}` : ''}</span>
-        <span className="muted">Story {st.costs.brand_story} credit · Image {st.costs.creative_post} credits</span>
+        <span className="muted">Story {st.costs.brand_story} credit · Image {st.costs.creative_post} credits · Video {st.costs.video_second} per second</span>
       </div>
       {st.reason && <Card><p style={{ margin: 0 }}>{st.reason}</p></Card>}
-      <Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} />
+      <Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'reels', label: 'Video reels' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} />
       {tab === 'brand' && <Brand st={st} onSaved={() => { checkBrand(); refresh(); }} />}
       {tab === 'story' && <Story st={st} refresh={() => { refresh(); setVersion((v) => v + 1); }} brandSaved={brandSaved} />}
       {tab === 'posts' && <Posts st={st} refresh={refresh} brandSaved={brandSaved} onSaved={() => setVersion((v) => v + 1)} />}
+      {tab === 'reels' && <Reels st={st} refresh={refresh} brandSaved={brandSaved} />}
       {tab === 'mine' && <Mine version={version} />}
     </>
   );

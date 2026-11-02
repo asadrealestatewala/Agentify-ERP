@@ -100,11 +100,46 @@ function Reports({ can }) {
   );
 }
 
-function Technical({ o, can, reload }) {
+/** English and Urdu voice for video voice-overs, with a Hear it preview. The list of voices comes from Azure (Test the connection loads it). */
+function Voices({ o, can, voices, selected, setSelected, reload }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState('');
+  const hear = async (lang) => {
+    setBusy(lang);
+    try {
+      const r = await api.post(`${A}/ai/voices/preview`, { lang, voice: selected[lang] });
+      const audio = new Audio(`data:${r.mime};base64,${r.audio}`); await audio.play();
+    } catch (e) { toast(e.message, 'err'); } finally { setBusy(''); }
+  };
+  const save = async () => { try { await api.put(`${A}/ai/voices`, selected); toast('Voices saved'); reload(); } catch (e) { toast(e.message, 'err'); } };
+  const ready = o.technical.azure.key_added && o.technical.azure.region;
+  return (
+    <Card title="Video voices">
+      <p className="muted" style={{ marginTop: 0 }}>{ready ? 'The voice used for video voice-overs. Press Hear it to listen before saving.' : 'Add the Azure key and region in Technical details below first.'}</p>
+      <div style={grid}>
+        {['English', 'Urdu'].map((lang) => {
+          const list = voices?.[lang]?.length ? voices[lang] : [{ name: selected[lang], label: selected[lang] }];
+          return (
+            <Field key={lang} label={`${lang} voice`}>
+              <span className="row" style={{ gap: 8 }}>
+                <select className="input" value={selected[lang]} disabled={!can || !ready} onChange={(e) => setSelected({ ...selected, [lang]: e.target.value })}>{list.map((v) => <option key={v.name} value={v.name}>{v.label}</option>)}</select>
+                <button className="btn sm" disabled={!ready || busy === lang} onClick={() => hear(lang)}>{busy === lang ? 'Playing…' : 'Hear it'}</button>
+              </span>
+            </Field>);
+        })}
+      </div>
+      {can && <div style={{ marginTop: 12 }}><button className="btn primary" disabled={!ready} onClick={save}>Save voices</button></div>}
+    </Card>
+  );
+}
+
+function Technical({ o, can, reload, voices, onTested }) {
   const toast = useToast();
   const t = o.technical;
   const [az, setAz] = useState({ key: '', region: t.azure.region || '' });
   const save = async () => { try { await api.put(`${A}/ai/azure`, { region: az.region, ...(az.key ? { key: az.key } : {}) }); toast('Azure details saved'); setAz({ ...az, key: '' }); reload(); } catch (e) { toast(e.message, 'err'); } };
+  const [testing, setTesting] = useState(false);
+  const testAzure = async () => { setTesting(true); try { const r = await api.post(`${A}/ai/azure/test`, {}); onTested(r.voices); toast(`Azure connected: ${r.voices.English.length} English and ${r.voices.Urdu.length} Urdu voices found`); } catch (e) { toast(e.message, 'err'); } finally { setTesting(false); } };
   const remove = async () => { if (!window.confirm('Remove the Azure key? Video voices stop until a key is added again.')) return; try { await api.del(`${A}/ai/azure/key`); toast('Azure key removed'); reload(); } catch (e) { toast(e.message, 'err'); } };
   return (
     <Card title="Technical details">
@@ -112,7 +147,7 @@ function Technical({ o, can, reload }) {
       {can && <div style={grid}>
         <Field label={t.azure.key_added ? 'Replace Azure Speech key (optional)' : 'Azure Speech key'}><TextInput type="password" value={az.key} onChange={(v) => setAz({ ...az, key: v })} autoComplete="off" /></Field>
         <Field label="Azure region" hint="For example uaenorth or eastus"><TextInput value={az.region} onChange={(v) => setAz({ ...az, region: v })} /></Field>
-        <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={save}>Save Azure details</button>{t.azure.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled title="The connection test and voice previews arrive with the video voices">Test the connection</button></div>
+        <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={save}>Save Azure details</button>{t.azure.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled={!t.azure.key_added || !t.azure.region || testing} onClick={testAzure}>{testing ? 'Testing…' : 'Test the connection'}</button></div>
       </div>}
       <div className="table-wrap" style={{ marginTop: 12 }}><table className="table"><thead><tr><th>Feature</th><th>Model or service</th></tr></thead><tbody>{t.models.map((m) => <tr key={m.key}><td>{m.label}</td><td>{m.model}</td></tr>)}</tbody></table></div>
     </Card>
@@ -122,6 +157,9 @@ function Technical({ o, can, reload }) {
 export default function AiAgentifyKey() {
   const can = useCan()('integrations.manage');
   const [o, setO] = useState(null); const [err, setErr] = useState('');
+  const [voices, setVoices] = useState(null); const [selected, setSelected] = useState({ English: '', Urdu: '' });
+  useEffect(() => { api.get(`${A}/ai/voices`).then((v) => setSelected(v.selected)).catch(() => {}); }, []);
+  useEffect(() => { if (o?.technical.azure.key_added && o.technical.azure.region && !voices) api.post(`${A}/ai/azure/test`, {}).then((r) => setVoices(r.voices)).catch(() => {}); }, [o, voices]);
   const load = useCallback(() => api.get(`${A}/ai/overview`).then((x) => { setO(x); setErr(''); }).catch((e) => setErr(e.message)), []);
   useEffect(() => { load(); }, [load]);
   if (err && !o) return <ErrorBox error={err} />;
@@ -142,7 +180,8 @@ export default function AiAgentifyKey() {
       <Limits o={o} can={can} reload={load} />
       <Rate o={o} can={can} reload={load} />
       <Reports can={can} />
-      <Technical o={o} can={can} reload={load} />
+      <Voices o={o} can={can} voices={voices} selected={selected} setSelected={setSelected} reload={load} />
+      <Technical o={o} can={can} reload={load} voices={voices} onTested={setVoices} />
     </>
   );
 }
