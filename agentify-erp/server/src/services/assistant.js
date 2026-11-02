@@ -66,7 +66,7 @@ intent('help', (q) => has(q, 'help', 'what can you', 'what do you know', 'capabi
 }));
 
 // ---------------------------------------------------------------- product help: "how do I...", "what's new", from guides + release notes
-const HOWTO = /^ ?(how (do|can|to|does)|where (is|do|can)|what (is|are) new|what'?s new|what changed|what is the|explain|guide|tutorial|video|steps? (to|for)|why (is|can|cant|can't|do))/;
+const HOWTO = /^ ?(how (do|can|to|does)|where (is|do|can)|what (is|are) (new|the|a|an)|what does|what'?s the|open|go to|find|show me the (page|screen|menu)|what'?s new|what changed|what is the|explain|guide|tutorial|video|steps? (to|for)|why (is|can|cant|can't|do))/;
 intent('howto', (q) => HOWTO.test(q) && !has(q, 'how many', 'how much') && searchKnowledge(q).length > 0, (q) => {
   const hits = searchKnowledge(q).slice(0, 3), top = hits[0];
   const links = [];
@@ -83,10 +83,14 @@ intent('howto', (q) => HOWTO.test(q) && !has(q, 'how many', 'how much') && searc
     const faq = g.faq.find((f) => words(f.q).filter((w) => ` ${q} `.includes(` ${w} `)).length >= 2);
     if (faq) answer = `${faq.a}\n\n${answer}`;
     videoLink(g.video);
+  } else if (top.type === 'screen') {
+    const sc = top.screen;
+    answer = `**${sc.label}** is under **${sc.section}** in the menu.${sc.about ? `\n${sc.about}` : ''}\nIf you cannot see it, your role or plan may not include it; ask your administrator.`;
+    links.push({ label: `Open ${sc.label}`, url: sc.path });
   } else {
     answer = `**${top.version}: ${top.title}**\n${top.item.text}${top.item.where ? `\nWhere: ${top.item.where}` : ''}`;
   }
-  const more = hits.slice(1).map((h) => (h.type === 'guide' ? h.guide.title : `${h.version}: ${h.title}`));
+  const more = hits.slice(1).map((h) => (h.type === 'guide' ? h.guide.title : h.type === 'screen' ? h.screen.label : `${h.version}: ${h.title}`));
   return { answer, tables: [], links, suggestions: more.length ? more.map((m) => `Tell me about ${m}`) : ["What's new?", 'How do I add a developer?'] };
 });
 
