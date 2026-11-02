@@ -37,6 +37,7 @@
   "server/src/services/bot.js": 8,
   "server/src/services/commerce.js": 4,
   "server/src/services/finance.js": 7,
+  "server/src/services/fxRate.js": 1,
   "server/src/services/goals.js": 1,
   "server/src/services/pdf.js": 1,
   "server/src/services/plans.js": 7,

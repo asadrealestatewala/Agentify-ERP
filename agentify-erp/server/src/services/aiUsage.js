@@ -8,14 +8,30 @@ import { getSetting, setSetting } from './platformConfig.js';
 import { currentTenant } from '../context.js';
 import { bad } from '../util.js';
 import { AI_PROVIDERS, testAi, setUsageSink, setUsageGate } from '../integrations/ai.js';
+import { geminiGenerate } from './aiGateway.js';
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS ai_usage(
   id INTEGER PRIMARY KEY, at TEXT NOT NULL, key_owner TEXT NOT NULL, provider TEXT NOT NULL, model TEXT, purpose TEXT NOT NULL,
   tenant_id INTEGER, plan TEXT, input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0, ok INTEGER NOT NULL DEFAULT 1, admin TEXT);
 CREATE INDEX IF NOT EXISTS idx_ai_usage_at ON ai_usage(at);
-CREATE INDEX IF NOT EXISTS idx_ai_usage_tenant ON ai_usage(tenant_id, at);`;
+CREATE INDEX IF NOT EXISTS idx_ai_usage_tenant ON ai_usage(tenant_id, at);
+-- manual price pins for the AI price list (services/aiPricing.js); no row means "use the 3-month average or the default"
+CREATE TABLE IF NOT EXISTS ai_prices(feature TEXT PRIMARY KEY, override_usd REAL, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')));`;
+// v1.65 metering columns: every platform-key call records what was used and what it cost in US dollars and rupees.
+// Older rows keep NULL here and stay valid (they only have tokens).
+const USAGE_COLUMNS = [['feature', 'TEXT'], ['user_id', 'INTEGER'], ['unit', 'TEXT'], ['units', 'REAL'], ['usd', 'REAL'], ['usd_pkr', 'REAL'], ['pkr', 'REAL']];
 let ready = false;
-const db = () => { const d = platformDb(); if (!ready) { d.exec(SCHEMA); ready = true; } return d; };
+const db = () => {
+  const d = platformDb();
+  if (!ready) {
+    d.exec(SCHEMA);
+    const have = new Set(d.prepare('PRAGMA table_info(ai_usage)').all().map((c) => c.name));
+    for (const [c, def] of USAGE_COLUMNS) if (!have.has(c)) d.exec(`ALTER TABLE ai_usage ADD COLUMN ${c} ${def}`);
+    d.exec('CREATE INDEX IF NOT EXISTS idx_ai_usage_feature ON ai_usage(feature, at)');
+    ready = true;
+  }
+  return d;
+};
 
 export const ensureTable = () => db();
 
@@ -26,11 +42,12 @@ export function tokensOf(provider, d) {
   if (d?.usage && (provider === 'openai' || provider === 'custom')) return { input: d.usage.prompt_tokens || 0, output: d.usage.completion_tokens || 0 };
   return null;
 }
-export function record({ keyOwner, provider, model, purpose, tenantId = null, tokens, ok = true, admin = null }) {
+/** One ledger row. Platform-key calls also pass feature, unit/units, usd (and the rupee rate in force) so cost can be shown per feature and tenant. */
+export function record({ keyOwner, provider, model, purpose, tenantId = null, tokens, ok = true, admin = null, feature = null, userId = null, unit = null, units = null, usd = null, usdPkr = null }) {
   try {
     const t = tenantId ? db().prepare('SELECT plan FROM tenants WHERE id=?').get(tenantId) : null;
-    db().prepare('INSERT INTO ai_usage(at, key_owner, provider, model, purpose, tenant_id, plan, input_tokens, output_tokens, ok, admin) VALUES(?,?,?,?,?,?,?,?,?,?,?)')
-      .run(new Date().toISOString(), keyOwner, provider, model || null, purpose, tenantId, t?.plan || null, tokens?.input || 0, tokens?.output || 0, ok ? 1 : 0, admin);
+    db().prepare('INSERT INTO ai_usage(at, key_owner, provider, model, purpose, tenant_id, plan, input_tokens, output_tokens, ok, admin, feature, user_id, unit, units, usd, usd_pkr, pkr) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .run(new Date().toISOString(), keyOwner, provider, model || null, purpose, tenantId, t?.plan || null, tokens?.input || 0, tokens?.output || 0, ok ? 1 : 0, admin, feature, userId, unit, units, usd, usdPkr, usd != null && usdPkr != null ? usd * usdPkr : null);
   } catch { /* metering must never break the feature it measures */ }
 }
 // calls made inside a workspace with the workspace's own key
@@ -107,12 +124,8 @@ export async function draftPost({ channel, topic, tone, language }, admin) {
   const prompt = `Channel: ${String(channel || 'social').slice(0, 30)}\nTone: ${String(tone || 'clear and friendly').slice(0, 60)}\nLanguage: ${String(language || 'English').slice(0, 40)}\nBrief: ${t}`;
   let d;
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(c.model)}:generateContent`, { method: 'POST', headers: { 'x-goog-api-key': c.key, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(60_000),
-      body: JSON.stringify({ systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 1200 } }) });
-    d = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(d?.error?.message || `Google answered ${res.status}`);
-  } catch (e) { record({ keyOwner: 'platform', provider: 'gemini', model: c.model, purpose: 'content_draft', ok: false, admin }); throw bad(`Gemini could not write the draft: ${e.message}`); }
-  record({ keyOwner: 'platform', provider: 'gemini', model: c.model, purpose: 'content_draft', tokens: tokensOf('gemini', d), admin });
+    d = await geminiGenerate({ feature: 'content_draft', purpose: 'content_draft', admin, body: { systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 1200 } } });
+  } catch (e) { throw bad(`Gemini could not write the draft: ${e.message}`); }
   const text = (d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
   let out; try { out = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || ''); } catch { out = null; }
   if (!out?.body) throw bad('Gemini did not return a usable draft. Try again with a clearer brief.');

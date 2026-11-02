@@ -1,0 +1,7 @@
+# AI gateway, usage ledger and pricing (Stage 1)
+
+* **One door.** `server/src/services/aiGateway.js` is the only code that calls Gemini with Agentify's own (platform) key. It reads the encrypted key from `platform_settings`, calls Google, and writes one `ai_usage` row. Keys never reach the browser or the logs. Calls made with a workspace's own key still use `integrations/ai.js` and keep their current limits (the workspace pays).
+* **Ledger.** `ai_usage` gained nullable columns: `feature, user_id, unit, units, usd, usd_pkr, pkr` (added in `services/aiUsage.js`, `db()`; old rows stay valid). Index `idx_ai_usage_feature(feature, at)`. New table `ai_prices(feature, override_usd, updated_by, updated_at)`.
+* **Price list.** `services/aiPricing.js`. Order: manual pin, else average of the last 92 days of platform usage once a feature has 10+ successful calls, else a built-in default (USD). Text calls are costed from tokens (owner-entered prices when set in USD, else Gemini 2.5 Flash defaults 0.30 / 2.50 per million).
+* **Rupees.** `services/fxRate.js`: live USD to PKR from open.er-api.com (refreshed in the background at most once a day, stored in `fx_rates` with source `live`), a manual override, and a flagged fallback of 280. PKR is display only; providers bill in USD.
+* **Not yet (Stage 2+):** the gatekeeper at `gate()` in the gateway (switches, daily limit 300, budgets, video cap, credits), image/video/Azure calls, console screens.
