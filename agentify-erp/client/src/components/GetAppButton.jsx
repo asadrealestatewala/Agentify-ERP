@@ -12,7 +12,7 @@ export default function GetAppButton() {
   if (app.installed) return null;
   if (links && /Android/i.test(navigator.userAgent)) {
     const href = links.android_store_url || links.apk_url;
-    return <a className="btn sm primary no-print get-app-btn" href={href} {...(links.android_store_url ? { target: '_blank', rel: 'noreferrer' } : { download: 'agentify-erp.apk' })} aria-label="Download the Android app" title="Download the Android app"><Icon name="download" size={14} /><span className="get-app-label">Download app</span></a>;
+    return <a className="btn sm primary no-print get-app-btn" href={href} {...(links.android_store_url ? { target: '_blank', rel: 'noreferrer' } : {})} aria-label="Download the Android app" title="Download the Android app"><Icon name="download" size={14} /><span className="get-app-label">Download app</span></a>;
   }
   const click = async () => { if (app.canPrompt) await app.install(); else nav('/my/install-app'); };
   return (

@@ -708,7 +708,7 @@ function DownloadApp({ info }) {
       <div className="lsh"><h1 style={{ fontSize: 36 }}>Download our app</h1><p>Use {info.content.brand} on your phone: leads, follow-ups, property visits and your team in your pocket. Sign in with your workspace account.</p></div>
       <div style={{ display: 'grid', gap: 12, justifyItems: 'center' }}>
         {play && <a className="lbtn p" href={play} target="_blank" rel="noreferrer">Get it on Google Play</a>}
-        <a className={play ? 'lbtn' : 'lbtn p'} href={APK_URL} download="agentify-erp.apk">Download for Android (direct file)</a>
+        <a className={play ? 'lbtn' : 'lbtn p'} href={APK_URL}>Download for Android (direct file)</a>
         {app.canPrompt && <button type="button" className="lbtn" onClick={app.install}>Install from this browser</button>}
         <p className="lmini">iPhone and iPad: open this site in Safari, tap Share, then Add to Home Screen. Android direct file: Android may ask you to allow installs from your browser once. Paying workspaces can also find the app inside the workspace under My Space.</p>
       </div>

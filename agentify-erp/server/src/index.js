@@ -221,6 +221,10 @@ export function createApp() {
   if (fs.existsSync(dist)) {
     // built files have a content hash in their name, so browsers may keep them for good; the page itself is always re-checked
     app.use('/assets', express.static(path.join(dist, 'assets'), { maxAge: '365d', immutable: true }));
+    // the Android app file: always an attachment so every mobile browser saves it instead of trying to open it (some ignore the HTML `download` attribute)
+    app.use('/downloads', express.static(path.join(dist, 'downloads'), { maxAge: 0, setHeaders: (r, f) => {
+      if (/\.apk$/i.test(f)) { r.setHeader('Content-Type', 'application/vnd.android.package-archive'); r.setHeader('Content-Disposition', 'attachment; filename="agentify-erp.apk"'); r.setHeader('Cache-Control', 'no-cache'); }
+    } }));
     app.use(express.static(dist));
     // marketing pages on the main domain get their title, description, canonical and sharing tags on the server (crawlers)
     let shell = null;
