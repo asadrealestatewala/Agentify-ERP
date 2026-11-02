@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.67', date: '2026-11-02', title: 'Ask answers more questions from our guides',
+    items: [
+      { text: 'When Ask cannot match your question to your data or a guide, it now looks through our help guides and writes a step-by-step answer in your language (English, Urdu or Roman Urdu). It only answers from the guides, says so when it cannot find something, and shows a Watch button when a training video exists.', where: 'Ask button', guide: 'ask-ai-help' },
+      { text: 'You can ask follow-up questions in the same chat, and a Report button under AI-written answers lets you flag anything wrong.', where: 'Ask button' },
+    ],
+  },
+  {
     version: 'v1.66', date: '2026-11-02', title: 'Creative Studio: video reels with voice-over',
     items: [
       { text: 'Make a short vertical video reel (8 seconds) from a description, with an optional English or Urdu voice-over. You see the credit cost first and confirm it. The reel is made in the background, you can leave the page, and you get a notification when it is ready. If it fails, your credits are returned.', where: 'Menu > Creative Studio > Video reels', guide: 'creative-studio' },

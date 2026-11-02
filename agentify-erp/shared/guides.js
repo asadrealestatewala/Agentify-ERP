@@ -8,6 +8,24 @@ import { SCREENS } from './screens.generated.js';
 import { SCREEN_NOTES } from './screenNotes.js';
 
 export const GUIDES = {
+  'ask-ai-help': {
+    title: 'Ask: AI answers from our guides', since: 'v1.67', module: 'Ask',
+    who: 'Everyone who can use Ask; shown where AI is switched on for the workspace',
+    keywords: ['ask', 'assistant', 'ai', 'answer', 'answers', 'help', 'guide', 'guides', 'follow-up', 'report', 'urdu', 'roman urdu', 'question'],
+    steps: [
+      'Open Ask (the button at the bottom right, or the Ask button on your phone) and type your question in your own words.',
+      'Questions about your numbers are answered from your live data as before. Questions about how to do something are answered from our guides.',
+      'If a guide covers your question, Ask writes the steps in plain language, in the language you used. An AI-written answer says so and lists the guides it used.',
+      'Ask a follow-up in the same chat, such as "and how do I do that for a customer?". Ask remembers the last few questions.',
+      'If an AI-written answer is wrong or confusing, press Report under it.',
+    ],
+    limits: ['AI answers come only from our guides and never invent menus; when nothing matches, Ask says it could not find it.', 'AI answers never use your business data, and your role decides which videos are shown.', 'Ask may pause AI answers for a while if the AI allowance is used up; your data questions keep working.'],
+    faq: [
+      { q: 'Why did Ask say it could not find the answer?', a: 'The guides do not cover that yet. Try different words, or ask your administrator or support.' },
+      { q: 'Can I ask in Urdu?', a: 'Yes. Ask replies in the language you write in, including Roman Urdu.' },
+    ],
+    internal: ['Calls use the ask_assistant feature in the console AI page (switch, daily limit, budget). Reports land in Reported AI answers.'],
+  },
   'creative-studio': {
     title: 'Creative Studio: brand story, post images and video reels', since: 'v1.66', module: 'Creative Studio',
     who: 'Roles with the Content permission, in workspaces where AI is switched on and credits are left',

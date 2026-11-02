@@ -3,6 +3,9 @@ import { all, run } from '../db.js';
 import { can, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { ask } from '../services/assistant.js';
+import { askAi } from '../services/askAi.js';
+import { createReport } from '../services/aiReports.js';
+import { currentTenant } from '../context.js';
 import { sendPdf } from '../services/pdf.js';
 import { asyncH, bad, now } from '../util.js';
 
@@ -11,12 +14,26 @@ r.use(requireStaff);
 
 const plain = (s) => String(s).replace(/\*\*/g, '');
 
-r.post('/ask', asyncH((req, res) => {
+r.post('/ask', asyncH(async (req, res) => {
   const q = String(req.body.question || '').slice(0, 500);
   if (!q.trim()) throw bad('Ask a question');
-  const out = ask(q, req.user);
+  let out = ask(q, req.user);
+  // the fast rules found nothing: let Gemini answer from the help guides (follow-ups use the last few turns the browser sends)
+  if (out.intent === 'unknown') {
+    const ai = await askAi(q, req.body.history, req.user);
+    if (ai?.refused) out = { ...out, answer: `${out.answer}\n\n_${ai.refused}_` };
+    else if (ai) out = { intent: ai.found ? 'ai' : 'unknown', ai: true, tables: [], suggestions: out.suggestions, answer: ai.answer, links: ai.links, sources: ai.sources };
+  }
   run('INSERT INTO chat_log(user_id,question,intent,ok,created_at) VALUES(?,?,?,?,?)', req.user.id, q, out.intent, out.intent === 'unknown' ? 0 : 1, now());
   res.json(out);
+}));
+
+/** Flag an AI-written answer as wrong or unsuitable; Agentify reviews these. */
+r.post('/report', asyncH((req, res) => {
+  const b = req.body || {};
+  const t = currentTenant();
+  const out = createReport({ tenantId: t?.id ?? null, tenantName: t?.name ?? null, userName: req.user.name, feature: 'ask_assistant', prompt: b.question, output: b.answer, note: b.note });
+  audit(req, 'AI answer reported', 'assistant', out.id, null); res.status(201).json(out);
 }));
 
 /** The answer re-computed server-side (never trusting client-supplied data) and rendered as a PDF report. */
