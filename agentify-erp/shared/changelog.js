@@ -9,6 +9,7 @@ export const CHANGELOG = [
     version: 'v1.64', date: '2026-11-02', title: 'Ask explains how the system works',
     items: [
       { text: 'Ask can now explain how the main flows work from start to finish (lead to sale, installments and receipts, commission, accounting, listing a property, HR and payroll, construction, vendors, the customer portal, your website and access control), and what each role can do.', where: 'Ask button' },
+      { text: 'When a training video for the topic has been posted to YouTube, Ask shows a Watch button with its link (only for videos your role may watch).', where: 'Ask button' },
       { text: 'Ask also knows your workspace settings, the default pick-lists such as lead stages and leave types, the chart of accounts, and the options for your country. Try "what does the receipt QR setting do" or "what are the lead stages".', where: 'Ask button' },
     ],
   },

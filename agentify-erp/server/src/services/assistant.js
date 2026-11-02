@@ -7,6 +7,7 @@ import { scheduleFor, progressSql } from './schedule.js';
 import { teamView, leaderboard, overview, salesAgents } from './goals.js';
 import { searchKnowledge, searchDocs } from '../../../shared/guides.js';
 import { systemDocs } from './systemKnowledge.js';
+import { ensureLibrary, visible as visibleVideos } from '../routes/training.js';
 
 const money = (n) => `${moneyText(Math.round(Number(n) || 0))}`;
 const C = (key, label, type) => ({ key, label, type });
@@ -68,6 +69,15 @@ intent('help', (q) => has(q, 'help', 'what can you', 'what do you know', 'capabi
 
 // ---------------------------------------------------------------- product help: "how do I...", "what's new", from guides + release notes
 const HOWTO = /^ ?(how (do|can|to|does|are|is)|where (is|do|can)|what (is|are|can|do|does|happens|options)|what'?s (the|new)|which|can (i|a|an)|explain|tell me about|describe|open|go to|find|show me the (page|screen|menu)|what'?s new|what changed|what is the|explain|guide|tutorial|video|steps? (to|for)|why (is|can|cant|can't|do))/;
+/** Videos the asker may watch that are posted to YouTube (links saved in the console), best match for the topic first. */
+function videoLinks(user, topic, limit = 2) {
+  let rows = [];
+  try { ensureLibrary(); rows = visibleVideos(user).filter((v) => v.youtube_url); } catch { return []; }
+  if (!rows.length) return [];
+  const docs = rows.map((v) => ({ id: String(v.id), title: v.title, keywords: v.category || '', text: v.description || '', v }));
+  return searchDocs(topic, docs, limit).filter((x) => x.coverage >= 0.5).map((x) => ({ label: `Watch: ${x.doc.v.title}`, url: x.doc.v.youtube_url, external: true }));
+}
+
 // Unified ranking: every source reports how much of the question it covers (0..1); small bonuses prefer exact guides and workflows.
 function bestHelp(q) {
   const where = /^ ?(where|what is|what'?s|open|go to|find)\b/.test(q), process = /^ ?(how (does|do|are|is|can)|explain|tell me about|describe)\b/.test(q), roleQ = /\b(roles?|permissions?|access|allowed|who can|what can|can (see|do|view|edit|approve))\b/.test(q);
@@ -79,11 +89,11 @@ function bestHelp(q) {
   }
   return cands.filter((c) => c.rank >= 0.55).sort((a, b) => b.rank - a.rank);
 }
-intent('howto', (q) => HOWTO.test(q) && !has(q, 'how many', 'how much') && !period(q) && bestHelp(q).length > 0, (q) => {
+intent('howto', (q) => HOWTO.test(q) && !has(q, 'how many', 'how much') && !period(q) && bestHelp(q).length > 0, (q, ctx) => {
   const ranked = bestHelp(q), first = ranked[0];
   if (first.kind === 'system') {
     const d = first.h.doc, others = ranked.filter((c) => c !== first).slice(0, 3).map((c) => (c.kind === 'system' ? c.h.doc.title : c.kind === 'guide' ? c.h.guide.title : c.kind === 'screen' ? c.h.screen.label : c.h.title));
-    return { answer: `**${d.title}**\n${d.text}`, tables: [], links: [], suggestions: others.length ? others : ["What's new?"] };
+    return { answer: `**${d.title}**\n${d.text}`, tables: [], links: videoLinks(ctx.user, `${q} ${d.title}`), suggestions: others.length ? others : ["What's new?"] };
   }
   const hits = [first.h, ...ranked.filter((c) => c !== first && c.kind !== 'system').map((c) => c.h)];
   const top = hits[0];
@@ -107,6 +117,12 @@ intent('howto', (q) => HOWTO.test(q) && !has(q, 'how many', 'how much') && !peri
     links.push({ label: `Open ${sc.label}`, url: sc.path });
   } else {
     answer = `**${top.version}: ${top.title}**\n${top.item.text}${top.item.where ? `\nWhere: ${top.item.where}` : ''}`;
+  }
+  const title = top.type === 'guide' ? top.guide.title : top.type === 'screen' ? top.screen.label : top.title;
+  const extra = videoLinks(ctx.user, `${q} ${title}`);
+  if (extra.length) {
+    for (const l of extra) if (!links.some((x) => x.url === l.url)) links.push(l);
+    for (let i = links.length - 1; i >= 0; i--) if (links[i].url === '/training') links.splice(i, 1);
   }
   const more = hits.slice(1).map((h) => (h.type === 'guide' ? h.guide.title : h.type === 'screen' ? h.screen.label : `${h.version}: ${h.title}`));
   return { answer, tables: [], links, suggestions: more.length ? more.map((m) => `Tell me about ${m}`) : ["What's new?", 'How do I add a developer?'] };

@@ -28,7 +28,7 @@ function assignOnce(key, videoId, roles) {
   setSetting(`training_assigned_${key}`, '1');
 }
 /** Put the shipped videos and the console's YouTube videos in this workspace's library (again when either changes). */
-function ensureLibrary() {
+export function ensureLibrary() {
   let items = [], stamp = 'none';
   try { const f = path.join(SHIPPED, 'manifest.json'); items = JSON.parse(fs.readFileSync(f, 'utf8')); stamp = `${fs.statSync(f).mtimeMs}:${items.length}`; } catch { /* no shipped videos */ }
   let posted = [], rev = 0;
@@ -66,7 +66,7 @@ const fileOf = (v) => { const f = abs(v); if (!(f.startsWith(uploadDir()) || f.s
 const slug = (t) => String(t).replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'video';
 const seesAll = (u) => !!u.isSuper || u.role === 'Admin';
 const manages = (u) => seesAll(u) && !u.portal;
-const visible = (u) => (seesAll(u) ? all('SELECT * FROM training_library ORDER BY sort_order, id')
+export const visible = (u) => (seesAll(u) ? all('SELECT * FROM training_library ORDER BY sort_order, id')
   : all('SELECT l.* FROM training_library l JOIN training_assignments a ON a.video_id=l.id WHERE a.role_id=? ORDER BY l.sort_order, l.id', u.role_id));
 const mayWatch = (u, id) => visible(u).find((v) => v.id === Number(id));
 const manager = (req, _res, next) => (manages(req.user) ? next() : next(forbidden('Only administrators can manage training videos')));
