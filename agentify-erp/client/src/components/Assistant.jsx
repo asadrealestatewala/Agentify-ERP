@@ -83,6 +83,7 @@ export default function Assistant() {
               : (
                 <div key={i} className={`bubble bot ${m.error ? 'err' : ''}`}>
                   <div style={{ whiteSpace: 'pre-wrap' }}>{bold(m.answer)}</div>
+                  {m.links?.length > 0 && <div className="row wrap" style={{ marginTop: 8 }}>{m.links.map((l) => <a key={l.url} className="btn sm" href={l.url} {...(l.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{l.label}</a>)}</div>}
                   {m.tables?.map((t, j) => <AnswerTable key={j} t={t} />)}
                   {m.tables?.length > 0 && m.intent !== 'denied' && <div style={{ marginTop: 8 }}><button className="btn sm" onClick={() => pdf(m.question)}><Icon name="download" size={12} />Download PDF report</button></div>}
                   {i === log.length - 1 && m.suggestions?.length > 0 && <div className="row wrap" style={{ marginTop: 8 }}>{m.suggestions.map((s) => <button key={s} className="chip" style={{ fontSize: 11.5 }} onClick={() => send(s)}>{s}</button>)}</div>}

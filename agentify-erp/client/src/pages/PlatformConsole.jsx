@@ -9,6 +9,7 @@ import { Workspaces, WorkspaceDetail, Expiry, FILTERS } from './SuperAdmin.jsx';
 import AdminShell, { PageTitle, Allowed, useCan } from './platform/AdminShell.jsx';
 import MobileAppPage from './platform/MobileApp.jsx';
 import TrainingVideosPage from './platform/TrainingVideos.jsx';
+import SupportKnowledge from './platform/SupportKnowledge.jsx';
 import CostProfitPage from './platform/CostProfit.jsx';
 import AiUsagePage from './platform/AiUsage.jsx';
 import BrandsPage from './platform/Brands.jsx';
@@ -465,6 +466,7 @@ function ConsoleRoutes() {
         <Route path="security/sessions" element={<SessionsPage />} />
         <Route path="security/email" element={<Allowed perm="system.view"><EmailSafetyPage /></Allowed>} />
         <Route path="security/logins" element={<Allowed perm="audit.view"><LoginsPage /></Allowed>} />
+        <Route path="support-knowledge" element={<Allowed perm="system.view"><SupportKnowledge /></Allowed>} />
         <Route path="training-videos" element={<Allowed perm="system.view"><TrainingVideosPage /></Allowed>} />
         <Route path="mobile-app" element={<Allowed perm="system.view"><MobileAppPage /></Allowed>} />
         <Route path="maintenance" element={<Allowed perm="system.view"><MaintenancePage /></Allowed>} />
