@@ -6,11 +6,19 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.61', date: '2026-11-02', title: 'Step-by-step guides for new features, and Ask can explain them',
+    items: [
+      { text: 'What\'s new now has a "How to use it" guide under recent features (developer partners, one email per account, maps and Navigate): who it affects, the steps, things to know and common questions.', where: 'Menu > What\'s new' },
+      { text: 'Ask can now answer "how do I...", "where is..." and "what changed" questions from these guides, with the steps, where to find it and a link to the training video.', where: 'Ask button' },
+      { text: 'New Support knowledge page: every release guide in one searchable place for trainers and support, with support-only notes. New releases must add a guide, a video where it helps, and common questions.', audience: 'platform', where: 'Platform console > System > Support knowledge' },
+    ],
+  },
+  {
     version: 'v1.60', date: '2026-11-01', title: 'Free, smooth street maps and a Navigate button',
     items: [
-      { text: 'Maps are now smoother and street-accurate on every device, with no map account needed. Field Coverage shows each agent as a marker that glides to their new position and refreshes about every 15 seconds; on busy teams only the most recent agents are drawn so phones stay fast.', where: 'My Space > Field Coverage' },
+      { text: 'Maps are now smoother and street-accurate on every device, with no map account needed. Field Coverage shows each agent as a marker that glides to their new position and refreshes about every 15 seconds; on busy teams only the most recent agents are drawn so phones stay fast.', where: 'My Space > Field Coverage', guide: 'maps-navigate' },
       { text: 'The property location pin and the map on public listing pages use the same new map. Searching for a place is faster and kinder to slow connections.', where: 'Properties > Add property; website listing pages' },
-      { text: 'New Navigate button on a property and on a visit: it opens Google Maps (or Apple Maps on iPhone and Mac) with directions to the exact spot.', where: 'Properties > a property; Visits; Field Coverage' },
+      { text: 'New Navigate button on a property and on a visit: it opens Google Maps (or Apple Maps on iPhone and Mac) with directions to the exact spot.', where: 'Properties > a property; Visits; Field Coverage', guide: 'maps-navigate' },
       { text: 'The free map is the default. Google Maps stays available as an option where a Google key is added (MAP_PROVIDER=google); an optional MapTiler key (MAPTILER_API_KEY) adds a Satellite view, and an optional LocationIQ key (LOCATIONIQ_KEY) adds a second place-search source.', audience: 'platform', where: 'Deployment' },
     ],
   },
@@ -25,22 +33,22 @@ export const CHANGELOG = [
   {
     version: 'v1.58', date: '2026-11-01', title: 'One email, one account',
     items: [
-      { text: 'An email address can now belong to only one account. Adding a user, an invitation, an employee, a vendor, a developer or a portal login with an email that is already in use shows "This email already exists" instead of creating a second account. Capital letters and spaces make no difference.', where: 'Settings > Users, HR > Employees, Vendors, Developers' },
+      { text: 'An email address can now belong to only one account. Adding a user, an invitation, an employee, a vendor, a developer or a portal login with an email that is already in use shows "This email already exists" instead of creating a second account. Capital letters and spaces make no difference.', where: 'Settings > Users, HR > Employees, Vendors, Developers', guide: 'one-email-one-account' },
       { text: 'You can still change a user\'s role; the same email just cannot be used for a second role.', where: 'Settings > Users' },
     ],
   },
   {
     version: 'v1.57', date: '2026-11-01', title: 'Developer partners: Plot source on the property form, list fix and a tutorial video',
     items: [
-      { text: 'New video in Training videos: "Developer partners (joint-venture plots)" walks through adding a developer and agreement, marking plots as developer plots, selling them and the read-only developer portal. Payment approval by the developer, rebates and cancellations are not part of this update yet.', where: 'Training videos' },
-      { text: 'The property form now has a Plot source field (Pakistan workspaces with the Developers permission): choose Own, or Developer and then the developer and one of its agreements.', where: 'Properties > Add Property' },
+      { text: 'New video in Training videos: "Developer partners (joint-venture plots)" walks through adding a developer and agreement, marking plots as developer plots, selling them and the read-only developer portal. Payment approval by the developer, rebates and cancellations are not part of this update yet.', where: 'Training videos', guide: 'developer-partners' },
+      { text: 'The property form now has a Plot source field (Pakistan workspaces with the Developers permission): choose Own, or Developer and then the developer and one of its agreements.', where: 'Properties > Add Property', guide: 'developer-partners' },
       { text: 'The Developers list now shows your developers (it appeared empty after v1.56).', where: 'Developers' },
     ],
   },
   {
     version: 'v1.56', date: '2026-10-31', title: 'Developer partners (joint-venture plots)',
     items: [
-      { text: 'New Developers page: record the partner developers whose plots you sell, with an agreement for each (rates, rebate percentages and the cancellation window with its deduction tiers). On a plot, set the source to Developer and choose the developer and agreement.', where: 'Developers' },
+      { text: 'New Developers page: record the partner developers whose plots you sell, with an agreement for each (rates, rebate percentages and the cancellation window with its deduction tiers). On a plot, set the source to Developer and choose the developer and agreement.', where: 'Developers', guide: 'developer-partners' },
       { text: 'Selling a developer\'s plot creates a booking ID and keeps the contract out of your revenue: the customer pays the developer, so the sale is held as a pass-through. Direct receipts on these files are switched off until the developer approval step arrives. Your own plots and houses are not affected.', where: 'Sales & Bookings' },
       { text: 'Developers can sign in to their own portal to see the files sold on their plots: booking ID, registration number, plot size, photos, customer name and the payment schedule. Customer CNIC, phone and e-mail are never shown. Create the login from the developer\'s page.', where: 'Developers > developer > Create portal login' },
     ],

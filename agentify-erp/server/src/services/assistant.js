@@ -5,6 +5,7 @@ import { trialBalance, treasuryAccounts, accountBalance } from './accounting.js'
 import { projectFinancials } from './projectFinance.js';
 import { scheduleFor, progressSql } from './schedule.js';
 import { teamView, leaderboard, overview, salesAgents } from './goals.js';
+import { searchKnowledge } from '../../../shared/guides.js';
 
 const money = (n) => `${moneyText(Math.round(Number(n) || 0))}`;
 const C = (key, label, type) => ({ key, label, type });
@@ -63,6 +64,31 @@ intent('help', (q) => has(q, 'help', 'what can you', 'what do you know', 'capabi
   answer: 'I answer from your live ERP data. Try asking:\n• **How many leads did we get this month?**\n• **How many projects are going on?**\n• **How much budget is utilised at each project?**\n• **How many leaves did Sana take and how much salary was paid?**\n• **Sales this month by agent**, **receivables and overdue**, **cash and bank balances**, **balance sheet**, **expenses by project**, **vendor payables**, **property inventory**, **top agents**.\nAdd “pdf” or “report” (or press the PDF button) and I’ll give you a downloadable document.',
   tables: [], suggestions: ['How many leads this month?', 'How many projects are going on?', 'Budget utilised by project', 'Balance sheet'],
 }));
+
+// ---------------------------------------------------------------- product help: "how do I...", "what's new", from guides + release notes
+const HOWTO = /^ ?(how (do|can|to|does)|where (is|do|can)|what (is|are) new|what'?s new|what changed|what is the|explain|guide|tutorial|video|steps? (to|for)|why (is|can|cant|can't|do))/;
+intent('howto', (q) => HOWTO.test(q) && !has(q, 'how many', 'how much') && searchKnowledge(q).length > 0, (q) => {
+  const hits = searchKnowledge(q).slice(0, 3), top = hits[0];
+  const links = [];
+  const videoLink = (key) => {
+    if (!key) return;
+    let row; try { row = get('SELECT title, youtube_url FROM training_library WHERE seed_key=?', key); } catch { /* no library yet */ }
+    links.push(row?.youtube_url ? { label: `Watch: ${row.title}`, url: row.youtube_url, external: true } : { label: 'Open Training videos', url: '/training' });
+  };
+  let answer;
+  if (top.type === 'guide') {
+    const g = top.guide;
+    answer = `**${g.title}** (since ${g.since})\n${g.steps.map((t, i) => `${i + 1}. ${t}`).join('\n')}`;
+    if (g.limits?.length) answer += `\n\n**Good to know**\n${g.limits.map((t) => `• ${t}`).join('\n')}`;
+    const faq = g.faq.find((f) => words(f.q).filter((w) => ` ${q} `.includes(` ${w} `)).length >= 2);
+    if (faq) answer = `${faq.a}\n\n${answer}`;
+    videoLink(g.video);
+  } else {
+    answer = `**${top.version}: ${top.title}**\n${top.item.text}${top.item.where ? `\nWhere: ${top.item.where}` : ''}`;
+  }
+  const more = hits.slice(1).map((h) => (h.type === 'guide' ? h.guide.title : `${h.version}: ${h.title}`));
+  return { answer, tables: [], links, suggestions: more.length ? more.map((m) => `Tell me about ${m}`) : ["What's new?", 'How do I add a developer?'] };
+});
 
 // ---------------------------------------------------------------- leads / customers / follow-ups
 intent('leads', (q) => has(q, /\blead/) && !has(q, 'follow'), (q, ctx) => {
