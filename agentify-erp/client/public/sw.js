@@ -5,6 +5,7 @@ self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE && k !== API_CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', (e) => {
   const r = e.request, u = new URL(r.url);
+  if (u.pathname.startsWith('/downloads/')) return; // app file: let the browser fetch it directly (never answer with the cached home page)
   if (u.origin === location.origin && r.method === 'POST' && u.pathname === '/api/auth/logout') { e.waitUntil(caches.delete(API_CACHE)); return; }
   if (r.method === 'GET' && u.origin === location.origin && (u.pathname === '/api/auth/me' || u.pathname === '/api/settings/meta')) {
     e.respondWith(fetch(r).then((res) => { if (res.ok) { const cp = res.clone(); caches.open(API_CACHE).then((c) => c.put(r, cp)); } return res; }).catch(() => caches.open(API_CACHE).then((c) => c.match(r)).then((hit) => hit || new Response('{"error":"offline"}', { status: 503, headers: { 'Content-Type': 'application/json' } }))));

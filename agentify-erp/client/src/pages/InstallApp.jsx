@@ -44,7 +44,7 @@ export default function InstallApp() {
           <p>Get the Agentify ERP Android app. {links.android_store_url ? 'Install it from Google Play, or use the direct file if your phone has no Google Play.' : 'Download the app file and open it to install. Android may ask you to allow installs from your browser once.'}</p>
           <div className="row" style={{ gap: 10, flexWrap: 'wrap' }}>
             {links.android_store_url && <a className="btn primary" href={links.android_store_url} target="_blank" rel="noreferrer">Get it on Google Play</a>}
-            <a className={links.android_store_url ? 'btn' : 'btn primary'} href={links.apk_url || APK_URL} download="agentify-erp.apk">Download for Android (direct file)</a>
+            <a className={links.android_store_url ? 'btn' : 'btn primary'} href={links.apk_url || APK_URL}>Download for Android (direct file)</a>
           </div>
         </>) : <p className="muted" style={{ margin: 0 }}>The Android app is included with a paid subscription. You can already install the web app on this device below.</p>}
       </Card>}

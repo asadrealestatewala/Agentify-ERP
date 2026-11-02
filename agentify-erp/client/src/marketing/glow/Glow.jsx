@@ -62,7 +62,7 @@ function Nav({ info, theme, toggleTheme }) {
   };
   const getApp = async () => { if (inst.canPrompt) { await inst.install(); return; } setOpen(false); document.getElementById('mobile')?.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth' }); };
   const installBtn = inst.installed ? null : inst.apk
-    ? <a className="gx-btn ghost sm" aria-label="Download app" title="Download app" href={inst.apk} download="agentify-erp.apk"><Ico n="download" size={16} /> <span className="gx-dl">Download app</span></a>
+    ? <a className="gx-btn ghost sm" aria-label="Download app" title="Download app" href={inst.apk}><Ico n="download" size={16} /> <span className="gx-dl">Download app</span></a>
     : <button type="button" className="gx-btn ghost sm" aria-label="Download app" title="Download app" onClick={getApp}><Ico n="download" size={16} /> <span className="gx-dl">Download app</span></button>;
   return (
     <header className={`gx-nav ${scrolled ? 'scrolled' : ''}`}>
@@ -311,7 +311,7 @@ function Mobile() {
           <ul className="gx-ticks col"><li>Installs on Android and iPhone from the browser</li><li>Bottom tabs for leads, tasks and alerts</li><li>Push reminders for your daily goals once installed</li></ul>
           <div className="gx-install">
             {inst.installed ? <p>The app is installed on this device.</p> : inst.apk
-              ? <>{inst.play && <a className="gx-btn cream" href={inst.play} target="_blank" rel="noreferrer"><Ico n="download" size={17} /> Get it on Google Play</a>}<a className="gx-btn cream" href={inst.apk} download="agentify-erp.apk"><Ico n="download" size={17} /> Download the Android app</a><p>One tap downloads the app file. Open it to install; Android may ask you to allow installs from your browser once.</p></>
+              ? <>{inst.play && <a className="gx-btn cream" href={inst.play} target="_blank" rel="noreferrer"><Ico n="download" size={17} /> Get it on Google Play</a>}<a className="gx-btn cream" href={inst.apk}><Ico n="download" size={17} /> Download the Android app</a><p>One tap downloads the app file. Open it to install; Android may ask you to allow installs from your browser once.</p></>
               : <button type="button" className="gx-btn cream" onClick={onInstall}><Ico n="download" size={17} /> Download the app</button>}
             {!inst.installed && !inst.apk && !inst.canPrompt && (inst.ios
               ? <p><b>On iPhone:</b> open this page in Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>. Apple does not allow a one-click install.</p>
@@ -436,7 +436,7 @@ function Footer({ info }) {
         <div className="gx-foot-g">
           <div><p>{c.brand}: <T k="footer.tagline" /></p>{(c.contact_email || c.contact_phone || c.address) && <p className="gx-fine">{[c.contact_email, c.contact_phone, c.address].filter(Boolean).join(' · ')}</p>}{!!social.length && <p>{social.map(([k, v]) => <a key={k} href={v} target="_blank" rel="noreferrer noopener" className="gx-cap">{k}</a>)}</p>}</div>
           <div><h4>Product</h4><a href="#features">Features</a><a href="#tour">Live demo</a><a href="#pricing">Pricing</a><Link to="/real-estate">Real estate</Link><Link to="/construction">Construction</Link></div>
-          <div><h4>Company</h4><Link to="/contact">Book a demo</Link><Link to="/signup">Start free</Link><Link to="/login">Sign in</Link>{!inst.installed && inst.apk && <a className="gx-linkbtn" href={inst.apk} download="agentify-erp.apk">Download the app</a>}{!inst.installed && !inst.apk && <button type="button" className="gx-linkbtn" onClick={() => (inst.canPrompt ? inst.install() : document.getElementById('mobile')?.scrollIntoView({ behavior: 'smooth' }))}>Download the app</button>}</div>
+          <div><h4>Company</h4><Link to="/contact">Book a demo</Link><Link to="/signup">Start free</Link><Link to="/login">Sign in</Link>{!inst.installed && inst.apk && <a className="gx-linkbtn" href={inst.apk}>Download the app</a>}{!inst.installed && !inst.apk && <button type="button" className="gx-linkbtn" onClick={() => (inst.canPrompt ? inst.install() : document.getElementById('mobile')?.scrollIntoView({ behavior: 'smooth' }))}>Download the app</button>}</div>
           <div><h4>Legal</h4>{(c.legal || []).map((d) => <Link key={d.slug} to={`/legal/${d.slug}`}>{d.title}</Link>)}<Link to="/delete-account">Delete your account</Link>
             <CountryMenu variant="foot" /></div>
         </div>
