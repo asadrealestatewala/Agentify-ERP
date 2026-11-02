@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.64', date: '2026-11-02', title: 'Ask explains how the system works',
+    items: [
+      { text: 'Ask can now explain how the main flows work from start to finish (lead to sale, installments and receipts, commission, accounting, listing a property, HR and payroll, construction, vendors, the customer portal, your website and access control), and what each role can do.', where: 'Ask button' },
+      { text: 'Ask also knows your workspace settings, the default pick-lists such as lead stages and leave types, the chart of accounts, and the options for your country. Try "what does the receipt QR setting do" or "what are the lead stages".', where: 'Ask button' },
+    ],
+  },
+  {
     version: 'v1.63', date: '2026-11-02', title: 'Website assistant knows how property works in your country',
     items: [
       { text: 'The chat assistant on your website can now answer general questions about buying, selling and renting where you work (Pakistan, United States, United Kingdom, UAE and Canada): the usual steps, documents, typical taxes and fees, and home finance. Every such answer says it is general information, not legal, tax or financial advice. Your own answers in the knowledge bank always come first, so add exact local figures there.', where: 'Website > Website Assistant' },

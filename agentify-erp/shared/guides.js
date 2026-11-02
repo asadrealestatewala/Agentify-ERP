@@ -92,9 +92,9 @@ export const GUIDES = {
 };
 
 const tidy = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').map((w) => (w.length > 3 && /[^siu]s$/.test(w) ? w.slice(0, -1) : w)).join(' ');
-const STOPW = new Set(['how', 'do', 'does', 'did', 'can', 'the', 'and', 'for', 'what', 'where', 'which', 'with', 'from', 'this', 'that', 'is', 'are', 'was', 'to', 'in', 'on', 'of', 'my', 'me', 'i', 'a', 'an', 'it', 'new', 'tell', 'show', 'explain', 'about', 'use', 'work', 'works']);
+const STOPW = new Set(['how', 'do', 'does', 'did', 'can', 'the', 'and', 'for', 'what', 'where', 'which', 'with', 'from', 'this', 'that', 'is', 'are', 'was', 'to', 'in', 'on', 'of', 'my', 'me', 'i', 'a', 'an', 'it', 'new', 'tell', 'show', 'explain', 'about', 'use', 'work', 'works', 'doe', 'have', 'has', 'option', 'workspace', 'mean', 'when', 'why', 'which', 'there', 'get', 'can', 'will', 'would', 'should']);
 const sing = (w) => (w.length > 3 && /[^siu]s$/.test(w) ? w.slice(0, -1) : w);
-const toks = (s) => tidy(s).split(' ').filter((w) => w.length >= 2 && !STOPW.has(w)).map(sing);
+const toks = (s) => tidy(s).split(' ').filter((w) => w.length >= 2 && !STOPW.has(w) && !STOPW.has(sing(w)));
 
 /**
  * Search guides (and release items) for a question. Returns best matches first.
@@ -107,10 +107,10 @@ export function searchKnowledge(question, { platform = false, log = CHANGELOG } 
   const out = [];
   for (const [key, g] of Object.entries(GUIDES)) {
     const hay = tidy([g.title, g.module, ...g.keywords, ...g.faq.map((f) => f.q), ...(platform ? g.internal || [] : [])].join(' '));
-    let score = 0;
-    for (const w of qt) { if (hay.includes(` ${w} `) || hay.startsWith(`${w} `) || hay.endsWith(` ${w}`)) score += 2; else if (w.length > 4 && hay.includes(w)) score += 1; }
-    if (tidy(question).includes(tidy(g.title))) score += 6;
-    if (score >= 2) out.push({ type: 'guide', key, score: score * 5, guide: g });
+    let score = 0, matched = 0;
+    for (const w of qt) { if (hay.includes(` ${w} `) || hay.startsWith(`${w} `) || hay.endsWith(` ${w}`)) { score += 2; matched++; } else if (w.length > 4 && hay.includes(w)) { score += 1; } }
+    if (tidy(question).includes(tidy(g.title))) { score += 6; matched = qt.length; }
+    if (score >= 2) out.push({ type: 'guide', key, score: score * 5, coverage: matched / qt.length, guide: g });
   }
   for (const r of releases) for (const it of r.items) {
     if (it.guide) continue; // covered by its guide
@@ -124,12 +124,33 @@ export function searchKnowledge(question, { platform = false, log = CHANGELOG } 
     if (seenPath.has(sc.path)) continue; seenPath.add(sc.path);
     const about = SCREEN_NOTES[sc.path] || '';
     const hay = tidy(`${sc.label} ${sc.section} ${about}`), label = tidy(sc.label);
-    let score = 0; for (const w of qt) { if (` ${label} `.includes(` ${w} `)) score += 3; else if (hay.includes(` ${w} `) || hay.startsWith(`${w} `)) score += 1; }
-    if (tidy(question).includes(label) && label.length > 3) score += 5;
-    if (score >= 3) out.push({ type: 'screen', score, screen: { ...sc, about } });
+    let score = 0, matched = 0; for (const w of qt) { if (` ${label} `.includes(` ${w} `)) { score += 3; matched++; } else if (hay.includes(` ${w} `) || hay.startsWith(`${w} `)) { score += 1; } }
+    const named = tidy(question).includes(label) && label.length > 3; if (named) score += 5;
+    if (score >= 3) out.push({ type: 'screen', score, named, coverage: matched / qt.length, screen: { ...sc, about } });
   }
   return out.sort((a, b) => b.score - a.score);
 }
 
 /** Every guide, grouped for the console knowledge base (newest release first). */
 export const guideList = () => Object.entries(GUIDES).map(([key, g]) => ({ key, ...g })).sort((a, b) => b.since.localeCompare(a.since, undefined, { numeric: true }));
+
+/** Rank free-form documents ({id,title,keywords,text}) against a question. Titles and keywords weigh more than body text. */
+export function searchDocs(question, docs, limit = 3) {
+  const qt = [...new Set(toks(question))];
+  if (!qt.length) return [];
+  const prepared = docs.map((d) => ({ d, t: ` ${tidy(d.title)} `, k: ` ${tidy(d.keywords || '')} `, b: ` ${tidy(d.text)} ` }));
+  const N = prepared.length;
+  const df = Object.fromEntries(qt.map((w) => [w, prepared.filter((p) => p.t.includes(` ${w} `) || p.k.includes(` ${w} `) || p.b.includes(` ${w} `)).length]));
+  const idf = (w) => Math.log(1 + (N - df[w] + 0.5) / (df[w] + 0.5));
+  const total = qt.reduce((s, w) => s + idf(w), 0) || 1;
+  return prepared.map((p) => {
+    let score = 0, hit = 0;
+    for (const w of qt) {
+      const inT = p.t.includes(` ${w} `), inK = p.k.includes(` ${w} `), inB = p.b.includes(` ${w} `);
+      if (!inT && !inK && !inB) continue;
+      hit += idf(w);
+      score += idf(w) * ((inT ? 3 : 0) + (inK ? 2.5 : 0) + (inB ? 1 : 0));
+    }
+    return { doc: p.d, score, coverage: hit / total };
+  }).filter((x) => x.score > 0).sort((a, b) => b.score - a.score).slice(0, limit);
+}

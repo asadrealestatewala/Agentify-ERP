@@ -5,7 +5,8 @@ import { trialBalance, treasuryAccounts, accountBalance } from './accounting.js'
 import { projectFinancials } from './projectFinance.js';
 import { scheduleFor, progressSql } from './schedule.js';
 import { teamView, leaderboard, overview, salesAgents } from './goals.js';
-import { searchKnowledge } from '../../../shared/guides.js';
+import { searchKnowledge, searchDocs } from '../../../shared/guides.js';
+import { systemDocs } from './systemKnowledge.js';
 
 const money = (n) => `${moneyText(Math.round(Number(n) || 0))}`;
 const C = (key, label, type) => ({ key, label, type });
@@ -66,9 +67,26 @@ intent('help', (q) => has(q, 'help', 'what can you', 'what do you know', 'capabi
 }));
 
 // ---------------------------------------------------------------- product help: "how do I...", "what's new", from guides + release notes
-const HOWTO = /^ ?(how (do|can|to|does)|where (is|do|can)|what (is|are) (new|the|a|an)|what does|what'?s the|open|go to|find|show me the (page|screen|menu)|what'?s new|what changed|what is the|explain|guide|tutorial|video|steps? (to|for)|why (is|can|cant|can't|do))/;
-intent('howto', (q) => HOWTO.test(q) && !has(q, 'how many', 'how much') && searchKnowledge(q).length > 0, (q) => {
-  const hits = searchKnowledge(q).slice(0, 3), top = hits[0];
+const HOWTO = /^ ?(how (do|can|to|does|are|is)|where (is|do|can)|what (is|are|can|do|does|happens|options)|what'?s (the|new)|which|can (i|a|an)|explain|tell me about|describe|open|go to|find|show me the (page|screen|menu)|what'?s new|what changed|what is the|explain|guide|tutorial|video|steps? (to|for)|why (is|can|cant|can't|do))/;
+// Unified ranking: every source reports how much of the question it covers (0..1); small bonuses prefer exact guides and workflows.
+function bestHelp(q) {
+  const where = /^ ?(where|what is|what'?s|open|go to|find)\b/.test(q), process = /^ ?(how (does|do|are|is|can)|explain|tell me about|describe)\b/.test(q), roleQ = /\b(roles?|permissions?|access|allowed|who can|what can|can (see|do|view|edit|approve))\b/.test(q);
+  const cands = [];
+  for (const h of searchKnowledge(q).slice(0, 6)) cands.push({ kind: h.type, rank: (h.coverage ?? 0.5) + (h.type === 'guide' ? 0.25 : 0) + (h.named && where ? 0.4 : 0) + (h.type === 'release' ? -0.1 : 0), h });
+  for (const x of searchDocs(q, systemDocs(), 4)) {
+    const d = x.doc, roleDoc = d.source === 'Roles' || d.source === 'Permissions';
+    cands.push({ kind: 'system', rank: x.coverage + (d.workflow && process ? 0.2 : 0) + (roleDoc ? (roleQ ? 0.35 : -0.6) : 0), h: x });
+  }
+  return cands.filter((c) => c.rank >= 0.55).sort((a, b) => b.rank - a.rank);
+}
+intent('howto', (q) => HOWTO.test(q) && !has(q, 'how many', 'how much') && !period(q) && bestHelp(q).length > 0, (q) => {
+  const ranked = bestHelp(q), first = ranked[0];
+  if (first.kind === 'system') {
+    const d = first.h.doc, others = ranked.filter((c) => c !== first).slice(0, 3).map((c) => (c.kind === 'system' ? c.h.doc.title : c.kind === 'guide' ? c.h.guide.title : c.kind === 'screen' ? c.h.screen.label : c.h.title));
+    return { answer: `**${d.title}**\n${d.text}`, tables: [], links: [], suggestions: others.length ? others : ["What's new?"] };
+  }
+  const hits = [first.h, ...ranked.filter((c) => c !== first && c.kind !== 'system').map((c) => c.h)];
+  const top = hits[0];
   const links = [];
   const videoLink = (key) => {
     if (!key) return;
