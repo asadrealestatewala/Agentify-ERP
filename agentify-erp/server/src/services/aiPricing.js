@@ -1,8 +1,8 @@
 // AI price list: what one use of each feature costs, in US dollars. Defaults are conservative published-price estimates for
 // Gemini/Azure; once a feature has enough real platform usage the average of the last 3 months replaces the default.
 // The owner can also pin a price by hand (ai_prices.override_usd), which always wins.
-import { platformDb } from '../platform.js';
 import { getSetting } from './platformConfig.js';
+import { ensureTable } from './aiUsage.js';
 import { bad } from '../util.js';
 
 /** unit = what `units` counts in ai_usage; per = the human label for one priced use. */
@@ -27,7 +27,7 @@ export function textPrices() {
   return usdLabel && i != null && o != null ? { in: i, out: o, source: 'owner' } : { ...TEXT_DEFAULT, source: 'default' };
 }
 
-const db = () => platformDb();
+const db = () => ensureTable();
 const overrides = () => new Map(db().prepare('SELECT feature, override_usd FROM ai_prices WHERE override_usd IS NOT NULL').all().map((r) => [r.feature, r.override_usd]));
 
 /** USD per priced use for a feature: { usd, source: 'override' | 'average' | 'default', sample }. */

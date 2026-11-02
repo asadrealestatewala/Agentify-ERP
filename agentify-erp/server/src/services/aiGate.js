@@ -4,13 +4,12 @@
 // A refused attempt is not charged and not logged as usage. A check happens before the call starts, so a call that has begun is
 // never cut off: the call that crosses the budget finishes and the next one is refused. Workspaces using their OWN key are
 // governed by assertAiAllowed in aiUsage.js and are not touched here.
-import { platformDb } from '../platform.js';
 import { getSetting } from './platformConfig.js';
-import { AI_FEATURES, flag, featuresOff, dayStart, monthStartOf } from './aiUsage.js';
+import { AI_FEATURES, flag, featuresOff, dayStart, monthStartOf, ensureTable } from './aiUsage.js';
 import { bad } from '../util.js';
 
 export const DEFAULT_DAILY_LIMIT = 300;
-const db = () => platformDb();
+const db = () => ensureTable();
 const numSetting = (k) => { const v = getSetting(k); return v == null || v === '' ? null : Number(v); };
 /** The on/off switch a feature is listed under (both voices share one switch). */
 export const switchKey = (feature) => (feature.startsWith('video_voice') ? 'video_voice' : feature);

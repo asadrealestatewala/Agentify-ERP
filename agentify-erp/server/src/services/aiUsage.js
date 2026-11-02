@@ -119,7 +119,7 @@ export const aiStatus = () => { const c = config(); return { connected: !!c.key,
 const SYSTEM = 'You write short social media posts for Agentify ERP, a CRM and ERP for real estate and construction companies. Use only the facts in the brief. Never invent statistics, customer names, testimonials, prices, awards, partnerships, deadlines or features. No hashtags unless asked. Reply with JSON only: {"title": "short internal title", "body": "the post text"}.';
 export async function draftPost({ channel, topic, tone, language }, admin) {
   const c = config();
-  if (!c.key) throw bad('Connect Gemini first (AI usage & credits > AI settings).');
+  if (!c.key) throw bad('Connect Gemini first (AI > AI settings).');
   const t = String(topic || '').trim();
   if (t.length < 10) throw bad('Describe what the post should say in at least a sentence.');
   if (t.length > 1500) throw bad('The brief is too long (1500 characters at most)');

@@ -47,6 +47,10 @@ import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requ
 import * as cal from '../services/contentCalendar.js';
 import { addPromoDrafts } from '../services/promoDrafts.js';
 import * as aiu from '../services/aiUsage.js';
+import * as aiRep from '../services/aiReport.js';
+import * as aiPrice from '../services/aiPricing.js';
+import * as aiFx from '../services/fxRate.js';
+import * as aiGate from '../services/aiGate.js';
 import * as brands from '../services/brands.js';
 import * as lib from '../services/sharedLibrary.js';
 import { profit, saveCostConfig } from '../services/profitReport.js';
@@ -679,6 +683,13 @@ r.post('/content/ai-draft', requireOperator, need('content.calendar'), asyncH(as
 r.get('/ai/usage', requireOperator, need('finance.view'), (_req, res) => res.json(aiu.report()));
 r.get('/profit', requireOperator, need('finance.view'), asyncH((req, res) => res.json(profit(req.query))));
 r.put('/profit/config', requireOperator, need('billing.configure'), asyncH((req, res) => { const c = saveCostConfig(req.body || {}, req.operator.email); audit(req.operator.email, 'cost-config-changed', {}); res.json(c); }));
+r.get('/ai/overview', requireOperator, need('finance.view'), (_req, res) => { aiFx.refreshIfStale(); res.json(aiRep.overview()); });
+r.put('/ai/prices/:feature', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiPrice.setOverride(req.params.feature, req.body?.usd, req.operator.email); audit(req.operator.email, 'ai-price-changed', { feature: req.params.feature }); res.json(v); }));
+r.put('/ai/fx', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiFx.saveFxSettings(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-fx-changed', { live: v.live_enabled, source: v.source }); res.json(v); }));
+r.post('/ai/fx/refresh', requireOperator, need('integrations.manage'), asyncH(async (_req, res) => { await aiFx.refreshLive(); res.json(aiFx.getRate()); }));
+r.put('/ai/workspaces/:id(\\d+)/credits', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiGate.setCredits(req.params.id, req.body || {}, req.operator.email); audit(req.operator.email, 'ai-credits-changed', { tenant_id: Number(req.params.id), topup: req.body?.add_topup ?? null, monthly: req.body?.monthly_credits ?? null }); res.json(v); }));
+r.put('/ai/azure', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiRep.saveAzure(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-azure-changed', { key_changed: !!req.body?.key && !/^•/.test(req.body.key), region: v.region }); res.json(v); }));
+r.delete('/ai/azure/key', requireOperator, need('integrations.manage'), (req, res) => { aiRep.removeAzureKey(); audit(req.operator.email, 'ai-azure-key-removed', {}); res.json(aiRep.azureStatus()); });
 r.get('/ai/controls', requireOperator, need('finance.view'), (_req, res) => res.json(aiu.controls()));
 r.put('/ai/controls', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiu.saveControls(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-controls-changed', { fields: Object.keys(req.body || {}) }); res.json(v); }));
 r.put('/ai/workspaces/:id(\\d+)', requireOperator, need('integrations.manage'), asyncH((req, res) => {

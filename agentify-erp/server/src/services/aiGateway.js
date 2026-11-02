@@ -18,7 +18,7 @@ const GEMINI = 'https://generativelanguage.googleapis.com/v1beta';
  */
 export async function geminiGenerate({ feature, purpose, body, tenantId = null, userId = null, admin = null, credits = 0, model, timeout = 60_000 }) {
   const c = config();
-  if (!c.key) throw bad('Connect Gemini first (AI usage & credits > AI settings).');
+  if (!c.key) throw bad('Connect Gemini first (AI > AI settings).');
   assertPlatformAllowed({ feature, tenantId, credits });
   refreshIfStale();
   const m = model || c.model;
