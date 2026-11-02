@@ -21,7 +21,7 @@ import { lockMessage, brandOfTenant } from '../services/brands.js';
 const r = Router();
 r.use(requireStaff);
 
-const SETTING_KEYS = ['company_name', 'company_address', 'company_phone', 'company_email', 'logo_url', 'currency', 'date_format',
+export const SETTING_KEYS = ['company_name', 'company_address', 'company_phone', 'company_email', 'logo_url', 'currency', 'date_format',
   'default_commission_pct', 'agent_targets', 'website_webhook_url', 'website_api_key', 'notify_email_enabled', 'notify_sms_enabled',
   'notify_whatsapp_enabled', 'installment_reminder_days', 'allow_negative_bank',
   // printed documents (receipt vouchers, expense vouchers, statements)

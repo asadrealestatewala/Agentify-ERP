@@ -27,7 +27,7 @@ test('guides: tenant text never mentions platform administration (internal notes
 test('guides: search finds the right guide and hides internal notes from tenants', () => {
   assert.equal(searchKnowledge('how do I add a developer plot')[0].key, 'developer-partners');
   assert.equal(searchKnowledge('where is the navigate button for directions')[0].key, 'maps-navigate');
-  assert.equal(searchKnowledge('how many leads this month').length, 0);
+  assert.equal(searchKnowledge('banana smoothie recipe').length, 0);
   assert.equal(searchKnowledge('MapTiler LocationIQ keys').length, 0);
   assert.ok(searchKnowledge('MapTiler LocationIQ keys', { platform: true }).length > 0);
 });

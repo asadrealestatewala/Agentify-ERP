@@ -6,6 +6,27 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.64', date: '2026-11-02', title: 'Ask explains how the system works',
+    items: [
+      { text: 'Ask can now explain how the main flows work from start to finish (lead to sale, installments and receipts, commission, accounting, listing a property, HR and payroll, construction, vendors, the customer portal, your website and access control), and what each role can do.', where: 'Ask button' },
+      { text: 'When a training video for the topic has been posted to YouTube, Ask shows a Watch button with its link (only for videos your role may watch).', where: 'Ask button' },
+      { text: 'Ask also knows your workspace settings, the default pick-lists such as lead stages and leave types, the chart of accounts, and the options for your country. Try "what does the receipt QR setting do" or "what are the lead stages".', where: 'Ask button' },
+    ],
+  },
+  {
+    version: 'v1.63', date: '2026-11-02', title: 'Website assistant knows how property works in your country',
+    items: [
+      { text: 'The chat assistant on your website can now answer general questions about buying, selling and renting where you work (Pakistan, United States, United Kingdom, UAE and Canada): the usual steps, documents, typical taxes and fees, and home finance. Every such answer says it is general information, not legal, tax or financial advice. Your own answers in the knowledge bank always come first, so add exact local figures there.', where: 'Website > Website Assistant' },
+    ],
+  },
+  {
+    version: 'v1.62', date: '2026-11-02', title: 'Ask now knows every screen in the menu',
+    items: [
+      { text: 'Ask can now tell you where any page or setting is and what it is for, from Dashboard to Audit Log, with a button that opens it. Try "where do I approve leave requests" or "what is the audit log".', where: 'Ask button' },
+      { text: 'New step-by-step guides under What\'s new for field location sharing, lead routing and the Lead Conversion report, and follow-up sequences.', where: 'Menu > What\'s new' },
+    ],
+  },
+  {
     version: 'v1.61', date: '2026-11-02', title: 'Step-by-step guides for new features, and Ask can explain them',
     items: [
       { text: 'What\'s new now has a "How to use it" guide under recent features (developer partners, one email per account, maps and Navigate): who it affects, the steps, things to know and common questions.', where: 'Menu > What\'s new' },
@@ -333,14 +354,14 @@ export const CHANGELOG = [
       { text: 'Share new leads between your agents by rules (take turns, weighted, by source, city or team), skip agents who are away or full, and see why each lead went to its owner. Existing leads never move when you change a rule.', where: 'Settings > Lead Routing' },
       { text: 'Set how fast an owner must accept and personally answer a new lead, using your working hours and holidays. Reminders, a manager alert and an optional reassignment follow only when a target is missed. Automated emails never count as a response.', where: 'Settings > Lead Routing' },
       { text: 'Repeated enquiries are recorded once, and two different people who share a phone number are kept apart for a manager to review before anything is merged.', where: 'Settings > Lead Routing > Duplicates' },
-      { text: 'Build follow-up sequences of emails and tasks from ready templates. They stop when the customer replies, books a viewing, opts out or the lead closes, and wait if there is no verified sender or allowance.', where: 'CRM > Follow-up Sequences' },
-      { text: 'See how leads convert from enquiry to response, viewing and sale, with the numbers each percentage is based on.', where: 'CRM > Lead Conversion' },
+      { text: 'Build follow-up sequences of emails and tasks from ready templates. They stop when the customer replies, books a viewing, opts out or the lead closes, and wait if there is no verified sender or allowance.', where: 'CRM > Follow-up Sequences', guide: 'follow-up-sequences' },
+      { text: 'See how leads convert from enquiry to response, viewing and sale, with the numbers each percentage is based on.', where: 'CRM > Lead Conversion', guide: 'lead-routing-conversion' },
     ],
   },
   {
     version: 'v1.14', date: '2026-10-26', title: 'Send email from your own address',
     items: [
-      { text: 'Verify your company domain and create sender addresses so appointment reminders and follow-ups come from you. Only verified addresses can send.', where: 'Settings > Email' },
+      { text: 'Verify your company domain and create sender addresses so appointment reminders and follow-ups come from you. Only verified addresses can send.', where: 'Settings > Email', guide: 'follow-up-sequences' },
       { text: 'See your monthly email allowance, what is used and waiting, when it resets, and the delivery status of every message. Unsubscribes, bounces and complaints are respected automatically.', where: 'Settings > Email' },
       { text: 'A setup checklist on the dashboard ticks itself as you add your business details, first lead, team and follow-up, and Agentify sends a few helpful setup tips by email (you can switch them off).', where: 'Dashboard' },
     ],
@@ -392,7 +413,7 @@ export const CHANGELOG = [
   {
     version: 'v1.6', date: '2026-10-26', title: 'Field agent location sharing',
     items: [
-      { text: 'Field agents can choose to share their location while working. Managers see a coverage view. It is off until an admin switches it on, and employees see a consent notice first.', where: 'My Space > My Location, Field Coverage' },
+      { text: 'Field agents can choose to share their location while working. Managers see a coverage view. It is off until an admin switches it on, and employees see a consent notice first.', where: 'My Space > My Location, Field Coverage', guide: 'field-location' },
     ],
   },
   {

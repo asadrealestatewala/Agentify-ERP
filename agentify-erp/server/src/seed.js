@@ -17,7 +17,7 @@ const ALL = MODULES.flatMap((m) => ACTIONS.map((a) => `${m}:${a}`));
 const P = (mods, actions = ACTIONS) => mods.flatMap((m) => actions.map((a) => `${m}:${a}`));
 const RW = ['view', 'create', 'edit'];
 
-const ROLES = [
+export const ROLES = [
   { name: 'Super Admin', description: 'Full access to everything', perms: ALL },
   { name: 'Admin', description: 'Operational access', perms: [...ALL.filter((p) => !p.startsWith('settings:delete'))] },
   { name: 'Finance Manager', description: 'Accounting, receipts, expenses, vendors, cash, banks, financial reports',
@@ -47,7 +47,7 @@ const ROLES = [
 ];
 
 const L = (type, items) => items.map((it, i) => (typeof it === 'string' ? { type, value: it, sort_order: i } : { type, sort_order: i, ...it }));
-const LOOKUPS = [
+export const LOOKUPS = [
   ...L('lead_stage', [
     { value: 'Non Contacted', color: '#94a3b8', meta: { kind: 'new' } }, { value: 'Contacted', color: '#3b82f6', meta: { kind: 'open' } },
     { value: 'Follow Up', color: '#f59e0b', meta: { kind: 'open' } }, { value: 'Interested', color: '#22c55e', meta: { kind: 'open' } },
@@ -79,7 +79,7 @@ export const DEV_ACCOUNTS = [
 ];
 
 // [code, name, type, subtype, parentCode]
-const COA = [
+export const COA = [
   ['1000', 'Assets', 'asset', null, null], ['1100', 'Cash', 'asset', null, '1000'], ['1110', 'Company Cash Till', 'asset', 'cash', '1100'],
   ['1120', 'Petty Cash', 'asset', 'cash', '1100'], ['1130', 'Finance Manager Custody', 'asset', 'custody', '1100'],
   ['1200', 'Bank', 'asset', null, '1000'], ['1210', 'Main Bank Account', 'asset', 'bank', '1200'], ['1220', 'Bank Account 2', 'asset', 'bank', '1200'],
