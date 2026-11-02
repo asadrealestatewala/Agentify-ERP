@@ -21,7 +21,7 @@ import { HttpError, now } from '../util.js';
 export const S3_PREFIX = 's3:';
 export const SIGNED_URL_SECONDS = 900;
 /** Folders (the `module` part of a key) that may hold files. */
-export const MODULES = ['documents', 'claims', 'content', 'recordings', 'billing', 'training', 'properties', 'projects', 'website', 'hr', 'branding', 'promo', 'other'];
+export const MODULES = ['documents', 'claims', 'content', 'recordings', 'billing', 'training', 'properties', 'projects', 'website', 'hr', 'branding', 'promo', 'creative', 'other'];
 
 const env = () => ({
   endpoint: process.env.S3_ENDPOINT, region: process.env.S3_REGION, bucket: process.env.S3_BUCKET,

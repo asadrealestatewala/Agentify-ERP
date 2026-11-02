@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.65', date: '2026-11-02', title: 'Creative Studio: brand stories and post images',
+    items: [
+      { text: 'New Creative Studio: save your brand once, then have AI write a brand story with captions in English or Urdu and create post images in square, portrait or story size. Save or download what you like.', where: 'Menu > Creative Studio', guide: 'creative-studio' },
+      { text: 'Each story or image uses credits from your monthly allowance, and the page shows what is left. A Report button on every result lets you flag anything wrong.', where: 'Menu > Creative Studio' },
+    ],
+  },
+  {
     version: 'v1.64', date: '2026-11-02', title: 'Ask explains how the system works',
     items: [
       { text: 'Ask can now explain how the main flows work from start to finish (lead to sale, installments and receipts, commission, accounting, listing a property, HR and payroll, construction, vendors, the customer portal, your website and access control), and what each role can do.', where: 'Ask button' },

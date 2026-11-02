@@ -17,6 +17,9 @@ CREATE INDEX IF NOT EXISTS idx_ai_usage_at ON ai_usage(at);
 CREATE INDEX IF NOT EXISTS idx_ai_usage_tenant ON ai_usage(tenant_id, at);
 -- Creative Studio credits per workspace per month (used credits are summed from ai_usage.credits); null allowance = platform default
 CREATE TABLE IF NOT EXISTS ai_tenant_credits(tenant_id INTEGER PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE, monthly_credits INTEGER, topup_credits INTEGER NOT NULL DEFAULT 0, topup_month TEXT, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')));
+-- results people flagged with the Report button (Ask assistant, Creative Studio); the console lists them
+CREATE TABLE IF NOT EXISTS ai_reports(id INTEGER PRIMARY KEY, tenant_id INTEGER, tenant_name TEXT, user_name TEXT, feature TEXT NOT NULL, prompt TEXT, output TEXT, note TEXT,
+  status TEXT NOT NULL DEFAULT 'open', handled_by TEXT, handled_at TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
 -- manual price pins for the AI price list (services/aiPricing.js); no row means "use the 3-month average or the default"
 CREATE TABLE IF NOT EXISTS ai_prices(feature TEXT PRIMARY KEY, override_usd REAL, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT (datetime('now')));`;
 // v1.65 metering columns: every platform-key call records what was used and what it cost in US dollars and rupees.
@@ -130,7 +133,7 @@ export async function draftPost({ channel, topic, tone, language }, admin) {
   let d;
   try {
     d = await geminiGenerate({ feature: 'content_draft', purpose: 'content_draft', admin, body: { systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 1200 } } });
-  } catch (e) { throw bad(`Gemini could not write the draft: ${e.message}`); }
+  } catch (e) { throw e.extra?.code ? e : bad(`Gemini could not write the draft: ${e.message}`); }
   const text = (d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
   let out; try { out = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || ''); } catch { out = null; }
   if (!out?.body) throw bad('Gemini did not return a usable draft. Try again with a clearer brief.');

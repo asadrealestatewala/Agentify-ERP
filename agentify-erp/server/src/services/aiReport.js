@@ -2,6 +2,8 @@
 // the price list, limits, credits, the dollar rate and the provider connections. Reads the ledger written by aiGateway.js.
 import { getSetting, setSetting } from './platformConfig.js';
 import { bad } from '../util.js';
+import { listReports, openReportCount } from './aiReports.js';
+import { imageModel } from './aiGateway.js';
 import { config, monthStartOf, ensureTable, featuresOff } from './aiUsage.js';
 import { FEATURES, priceList, textPrices } from './aiPricing.js';
 import { getRate, displayCurrency } from './fxRate.js';
@@ -51,8 +53,8 @@ export function overview(now = new Date()) {
     technical: {
       gemini: { added: !!c.key, key_hint: c.key ? `…${c.key.slice(-4)}` : null, text_model: c.model },
       azure: azureStatus(),
-      models: Object.entries(FEATURES).map(([key, f]) => ({ key, label: f.label, model: key.startsWith('video_voice') ? 'Azure Speech (neural voice)' : key === 'creative_post' ? 'Gemini image model (set when Creative Studio is built)' : key === 'creative_video' ? 'Gemini Veo (set when Creative Studio is built)' : c.model })),
+      models: Object.entries(FEATURES).map(([key, f]) => ({ key, label: f.label, model: key.startsWith('video_voice') ? 'Azure Speech (neural voice)' : key === 'creative_post' ? `Gemini image model (${imageModel()})` : key === 'creative_video' ? 'Gemini Veo (set when Creative Studio is built)' : c.model })),
     },
-    reported: [], // filled when the Report buttons exist (Ask assistant and Creative Studio)
+    reported: listReports({ handled: false, limit: 50 }), reported_open: openReportCount(),
   };
 }

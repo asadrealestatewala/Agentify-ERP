@@ -9,6 +9,7 @@ export const SCREEN_NOTES = {
   '/my/tasks': 'Tasks assigned to you, with due dates; tick them off as you finish.',
   '/my/onboarding': 'The joining checklist for new employees: documents and steps to complete.',
   '/my/location': 'Choose whether to share your location with your team while you are in the field.',
+  '/creative': 'Save your brand once, then have AI write a brand story with captions and create post images in your colors. Each use spends credits.',
   '/field': 'Live map of field agents with when each was last seen, for managers.',
   '/my/security': 'Two-factor sign-in, signed-in devices and password change.',
   '/my/install-app': 'Add Agentify ERP to your phone home screen or install the Android app.',

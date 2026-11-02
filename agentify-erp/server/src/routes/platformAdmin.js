@@ -51,6 +51,7 @@ import * as aiRep from '../services/aiReport.js';
 import * as aiPrice from '../services/aiPricing.js';
 import * as aiFx from '../services/fxRate.js';
 import * as aiGate from '../services/aiGate.js';
+import * as aiReports from '../services/aiReports.js';
 import * as brands from '../services/brands.js';
 import * as lib from '../services/sharedLibrary.js';
 import { profit, saveCostConfig } from '../services/profitReport.js';
@@ -690,6 +691,8 @@ r.post('/ai/fx/refresh', requireOperator, need('integrations.manage'), asyncH(as
 r.put('/ai/workspaces/:id(\\d+)/credits', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiGate.setCredits(req.params.id, req.body || {}, req.operator.email); audit(req.operator.email, 'ai-credits-changed', { tenant_id: Number(req.params.id), topup: req.body?.add_topup ?? null, monthly: req.body?.monthly_credits ?? null }); res.json(v); }));
 r.put('/ai/azure', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiRep.saveAzure(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-azure-changed', { key_changed: !!req.body?.key && !/^•/.test(req.body.key), region: v.region }); res.json(v); }));
 r.delete('/ai/azure/key', requireOperator, need('integrations.manage'), (req, res) => { aiRep.removeAzureKey(); audit(req.operator.email, 'ai-azure-key-removed', {}); res.json(aiRep.azureStatus()); });
+r.get('/ai/reports', requireOperator, need('finance.view'), (req, res) => res.json(aiReports.listReports({ handled: req.query.handled === '1' })));
+r.put('/ai/reports/:id(\\d+)', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiReports.handleReport(req.params.id, req.operator.email, req.body?.handled !== false); audit(req.operator.email, 'ai-report-handled', { id: v.id, status: v.status }); res.json(v); }));
 r.get('/ai/controls', requireOperator, need('finance.view'), (_req, res) => res.json(aiu.controls()));
 r.put('/ai/controls', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiu.saveControls(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-controls-changed', { fields: Object.keys(req.body || {}) }); res.json(v); }));
 r.put('/ai/workspaces/:id(\\d+)', requireOperator, need('integrations.manage'), asyncH((req, res) => {

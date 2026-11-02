@@ -44,6 +44,7 @@ import claims, { feed as paymentFeed } from './routes/claims.js';
 import vendorPortal from './routes/vendorPortal.js';
 import content, { contentReminders } from './routes/content.js';
 import promos from './routes/promos.js';
+import creative from './routes/creative.js';
 import announcements from './routes/announcements.js';
 import training from './routes/training.js';
 import construction from './routes/construction.js';
@@ -179,6 +180,7 @@ export function createApp() {
   app.use('/api/vendor', vendorPortal);
   app.use('/api/content', content);
   app.use('/api/promos', promos);
+  app.use('/api/creative', creative);
   app.use('/api/announcements', announcements);
   app.use('/api/training', training);
   app.use('/api/construction', construction);

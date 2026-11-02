@@ -84,6 +84,22 @@ function Workspaces({ o, can, reload }) {
   );
 }
 
+function Reports({ can }) {
+  const toast = useToast();
+  const [all, setAll] = useState(false); const [rows, setRows] = useState(null);
+  const load = useCallback(() => api.get(`${A}/ai/reports${all ? '?handled=1' : ''}`).then(setRows).catch(() => setRows([])), [all]);
+  useEffect(() => { load(); }, [load]);
+  const mark = async (r, handled) => { try { await api.put(`${A}/ai/reports/${r.id}`, { handled }); toast(handled ? 'Marked as handled' : 'Reopened'); load(); } catch (e) { toast(e.message, 'err'); } };
+  return (
+    <Card title="Reported AI answers" actions={<label className="row" style={{ gap: 6, fontSize: 13 }}><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Show handled too</label>}>
+      {!rows ? <Loading rows={1} /> : !rows.length ? <p className="muted" style={{ margin: 0 }}>Nothing reported. Results that people flag with the Report button appear here.</p> : (
+        <div className="table-wrap"><table className="table"><thead><tr><th>When</th><th>Workspace</th><th>Feature</th><th>What was asked</th><th>Result</th><th>Note</th>{can && <th />}</tr></thead>
+          <tbody>{rows.map((r) => <tr key={r.id}><td>{new Date(r.created_at.replace(' ', 'T') + (r.created_at.includes('Z') ? '' : 'Z')).toLocaleString()}</td><td>{r.tenant_name || '—'}<div className="muted" style={{ fontSize: 12 }}>{r.user_name}</div></td><td>{r.feature}</td><td style={{ maxWidth: 220 }}>{r.prompt || '—'}</td><td style={{ maxWidth: 260 }}>{(r.output || '—').slice(0, 220)}</td><td>{r.note || '—'}</td>
+            {can && <td>{r.status === 'open' ? <button className="btn sm" onClick={() => mark(r, true)}>Mark handled</button> : <button className="btn sm" onClick={() => mark(r, false)}>Reopen</button>}</td>}</tr>)}</tbody></table></div>)}
+    </Card>
+  );
+}
+
 function Technical({ o, can, reload }) {
   const toast = useToast();
   const t = o.technical;
@@ -125,7 +141,7 @@ export default function AiAgentifyKey() {
       <Workspaces o={o} can={can} reload={load} />
       <Limits o={o} can={can} reload={load} />
       <Rate o={o} can={can} reload={load} />
-      <Card title="Reported AI answers"><p className="muted" style={{ margin: 0 }}>{o.reported.length ? '' : 'Nothing has been reported. Answers that people flag with the Report button will be listed here once the Ask assistant and Creative Studio upgrades are live.'}</p></Card>
+      <Reports can={can} />
       <Technical o={o} can={can} reload={load} />
     </>
   );

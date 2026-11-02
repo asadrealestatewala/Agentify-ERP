@@ -70,3 +70,12 @@ test('USD to PKR rate: live, manual override, fallback, and bad input', async ()
   assert.equal(fx.getRate().rate, 290); assert.equal(fx.getRate().source, 'manual');
   assert.throws(() => fx.saveFxSettings({ manual_rate: -5 }, "test"), /rupees/);
 });
+
+test('a network or provider failure becomes a plain 400 message, is logged as failed, and is never a server error', async () => {
+  const saved = globalThis.fetch;
+  globalThis.fetch = async () => { throw new Error('fetch failed'); };
+  try {
+    await assert.rejects(gw.geminiGenerate({ feature: 'brand_story', body: {} }), (e) => e.status === 400 && e.extra.code === 'provider_error' && /try again/.test(e.message));
+    assert.equal(platformDb().prepare("SELECT ok FROM ai_usage WHERE feature='brand_story' ORDER BY id DESC LIMIT 1").get().ok, 0);
+  } finally { globalThis.fetch = saved; }
+});
