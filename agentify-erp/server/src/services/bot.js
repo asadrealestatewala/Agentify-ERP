@@ -2,6 +2,8 @@ import { all, get, run } from '../db.js';
 import { jparse, now } from '../util.js';
 import { livePages } from './siteRelease.js';
 import { estimateCost, DEFAULT_TOOLS } from '../../../shared/constructionTools.js';
+import { countryDocs, COUNTRY_CAVEAT } from '../../../shared/countryKnowledge.js';
+import { currentRegion } from '../regions/runtime.js';
 
 /**
  * Website assistant. No external AI service: it answers from a knowledge bank made of
@@ -168,7 +170,8 @@ export function reply(message, cfg) {
     return R({ answer: `I could not find ${label} on the website right now. Our team often has more inventory than what is listed — leave your requirements and an agent will come back to you.`, action: 'lead', links: [{ label: 'Browse all properties', href: '/site/properties' }], source: 'listings', matched: false });
   }
 
-  const docs = buildKnowledge(cfg);
+  let own = 'PK'; try { own = currentRegion().config.region || 'PK'; } catch { /* outside a workspace */ }
+  const docs = [...buildKnowledge(cfg), ...countryDocs(own, raw)];
   if (/\b(projects?|societies|society|schemes?)\b/.test(m) && tokens(m).length <= 4) {
     const ps = all('SELECT id,name,location,dev_status FROM projects WHERE site_visible=1 ORDER BY site_featured DESC, name LIMIT 6');
     if (ps.length) return R({ answer: `We currently showcase ${ps.length} project${ps.length > 1 ? 's' : ''}. Tap one to see details, or ask me about it.`, cards: ps.map((p) => ({ title: p.name, subtitle: `${p.location || ''}${p.dev_status ? ` · ${p.dev_status}` : ''}`, href: `/site/project/${p.id}` })), links: [{ label: 'All projects', href: '/site/projects' }], source: 'projects', suggestions: ['Show featured properties', 'Contact details'] });
@@ -182,7 +185,8 @@ export function reply(message, cfg) {
   const best = hits[0];
   if (best && best.coverage >= 0.34) {
     const others = hits.slice(1).filter((h) => h.coverage >= 0.3);
-    return R({ answer: excerpt(best.doc.text, raw), links: best.doc.link ? [{ label: best.doc.title.length > 40 ? 'Read more' : best.doc.title, href: best.doc.link }] : [], source: best.doc.source,
+    const general = String(best.doc.source).startsWith('Real estate guide');
+    return R({ answer: `${excerpt(best.doc.text, raw)}${general ? `\n\n${COUNTRY_CAVEAT}` : ''}`, links: best.doc.link ? [{ label: best.doc.title.length > 40 ? 'Read more' : best.doc.title, href: best.doc.link }] : [], source: best.doc.source,
       suggestions: [...others.map((h) => h.doc.title).filter((t) => t.length < 46).slice(0, 2), 'Talk to an agent'], action: /\b(price|cost|rate|payment|installment|plan|book|buy)\b/.test(m) ? 'lead' : null });
   }
   return R({ answer: 'I do not have that information yet, but our team will. Leave your name and number and an agent will get back to you — or chat with us on WhatsApp.', action: 'lead', links: [talk], matched: false, source: 'unanswered', suggestions: ['Our projects', 'Show featured properties', 'Contact details'] });

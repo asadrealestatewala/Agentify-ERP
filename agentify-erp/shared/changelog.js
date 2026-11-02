@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.63', date: '2026-11-02', title: 'Website assistant knows how property works in your country',
+    items: [
+      { text: 'The chat assistant on your website can now answer general questions about buying, selling and renting where you work (Pakistan, United States, United Kingdom, UAE and Canada): the usual steps, documents, typical taxes and fees, and home finance. Every such answer says it is general information, not legal, tax or financial advice. Your own answers in the knowledge bank always come first, so add exact local figures there.', where: 'Website > Website Assistant' },
+    ],
+  },
+  {
     version: 'v1.62', date: '2026-11-02', title: 'Ask now knows every screen in the menu',
     items: [
       { text: 'Ask can now tell you where any page or setting is and what it is for, from Dashboard to Audit Log, with a button that opens it. Try "where do I approve leave requests" or "what is the audit log".', where: 'Ask button' },
