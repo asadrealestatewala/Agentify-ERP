@@ -85,6 +85,12 @@ function migrate() {
     file_key TEXT PRIMARY KEY, tenant_id INTEGER NOT NULL, module TEXT NOT NULL, size_bytes INTEGER NOT NULL DEFAULT 0, mime_type TEXT,
     original_name TEXT, storage_provider TEXT NOT NULL DEFAULT 'contabo_s3' CHECK(storage_provider IN ('contabo_s3','local')), created_at TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS idx_stored_files_module ON stored_files(module)`);
+  // content calendar with approval and Zernio posting (v1.70): additive columns; old posts get a stage from their old status
+  for (const [c, d] of [['stage', 'TEXT'], ['submitted_by', 'INTEGER'], ['submitted_at', 'TEXT'], ['approved_by', 'INTEGER'], ['approved_at', 'TEXT'], ['reject_note', 'TEXT'], ['account_ids', "TEXT NOT NULL DEFAULT '[]'"],
+    ['source_kind', 'TEXT'], ['source_id', 'INTEGER'], ['results', "TEXT NOT NULL DEFAULT '{}'"], ['fail_reason', 'TEXT'], ['attempts', 'INTEGER NOT NULL DEFAULT 0'], ['blocked_reason', 'TEXT'], ['zernio_post_id', 'TEXT'], ['last_attempt_at', 'TEXT']]) addCol('content_posts', c, d);
+  if (cols('content_posts').some((c) => c.name === 'stage')) db.exec("UPDATE content_posts SET stage = CASE status WHEN 'posted' THEN 'posted' WHEN 'ready' THEN 'approved' ELSE 'draft' END WHERE stage IS NULL");
+  db.exec(`CREATE TABLE IF NOT EXISTS zernio_accounts(
+    id INTEGER PRIMARY KEY, account_id TEXT UNIQUE NOT NULL, platform TEXT NOT NULL, name TEXT, username TEXT, status TEXT NOT NULL DEFAULT 'connected', connected_at TEXT, updated_at TEXT)`);
   addCol('creative_jobs', 'voice_path', "TEXT NOT NULL DEFAULT 'script'"); addCol('creative_jobs', 'clips', 'TEXT'); addCol('creative_jobs', 'scenes', 'TEXT'); addCol('creative_jobs', 'note', 'TEXT'); // reels with the voice inside (v1.69)
   addCol('training_library', 'youtube_url', 'TEXT'); // set when the video lives on YouTube; workspaces then show a link, not a file
   const hasSales = cols('sales').length > 0;

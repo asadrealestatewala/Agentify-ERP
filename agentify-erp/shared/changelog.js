@@ -6,6 +6,16 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.70', date: '2026-11-03', title: 'Content Calendar: approval and automatic posting',
+    items: [
+      { text: 'Posts now move through Draft, Waiting approval, Approved, Scheduled and Posted. Only someone with approval rights can approve, and each post shows who approved it.', where: 'Content Calendar', guide: 'content-calendar-posting' },
+      { text: 'Where your plan allows it, approved posts publish to your Facebook Page and Instagram by themselves at the chosen time. A failed post shows the reason and a Retry button.', where: 'Content Calendar > Connected accounts', guide: 'content-calendar-posting' },
+      { text: 'Drag a post to another day, and use the new week view to see a week in detail.', where: 'Content Calendar', guide: 'content-calendar-posting' },
+      { text: 'Send a picture, story or video from Creative Studio to the calendar in one click.', where: 'Creative Studio > My creations', guide: 'content-calendar-posting' },
+      { text: 'Console: a Social posting page holds the Zernio key, the billing mode, posting limits, the webhook and the workspaces switched on, plus your own accounts for testing.', where: 'Console > System > Social posting', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.69', date: '2026-11-03', title: 'Creative Studio: finished reels with the voice inside',
     items: [
       { text: 'Reels now come as one finished video with the voice inside, instead of a video and a separate audio file.', where: 'Creative Studio > Video reels', guide: 'creative-studio' },

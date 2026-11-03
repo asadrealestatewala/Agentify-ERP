@@ -1,7 +1,7 @@
 // Creative Studio: save your brand, then have AI write a brand story with captions and create post images in your brand's look.
 // Everything goes through Agentify's AI service; each use spends workspace credits and the page shows what is left.
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, Empty, ErrorBox, Field, Loading, PageHead, Tabs } from '../components/ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useToast } from '../context.jsx';
@@ -10,6 +10,18 @@ import { dateTime } from '../format.js';
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 12 };
 
 /** Flag a result as wrong, unsafe or poor. Agentify reviews these. */
+/** Put a creation in the content calendar as a draft (with its picture or video attached). */
+function SendToCalendar({ kind, id }) {
+  const toast = useToast(); const { can } = useAuth(); const nav = useNavigate(); const [busy, setBusy] = useState(false); const [done, setDone] = useState(false);
+  if (!can('content', 'create')) return null;
+  const send = async () => {
+    setBusy(true);
+    try { await api.post('/api/content/from-studio', { kind, id }); setDone(true); toast('Added to the calendar as a draft. Open Content Calendar to set the date and approve it.'); }
+    catch (e) { toast(e.message, 'err'); } finally { setBusy(false); }
+  };
+  return done ? <button className="btn sm" onClick={() => nav('/content')}>Open calendar</button> : <button className="btn sm" onClick={send} disabled={busy} data-tour="creative-calendar">{busy ? 'Adding…' : 'Send to calendar'}</button>;
+}
+
 function ReportButton({ feature, prompt, output }) {
   const toast = useToast();
   const [done, setDone] = useState(false);
@@ -177,6 +189,7 @@ function Reels({ st, refresh, brandSaved }) {
                 {r.has_audio ? <div style={{ marginTop: 8 }}><div className="muted" style={{ fontSize: 13 }}>Voice-over ({r.language}), plays on its own:</div><audio src={`/api/creative/reels/${r.id}/voice`} controls style={{ width: '100%' }} /></div> : null}
                 <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                   <a className="btn sm" href={`/api/creative/reels/${r.id}/video?download=1`}>Download video</a>
+                  <SendToCalendar kind="reel" id={r.id} />
                   {r.has_audio ? <a className="btn sm" href={`/api/creative/reels/${r.id}/voice?download=1`}>Download voice</a> : null}
                   <ReportButton feature="creative_video" prompt={r.prompt} output={`reel ${r.id}`} />
                 </div>
@@ -205,6 +218,7 @@ function Mine({ version }) {
           <div className="muted" style={{ fontSize: 12, margin: '8px 0' }}>{dateTime(r.created_at)}</div>
           <div className="row" style={{ gap: 6 }}>
             {r.has_file && <a className="btn sm" href={`/api/creative/items/${r.id}/file?download=1`}>Download</a>}
+            <SendToCalendar kind="item" id={r.id} />
             {can('content', 'delete') && <button className="btn sm danger" onClick={() => del(r)}>Delete</button>}
           </div>
         </Card>))}

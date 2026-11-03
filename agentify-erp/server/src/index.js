@@ -47,6 +47,7 @@ import promos from './routes/promos.js';
 import creative from './routes/creative.js';
 import { runReelJobs } from './services/creativeJobs.js';
 import { checkFfmpeg } from './services/ffmpeg.js';
+import { runDue as runZernioDue } from './services/socialCalendar.js';
 import announcements from './routes/announcements.js';
 import training from './routes/training.js';
 import construction from './routes/construction.js';
@@ -287,6 +288,9 @@ if (isMain) {
   setInterval(webhookTick, 60 * 1000).unref();
   // video reels: Google takes minutes, so running jobs are checked every 20 seconds (only workspaces that started one recently are opened)
   checkFfmpeg().then((f) => console.log(f.available ? `[reels] ${f.version}` : `[reels] ffmpeg not found: reels stay 8 seconds, voice as a separate file`)).catch(() => {});
+  // approved posts that are due go to Zernio; posts it is still working on are looked at again
+  const zernioTick = () => forEachTenantAsync(() => runZernioDue()).then(() => markJob('social-zernio')).catch((e) => markJob('social-zernio', e));
+  setInterval(zernioTick, 60 * 1000).unref();
   const reelTick = () => runReelJobs().then(() => markJob('creative-reels')).catch((e) => markJob('creative-reels', e));
   setInterval(reelTick, 20 * 1000).unref();
   const meetingTick = () => forEachTenantAsync(() => runMeetingReminders()).then(() => markJob('meeting-reminders')).catch((e) => markJob('meeting-reminders', e));

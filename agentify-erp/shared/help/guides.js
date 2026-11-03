@@ -8,6 +8,27 @@ import { SCREENS } from '../screens.generated.js';
 import { SCREEN_NOTES } from '../screenNotes.js';
 
 export const GUIDES = {
+  'content-calendar-posting': {
+    title: 'Content Calendar: approval and automatic posting', since: 'v1.70', module: 'Content Calendar',
+    who: 'People with the Content permission; approvers need the Approve permission; shown where posting is switched on for the workspace',
+    keywords: ['content', 'calendar', 'post', 'posts', 'schedule', 'facebook', 'instagram', 'publish', 'social', 'connect', 'account', 'retry', 'failed', 'drag', 'week'],
+    steps: [
+      'Open Content Calendar. Press Connected accounts and connect your Facebook Page and Instagram. Instagram must be a business or creator account.',
+      'Press New post, write the caption, add a picture or video, choose the connected accounts, and set the date and time.',
+      'Press Send for approval. Someone with approval rights presses Approve (or Send back with a reason). Every approved post shows who approved it.',
+      'Once approved, a post with an account and a time shows as Scheduled and publishes by itself at that time. Posted means it is live.',
+      'To move a post, drag it to another day in the month or week view, or change the date in the post.',
+      'In Creative Studio, press Send to calendar on a picture, story or video to add it here as a draft.',
+      'If a post fails, open it to read the reason and press Retry.',
+    ],
+    limits: ['Instagram posts need a picture or video. Each connected Instagram account can publish a limited number of posts in any 24 hours (25 to start); a post over the limit stays Scheduled and goes out when the limit allows.', 'Changing the words, the media or the accounts of an approved post sends it back for approval; changing only the date or time does not.', 'Facebook and Instagram only for now.', 'Your plan may limit the posts per day and per month.'],
+    faq: [
+      { q: 'Why is nothing posting by itself?', a: 'Posting through the calendar must be switched on for your workspace, a Facebook or Instagram account must be connected, and the post must be approved with an account and a time. Otherwise use the Post button to publish it by hand and tick it off.' },
+      { q: 'Can I sign off my own post?', a: 'Yes, if your role has approval rights. The post still shows who approved it.' },
+      { q: 'Why does it say a post is waiting?', a: 'Either it needs approval, or the account has reached its posting limit for 24 hours. The message under the status says which.' },
+    ],
+    internal: ['Zernio is the posting service. Console > Social posting holds the key, billing mode, per-account limits, the webhook and the list of workspaces switched on. Posts are sent by a one-minute tick; Retry sends only the accounts that did not succeed.'],
+  },
   'product-tour': {
     title: 'Guided tour: find your way around', since: 'v1.68', module: 'Getting started',
     who: 'Everyone, the first time they sign in; any time from the Take the tour button',
@@ -57,7 +78,7 @@ export const GUIDES = {
       'Read the cost warning, confirm it, and leave the page. You are notified when the reel is ready. You get one finished video with the voice inside, which you can play, download or delete.',
       'Saved images and every brand story are kept under My creations. If a result is wrong or unsuitable, press Report.',
     ],
-    limits: ['A story costs 1 credit and each image 3 credits; credits reset every month and the page shows what is left.', 'Requests for harmful, illegal or deceptive content are refused and cost nothing.', 'A reel costs 8 credits per second of video, so 8, 16 and 24 seconds cost 64, 128 and 192, plus 1 credit per 100 characters of an exact-script voice. The script can have up to 600 characters per 8 seconds. If video joining is not available on the server, reels are 8 seconds and the voice comes as a separate file.', 'You can have 2 reels being made at once.'],
+    limits: ['A story costs 1 credit and each image 3 credits; credits reset every month and the page shows what is left.', 'Requests for harmful, illegal or deceptive content are refused and cost nothing.', 'A reel costs 8 credits per second of video, so 8, 16 and 24 seconds cost 64, 128 and 192, plus 1 credit per 100 characters of an exact-script voice. The script can have up to 600 characters per 8 seconds. If video joining is not available on the server, reels are 8 seconds and the voice comes as a separate file.', 'You can have 2 reels being made at once.', 'Send to calendar (on My creations) adds a picture, story or video to the Content Calendar as a draft.'],
     faq: [
       { q: 'Why is Creative Studio missing from my menu?', a: 'It only shows when AI is switched on for your workspace and you still have credits this month. Contact support to top up or switch AI on.' },
       { q: 'Does the AI invent facts about my business?', a: 'It is told to use only what you saved in the brand profile and your description. Check every result before posting and use Report if something is wrong.' },

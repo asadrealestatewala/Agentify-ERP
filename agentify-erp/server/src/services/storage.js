@@ -188,6 +188,12 @@ export function localFile(rel) {
   const file = path.resolve(root, String(rel));
   return file.startsWith(root + path.sep) ? file : null;
 }
+/** The bytes of a stored file, wherever it lives (bucket object or legacy file under the upload folder). */
+export async function readRefBytes(ref, opt) {
+  if (isStoredRef(ref)) return getBuffer(ref, opt);
+  const f = localFile(ref); if (!f) throw new HttpError(404, 'File missing');
+  return fs.readFileSync(f);
+}
 export const isLocalRef = (p) => !!p && !isStoredRef(p);
 
 /**

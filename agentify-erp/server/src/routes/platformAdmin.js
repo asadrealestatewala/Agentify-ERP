@@ -49,6 +49,7 @@ import { addPromoDrafts } from '../services/promoDrafts.js';
 import * as aiu from '../services/aiUsage.js';
 import * as aiRep from '../services/aiReport.js';
 import * as aiLab from '../services/aiVoiceLab.js';
+import * as zAdmin from '../services/zernioAdmin.js';
 import * as aiPrice from '../services/aiPricing.js';
 import * as aiFx from '../services/fxRate.js';
 import * as aiGate from '../services/aiGate.js';
@@ -694,6 +695,18 @@ r.put('/ai/azure', requireOperator, need('integrations.manage'), asyncH((req, re
 r.get('/ai/voices', requireOperator, need('finance.view'), (_req, res) => res.json(aiRep.voicesView()));
 r.put('/ai/voices', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiRep.saveVoices(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-voices-changed', {}); res.json(v); }));
 r.post('/ai/azure/test', requireOperator, need('integrations.manage'), asyncH(async (req, res) => res.json(await aiRep.testAzure(req.operator.email))));
+// Social posting through Zernio (key, billing mode, caps, workspaces, own test accounts)
+const origin = (req) => `${req.headers['x-forwarded-proto'] || req.protocol}://${req.get('host')}`;
+r.get('/social/zernio', requireOperator, need('finance.view'), (req, res) => res.json(zAdmin.overview(origin(req))));
+r.put('/social/zernio', requireOperator, need('integrations.manage'), (req, res) => { zAdmin.save(req.body || {}, req.operator.email); audit(req.operator.email, 'zernio-settings-changed', {}); res.json(zAdmin.overview(origin(req))); });
+r.delete('/social/zernio/key', requireOperator, need('integrations.manage'), (req, res) => { zAdmin.removeKey(req.operator.email); audit(req.operator.email, 'zernio-key-removed', {}); res.json(zAdmin.overview(origin(req))); });
+r.post('/social/zernio/test', requireOperator, need('integrations.manage'), asyncH(async (_req, res) => res.json(await zAdmin.test())));
+r.put('/social/zernio/caps', requireOperator, need('integrations.manage'), (req, res) => { zAdmin.saveCapsFor(req.body || {}, req.operator.email); audit(req.operator.email, 'zernio-caps-changed', {}); res.json(zAdmin.overview(origin(req))); });
+r.put('/social/zernio/workspaces', requireOperator, need('integrations.manage'), (req, res) => { zAdmin.saveWorkspaces(req.body?.ids, req.operator.email); audit(req.operator.email, 'zernio-workspaces-changed', {}); res.json(zAdmin.overview(origin(req))); });
+r.post('/social/zernio/webhook', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { await zAdmin.setupWebhook(origin(req), req.operator.email); audit(req.operator.email, 'zernio-webhook-registered', {}); res.json(zAdmin.overview(origin(req))); }));
+r.get('/social/zernio/own', requireOperator, need('finance.view'), asyncH(async (_req, res) => res.json({ accounts: await zAdmin.ownAccounts() })));
+r.post('/social/zernio/own/connect', requireOperator, need('integrations.manage'), asyncH(async (req, res) => res.json({ url: await zAdmin.ownConnect(String(req.body?.platform || ''), origin(req)) })));
+r.post('/social/zernio/own/test-post', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const out = await zAdmin.ownTestPost(req.body || {}); audit(req.operator.email, 'zernio-test-post', {}); res.json(out); }));
 // Voice test lab (Punjabi is tested here first and not offered to workspaces)
 r.get('/ai/lab/voices', requireOperator, need('finance.view'), asyncH(async (_req, res) => res.json({ ...(await aiLab.voices('punjabi')), clip: aiLab.clipCost() })));
 r.post('/ai/lab/voice', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const out = await aiLab.speakLine(req.body || {}); audit(req.operator.email, 'ai-lab-voice', {}); res.json(out); }));

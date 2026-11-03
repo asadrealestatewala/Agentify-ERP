@@ -4,6 +4,7 @@ import { Card, ConfirmDialog, Empty, Field, Loading, Modal, PageHead, Select } f
 import { api } from '../api.js';
 import { useAuth, useFetch, useToast, useUndoDelete } from '../context.jsx';
 import { date, todayPK } from '../format.js';
+import ConnectedAccounts from '../components/ConnectedAccounts.jsx';
 
 export const PLATFORM = {
   youtube: { label: 'YouTube', short: 'YT', color: '#ff0000', url: 'https://www.youtube.com/upload' },
@@ -93,8 +94,47 @@ function CreativeCell({ post, onChanged, canEdit }) {
   );
 }
 
+// ------------------------------------------------------------------ approval stages (workspaces with posting switched on)
+export const STAGE = {
+  draft: ['Draft', '#64748b'], pending_approval: ['Waiting approval', '#d97706'], approved: ['Approved', '#2563eb'],
+  scheduled: ['Scheduled', 'var(--primary)'], posted: ['Posted', '#16a34a'], failed: ['Failed', '#dc2626'],
+};
+export function StagePill({ stage }) {
+  const [label, color] = STAGE[stage] || STAGE.draft;
+  return <span className="pill" style={{ background: 'transparent', border: `1px solid ${color}`, color }}>{label}</span>;
+}
+/** Submit / Approve / Send back / Retry for one post, with who approved it. Shown only where posting is switched on. */
+function Approval({ post, posting, canApprove, onChanged }) {
+  const toast = useToast(); const [busy, setBusy] = useState(false); const [note, setNote] = useState('');
+  if (!posting?.enabled || !post?.id) return null;
+  const go = async (what, body) => { setBusy(true); try { await api.post(`/api/content/posts/${post.id}/${what}`, body || {}); onChanged(); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
+  const st = post.stage || 'draft';
+  return (
+    <Field label="Approval and posting">
+      <div className="stack" style={{ gap: 8 }} data-tour="content-approval">
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          <StagePill stage={st} />
+          {post.approver && ['approved', 'scheduled', 'posted'].includes(st) && <span className="muted" style={{ fontSize: 12 }}>Approved by {post.approver}{post.approved_at ? ` on ${post.approved_at.slice(0, 16).replace('T', ' ')}` : ''}</span>}
+        </div>
+        {post.reject_note && st === 'draft' && <div className="alert info" style={{ margin: 0 }}>Sent back: {post.reject_note}</div>}
+        {post.blocked_reason && st === 'scheduled' && <div className="alert info" style={{ margin: 0 }}>{post.blocked_reason}</div>}
+        {st === 'failed' && <div className="alert error" style={{ margin: 0 }}>{post.fail_reason || 'This post could not be published.'}</div>}
+        <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          {['draft'].includes(st) && <button className="btn sm primary" disabled={busy} onClick={() => go('submit')}>Send for approval</button>}
+          {st === 'draft' && canApprove && <button className="btn sm" disabled={busy} onClick={() => go('approve')}>Approve now</button>}
+          {st === 'pending_approval' && canApprove && <><button className="btn sm primary" disabled={busy} onClick={() => go('approve')}>Approve</button><input className="input" style={{ maxWidth: 220 }} placeholder="Reason for sending back (optional)" value={note} onChange={(e) => setNote(e.target.value)} /><button className="btn sm" disabled={busy} onClick={() => go('reject', { note })}>Send back</button></>}
+          {st === 'pending_approval' && !canApprove && <span className="muted" style={{ fontSize: 12 }}>Waiting for someone with approval rights.</span>}
+          {['approved', 'scheduled'].includes(st) && canApprove && <button className="btn sm" disabled={busy} onClick={() => go('reject', { note: '' })}>Take back to draft</button>}
+          {st === 'failed' && <button className="btn sm primary" disabled={busy} onClick={() => go('retry')}>Retry</button>}
+        </div>
+        {st === 'approved' && <div className="muted" style={{ fontSize: 12 }}>Approved. Choose at least one connected account and a posting time to schedule it.</div>}
+      </div>
+    </Field>
+  );
+}
+
 // ------------------------------------------------------------------ editor
-function PostEditor({ initial, users, canManage, onClose, onSaved }) {
+function PostEditor({ initial, users, canManage, posting, onClose, onSaved }) {
   const toast = useToast();
   const [f, setF] = useState({ post_type: 'static', status: 'planned', platforms: [], ...initial });
   const [post, setPost] = useState(initial.id ? initial : null);
@@ -109,7 +149,7 @@ function PostEditor({ initial, users, canManage, onClose, onSaved }) {
     if (!f.post_date) return toast('Choose the posting date', 'err');
     setBusy(true);
     try {
-      const body = { title: f.title, post_type: f.post_type, caption: f.caption || '', platforms: f.platforms, post_date: f.post_date, post_time: f.post_time || '', status: f.status, assigned_to: f.assigned_to || null, notes: f.notes || '' };
+      const body = { title: f.title, post_type: f.post_type, caption: f.caption || '', platforms: f.platforms, post_date: f.post_date, post_time: f.post_time || '', status: f.status, assigned_to: f.assigned_to || null, notes: f.notes || '', ...(posting?.enabled ? { account_ids: f.account_ids || [] } : {}) };
       const saved = post?.id ? await api.put(`/api/content/posts/${post.id}`, body) : await api.post('/api/content/posts', body);
       setPost(saved); setF((x) => ({ ...x, ...saved }));
       toast('Saved', 'ok'); onSaved(!stay);
@@ -137,10 +177,17 @@ function PostEditor({ initial, users, canManage, onClose, onSaved }) {
           <Field label="Posting date" required><input type="date" className="input" value={f.post_date || ''} onChange={(e) => set('post_date', e.target.value)} /></Field>
           <Field label="Posting time"><input type="time" className="input" value={f.post_time || ''} onChange={(e) => set('post_time', e.target.value)} /></Field>
           <Field label="Day"><input className="input" readOnly value={dayName(f.post_date)} /></Field>
-          <Field label="Status"><Select allowEmpty={false} value={f.status} onChange={(v) => set('status', v)} options={STATUS.map(([v, l]) => ({ value: v, label: l }))} /></Field>
+          {!posting?.enabled && <Field label="Status"><Select allowEmpty={false} value={f.status} onChange={(v) => set('status', v)} options={STATUS.map(([v, l]) => ({ value: v, label: l }))} /></Field>}
           <Field label="Assigned to"><Select value={f.assigned_to || ''} onChange={(v) => set('assigned_to', v ? Number(v) : null)} placeholder="Me" options={users.map((u) => ({ value: u.id, label: u.name }))} /></Field>
           <Field label="Notes"><input className="input" value={f.notes || ''} onChange={(e) => set('notes', e.target.value)} /></Field>
         </div>
+        {posting?.enabled && (
+          <Field label="Post to these connected accounts" hint={posting.accounts.length ? 'The post goes out by itself at the date and time above, after it is approved.' : 'No account is connected yet. Open Connected accounts on the calendar page to connect Facebook or Instagram.'}>
+            <div className="row wrap" style={{ gap: 8 }} data-tour="content-accounts">{posting.accounts.map((a) => {
+              const on = (f.account_ids || []).includes(a.account_id);
+              return <button key={a.account_id} type="button" aria-pressed={on} className={`btn sm ${on ? 'primary' : ''}`} onClick={() => set('account_ids', on ? f.account_ids.filter((x) => x !== a.account_id) : [...(f.account_ids || []), a.account_id])}>{PLATFORM[a.platform]?.label || a.platform}: {a.username ? `@${a.username}` : a.name}</button>;
+            })}</div>
+          </Field>)}
         <Field label="Creative (image or video)">
           {post?.has_creative ? (
             <div className="row" style={{ gap: 12, alignItems: 'flex-start' }}>
@@ -157,7 +204,8 @@ function PostEditor({ initial, users, canManage, onClose, onSaved }) {
           ) : <div className="drop" onClick={() => fileRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); upload(e.dataTransfer.files?.[0]); }}><Icon name="upload" size={18} /><div>Drop the creative here or click to choose</div><div style={{ fontSize: 12 }}>JPG, PNG, WebP, MP4, MOV — up to 200 MB</div></div>}
           <input ref={fileRef} type="file" hidden accept="image/*,video/*" onChange={(e) => upload(e.target.files?.[0])} />
         </Field>
-        {post?.id && (
+        <Approval post={post} posting={posting} canApprove={canManage} onChanged={refresh} />
+        {post?.id && !(posting?.enabled && (post.account_ids || []).length) && (
           <Field label="Publish">
             <div className="stack" style={{ gap: 6 }}>
               <PostActions post={post} onChanged={refresh} />
@@ -214,16 +262,20 @@ export default function Content() {
   const toast = useToast();
   const [view, setView] = useState('calendar');
   const [cursor, setCursor] = useState(todayPK().slice(0, 7));
-  const [filters, setFilters] = useState({ platform: '', post_type: '', status: '', assigned_to: '', q: '' });
+  const [filters, setFilters] = useState({ platform: '', post_type: '', status: '', stage: '', assigned_to: '', q: '' });
   const [edit, setEdit] = useState(null);
   const [accounts, setAccounts] = useState(false);
   const meta = useFetch('/api/content/meta');
+  const posting = meta.data?.posting; const staged = !!posting?.enabled;
+  const [weekStart, setWeekStart] = useState(() => { const t = todayPK(); return addD(t, -new Date(`${t}T00:00:00Z`).getUTCDay()); });
+  const [connect, setConnect] = useState(() => { try { return new URLSearchParams(window.location.search).get('connected') === '1'; } catch { return false; } });
+  const [dragId, setDragId] = useState(null);
   const first = `${cursor}-01`;
   const gridStart = addD(first, -new Date(`${first}T00:00:00Z`).getUTCDay());
   const lastOfMonth = iso(new Date(Date.UTC(Number(cursor.slice(0, 4)), Number(cursor.slice(5)), 0)));
   const gridEnd = addD(lastOfMonth, 6 - new Date(`${lastOfMonth}T00:00:00Z`).getUTCDay());
-  const params = { from: view === 'calendar' ? gridStart : first, to: view === 'calendar' ? gridEnd : lastOfMonth, ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v)) };
-  const { data, reload, setData } = useFetch('/api/content/posts', params, [view]);
+  const params = { from: view === 'week' ? weekStart : view === 'calendar' ? gridStart : first, to: view === 'week' ? addD(weekStart, 6) : view === 'calendar' ? gridEnd : lastOfMonth, ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v)) };
+  const { data, reload, setData } = useFetch('/api/content/posts', params, [view, weekStart]);
   const users = meta.data?.users || [];
   const posts = data || [];
   const { hidden: hiddenPosts } = useUndoDelete('content');
@@ -233,50 +285,59 @@ export default function Content() {
   const patch = async (p, body) => {
     try { const r = await api.put(`/api/content/posts/${p.id}`, body); setData((data || []).map((x) => (x.id === p.id ? r : x))); } catch (e) { toast(e.message, 'err'); reload(); }
   };
-  const stats = { total: posts.length, posted: posts.filter((p) => p.status === 'posted').length, ready: posts.filter((p) => p.status === 'ready').length, today: (byDay[todayPK()] || []).length };
+  const stats = { total: posts.length, posted: posts.filter((p) => p.status === 'posted').length, ready: staged ? posts.filter((p) => p.stage === 'pending_approval').length : posts.filter((p) => p.status === 'ready').length, today: (byDay[todayPK()] || []).length };
   const canEditPost = (p) => can('content', 'approve') || p.created_by === user.id || p.assigned_to === user.id;
   const newPost = (d) => setEdit({ post_date: d || todayPK(), post_time: '18:00' });
   return (
     <div>
       <PageHead title="Content calendar" sub="Plan daily social-media content — type, caption, platforms, date and time, with the creative attached and ready to post">
+        {posting?.listed && <button className="btn" onClick={() => setConnect(true)} data-tour="content-connect">Connected accounts</button>}
         {can('content', 'approve') && <button className="btn" onClick={() => setAccounts(true)}>Platforms & API keys</button>}
         {can('content', 'create') && <button className="btn primary" onClick={() => newPost()}><Icon name="plus" size={14} />New post</button>}
       </PageHead>
       <div className="grid g4" style={{ marginBottom: 12 }}>
         <Card className="stat"><div className="label">This month</div><div className="value">{stats.total}</div><div className="sub-v">posts planned</div></Card>
         <Card className="stat"><div className="label">Posted</div><div className="value" style={{ color: '#16a34a' }}>{stats.posted}</div><div className="cnt-bar" style={{ marginTop: 6 }}><i style={{ width: `${stats.total ? (stats.posted / stats.total) * 100 : 0}%`, background: '#16a34a' }} /></div></Card>
-        <Card className="stat"><div className="label">Ready to post</div><div className="value">{stats.ready}</div></Card>
+        <Card className="stat"><div className="label">{staged ? 'Waiting approval' : 'Ready to post'}</div><div className="value">{stats.ready}</div></Card>
         <Card className="stat"><div className="label">Today</div><div className="value">{stats.today}</div></Card>
       </div>
       <Card flush>
         <div className="row between wrap" style={{ padding: 10, gap: 8 }}>
           <div className="row" style={{ gap: 6 }}>
-            <button className="btn sm" onClick={() => shift(-1)} aria-label="Previous month"><Icon name="chevL" size={14} /></button>
-            <b style={{ minWidth: 130, textAlign: 'center' }}>{monthLabel}</b>
-            <button className="btn sm" onClick={() => shift(1)} aria-label="Next month"><Icon name="chevR" size={14} /></button>
-            <button className="btn sm" onClick={() => setCursor(todayPK().slice(0, 7))}>Today</button>
+            <button className="btn sm" onClick={() => (view === 'week' ? setWeekStart(addD(weekStart, -7)) : shift(-1))} aria-label={view === 'week' ? 'Previous week' : 'Previous month'}><Icon name="chevL" size={14} /></button>
+            <b style={{ minWidth: 130, textAlign: 'center' }}>{view === 'week' ? `${date(weekStart)} – ${date(addD(weekStart, 6))}` : monthLabel}</b>
+            <button className="btn sm" onClick={() => (view === 'week' ? setWeekStart(addD(weekStart, 7)) : shift(1))} aria-label={view === 'week' ? 'Next week' : 'Next month'}><Icon name="chevR" size={14} /></button>
+            <button className="btn sm" onClick={() => { setCursor(todayPK().slice(0, 7)); const t = todayPK(); setWeekStart(addD(t, -new Date(`${t}T00:00:00Z`).getUTCDay())); }}>Today</button>
           </div>
-          <div className="seg-btns">{[['calendar', 'Calendar'], ['sheet', 'Sheet']].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} style={view === k ? { background: 'var(--primary)' } : undefined} onClick={() => setView(k)}>{l}</button>)}</div>
+          <div className="seg-btns">{[['calendar', 'Month'], ['week', 'Week'], ['sheet', 'Sheet']].map(([k, l]) => <button key={k} className={view === k ? 'on' : ''} style={view === k ? { background: 'var(--primary)' } : undefined} onClick={() => setView(k)}>{l}</button>)}</div>
         </div>
         <div className="row wrap" style={{ padding: '0 10px 10px', gap: 8 }}>
           <input className="input" style={{ maxWidth: 200 }} placeholder="Search…" value={filters.q} onChange={(e) => setFilters({ ...filters, q: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && reload()} onBlur={reload} />
           <div style={{ width: 140 }}><Select value={filters.platform} onChange={(v) => { setFilters({ ...filters, platform: v }); setTimeout(reload, 0); }} placeholder="All platforms" options={Object.entries(PLATFORM).map(([v, p]) => ({ value: v, label: p.label }))} /></div>
           <div style={{ width: 130 }}><Select value={filters.post_type} onChange={(v) => { setFilters({ ...filters, post_type: v }); setTimeout(reload, 0); }} placeholder="All types" options={TYPES.map(([v, l]) => ({ value: v, label: l }))} /></div>
-          <div style={{ width: 140 }}><Select value={filters.status} onChange={(v) => { setFilters({ ...filters, status: v }); setTimeout(reload, 0); }} placeholder="All statuses" options={STATUS.map(([v, l]) => ({ value: v, label: l }))} /></div>
+          {staged
+            ? <div style={{ width: 170 }}><Select value={filters.stage} onChange={(v) => { setFilters({ ...filters, stage: v }); setTimeout(reload, 0); }} placeholder="All stages" options={Object.entries(STAGE).map(([v, [l]]) => ({ value: v, label: l }))} /></div>
+            : <div style={{ width: 140 }}><Select value={filters.status} onChange={(v) => { setFilters({ ...filters, status: v }); setTimeout(reload, 0); }} placeholder="All statuses" options={STATUS.map(([v, l]) => ({ value: v, label: l }))} /></div>}
           <div style={{ width: 150 }}><Select value={filters.assigned_to} onChange={(v) => { setFilters({ ...filters, assigned_to: v }); setTimeout(reload, 0); }} placeholder="Everyone" options={users.map((u) => ({ value: u.id, label: u.name }))} /></div>
         </div>
-        {!data ? <Loading /> : view === 'calendar' ? (
+        {!data ? <Loading /> : view === 'calendar' || view === 'week' ? (
           <div style={{ padding: '0 10px 10px' }}>
-            <div className="cal-grid">
+            <div className="cal-grid" data-tour="content-calendar">
               {DAYS.map((d) => <div key={d} className="dow">{d.slice(0, 3)}</div>)}
-              {Array.from({ length: Math.round((Date.parse(gridEnd) - Date.parse(gridStart)) / 86400000) + 1 }, (_, i) => addD(gridStart, i)).map((d) => (
-                <div key={d} className={`cal-cell ${d.slice(0, 7) !== cursor ? 'other' : ''} ${d === todayPK() ? 'today' : ''}`} onClick={() => can('content', 'create') && newPost(d)}>
+              {(view === 'week' ? Array.from({ length: 7 }, (_, i) => addD(weekStart, i)) : Array.from({ length: Math.round((Date.parse(gridEnd) - Date.parse(gridStart)) / 86400000) + 1 }, (_, i) => addD(gridStart, i))).map((d) => (
+                <div key={d} className={`cal-cell ${view !== 'week' && d.slice(0, 7) !== cursor ? 'other' : ''} ${d === todayPK() ? 'today' : ''}`} style={view === 'week' ? { minHeight: 220 } : undefined}
+                  onClick={() => can('content', 'create') && newPost(d)}
+                  onDragOver={(e) => { if (dragId) e.preventDefault(); }}
+                  onDrop={(e) => { e.preventDefault(); const p = posts.find((x) => x.id === dragId); setDragId(null); if (p && p.post_date !== d) patch(p, { post_date: d }); }}>
                   <div className="dn"><span>{Number(d.slice(8))}</span>{(byDay[d] || []).length > 0 && <span className="tag">{byDay[d].length}</span>}</div>
-                  {(byDay[d] || []).slice(0, 3).map((p) => (
-                    <div key={p.id} className={`cal-chip ${p.post_type} ${p.status === 'posted' ? 'posted' : ''}`} onClick={(e) => { e.stopPropagation(); setEdit(p); }} title={`${p.title}${p.post_time ? ` · ${p.post_time}` : ''}`}>
+                  {(byDay[d] || []).slice(0, view === 'week' ? 50 : 3).map((p) => (
+                    <div key={p.id} className={`cal-chip ${p.post_type} ${p.status === 'posted' ? 'posted' : ''}`} onClick={(e) => { e.stopPropagation(); setEdit(p); }}
+                      draggable={canEditPost(p) && p.stage !== 'posted'} onDragStart={(e) => { setDragId(p.id); e.dataTransfer.setData('text/plain', String(p.id)); }} onDragEnd={() => setDragId(null)}
+                      style={staged ? { borderInlineStart: `3px solid ${(STAGE[p.stage] || STAGE.draft)[1]}` } : undefined}
+                      title={`${p.title}${p.post_time ? ` · ${p.post_time}` : ''}${staged ? ` · ${(STAGE[p.stage] || STAGE.draft)[0]}` : ''}`}>
                       <span className="row" style={{ gap: 2, flexShrink: 0 }}>{p.platforms.slice(0, 3).map((pl) => <i key={pl} style={{ width: 7, height: 7, borderRadius: '50%', background: PLATFORM[pl].color, display: 'inline-block' }} />)}</span><span className="t">{p.post_time ? `${p.post_time} ` : ''}{p.title}</span>
                     </div>))}
-                  {(byDay[d] || []).length > 3 && <div className="muted" style={{ fontSize: 11 }}>+{byDay[d].length - 3} more</div>}
+                  {view !== 'week' && (byDay[d] || []).length > 3 && <div className="muted" style={{ fontSize: 11 }}>+{byDay[d].length - 3} more</div>}
                 </div>))}
             </div>
           </div>
@@ -298,7 +359,7 @@ export default function Content() {
                       {Object.keys(PLATFORM).map((pl) => (p.platforms.includes(pl) ? <PlatformDot key={pl} id={pl} size={22} done={!!p.posted[pl]} onClick={ed ? () => patch(p, { platforms: p.platforms.filter((x) => x !== pl) }) : undefined} title={`${PLATFORM[pl].label} — click to remove`} /> : null))}
                       {ed && <select style={{ width: 26, padding: 0, minHeight: 22, fontSize: 14 }} value="" aria-label="Add platform" onChange={(e) => e.target.value && patch(p, { platforms: [...p.platforms, e.target.value] })}><option value="">＋</option>{Object.entries(PLATFORM).filter(([k]) => !p.platforms.includes(k)).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}</select>}</div></td>
                     <td><CreativeCell post={p} canEdit={ed} onChanged={reload} /></td>
-                    <td style={{ minWidth: 118 }}><select value={p.status} disabled={!ed} onChange={(e) => patch(p, { status: e.target.value })}>{STATUS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></td>
+                    <td style={{ minWidth: 118 }}>{staged ? <StagePill stage={p.stage} /> : <select value={p.status} disabled={!ed} onChange={(e) => patch(p, { status: e.target.value })}>{STATUS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}</td>
                     <td className="nowrap muted" style={{ fontSize: 12 }}>{p.assignee || '—'}</td>
                     <td className="right nowrap"><PostActions post={p} onChanged={reload} compact /> <button className="btn sm ghost" onClick={() => setEdit(p)} aria-label="Open">⋯</button></td>
                   </tr>);
@@ -307,8 +368,9 @@ export default function Content() {
           </div>
         )}
       </Card>
-      {edit && <PostEditor key={edit.id || 'new'} initial={edit} users={users} canManage={can('content', 'approve')} onClose={() => setEdit(null)} onSaved={(close) => { reload(); if (close) setEdit(null); }} />}
+      {edit && <PostEditor key={edit.id || 'new'} initial={edit} users={users} posting={posting} canManage={can('content', 'approve')} onClose={() => setEdit(null)} onSaved={(close) => { reload(); if (close) setEdit(null); }} />}
       {accounts && <AccountsModal onClose={() => setAccounts(false)} />}
+      {connect && <ConnectedAccounts posting={posting} canManage={can('content', 'approve')} onClose={() => setConnect(false)} onChanged={meta.reload} />}
     </div>
   );
 }

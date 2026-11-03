@@ -18,12 +18,23 @@ export const TOURS = {
     ],
   },
   creative: {
-    title: 'Creative Studio tour', guide: 'creative-studio', version: 2, autostart: true, path: '/creative',
+    title: 'Creative Studio tour', guide: 'creative-studio', version: 3, autostart: true, path: '/creative',
     steps: [
       { target: 'creative-credits', title: 'Your credits', text: 'Stories, images and reels spend credits. This line shows what is left this month and what each one costs.' },
       { target: 'creative-tabs', title: 'Five tabs', text: 'Start with Brand profile, then write a Brand story, create Post images or Video reels. Saved work is under My creations.' },
+      { target: 'creative-calendar', title: 'Send it to the calendar', text: 'On My creations, Send to calendar adds a picture, video or story to the Content Calendar as a draft, ready for a date and approval.' },
       { target: 'reel-length', title: 'Reel length', text: 'On the Video reels tab choose 8, 16 or 24 seconds. Longer reels cost more credits.' },
       { target: 'reel-voice-path', title: 'Two ways to add a voice', text: 'Exact script puts your own words, read by a voice you can listen to first, inside the finished video. The quick way lets the video itself speak, but the voice and words can vary.' },
+      { target: 'take-tour', title: 'See this again', text: 'Press this button to replay the tour for the page you are on.' },
+    ],
+  },
+  content: {
+    title: 'Content Calendar tour', guide: 'content-calendar-posting', version: 1, autostart: true, path: '/content',
+    steps: [
+      { target: 'content-calendar', title: 'Your calendar', text: 'Posts sit on the day they will go out. Drag a post to another day to reschedule it, or switch to the week view for the details.' },
+      { target: 'content-connect', title: 'Connect your accounts', text: 'Connect your Facebook Page and Instagram here, so approved posts publish by themselves.' },
+      { target: 'content-accounts', title: 'Where it will post', text: 'Choose the connected accounts for this post and set a date and time.' },
+      { target: 'content-approval', title: 'Approval first', text: 'A post is sent for approval, and only an approver can approve it. Nothing is published before that, and the post shows who approved it.' },
       { target: 'take-tour', title: 'See this again', text: 'Press this button to replay the tour for the page you are on.' },
     ],
   },

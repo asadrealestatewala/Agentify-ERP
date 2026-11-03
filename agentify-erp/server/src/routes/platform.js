@@ -20,6 +20,7 @@ import { sendCode, checkCode, canEmailCodes, signupProof, signupProofValid, cons
 import { get, run } from '../db.js';
 import adminRoutes from './platformAdmin.js';
 import { verifyWebhook } from '../services/mailbox.js';
+import * as socialCal from '../services/socialCalendar.js';
 import { applyProviderEvent } from '../services/tenantEmail.js';
 import { handleInbound } from '../services/emailInbound.js';
 import { recordWebhook, applyEvent } from '../services/emailLog.js';
@@ -219,6 +220,23 @@ r.post('/webhooks/resend', asyncH(async (req, res) => {
   }
   if (/received/.test(type) && ev.data?.email_id) await handleInbound(ev.data.email_id, ev.data);
   res.json({ ok: true });
+}));
+/** Zernio (posting service) webhooks: HMAC-SHA256 hex of the raw body with our own secret. The event only says which post/workspace to look at; the state is re-read from Zernio. */
+r.post('/webhooks/zernio', asyncH(async (req, res) => {
+  const secret = getSetting('zernio_webhook_secret');
+  if (!secret) throw new HttpError(503, 'The posting webhook is not set up yet');
+  const sig = String(req.headers['x-zernio-signature'] || '');
+  const want = crypto.createHmac('sha256', secret).update(req.rawBody || Buffer.alloc(0)).digest('hex');
+  if (!sig || sig.length !== want.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(want))) throw new HttpError(401, 'Invalid signature');
+  const ev = req.body || {};
+  if (ev.test) return res.json({ ok: true, test: true });
+  const evId = String(ev.id || req.headers['x-zernio-event-id'] || '');
+  if (evId && !recordWebhook(evId, 'zernio', String(ev.event || '').slice(0, 60), null)) return res.json({ ok: true, duplicate: true });
+  res.json({ ok: true }); // Zernio allows 5 seconds; the follow-up work happens after we have answered
+  try {
+    const tenantId = await socialCal.applyEvent(ev); const t = tenantId == null ? null : getTenant(tenantId);
+    if (t) await withTenant(t, () => socialCal.refreshForEvent(ev));
+  } catch (e) { console.error('[zernio webhook]', e.message); }
 }));
 /** Plan-payment gateways (PayPal, Tap, ...): the call-back only prompts a check with the provider; nothing activates on its word. */
 r.post('/pay/webhook/:provider', asyncH(async (req, res) => res.sendStatus(await handlePlatformWebhook(req.params.provider, req))));

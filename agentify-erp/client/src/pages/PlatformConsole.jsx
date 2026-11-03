@@ -12,6 +12,7 @@ import TrainingVideosPage from './platform/TrainingVideos.jsx';
 import SupportKnowledge from './platform/SupportKnowledge.jsx';
 import CostProfitPage from './platform/CostProfit.jsx';
 import AiUsagePage from './platform/AiUsage.jsx';
+import SocialPostingPage from './platform/SocialPosting.jsx';
 import BrandsPage from './platform/Brands.jsx';
 import LibraryPage from './platform/Library.jsx';
 import StoragePage from './platform/Storage.jsx';
@@ -432,6 +433,7 @@ function ConsoleRoutes() {
         <Route path="brands" element={<Allowed perm="workspaces.view"><BrandsPage /></Allowed>} />
         <Route path="library" element={<Allowed perm="library.manage"><LibraryPage /></Allowed>} />
         <Route path="ai-usage" element={<Allowed perm="finance.view"><AiUsagePage /></Allowed>} />
+        <Route path="social-posting" element={<Allowed perm="finance.view"><SocialPostingPage /></Allowed>} />
         <Route path="content" element={<Allowed perm="content.calendar"><ContentCalendarPage /></Allowed>} />
         <Route path="whats-new" element={<WhatsNew platform />} />
         <Route path="health" element={<Allowed perm="system.view"><HealthPage /></Allowed>} />

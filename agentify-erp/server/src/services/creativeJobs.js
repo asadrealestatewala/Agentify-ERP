@@ -4,9 +4,7 @@
 // builds the file, stores it in the workspace's own storage, and notifies the person who asked. Credits are taken when the job starts and
 // given back if it fails. Without ffmpeg a reel is a single 8-second clip with the voice as a separate file, as before.
 import crypto from 'node:crypto';
-import fs from 'node:fs';
-import path from 'node:path';
-import { all, get, run, uploadDir } from '../db.js';
+import { all, get, run } from '../db.js';
 import { currentTenant } from '../context.js';
 import { bad, notFound, now } from '../util.js';
 import { notify } from '../audit.js';
@@ -16,7 +14,7 @@ import { assertSafeRequest } from './aiSafety.js';
 import { creditsLeft } from './aiGate.js';
 import { ensureTable } from './aiUsage.js';
 import { storeBytes, brand, REEL_CREDITS, LANGUAGES } from './creativeStudio.js';
-import { removeRef, isStoredRef, getBuffer } from './storage.js';
+import { removeRef, isStoredRef, readRefBytes } from './storage.js';
 import { ffmpegAvailable, ffmpegStatus, buildReel, probeSeconds, maxReelSeconds, CLIP_SECONDS } from './ffmpeg.js';
 
 export const MAX_ACTIVE = 2;
@@ -148,12 +146,7 @@ export async function startReel({ description, script, language, accept_cost, se
   return { id, status: 'video', seconds: sec, credits_used: q.total, credits_left: creditsLeft(tid()) };
 }
 
-const readRef = async (ref) => {
-  if (isStoredRef(ref)) return getBuffer(ref);
-  const f = path.resolve(uploadDir(), ref);
-  if (!f.startsWith(path.resolve(uploadDir()) + path.sep)) throw new Error('Unexpected file');
-  return fs.readFileSync(f);
-};
+const readRef = (ref) => readRefBytes(ref);
 
 function removeFile(ref) { if (!ref) return; if (isStoredRef(ref)) removeRef(ref).catch(() => {}); }
 
