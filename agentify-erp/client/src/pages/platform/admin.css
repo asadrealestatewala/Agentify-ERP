@@ -109,3 +109,24 @@ th.pa-sortable { cursor: pointer; user-select: none; } th.pa-sortable:hover { co
 .cc-row:first-child { border-top: 0; }
 @media (max-width: 900px) { .cc-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .cc-day { min-height: 56px; } .cc-chip { font-size: 10.5px; } .cc-stats { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---- workspaces list: fits the card without sideways scrolling, tidy toolbar ---- */
+.pa .card-h { flex-wrap: wrap; }
+.pa .card-h .row { flex-wrap: wrap; gap: 8px; justify-content: flex-end; min-width: 0; }
+.pa-ws-search { width: 220px; max-width: 100%; } .pa-ws-sel { width: auto; min-width: 150px; max-width: 100%; }
+.pa-ws { width: 100%; }
+.pa-ws th, .pa-ws td { padding-left: 10px; padding-right: 10px; vertical-align: top; }
+.pa-ws td .muted { overflow-wrap: anywhere; }
+.pa-ws-prog { min-width: 110px; width: 130px; }
+.pa-ws-last { width: 1%; }
+.pa-exp .muted { font-size: 12px; }
+@media (max-width: 1100px) { .pa-ws-prog { width: 100px; min-width: 90px; } }
+@media (max-width: 700px) { .pa-ws-search, .pa-ws-sel { width: 100% !important; flex: 1 1 100%; } .pa .card-h .row { justify-content: flex-start; width: 100%; } }
+/* sidebar: the menu scrolls, the footer never covers it */
+.pa-side { height: 100vh; height: 100dvh; overflow: hidden; }
+.pa-nav { min-height: 0; }
+.pa-collapse, .pa-me, .pa-brand { flex-shrink: 0; }
+.pa-ws th, .pa-ws td { padding-left: 8px; padding-right: 8px; }
+.pa-ws th:first-child, .pa-ws td:first-child { padding-left: 14px; padding-right: 2px; }
+.pa-ws th:last-child, .pa-ws td:last-child { padding-right: 14px; }
+@media (max-width: 700px) { .pa-ws .pa-cell { flex: 1; min-width: 0; text-align: right; } .pa-ws .pa-cell .muted { overflow-wrap: anywhere; } }

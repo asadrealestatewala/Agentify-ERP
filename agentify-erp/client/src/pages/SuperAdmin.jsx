@@ -7,9 +7,10 @@ import { api } from '../api.js';
 import { useToast } from '../context.jsx';
 import { historyLine } from './platform/Billing.jsx';
 import { useCan } from './platform/AdminShell.jsx';
+import { fmtDay, fmtWhen } from './platform/dates.js';
 
 const A = '/api/platform/admin';
-const d10 = (d) => (d ? String(d).slice(0, 10) : '—');
+const d10 = (d) => (d ? fmtDay(d) : '—');
 const num = (n) => Number(n || 0).toLocaleString();
 const limit = (used, max) => (max == null ? `${num(used)}` : `${num(used)} / ${max}`);
 function ago(ts) {
@@ -34,7 +35,7 @@ export function ExpiryBadge({ e }) {
     ends: e.locked ? 'Subscription ended' : `Ends${when}`,
     renews: e.date ? `Paid${when}` : 'Paid',
   }[e.kind] || e.kind;
-  return <span title={e.date ? `Date: ${e.date}` : undefined}><StatusBadge status={e.level} tone={e.kind === 'never' ? 'grey' : LEVEL_TONE[e.level]} label={label} />{e.date && <div className="muted">{e.date}</div>}</span>;
+  return <span className="pa-exp" title={e.date ? `Date: ${fmtDay(e.date)}` : undefined}><StatusBadge status={e.level} tone={e.kind === 'never' ? 'grey' : LEVEL_TONE[e.level]} label={label} />{e.date && <div className="muted">{fmtDay(e.date)}</div>}</span>;
 }
 
 // ---------------------------------------------------------------- workspace list
@@ -101,25 +102,25 @@ export function Workspaces({ onOpen }) {
   };
   return (
     <Card flush title={`${shown.length} workspace${shown.length === 1 ? '' : 's'}`} actions={<>
-      <input className="input" style={{ width: 200 }} placeholder="Search name, address, owner" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} aria-label="Search workspaces" />
-      <select className="input" style={{ width: 170 }} value={prod} onChange={(e) => { setProd(e.target.value); setPage(0); }} aria-label="Product"><option value="">Both products</option><option value="real_estate">Real estate</option><option value="construction">Construction</option><option value="bundle">Bundle</option></select>
-      <select className="input" style={{ width: 180 }} value={f} onChange={(e) => setF(e.target.value)} aria-label="Filter">{FILTERS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+      <input className="input pa-ws-search" placeholder="Search name, address, owner" value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} aria-label="Search workspaces" />
+      <select className="input pa-ws-sel" value={prod} onChange={(e) => { setProd(e.target.value); setPage(0); }} aria-label="Product"><option value="">Both products</option><option value="real_estate">Real estate</option><option value="construction">Construction</option><option value="bundle">Bundle</option></select>
+      <select className="input pa-ws-sel" value={f} onChange={(e) => setF(e.target.value)} aria-label="Filter">{FILTERS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
       <button className="btn sm" onClick={exportCsv} disabled={!shown.length}>Export CSV</button>
       {tests.length > 0 && <button className="btn sm danger" onClick={() => setDel({ ids: tests.map((t) => t.id), names: tests.map((t) => t.name), reason: 'Test workspace cleanup', owner_request: true, keep_archive: false, confirm: '' })}>Delete {tests.length} unused test workspace{tests.length === 1 ? '' : 's'}…</button>}
       {sel.size > 0 && <button className="btn sm danger" onClick={() => setDel({ ids: [...sel], names: (rows || []).filter((t) => sel.has(t.id)).map((t) => t.name), reason: '', owner_request: false, keep_archive: false, confirm: '' })}>Delete {sel.size} selected…</button>}
       <button className="btn primary sm" onClick={() => setCreate(blank)}>New workspace</button>
     </>}>
       {!shown.length ? <Empty title="No workspaces match" /> : (
-        <div className="table-wrap"><table className="t"><thead><tr><th style={{ width: 28 }}>{pickable.length > 0 && <input type="checkbox" aria-label="Select all cancelled on this page" checked={pickable.every((t) => sel.has(t.id))} onChange={(e) => setSel((x) => { const n = new Set(x); pickable.forEach((t) => (e.target.checked ? n.add(t.id) : n.delete(t.id))); return n; })} />}</th>{th('name', 'Workspace')}{th('progress', 'Setup progress')}{th('users', 'Usage')}{th('active', 'Last active')}{th('expiry', 'Plan / expiry')}<th>Status</th></tr></thead><tbody>
+        <div className="table-wrap"><table className="t pa-ws"><thead><tr><th style={{ width: 28 }}>{pickable.length > 0 && <input type="checkbox" aria-label="Select all cancelled on this page" checked={pickable.every((t) => sel.has(t.id))} onChange={(e) => setSel((x) => { const n = new Set(x); pickable.forEach((t) => (e.target.checked ? n.add(t.id) : n.delete(t.id))); return n; })} />}</th>{th('name', 'Workspace')}{th('progress', 'Setup progress')}{th('users', 'Usage')}{th('active', 'Last active')}{th('expiry', 'Plan / expiry')}<th>Status</th></tr></thead><tbody>
           {pageRows.map((t) => (
             <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(t.id)}>
               <td onClick={(e) => e.stopPropagation()}>{deletable(t) && <input type="checkbox" aria-label={`Select ${t.name}`} checked={sel.has(t.id)} onChange={() => toggle(t.id)} />}</td>
-              <td><b>{t.name}</b><div className="muted">{t.slug}{t.custom_domain ? ` · ${t.custom_domain}` : ''}</div><div className="muted">{t.owner_email || ''}</div></td>
-              <td style={{ minWidth: 140 }}>{t.progress ? <><ProgressBar value={t.progress.percent} tone="green" /><div className="muted">{t.progress.done} of {t.progress.total} steps</div></> : <span className="err">{t.error || '—'}</span>}</td>
-              <td className="nowrap">{t.stats && <><div>{limit(t.stats.seats, t.expiry.limits?.seats)} users</div><div className="muted">{limit(t.stats.projects, t.expiry.limits?.projects)} projects · {num(t.stats.properties)} properties · {num(t.stats.sales)} sales</div></>}</td>
-              <td className="nowrap">{ago(t.stats?.last_activity)}</td>
-              <td><div style={{ textTransform: 'capitalize' }}>{t.is_legacy ? 'Original (unmetered)' : t.plan}</div><div className="muted">{PRODUCT_SHORT[t.product] || ''}</div><ExpiryBadge e={t.expiry} /></td>
-              <td><StatusBadge status={t.status} />{t.data_deleted_at && <div className="muted">Data deleted</div>}{deletable(t) && <div><button className="btn sm danger" onClick={(e) => { e.stopPropagation(); setDel({ ids: [t.id], names: [t.name], reason: '', owner_request: false, keep_archive: false, confirm: '' }); }}>Delete…</button></div>}</td>
+              <td><div className="pa-cell"><b>{t.name}</b><div className="muted">{t.slug}{t.custom_domain ? ` · ${t.custom_domain}` : ''}</div><div className="muted">{t.owner_email || ''}</div></div></td>
+              <td className="pa-ws-prog">{t.progress ? <><ProgressBar value={t.progress.percent} tone="green" /><div className="muted">{t.progress.done} of {t.progress.total} steps</div></> : <span className="err">{t.error || '—'}</span>}</td>
+              <td>{t.stats && <div className="pa-cell"><div className="nowrap">{limit(t.stats.seats, t.expiry.limits?.seats)} users</div><div className="muted">{limit(t.stats.projects, t.expiry.limits?.projects)} projects · {num(t.stats.properties)} properties · {num(t.stats.sales)} sales</div></div>}</td>
+              <td className="nowrap pa-ws-last">{ago(t.stats?.last_activity)}</td>
+              <td><div className="pa-cell"><div><b style={{ textTransform: 'capitalize' }}>{t.is_legacy ? 'Original (unmetered)' : t.plan}</b>{PRODUCT_SHORT[t.product] ? <span className="muted"> · {PRODUCT_SHORT[t.product]}</span> : null}</div>{!(t.status === 'cancelled' && t.expiry.kind === 'cancelled') && <ExpiryBadge e={t.expiry} />}</div></td>
+              <td className="nowrap"><div className="pa-cell"><StatusBadge status={t.status} />{t.data_deleted_at && <div className="muted">Data deleted</div>}{deletable(t) && <div><button className="btn sm danger" onClick={(e) => { e.stopPropagation(); setDel({ ids: [t.id], names: [t.name], reason: '', owner_request: false, keep_archive: false, confirm: '' }); }}>Delete…</button></div>}</div></td>
             </tr>
           ))}
         </tbody></table></div>
@@ -261,7 +262,7 @@ export function WorkspaceDetail({ id, onClose, onChanged }) {
           <Card title="Current subscription"><KV items={[['Plan', planNames[d.plan] || d.plan], ['Billing status', <StatusBadge key="b" status={d.subscription_status} />], ['Billing cycle', d.billing_interval ? `${d.billing_interval}ly` : '—'],
             ['Price paid', d.price ? `${d.price.currency} ${num(d.price.amount)}` : '—'], ['Trial', d.trial_started_at ? `${new Date(d.trial_started_at).toLocaleString()} → ${new Date(d.trial_ends_at).toLocaleString()}` : d10(d.trial_ends_at)], ['Cancelled on', d10(d.canceled_at)], ['Paid until / next renewal', d10(d.current_period_end)], ['Grace until', d10(d.grace_until)], ['Paid via', d.billing_provider || '—']]} /></Card>
           <Card title="History" flush>
-            {!d.history.length ? <Empty title="No changes recorded yet" /> : <div className="table-wrap"><table className="t"><tbody>{d.history.map((h) => <tr key={h.id}><td className="nowrap muted">{h.created_at.slice(0, 16)}</td><td>{historyLine(h)}</td><td>{h.actor || h.source}</td><td className="muted">{h.reason || ''}</td></tr>)}</tbody></table></div>}
+            {!d.history.length ? <Empty title="No changes recorded yet" /> : <div className="table-wrap"><table className="t"><tbody>{d.history.map((h) => <tr key={h.id}><td className="nowrap muted">{fmtWhen(h.created_at)}</td><td>{historyLine(h)}</td><td>{h.actor || h.source}</td><td className="muted">{h.reason || ''}</td></tr>)}</tbody></table></div>}
           </Card>
         </>}
         {tab === 'payments' && <>
@@ -277,10 +278,10 @@ export function WorkspaceDetail({ id, onClose, onChanged }) {
         {tab === 'limits' && <LimitsForm d={d} onSave={(body) => post(`${A}/workspaces/${id}/entitlements`, body, 'Limits saved', 'put')} />}
         {tab === 'activity' && <>
           <Card title="Account history" flush>
-            <div className="table-wrap"><table className="t"><tbody>{d.events.map((ev, i) => <tr key={i}><td className="nowrap muted">{String(ev.created_at).slice(0, 16)}</td><td>{ev.action}</td><td className="muted">{ev.detail && ev.detail !== 'null' ? ev.detail : ''}</td></tr>)}</tbody></table></div>
+            <div className="table-wrap"><table className="t"><tbody>{d.events.map((ev, i) => <tr key={i}><td className="nowrap muted">{fmtWhen(ev.created_at)}</td><td>{ev.action}</td><td className="muted">{ev.detail && ev.detail !== 'null' ? ev.detail : ''}</td></tr>)}</tbody></table></div>
           </Card>
           <Card title="Recent activity inside the workspace" flush>
-            {!d.activity.length ? <Empty title="No activity yet" /> : <div className="table-wrap"><table className="t"><tbody>{d.activity.map((a, i) => <tr key={i}><td className="nowrap muted">{String(a.created_at).slice(0, 16).replace('T', ' ')}</td><td>{a.user_name}</td><td>{a.action}{a.entity ? <span className="muted"> · {a.entity}</span> : ''}</td></tr>)}</tbody></table></div>}
+            {!d.activity.length ? <Empty title="No activity yet" /> : <div className="table-wrap"><table className="t"><tbody>{d.activity.map((a, i) => <tr key={i}><td className="nowrap muted">{fmtWhen(a.created_at)}</td><td>{a.user_name}</td><td>{a.action}{a.entity ? <span className="muted"> · {a.entity}</span> : ''}</td></tr>)}</tbody></table></div>}
           </Card>
         </>}
         {tab === 'notes' && <>
@@ -292,7 +293,7 @@ export function WorkspaceDetail({ id, onClose, onChanged }) {
             </div>
           </Card>
           <Card title="Notes" flush>
-            {!d.notes.length ? <Empty title="No notes yet" /> : <div className="table-wrap"><table className="t"><tbody>{d.notes.map((n) => <tr key={n.id}><td className="nowrap muted">{n.created_at.slice(0, 16)}</td><td style={{ whiteSpace: 'pre-wrap' }}>{n.pinned ? '📌 ' : ''}{n.body}</td><td className="muted">{n.admin}</td></tr>)}</tbody></table></div>}
+            {!d.notes.length ? <Empty title="No notes yet" /> : <div className="table-wrap"><table className="t"><tbody>{d.notes.map((n) => <tr key={n.id}><td className="nowrap muted">{fmtWhen(n.created_at)}</td><td style={{ whiteSpace: 'pre-wrap' }}>{n.pinned ? '📌 ' : ''}{n.body}</td><td className="muted">{n.admin}</td></tr>)}</tbody></table></div>}
           </Card>
         </>}
       </div>

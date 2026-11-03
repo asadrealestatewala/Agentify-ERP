@@ -5,6 +5,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieCh
 import { Card, Empty, ErrorBox, Loading } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { A, PageTitle } from './AdminShell.jsx';
+import { fmtWhen } from './dates.js';
 
 const COLORS = ['#14b8a6', '#3b82f6', '#f59e0b', '#8b5cf6', '#f43f5e', '#64748b', '#22c55e', '#ec4899'];
 const STATUS_COLORS = { active: '#14b8a6', suspended: '#f59e0b', cancelled: '#94a3b8' };
@@ -135,7 +136,7 @@ export function Dashboard() {
             </Card>
             <Card title="Recent administrative activity" flush actions={<button className="btn sm" onClick={() => nav('/platform/audit')}>Audit log</button>}>
               {!c.recent_activity.length ? <Empty title="No console activity yet" /> : <div className="table-wrap"><table className="t"><tbody>
-                {c.recent_activity.map((a) => <tr key={a.id}><td className="nowrap muted">{String(a.created_at).slice(0, 16)}</td><td>{a.admin}</td><td>{a.action}</td></tr>)}
+                {c.recent_activity.map((a) => <tr key={a.id}><td className="nowrap muted">{fmtWhen(a.created_at)}</td><td>{a.admin}</td><td>{a.action}</td></tr>)}
               </tbody></table></div>}
             </Card>
           </div>
@@ -194,7 +195,7 @@ export function NotificationsPage() {
             {d.items.map((n) => (
               <tr key={n.id} style={{ fontWeight: n.read || n.resolved ? 400 : 600 }}>
                 <td><span className={`pa-sev ${n.severity}`} />{n.title}<div className="muted" style={{ fontWeight: 400 }}>{n.body}</div></td>
-                <td className="nowrap muted">{String(n.created_at).slice(0, 16)} UTC</td>
+                <td className="nowrap muted">{fmtWhen(n.created_at)} UTC</td>
                 <td>{n.resolved ? <span className="pill grey"><i />Resolved</span> : n.read ? <span className="pill blue"><i />Read</span> : <span className="pill amber"><i />New</span>}</td>
                 <td className="right nowrap">{!n.read && !n.resolved && <button className="btn sm ghost" onClick={() => mark([n.id])}>Mark read</button>} {n.link && <button className="btn sm" onClick={() => { if (!n.read) mark([n.id]); nav(n.link); }}>Open</button>}</td>
               </tr>
