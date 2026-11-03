@@ -11,6 +11,10 @@ import { recordServerEvent } from '../services/analytics.js';
 import { platformDb, logTenantEvent } from '../platform.js';
 import { marketingContent } from '../services/marketing.js';
 import multer from 'multer';
+import { creditsAllowance, creditsUsed, creditsLeft } from '../services/aiGate.js';
+import { postsUsage } from '../services/socialCalendar.js';
+import { allowanceSummary } from '../services/tenantEmail.js';
+import { publicOffer } from '../services/launchOffer.js';
 import { keepContext } from '../context.js';
 import { paymentHistory, ledger, statementCsv, statementPdf, invoicePdf, ownInvoice, invoiceNumber, saveProof, sendProof, PROOF_MAX_BYTES } from '../services/billingStatements.js';
 
@@ -38,6 +42,19 @@ r.get('/status', (req, res) => {
 r.get('/', can('settings', 'view'), (req, res) => res.json({ ...summary(req), invoices: req.tenant.is_legacy ? [] : invoicesFor(req.tenant.id), payments: req.tenant.is_legacy ? [] : submissionsFor(req.tenant.id),
   refunds: req.tenant.is_legacy ? [] : refundsFor(req.tenant.id), addons: listAddons({ activeOnly: true, product: req.tenant.product === 'bundle' ? null : req.tenant.product }),
   my_addons: req.tenant.is_legacy ? [] : tenantAddons(req.tenant.id), card_portal: req.tenant.billing_provider === 'stripe', history: req.tenant.is_legacy ? [] : paymentHistory(req.tenant.id) }));
+
+/** The plan card: plan name, credits left, posts left, emails left, reel length and features, plus the plans to upgrade to. */
+r.get('/allowance', can('settings', 'view'), asyncH((req, res) => {
+  const st = billingState(req.tenant), L = st.limits, id = req.tenant.id;
+  const total = creditsAllowance(id);
+  let emails = null;
+  try { const a = allowanceSummary(req.tenant); const cats = Object.values(a.categories || {}); emails = cats.some((c) => c.monthly_allowance != null) ? { allowance: cats.reduce((n, c) => n + (c.monthly_allowance || 0), 0), used: cats.reduce((n, c) => n + c.used, 0), resets_at: a.period?.resets_at || null } : null; } catch { /* e-mail metering not set up for this workspace */ }
+  if (emails) emails.left = Math.max(0, emails.allowance - emails.used);
+  res.json({ plan: st.plan, plan_name: L.name, status: st.status, currency: req.tenant.currency,
+    credits: { total, used: creditsUsed(id), left: creditsLeft(id) }, posts: postsUsage(), emails, reel_seconds: L.reel_seconds, storage_mb: L.storage_mb, flags: L.flags,
+    upgrades: catalogFor(req.tenant).filter((p) => p.id !== st.plan && p.allowances).map((p) => ({ id: p.id, name: p.name, price: p.price, credits: p.allowances?.credits?.[req.tenant.currency] ?? null })),
+    offer: publicOffer() });
+}));
 
 /** Price for a plan, interval, coupon and add-ons, computed on the server (the same figure the payment is checked against). */
 r.post('/quote', can('settings', 'view'), asyncH((req, res) => {

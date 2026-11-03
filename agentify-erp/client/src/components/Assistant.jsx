@@ -48,6 +48,11 @@ export default function Assistant() {
   useEffect(() => { const h = () => setOpen(true); window.addEventListener('erp:assistant', h); return () => window.removeEventListener('erp:assistant', h); }, []);
   useEffect(() => { try { sessionStorage.setItem('assistant-log', JSON.stringify(log.slice(-12))); } catch { /* ignore */ } end.current?.scrollIntoView({ block: 'end' }); }, [log, open]);
 
+  const report = async (m) => {
+    const note = window.prompt('What is wrong with this answer? (optional)', '');
+    if (note === null) return;
+    try { await api.post('/api/assistant/report', { question: m.question, answer: m.answer, note }); setLog((l) => l.map((x) => (x === m ? { ...x, reported: true } : x))); toast('Thank you. We will review it.'); } catch (e) { toast(e.message, 'err'); }
+  };
   const pdf = async (question) => { try { await downloadPost('/api/assistant/pdf', { question }, 'assistant-report.pdf'); } catch (e) { toast(e.message, 'err'); } };
   const send = async (text) => {
     const question = (text ?? q).trim();
@@ -55,7 +60,9 @@ export default function Assistant() {
     setQ(''); setBusy(true);
     setLog((l) => [...l, { role: 'user', text: question }]);
     try {
-      const a = await api.post('/api/assistant/ask', { question });
+      // the last few answered turns let follow-ups such as "and last month?" or "how do I do that?" work
+      const history = log.filter((m) => m.role === 'bot' && !m.error && m.question).slice(-3).map((m) => ({ q: m.question, a: String(m.answer || '').slice(0, 600) }));
+      const a = await api.post('/api/assistant/ask', { question, history });
       setLog((l) => [...l, { role: 'bot', question, ...a }]);
       if (a.wants_pdf && a.tables?.length && a.intent !== 'denied') pdf(question);
     } catch (e) { setLog((l) => [...l, { role: 'bot', answer: e.message, tables: [], suggestions: [], error: true }]); } finally { setBusy(false); }
@@ -82,9 +89,12 @@ export default function Assistant() {
               ? <div key={i} className="bubble me">{m.text}</div>
               : (
                 <div key={i} className={`bubble bot ${m.error ? 'err' : ''}`}>
+                  {m.ai && <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>AI-written answer from our help guides. Check important steps.</div>}
                   <div style={{ whiteSpace: 'pre-wrap' }}>{bold(m.answer)}</div>
+                  {m.ai && m.sources?.length > 0 && <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>From: {m.sources.join(' · ')}</div>}
                   {m.links?.length > 0 && <div className="row wrap" style={{ marginTop: 8 }}>{m.links.map((l) => <a key={l.url} className="btn sm" href={l.url} {...(l.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{l.label}</a>)}</div>}
                   {m.tables?.map((t, j) => <AnswerTable key={j} t={t} />)}
+                  {m.ai && <div style={{ marginTop: 8 }}><button className="btn sm" disabled={m.reported} onClick={() => report(m)}>{m.reported ? 'Reported' : 'Report'}</button></div>}
                   {m.tables?.length > 0 && m.intent !== 'denied' && <div style={{ marginTop: 8 }}><button className="btn sm" onClick={() => pdf(m.question)}><Icon name="download" size={12} />Download PDF report</button></div>}
                   {i === log.length - 1 && m.suggestions?.length > 0 && <div className="row wrap" style={{ marginTop: 8 }}>{m.suggestions.map((s) => <button key={s} className="chip" style={{ fontSize: 11.5 }} onClick={() => send(s)}>{s}</button>)}</div>}
                 </div>

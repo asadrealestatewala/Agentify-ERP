@@ -7,6 +7,7 @@
 //                             BILLING_CHECKOUT_URL_GROWTH_MONTH=https://pay.example.com/growth-monthly
 //                             and a signed webhook to POST /api/platform/billing/webhook/generic
 //   BILLING_WEBHOOK_SECRET    HMAC secret the provider (or its adapter) signs webhooks with
+import { launchLine } from './launchOffer.js';
 import crypto from 'node:crypto';
 import { PLANS, graceDays, assertSellable } from './plans.js';
 import { recordSubscriptionChange } from './subscriptions.js';
@@ -181,6 +182,8 @@ const origin = (req) => `${req.protocol}://${req.get('host')}`;
 export async function startCardCheckout(req, { plan, interval = 'month' }) {
   assertSellable(plan, req.tenant);
   if (!['month', 'year'].includes(interval)) throw bad('Interval must be month or year');
+  // Stripe card checkout charges fixed Stripe prices, so it cannot give the launch price. Refuse rather than charge more than the page promised.
+  if (stripe.stripeConfigured() && launchLine(req.tenant, PLANS[plan], String(req.tenant.currency || '').toUpperCase(), interval, PLANS[plan]?.price?.[String(req.tenant.currency || '').toUpperCase()]?.month)) throw bad('The launch price cannot be paid by card yet. Please pay by bank transfer, wallet or an online payment option, or choose yearly billing.');
   if (stripe.stripeConfigured()) return stripe.createCheckout(req.tenant, { plan, interval, email: req.user.email, origin: origin(req), firstPayment: !platformDb().prepare("SELECT 1 FROM invoices WHERE tenant_id=? AND status='paid'").get(req.tenant.id) });
   return startCheckout(req.tenant, { plan, interval, email: req.user.email });
 }

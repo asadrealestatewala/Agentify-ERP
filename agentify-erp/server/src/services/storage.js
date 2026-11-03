@@ -21,7 +21,7 @@ import { HttpError, now } from '../util.js';
 export const S3_PREFIX = 's3:';
 export const SIGNED_URL_SECONDS = 900;
 /** Folders (the `module` part of a key) that may hold files. */
-export const MODULES = ['documents', 'claims', 'content', 'recordings', 'billing', 'training', 'properties', 'projects', 'website', 'hr', 'branding', 'promo', 'other'];
+export const MODULES = ['documents', 'claims', 'content', 'recordings', 'billing', 'training', 'properties', 'projects', 'website', 'hr', 'branding', 'promo', 'creative', 'other'];
 
 const env = () => ({
   endpoint: process.env.S3_ENDPOINT, region: process.env.S3_REGION, bucket: process.env.S3_BUCKET,
@@ -187,6 +187,12 @@ export function localFile(rel) {
   const root = path.resolve(uploadDir());
   const file = path.resolve(root, String(rel));
   return file.startsWith(root + path.sep) ? file : null;
+}
+/** The bytes of a stored file, wherever it lives (bucket object or legacy file under the upload folder). */
+export async function readRefBytes(ref, opt) {
+  if (isStoredRef(ref)) return getBuffer(ref, opt);
+  const f = localFile(ref); if (!f) throw new HttpError(404, 'File missing');
+  return fs.readFileSync(f);
 }
 export const isLocalRef = (p) => !!p && !isStoredRef(p);
 

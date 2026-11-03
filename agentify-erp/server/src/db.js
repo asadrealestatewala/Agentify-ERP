@@ -12,6 +12,7 @@ import { DOCUMENTS_SCHEMA } from './regions/documentsSchema.js';
 import { syncRegionLookups } from './regions/lookups.js';
 import { INTEGRATIONS_SCHEMA } from './integrations/schema.js';
 import { FIELD_SCHEMA } from './fieldSchema.js';
+import { CREATIVE_SCHEMA } from './creativeSchema.js';
 import { ONBOARDING_SCHEMA } from './onboardingSchema.js';
 import { GATEWAYS_SCHEMA } from './gateways/schema.js';
 import { EMAIL_SCHEMA } from './emailSchema.js';
@@ -41,7 +42,7 @@ export function openDb(file, tenant = null) {
   h.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;');
   handles.set(abs, h);
   try {
-    als.run({ tenant, db: h }, () => { db.exec(SCHEMA); db.exec(CONSTRUCTION_SCHEMA); db.exec(IDENTITY_SCHEMA); db.exec(MORTGAGE_SCHEMA); db.exec(DOCUMENTS_SCHEMA); db.exec(INTEGRATIONS_SCHEMA); db.exec(ONBOARDING_SCHEMA); db.exec(FIELD_SCHEMA); db.exec(GATEWAYS_SCHEMA); db.exec(EMAIL_SCHEMA); db.exec(LEAD_SCHEMA); db.exec(WHATSAPP_SCHEMA); migrate(); db.exec(DEVELOPER_SCHEMA); backfillIds(); try { syncRegionLookups(); } catch { /* lists are a convenience; never block opening the workspace */ } });
+    als.run({ tenant, db: h }, () => { db.exec(SCHEMA); db.exec(CONSTRUCTION_SCHEMA); db.exec(IDENTITY_SCHEMA); db.exec(MORTGAGE_SCHEMA); db.exec(DOCUMENTS_SCHEMA); db.exec(INTEGRATIONS_SCHEMA); db.exec(ONBOARDING_SCHEMA); db.exec(FIELD_SCHEMA); db.exec(GATEWAYS_SCHEMA); db.exec(EMAIL_SCHEMA); db.exec(LEAD_SCHEMA); db.exec(WHATSAPP_SCHEMA); db.exec(CREATIVE_SCHEMA); migrate(); db.exec(DEVELOPER_SCHEMA); backfillIds(); try { syncRegionLookups(); } catch { /* lists are a convenience; never block opening the workspace */ } });
   } catch (e) { handles.delete(abs); h.close(); throw e; }
   return h;
 }
@@ -84,6 +85,13 @@ function migrate() {
     file_key TEXT PRIMARY KEY, tenant_id INTEGER NOT NULL, module TEXT NOT NULL, size_bytes INTEGER NOT NULL DEFAULT 0, mime_type TEXT,
     original_name TEXT, storage_provider TEXT NOT NULL DEFAULT 'contabo_s3' CHECK(storage_provider IN ('contabo_s3','local')), created_at TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS idx_stored_files_module ON stored_files(module)`);
+  // content calendar with approval and Zernio posting (v1.70): additive columns; old posts get a stage from their old status
+  for (const [c, d] of [['stage', 'TEXT'], ['submitted_by', 'INTEGER'], ['submitted_at', 'TEXT'], ['approved_by', 'INTEGER'], ['approved_at', 'TEXT'], ['reject_note', 'TEXT'], ['account_ids', "TEXT NOT NULL DEFAULT '[]'"],
+    ['source_kind', 'TEXT'], ['source_id', 'INTEGER'], ['results', "TEXT NOT NULL DEFAULT '{}'"], ['fail_reason', 'TEXT'], ['attempts', 'INTEGER NOT NULL DEFAULT 0'], ['blocked_reason', 'TEXT'], ['zernio_post_id', 'TEXT'], ['last_attempt_at', 'TEXT']]) addCol('content_posts', c, d);
+  if (cols('content_posts').some((c) => c.name === 'stage')) db.exec("UPDATE content_posts SET stage = CASE status WHEN 'posted' THEN 'posted' WHEN 'ready' THEN 'approved' ELSE 'draft' END WHERE stage IS NULL");
+  db.exec(`CREATE TABLE IF NOT EXISTS zernio_accounts(
+    id INTEGER PRIMARY KEY, account_id TEXT UNIQUE NOT NULL, platform TEXT NOT NULL, name TEXT, username TEXT, status TEXT NOT NULL DEFAULT 'connected', connected_at TEXT, updated_at TEXT)`);
+  addCol('creative_jobs', 'voice_path', "TEXT NOT NULL DEFAULT 'script'"); addCol('creative_jobs', 'clips', 'TEXT'); addCol('creative_jobs', 'scenes', 'TEXT'); addCol('creative_jobs', 'note', 'TEXT'); // reels with the voice inside (v1.69)
   addCol('training_library', 'youtube_url', 'TEXT'); // set when the video lives on YouTube; workspaces then show a link, not a file
   const hasSales = cols('sales').length > 0;
   if (hasSales) {
@@ -123,7 +131,7 @@ function migrate() {
     ['received_amount', 'INTEGER'], ['feed_id', 'INTEGER'], ['auto_matched', 'INTEGER NOT NULL DEFAULT 0'], ['auto_synced', 'INTEGER NOT NULL DEFAULT 0']]) addCol('payment_claims', c, t);
   addCol('receipts', 'qr_payload', 'TEXT'); addCol('receipts', 'qr_at', 'TEXT');
   addCol('site_posts', 'seo_title', 'TEXT'); addCol('site_posts', 'seo_desc', 'TEXT'); addCol('site_posts', 'focus_keyword', 'TEXT');
-  addCol('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 1'); addCol('users', 'totp_secret', 'TEXT'); addCol('users', 'totp_enabled', 'INTEGER NOT NULL DEFAULT 0'); addCol('users', 'recovery_codes', 'TEXT'); addCol('users', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0');
+  addCol('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 1'); addCol('users', 'totp_secret', 'TEXT'); addCol('users', 'totp_enabled', 'INTEGER NOT NULL DEFAULT 0'); addCol('users', 'recovery_codes', 'TEXT'); addCol('users', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0'); addCol('users', 'tour_seen', "TEXT NOT NULL DEFAULT '{}'");
   // developer partner portal (docs/DEVELOPER_PARTNER_PORTAL.md): own plots stay inventory_source='own' and are untouched
   addCol('properties', 'inventory_source', "TEXT NOT NULL DEFAULT 'own'"); addCol('properties', 'developer_id', 'INTEGER'); addCol('properties', 'agreement_id', 'INTEGER');
   for (const [c, t] of [['developer_id', 'INTEGER'], ['agreement_id', 'INTEGER'], ['booking_id', 'TEXT'], ['file_state', 'TEXT'], ['holder', "TEXT NOT NULL DEFAULT 'customer'"],

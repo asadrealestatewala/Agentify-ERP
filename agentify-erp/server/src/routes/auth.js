@@ -9,6 +9,7 @@ import { noteSignIn, noteFailedLogin, recognised, deviceList } from '../services
 import { encrypt, decrypt } from '../services/platformConfig.js';
 import { newSecret, verifyCode, otpauthUrl, qrDataUrl, newRecoveryCodes, useRecoveryCode } from '../services/totp.js';
 import { audit } from '../audit.js';
+import { TOURS } from '../../../shared/help/tours.js';
 import { asyncH, bad, HttpError, now } from '../util.js';
 import { clientConfig } from '../regions/runtime.js';
 import { PROVIDERS as OAUTH, authorizeUrl, redirectUri, signState, configuredProviders } from '../services/oauthApps.js';
@@ -23,9 +24,11 @@ const loginLimiter = rateLimit({ windowMs: 60_000, limit: Number(process.env.LOG
 
 const linkLimiter = rateLimit({ windowMs: 60_000, limit: Number(process.env.LOGIN_LIMIT) || 10, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many attempts. Try again in a minute.' } });
 
+const tourSeen = (u) => { try { const o = JSON.parse(u.tour_seen || '{}'); return o && typeof o === 'object' ? o : {}; } catch { return {}; } };
+
 export const sessionPayload = (u) => ({
   id: u.id, name: u.name, email: u.email, role: u.role, portal: !!u.portal, own_scope: !!u.own_scope, isSuper: u.isSuper,
-  contact_id: u.contact_id, vendor_id: u.vendor_id || null, developer_id: u.developer_id || null, email_verified: u.email_verified !== 0, totp_enabled: !!u.totp_enabled, perms: u.isSuper ? ['*'] : [...u.perms],
+  contact_id: u.contact_id, vendor_id: u.vendor_id || null, developer_id: u.developer_id || null, email_verified: u.email_verified !== 0, totp_enabled: !!u.totp_enabled, tour_seen: tourSeen(u), perms: u.isSuper ? ['*'] : [...u.perms],
 });
 
 r.post('/login', loginLimiter, asyncH((req, res) => {
@@ -191,6 +194,17 @@ r.post('/invite/accept', linkLimiter, asyncH((req, res) => {
   res.cookie('erp_token', signToken(u), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 12 * 3600 * 1000 });
   noteSignIn(req, res, u);
   res.status(201).json(sessionPayload(u));
+}));
+
+/** Remember (or forget) that this person has seen a product tour; it follows them to every device. */
+r.put('/tour', requireAuth, asyncH((req, res) => {
+  const id = String(req.body?.tour || '');
+  if (!TOURS[id]) throw bad('Unknown tour');
+  const row = get('SELECT tour_seen FROM users WHERE id=?', req.user.id);
+  const seen = tourSeen(row || {});
+  if (req.body?.seen === false) delete seen[id]; else seen[id] = TOURS[id].version;
+  run('UPDATE users SET tour_seen=? WHERE id=?', JSON.stringify(seen), req.user.id);
+  res.json({ tour_seen: seen });
 }));
 
 r.post('/logout', requireAuth, asyncH((req, res) => {

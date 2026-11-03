@@ -68,6 +68,8 @@ export function AppProviders({ children }) {
     resendOtp: (otp_token) => api.post('/api/auth/login/otp/resend', { otp_token }),
     loginMfa: async (mfa_token, code) => { const u = await api.post('/api/auth/login/mfa', { mfa_token, code }); setUser(u); if (!u.portal) await loadMeta(); return u; },
     /** Adopt a session the server already created (accepting an invitation signs the user in). */
+    /** Remember (or forget) that this person has seen a product tour; saved on their account so it follows them to every device. */
+    markTour: async (tour, seen = true) => { const r = await api.put('/api/auth/tour', { tour, seen }); setUser((u) => (u ? { ...u, tour_seen: r.tour_seen } : u)); },
     adopt: async (u) => { setUser(u); if (!u.portal) await loadMeta(); return u; },
     logout: async () => { bindUser(null); try { await api.post('/api/auth/logout'); } finally { setUser(null); setMeta(null); } },
     can: (module, action = 'view') => !!user && !user.portal && (user.isSuper || user.perms.includes(`${module}:${action}`)),

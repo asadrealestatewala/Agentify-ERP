@@ -564,3 +564,15 @@ html[dir="rtl"] .input-group .addon { border-radius: 0 var(--radius, 8px) var(--
 /* workspace's own logo, top left of the sidebar */
 .brand-logo { max-width: 100%; max-height: 40px; object-fit: contain; object-position: left center; display: block; }
 .collapsed .brand-logo { max-width: 32px; object-position: center; }
+
+/* Guided tour (Driver.js): follow the workspace colour; keep the popover readable in dark mode. */
+.driver-popover.erp-tour { background: var(--surface, #fff); color: var(--text, #0f172a); border-radius: 10px; max-width: min(340px, calc(100vw - 32px)); }
+.driver-popover.erp-tour .driver-popover-title { font-size: 15px; font-weight: 700; }
+.driver-popover.erp-tour .driver-popover-description, .driver-popover.erp-tour .driver-popover-progress-text { color: var(--muted, #475569); }
+.driver-popover.erp-tour .driver-popover-next-btn { background: var(--primary); border-color: var(--primary); color: #fff; text-shadow: none; border-radius: 6px; min-height: 36px; }
+.driver-popover.erp-tour .driver-popover-prev-btn { border-radius: 6px; min-height: 36px; }
+.driver-popover.erp-tour .driver-popover-arrow-side-left.driver-popover-arrow { border-left-color: var(--surface, #fff); }
+.driver-popover.erp-tour .driver-popover-arrow-side-right.driver-popover-arrow { border-right-color: var(--surface, #fff); }
+.driver-popover.erp-tour .driver-popover-arrow-side-top.driver-popover-arrow { border-top-color: var(--surface, #fff); }
+.driver-popover.erp-tour .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: var(--surface, #fff); }
+@media print { .driver-popover, .driver-overlay { display: none !important; } }

@@ -4,6 +4,7 @@ import Icon from './Icon.jsx';
 import LogoMark from './LogoMark.jsx';
 import { Avatar, Loading } from './ui.jsx';
 import Assistant from './Assistant.jsx';
+import ProductTour from './ProductTour.jsx';
 import Appearance from './Appearance.jsx';
 import GetAppButton from './GetAppButton.jsx';
 import { inNativeApp } from '../installApp.js';
@@ -37,6 +38,7 @@ const NAV = [
   { label: 'Meetings', icon: 'calendar', to: '/meetings', module: 'crm' },
   { label: 'Recordings', icon: 'file', to: '/recordings', module: 'crm' },
   { label: 'AI Studio', icon: 'star', to: '/ai-studio', module: 'crm' },
+  { label: 'Creative Studio', icon: 'star', to: '/creative', module: 'content', creative: true },
   { label: 'Training videos', icon: 'video', to: '/training', always: true },
   { label: 'Mortgage', icon: 'card', to: '/mortgage', module: 'crm', flag: 'mortgage' },
   { label: 'Documents', icon: 'file', to: '/documents', module: 'crm', flag: 'templates' },
@@ -92,6 +94,7 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
   const [open, setOpen] = useState(() => { try { return JSON.parse(localStorage.getItem('nav-open')) || {}; } catch { return {}; } });
   const { meta } = useMeta();
   const ent = useFetch('/api/billing/status').data;
+  const creativeSt = useFetch('/api/creative/status').data; // shown only when AI is on for this workspace and credits are left
   const fieldMe = useFetch('/api/field/me').data; // missing (error) when the plan has no field module: both links stay hidden
   const fieldOk = (spec) => (spec === 'field:me' ? !!fieldMe && (fieldMe.settings.enabled || fieldMe.status.location) : spec === 'field:team' ? !!fieldMe?.can_view_team : true);
   const products = ent?.products || null; // null while loading: show everything rather than flicker
@@ -110,6 +113,7 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
     if (siteOnly && !['Website', 'Settings'].includes(g.label)) return null;
     if (!g.always && !ok(null, g.module)) return null;
     if (!hasProduct(g.product)) return null;
+    if (g.creative && !creativeSt?.available) return null;
     if (g.flag && !getRegion().config.flags?.[g.flag]) return null;
     if (!g.children) return g;
     const kids = (g.always ? g.children.filter((c) => fieldOk(c[2])) : g.children.filter((c) => ok(c[2], g.module))).filter((c) => hasProduct(PRODUCT_PATHS[c[1]])).filter((c) => !siteOnly || SITE_ONLY_PATHS.has(c[1]));
@@ -131,7 +135,7 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
             <div className="brand-name">{brand.name}<small>ERP</small></div></>}
       </div>
       <button className="collapse-btn" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}><Icon name={collapsed ? 'chevR' : 'chevL'} size={12} stroke={3} /></button>
-      <nav className="nav" aria-label="Main">
+      <nav className="nav" aria-label="Main" data-tour="nav">
         {groups.map((g) => (
           <div className="nav-group" key={g.label}>
             {g.children ? (
@@ -180,7 +184,7 @@ function GlobalSearch() {
     return () => { document.removeEventListener('mousedown', h); };
   }, []);
   return (
-    <div className="search" ref={ref}>
+    <div className="search" ref={ref} data-tour="search">
       <Icon name="search" size={15} />
       <input value={q} onChange={(e) => setQ(e.target.value)} onFocus={() => res.length && setOpen(true)} placeholder="Search contacts, plots, receipts, vendors…" aria-label="Global search"
         onKeyDown={(e) => { if (e.key === 'Enter' && res[0]) { nav(res[0].link); setOpen(false); setQ(''); } if (e.key === 'Escape') setOpen(false); }} />
@@ -209,7 +213,7 @@ function MobileTabs() {
   return (
     <>
       {evt && <div className="install-bar no-print"><span>Install the app on your phone</span><button className="btn sm primary" onClick={async () => { evt.prompt(); await evt.userChoice.catch(() => {}); setEvt(null); }}>Install</button><button className="btn sm ghost" onClick={() => setEvt(null)} aria-label="Dismiss">×</button></div>}
-      <nav className="mtabs no-print" aria-label="Quick navigation">{tabs.map(([l, to, ic]) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive ? 'on' : '')}><Icon name={ic} size={20} /><span>{l}</span></NavLink>)}</nav>
+      <nav className="mtabs no-print" aria-label="Quick navigation" data-tour="mobile-tabs">{tabs.map(([l, to, ic]) => <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) => (isActive ? 'on' : '')}><Icon name={ic} size={20} /><span>{l}</span></NavLink>)}</nav>
     </>
   );
 }
@@ -241,18 +245,20 @@ export default function Layout() {
       <div className="main">
         {demo && <div className="demo-ribbon">Demo data is loaded — records marked <b>DEMO</b> were seeded for testing (all demo logins use the password shown on the sign-in screen).</div>}
         <header className="topbar">
-          <button className="icon-btn menu-btn" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Icon name="menu" /></button>
+          <button className="icon-btn menu-btn" data-tour="menu-button" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Icon name="menu" /></button>
           <GlobalSearch />
           <button className="btn sm ghost no-print palette-btn" onClick={() => setPalette(true)} title="Command palette (Ctrl+K)" aria-label="Open command palette"><Icon name="command" size={14} /><span className="kbd-hint">Ctrl K</span></button>
           <div className="grow" />
           <FieldSharingBadge />
           <Link to="/notifications" className="muted nowrap no-print" style={{ fontSize: 12 }}>{user.role}</Link>
-          <button className="icon-btn ask-btn no-print" onClick={() => window.dispatchEvent(new Event('erp:assistant'))} aria-label="Ask the data assistant"><Icon name="bolt" /></button>
-          <Appearance />
-          <NotificationBell />
+          <button className="icon-btn ask-btn no-print" data-tour="ask" onClick={() => window.dispatchEvent(new Event('erp:assistant'))} aria-label="Ask the data assistant"><Icon name="bolt" /></button>
+          <button className="icon-btn no-print" data-tour="take-tour" onClick={() => window.dispatchEvent(new CustomEvent('erp:tour', { detail: { manual: true } }))} aria-label="Take the tour" title="Take the tour"><Icon name="help" /></button>
+          <span data-tour="appearance" style={{ display: 'contents' }}><Appearance /></span>
+          <span data-tour="notifications" style={{ display: 'contents' }}><NotificationBell /></span>
         </header>
         <main className="content" id="content"><VerifyBanner /><BillingBanner /><Announcements /><Suspense fallback={<Loading />}><Outlet /></Suspense></main>
         <Assistant />
+        <ProductTour />
         <MobileTabs />
         <OfflineBar />
         {palette && <CommandPalette nav={NAV} allowed={ok} onClose={() => setPalette(false)} />}

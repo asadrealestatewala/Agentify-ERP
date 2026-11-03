@@ -6,6 +6,7 @@ import { Card, ErrorBox, Field, Loading, TextInput } from '../../components/ui.j
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, PageTitle, useCan } from './AdminShell.jsx';
+import AiAgentifyKey from './AiAgentifyKey.jsx';
 
 const n0 = (v) => Number(v || 0).toLocaleString();
 const PURPOSES = { content_draft: 'Social post drafts', workspace_assistant: 'Workspace data assistant', property_writer: 'Property writer', website_builder: 'Website builder AI', promo_video: 'Promo video scripts', workspace_ai: 'Other workspace AI' };
@@ -61,7 +62,7 @@ function WorkspaceControls({ canEdit }) {
   const est = (v) => (v == null ? '—' : `${cur} ${v < 1 ? v.toFixed(4) : v.toFixed(2)}`);
   return (
     <>
-      <Card title="Workspace AI controls" actions={c.kill_switch ? <span className="pill red">AI is switched off for all workspaces</span> : <span className="pill green">AI is on</span>}>
+      <Card title="Master switch, feature switches and workspace-key limits" actions={c.kill_switch ? <span className="pill red">AI is switched off for all workspaces</span> : <span className="pill green">AI is on</span>}>
         <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>These apply to AI that workspaces run with their own provider keys (data assistant, property writer, website builder, promo video scripts). Limits are checked before a feature starts. Agentify's own Gemini drafts have their own budget above. Speech-to-text transcripts are not counted or limited yet.</p>
         {canEdit && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12, alignItems: 'end' }}>
@@ -112,7 +113,8 @@ export default function AiUsagePage() {
   const pct = m.budget && m.spent != null ? Math.min(100, Math.round((m.spent / m.budget) * 100)) : null;
   return (
     <>
-      <PageTitle title="AI usage & credits" sub="What Agentify's Gemini key is used for, credits used and left this month, and which workspaces and plans use AI." />
+      <PageTitle title="AI" sub="Cost, limits and keys for AI: what Agentify's own keys are used for, credits used and left this month, and which workspaces and plans use AI." />
+      <AiAgentifyKey />
       <div className="cc-stats">
         <Card><div className="cc-k">Credits used this month</div><div className="cc-v">{est(m.spent)}</div><div className="cell-sub">{n0(m.input_tokens + m.output_tokens)} tokens · {n0(m.calls)} calls</div></Card>
         <Card><div className="cc-k">Credits left this month</div><div className="cc-v">{est(m.left)}</div><div className="cell-sub">{m.budget != null ? `of a ${cur} ${m.budget} budget${pct != null ? ` (${pct}% used)` : ''}` : 'Set a monthly budget below'}</div></Card>

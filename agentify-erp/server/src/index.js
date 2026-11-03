@@ -44,6 +44,10 @@ import claims, { feed as paymentFeed } from './routes/claims.js';
 import vendorPortal from './routes/vendorPortal.js';
 import content, { contentReminders } from './routes/content.js';
 import promos from './routes/promos.js';
+import creative from './routes/creative.js';
+import { runReelJobs } from './services/creativeJobs.js';
+import { checkFfmpeg } from './services/ffmpeg.js';
+import { runDue as runZernioDue } from './services/socialCalendar.js';
 import announcements from './routes/announcements.js';
 import training from './routes/training.js';
 import construction from './routes/construction.js';
@@ -179,6 +183,7 @@ export function createApp() {
   app.use('/api/vendor', vendorPortal);
   app.use('/api/content', content);
   app.use('/api/promos', promos);
+  app.use('/api/creative', creative);
   app.use('/api/announcements', announcements);
   app.use('/api/training', training);
   app.use('/api/construction', construction);
@@ -281,6 +286,13 @@ if (isMain) {
   // events for websites that subscribed through the Integration API: failed deliveries are retried here
   const webhookTick = () => forEachTenantAsync(() => runDueDeliveries()).then(() => markJob('webhook-deliveries')).catch((e) => markJob('webhook-deliveries', e));
   setInterval(webhookTick, 60 * 1000).unref();
+  // video reels: Google takes minutes, so running jobs are checked every 20 seconds (only workspaces that started one recently are opened)
+  checkFfmpeg().then((f) => console.log(f.available ? `[reels] ${f.version}` : `[reels] ffmpeg not found: reels stay 8 seconds, voice as a separate file`)).catch(() => {});
+  // approved posts that are due go to Zernio; posts it is still working on are looked at again
+  const zernioTick = () => forEachTenantAsync(() => runZernioDue()).then(() => markJob('social-zernio')).catch((e) => markJob('social-zernio', e));
+  setInterval(zernioTick, 60 * 1000).unref();
+  const reelTick = () => runReelJobs().then(() => markJob('creative-reels')).catch((e) => markJob('creative-reels', e));
+  setInterval(reelTick, 20 * 1000).unref();
   const meetingTick = () => forEachTenantAsync(() => runMeetingReminders()).then(() => markJob('meeting-reminders')).catch((e) => markJob('meeting-reminders', e));
   setInterval(meetingTick, 60 * 1000).unref();
   // visit reminders (an hour before, and a nudge when nobody checked in) and location retention; de-duplicated

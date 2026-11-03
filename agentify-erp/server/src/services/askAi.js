@@ -1,0 +1,63 @@
+// Ask, second line: when the fast rules (assistant.js) cannot match a question, Gemini answers it from OUR help material only:
+// guides, screen notes, system notes and release notes that the asker's tenant may read (never support-only `internal` notes and
+// never business data). If the material does not cover the question, the answer says so. Calls go through the AI gateway
+// (switches, daily limit, budget, metering).
+import { searchKnowledge, searchDocs } from '../../../shared/guides.js';
+import { systemDocs } from './systemKnowledge.js';
+import { videoLinks } from './assistant.js';
+import { geminiGenerate } from './aiGateway.js';
+import { assertSafeRequest } from './aiSafety.js';
+import { currentTenant } from '../context.js';
+
+const MAX_CHARS = 6500;
+const clip = (s, n) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
+
+/** The most relevant help text for a question, as { title, text } blocks (about 6,000 characters in all). */
+export function material(q) {
+  const out = [];
+  for (const h of searchKnowledge(q).slice(0, 4)) {
+    if (h.type === 'guide') { const g = h.guide; out.push({ title: g.title, text: `${g.steps.map((t, i) => `${i + 1}. ${t}`).join(' ')} ${g.limits?.length ? `Good to know: ${g.limits.join(' ')}` : ''} ${g.faq.map((f) => `Q: ${f.q} A: ${f.a}`).join(' ')}` }); }
+    else if (h.type === 'screen') { const sc = h.screen; out.push({ title: `Screen: ${sc.label}`, text: `${sc.label} is under ${sc.section} in the menu. ${sc.about || ''} Address: ${sc.path}` }); }
+    else out.push({ title: `${h.version}: ${h.title}`, text: `${h.item.text}${h.item.where ? ` Where: ${h.item.where}` : ''}` });
+  }
+  for (const x of searchDocs(q, systemDocs(), 3)) out.push({ title: x.doc.title, text: x.doc.text });
+  const blocks = []; let used = 0;
+  for (const b of out) { const t = clip(b.text, 1800); if (used + t.length > MAX_CHARS) break; blocks.push({ title: b.title, text: t }); used += t.length; }
+  return blocks;
+}
+
+const SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL provided with the question. Never invent menus, buttons, settings, features, prices or steps. If the material does not answer the question, set found to false and say briefly that you could not find it in the guides and suggest asking an administrator or support. Explain step by step in plain language, short numbered steps where it helps, and mention the menu path. Reply in the same language the user wrote in (English, Urdu, or Roman Urdu). Use earlier turns only to understand follow-up questions. Reply with JSON only: {"found": true or false, "answer": "your answer"}.`;
+
+const lastTurns = (history) => (Array.isArray(history) ? history : []).slice(-3).flatMap((h) => {
+  const q = clip(h?.q, 400), a = clip(h?.a, 700);
+  return q && a ? [{ role: 'user', parts: [{ text: q }] }, { role: 'model', parts: [{ text: JSON.stringify({ found: true, answer: a }) }] }] : [];
+});
+
+const hits = new Map(); // per-user rate limit: 10 AI answers a minute
+function limited(userId) {
+  const t = Date.now(), list = (hits.get(userId) || []).filter((x) => t - x < 60_000);
+  if (list.length >= 10) { hits.set(userId, list); return true; }
+  list.push(t); hits.set(userId, list); return false;
+}
+export const resetRateLimit = () => hits.clear();
+
+/** Returns { answer, found, links, sources } or null when the AI should not be used (no material, rate limited) so the caller keeps its normal reply. Throws never: a refused or failed call returns { refused } with a plain note. */
+export async function askAi(question, history, user) {
+  const q = clip(question, 500);
+  try { assertSafeRequest(q); } catch (e) { return { refused: e.message }; }
+  const prior = (Array.isArray(history) ? history.slice(-1)[0]?.q : '') || '';
+  const mat = material(`${q} ${q.split(/\s+/).length < 6 ? prior : ''}`);
+  if (!mat.length) return null;
+  if (limited(user.id)) return { refused: 'You are asking quickly. Please wait a moment and try again.' };
+  const ref = mat.map((m, i) => `[${i + 1}] ${m.title}: ${m.text}`).join('\n');
+  let d;
+  try {
+    d = await geminiGenerate({ feature: 'ask_assistant', purpose: 'ask_assistant', tenantId: currentTenant()?.id ?? null, userId: user.id, timeout: 45_000,
+      body: { systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [...lastTurns(history), { role: 'user', parts: [{ text: `REFERENCE MATERIAL:\n${ref}\n\nQUESTION: ${q}` }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 900, temperature: 0.2 } } });
+  } catch (e) { return { refused: e.extra?.code ? e.message : 'The AI helper could not answer right now.' }; }
+  let out; try { out = JSON.parse(((d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('')).match(/\{[\s\S]*\}/)?.[0] || ''); } catch { out = null; }
+  const answer = String(out?.answer || '').trim().slice(0, 3000);
+  if (!answer) return null;
+  const found = out.found !== false;
+  return { answer, found, links: found ? videoLinks(user, `${q} ${mat[0].title}`) : [], sources: found ? mat.slice(0, 3).map((m) => m.title) : [] };
+}

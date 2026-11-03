@@ -6,6 +6,65 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.71', date: '2026-11-03', title: 'Plans with credits and posting limits, and a launch offer',
+    items: [
+      { text: 'Your plan page now shows your plan, AI credits left, posts left today and this month, emails left and the longest reel your plan allows, with an Upgrade button.', where: 'Settings > Plan & billing', guide: 'plan-credits-limits' },
+      { text: 'Reels can be 8, 16 or 24 seconds depending on your plan, and your plan sets how many posts you can publish a day and a month. You see a clear message and an upgrade option when a limit is reached.', where: 'Creative Studio and Content Calendar', guide: 'plan-credits-limits' },
+      { text: 'Launch offer: new customers pay a lower price for their first months. The offer, the end date and the monthly price afterwards are shown on the pricing page before you choose.', where: 'Pricing page and Plan & billing', guide: 'plan-credits-limits' },
+      { text: 'Prices are now available in Pakistani rupees, US dollars, pounds and Canadian dollars.', where: 'Pricing page' },
+      { text: 'Console: three content tiers (Small realtor, Growth, Pro) with credits per country, posting caps, reel length, email caps and feature switches, edited in Plans. They start hidden until you switch them on.', where: 'Console > Plans', audience: 'platform' },
+      { text: 'Console: a Plan margins page shows each price against the estimated cost (AI, storage, server, email, payment fees, tax and a commission estimate), with orange and red warnings.', where: 'Console > Plan margins', audience: 'platform' },
+      { text: 'Console: a Launch offer page switches the offer on or off, sets the discount and months per country, the banner text, an optional end date and founding spots, with a live preview. The banner, crossed-out prices and checkout all follow it.', where: 'Console > Launch offer', audience: 'platform' },
+      { text: 'Console: Zernio automatic posting now defaults to each workspace connecting its own Zernio account, so it is not part of plan costs.', where: 'Console > Social posting', audience: 'platform' },
+    ],
+  },
+  {
+    version: 'v1.70', date: '2026-11-03', title: 'Content Calendar: approval and automatic posting',
+    items: [
+      { text: 'Posts now move through Draft, Waiting approval, Approved, Scheduled and Posted. Only someone with approval rights can approve, and each post shows who approved it.', where: 'Content Calendar', guide: 'content-calendar-posting' },
+      { text: 'Where your plan allows it, approved posts publish to your Facebook Page and Instagram by themselves at the chosen time. A failed post shows the reason and a Retry button.', where: 'Content Calendar > Connected accounts', guide: 'content-calendar-posting' },
+      { text: 'Drag a post to another day, and use the new week view to see a week in detail.', where: 'Content Calendar', guide: 'content-calendar-posting' },
+      { text: 'Send a picture, story or video from Creative Studio to the calendar in one click.', where: 'Creative Studio > My creations', guide: 'content-calendar-posting' },
+      { text: 'Console: a Social posting page holds the Zernio key, the billing mode, posting limits, the webhook and the workspaces switched on, plus your own accounts for testing.', where: 'Console > System > Social posting', audience: 'platform' },
+    ],
+  },
+  {
+    version: 'v1.69', date: '2026-11-03', title: 'Creative Studio: finished reels with the voice inside',
+    items: [
+      { text: 'Reels now come as one finished video with the voice inside, instead of a video and a separate audio file.', where: 'Creative Studio > Video reels', guide: 'creative-studio' },
+      { text: 'Choose a reel length of 8, 16 or 24 seconds. The credit cost is shown before you confirm and grows with the length.', where: 'Creative Studio > Video reels', guide: 'creative-studio' },
+      { text: 'Pick how the voice works: your exact script in English or Urdu, which you can listen to first, or a quick option where the video speaks the line itself.', where: 'Creative Studio > Video reels', guide: 'creative-studio' },
+      { text: 'Console: Reel video tools show whether video joining is ready, and a Voice test lab lets the team try Punjabi privately.', where: 'Console > AI', audience: 'platform' },
+    ],
+  },
+  {
+    version: 'v1.68', date: '2026-11-02', title: 'A guided tour of the app',
+    items: [
+      { text: 'The first time you sign in, a short tour points out the search box, the menu, Ask, notifications and appearance. Press Skip any time; it will not start again on your other devices.', where: 'First sign-in', guide: 'product-tour' },
+      { text: 'Press the question-mark button at the top of the screen to take the tour again. Creative Studio has its own short tour the first time you open it.', where: 'Top bar > Take the tour', guide: 'product-tour' },
+    ],
+  },
+  {
+    version: 'v1.67', date: '2026-11-02', title: 'Ask answers more questions from our guides',
+    items: [
+      { text: 'When Ask cannot match your question to your data or a guide, it now looks through our help guides and writes a step-by-step answer in your language (English, Urdu or Roman Urdu). It only answers from the guides, says so when it cannot find something, and shows a Watch button when a training video exists.', where: 'Ask button', guide: 'ask-ai-help' },
+      { text: 'You can ask follow-up questions in the same chat, and a Report button under AI-written answers lets you flag anything wrong.', where: 'Ask button' },
+    ],
+  },
+  {
+    version: 'v1.66', date: '2026-11-02', title: 'Creative Studio: video reels with voice-over',
+    items: [
+      { text: 'Make a short vertical video reel (8 seconds) from a description, with an optional English or Urdu voice-over. You see the credit cost first and confirm it. The reel is made in the background, you can leave the page, and you get a notification when it is ready. If it fails, your credits are returned.', where: 'Menu > Creative Studio > Video reels', guide: 'creative-studio' },
+    ],
+  },
+  {
+    version: 'v1.65', date: '2026-11-02', title: 'Creative Studio: brand stories and post images',
+    items: [
+      { text: 'New Creative Studio: save your brand once, then have AI write a brand story with captions in English or Urdu and create post images in square, portrait or story size. Save or download what you like.', where: 'Menu > Creative Studio', guide: 'creative-studio' },
+      { text: 'Each story or image uses credits from your monthly allowance, and the page shows what is left. A Report button on every result lets you flag anything wrong.', where: 'Menu > Creative Studio' },
+    ],
+  },
+  {
     version: 'v1.64', date: '2026-11-02', title: 'Ask explains how the system works',
     items: [
       { text: 'Ask can now explain how the main flows work from start to finish (lead to sale, installments and receipts, commission, accounting, listing a property, HR and payroll, construction, vendors, the customer portal, your website and access control), and what each role can do.', where: 'Ask button' },

@@ -29,6 +29,8 @@ import { dashboard, health, listNotifications, markRead, search, generateNotific
 import { overview, tenantSummaries, tenantDetail, createWorkspace, extendTrial, trialAction, extendGrace, remindOwner, setOwner, userAction, setupChecklist, listAdmins, addAdmin, removeAdmin,
   updateAdmin, changeStatus, updateProfile, setEntitlements, listNotes, addNote, recordManualPayment, resendOnboarding, transactions } from '../services/platformTenants.js';
 import { listPlans, savePlan, savePlanSettings } from '../services/plansStore.js';
+import { getOffer, saveOffer, publicOffer, claimedSpots } from '../services/launchOffer.js';
+import { marginReport, saveMarginSettings } from '../services/planMargin.js';
 import { PLAN_SETTINGS, MODULES, PRODUCTS } from '../services/plans.js';
 import { setSubscription } from '../services/billing.js';
 import { caps as meetingCaps } from '../integrations/meetings.js';
@@ -47,6 +49,13 @@ import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requ
 import * as cal from '../services/contentCalendar.js';
 import { addPromoDrafts } from '../services/promoDrafts.js';
 import * as aiu from '../services/aiUsage.js';
+import * as aiRep from '../services/aiReport.js';
+import * as aiLab from '../services/aiVoiceLab.js';
+import * as zAdmin from '../services/zernioAdmin.js';
+import * as aiPrice from '../services/aiPricing.js';
+import * as aiFx from '../services/fxRate.js';
+import * as aiGate from '../services/aiGate.js';
+import * as aiReports from '../services/aiReports.js';
 import * as brands from '../services/brands.js';
 import * as lib from '../services/sharedLibrary.js';
 import { profit, saveCostConfig } from '../services/profitReport.js';
@@ -308,6 +317,20 @@ r.put('/plans/:id', requireOperator, need('billing.configure'), asyncH((req, res
   const out = savePlan(req.params.id, req.body || {}, req.operator.email);
   audit(req.operator.email, out.changes.created ? 'plan-created' : 'plan-edited', { plan: out.plan.id, ...out.changes });
   res.json(out.plan);
+}));
+// ---- Content tiers: margin view and the launch offer
+r.get('/plan-margin', requireOperator, need('billing.view'), (_req, res) => res.json(marginReport()));
+r.put('/margin-settings', requireOperator, need('billing.configure'), asyncH((req, res) => {
+  const out = saveMarginSettings(req.body || {}, req.operator.email);
+  audit(req.operator.email, 'margin-settings', { keys: Object.keys(req.body || {}) });
+  res.json({ settings: out, report: marginReport(out) });
+}));
+const offerView = () => ({ offer: getOffer(), live: publicOffer(), claimed_spots: claimedSpots() });
+r.get('/launch-offer', requireOperator, need('billing.view'), (_req, res) => res.json(offerView()));
+r.put('/launch-offer', requireOperator, need('billing.configure'), asyncH((req, res) => {
+  const out = saveOffer(req.body || {}, req.operator.email);
+  audit(req.operator.email, 'launch-offer', { on: out.on, ends_at: out.ends_at, spots: out.spots, countries: out.countries });
+  res.json(offerView());
 }));
 r.put('/plan-settings', requireOperator, need('billing.configure'), asyncH((req, res) => {
   const out = savePlanSettings(req.body || {}, req.operator.email);
@@ -679,6 +702,36 @@ r.post('/content/ai-draft', requireOperator, need('content.calendar'), asyncH(as
 r.get('/ai/usage', requireOperator, need('finance.view'), (_req, res) => res.json(aiu.report()));
 r.get('/profit', requireOperator, need('finance.view'), asyncH((req, res) => res.json(profit(req.query))));
 r.put('/profit/config', requireOperator, need('billing.configure'), asyncH((req, res) => { const c = saveCostConfig(req.body || {}, req.operator.email); audit(req.operator.email, 'cost-config-changed', {}); res.json(c); }));
+r.get('/ai/overview', requireOperator, need('finance.view'), (_req, res) => { aiFx.refreshIfStale(); res.json(aiRep.overview()); });
+r.put('/ai/prices/:feature', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiPrice.setOverride(req.params.feature, req.body?.usd, req.operator.email); audit(req.operator.email, 'ai-price-changed', { feature: req.params.feature }); res.json(v); }));
+r.put('/ai/fx', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiFx.saveFxSettings(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-fx-changed', { live: v.live_enabled, source: v.source }); res.json(v); }));
+r.post('/ai/fx/refresh', requireOperator, need('integrations.manage'), asyncH(async (_req, res) => { await aiFx.refreshLive(); res.json(aiFx.getRate()); }));
+r.put('/ai/workspaces/:id(\\d+)/credits', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiGate.setCredits(req.params.id, req.body || {}, req.operator.email); audit(req.operator.email, 'ai-credits-changed', { tenant_id: Number(req.params.id), topup: req.body?.add_topup ?? null, monthly: req.body?.monthly_credits ?? null }); res.json(v); }));
+r.put('/ai/azure', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiRep.saveAzure(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-azure-changed', { key_changed: !!req.body?.key && !/^•/.test(req.body.key), region: v.region }); res.json(v); }));
+r.get('/ai/voices', requireOperator, need('finance.view'), (_req, res) => res.json(aiRep.voicesView()));
+r.put('/ai/voices', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiRep.saveVoices(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-voices-changed', {}); res.json(v); }));
+r.post('/ai/azure/test', requireOperator, need('integrations.manage'), asyncH(async (req, res) => res.json(await aiRep.testAzure(req.operator.email))));
+// Social posting through Zernio (key, billing mode, caps, workspaces, own test accounts)
+const origin = (req) => `${req.headers['x-forwarded-proto'] || req.protocol}://${req.get('host')}`;
+r.get('/social/zernio', requireOperator, need('finance.view'), (req, res) => res.json(zAdmin.overview(origin(req))));
+r.put('/social/zernio', requireOperator, need('integrations.manage'), (req, res) => { zAdmin.save(req.body || {}, req.operator.email); audit(req.operator.email, 'zernio-settings-changed', {}); res.json(zAdmin.overview(origin(req))); });
+r.delete('/social/zernio/key', requireOperator, need('integrations.manage'), (req, res) => { zAdmin.removeKey(req.operator.email); audit(req.operator.email, 'zernio-key-removed', {}); res.json(zAdmin.overview(origin(req))); });
+r.post('/social/zernio/test', requireOperator, need('integrations.manage'), asyncH(async (_req, res) => res.json(await zAdmin.test())));
+r.put('/social/zernio/caps', requireOperator, need('integrations.manage'), (req, res) => { zAdmin.saveCapsFor(req.body || {}, req.operator.email); audit(req.operator.email, 'zernio-caps-changed', {}); res.json(zAdmin.overview(origin(req))); });
+r.put('/social/zernio/workspaces', requireOperator, need('integrations.manage'), (req, res) => { zAdmin.saveWorkspaces(req.body?.ids, req.operator.email); audit(req.operator.email, 'zernio-workspaces-changed', {}); res.json(zAdmin.overview(origin(req))); });
+r.post('/social/zernio/webhook', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { await zAdmin.setupWebhook(origin(req), req.operator.email); audit(req.operator.email, 'zernio-webhook-registered', {}); res.json(zAdmin.overview(origin(req))); }));
+r.get('/social/zernio/own', requireOperator, need('finance.view'), asyncH(async (_req, res) => res.json({ accounts: await zAdmin.ownAccounts() })));
+r.post('/social/zernio/own/connect', requireOperator, need('integrations.manage'), asyncH(async (req, res) => res.json({ url: await zAdmin.ownConnect(String(req.body?.platform || ''), origin(req)) })));
+r.post('/social/zernio/own/test-post', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const out = await zAdmin.ownTestPost(req.body || {}); audit(req.operator.email, 'zernio-test-post', {}); res.json(out); }));
+// Voice test lab (Punjabi is tested here first and not offered to workspaces)
+r.get('/ai/lab/voices', requireOperator, need('finance.view'), asyncH(async (_req, res) => res.json({ ...(await aiLab.voices('punjabi')), clip: aiLab.clipCost() })));
+r.post('/ai/lab/voice', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const out = await aiLab.speakLine(req.body || {}); audit(req.operator.email, 'ai-lab-voice', {}); res.json(out); }));
+r.post('/ai/lab/clip', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const out = await aiLab.startClip(req.body || {}); audit(req.operator.email, 'ai-lab-clip', {}); res.json(out); }));
+r.get('/ai/lab/clip', requireOperator, need('finance.view'), asyncH(async (req, res) => res.json(await aiLab.clipStatus(String(req.query.operation || '')))));
+r.post('/ai/voices/preview', requireOperator, need('integrations.manage'), asyncH(async (req, res) => res.json(await aiRep.previewVoice(req.body?.lang, req.body?.voice))));
+r.delete('/ai/azure/key', requireOperator, need('integrations.manage'), (req, res) => { aiRep.removeAzureKey(); audit(req.operator.email, 'ai-azure-key-removed', {}); res.json(aiRep.azureStatus()); });
+r.get('/ai/reports', requireOperator, need('finance.view'), (req, res) => res.json(aiReports.listReports({ handled: req.query.handled === '1' })));
+r.put('/ai/reports/:id(\\d+)', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiReports.handleReport(req.params.id, req.operator.email, req.body?.handled !== false); audit(req.operator.email, 'ai-report-handled', { id: v.id, status: v.status }); res.json(v); }));
 r.get('/ai/controls', requireOperator, need('finance.view'), (_req, res) => res.json(aiu.controls()));
 r.put('/ai/controls', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiu.saveControls(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-controls-changed', { fields: Object.keys(req.body || {}) }); res.json(v); }));
 r.put('/ai/workspaces/:id(\\d+)', requireOperator, need('integrations.manage'), asyncH((req, res) => {

@@ -159,7 +159,7 @@ test('global search finds workspaces, invoices and admins; short queries return 
 
 test('plans: editable, prices versioned, existing subscribers keep their price, retired plans cannot be bought', async () => {
   let p = (await adm('GET', '/plans')).data;
-  assert.deepEqual(p.plans.map((x) => x.id), ['starter', 'growth', 'enterprise', 'con_starter', 'con_professional', 'con_enterprise'], 'seeded from the defaults (both product families)');
+  assert.deepEqual(p.plans.map((x) => x.id), ['starter', 'growth', 'enterprise', 'con_starter', 'con_professional', 'con_enterprise', 'tier1', 'tier2', 'tier3'], 'seeded from the defaults (both product families, then the three hidden content tiers)');
   assert.equal((await adm('PUT', '/plans/Bad-Id', { name: 'x' })).status, 400);
   assert.equal((await adm('PUT', '/plans/pro', { name: 'Pro' })).status, 400, 'a new plan needs PKR prices');
   const created = await adm('PUT', '/plans/pro', { name: 'Pro', seats: 10, projects: 10, modules: ['accounting', 'hrm'], price: { PKR: { month: 15000, year: 150000 } } });

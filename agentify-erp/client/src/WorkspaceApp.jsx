@@ -142,6 +142,7 @@ const Conversion = lazy(() => import('./pages/Conversion.jsx'));
 const Dialer = lazy(() => import('./pages/Dialer.jsx'));
 const Appointments = lazy(() => import('./pages/Appointments.jsx'));
 const AIStudio = lazy(() => import('./pages/AIStudio.jsx'));
+const CreativeStudio = lazy(() => import('./pages/CreativeStudio.jsx'));
 const Meetings = lazy(() => import('./pages/Meetings.jsx'));
 const Recordings = lazy(() => import('./pages/Recordings.jsx'));
 const MeetingRoom = lazy(() => import('./meet/MeetingRoom.jsx'));
@@ -297,6 +298,7 @@ export default function App() {
         <Route path="dialer" element={G('crm', <Dialer />)} />
         <Route path="appointments" element={G('crm', <Appointments />)} />
         <Route path="ai-studio" element={G('crm', <AIStudio />)} />
+        <Route path="creative" element={G('content', <CreativeStudio />)} />
         <Route path="meetings" element={G('crm', <Meetings />)} />
         <Route path="recordings" element={G('crm', <Recordings />)} />
         <Route path="training" element={<TrainingLibrary />} />

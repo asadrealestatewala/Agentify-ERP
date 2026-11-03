@@ -70,7 +70,7 @@ intent('help', (q) => has(q, 'help', 'what can you', 'what do you know', 'capabi
 // ---------------------------------------------------------------- product help: "how do I...", "what's new", from guides + release notes
 const HOWTO = /^ ?(how (do|can|to|does|are|is)|where (is|do|can)|what (is|are|can|do|does|happens|options)|what'?s (the|new)|which|can (i|a|an)|explain|tell me about|describe|open|go to|find|show me the (page|screen|menu)|what'?s new|what changed|what is the|explain|guide|tutorial|video|steps? (to|for)|why (is|can|cant|can't|do))/;
 /** Videos the asker may watch that are posted to YouTube (links saved in the console), best match for the topic first. */
-function videoLinks(user, topic, limit = 2) {
+export function videoLinks(user, topic, limit = 2) {
   let rows = [];
   try { ensureLibrary(); rows = visibleVideos(user).filter((v) => v.youtube_url); } catch { return []; }
   if (!rows.length) return [];

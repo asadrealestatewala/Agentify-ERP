@@ -20,6 +20,10 @@ const PRODUCT_LABEL = { real_estate: 'Real Estate Brokerage', construction: 'Con
 const moneyMap = (m) => (m && Object.keys(m).length ? Object.entries(m).map(([c, v]) => `${c} ${n0(v)}`).join(' · ') : '—');
 const days = (arr) => (Array.isArray(arr) ? arr.join(', ') : String(arr || ''));
 
+const CURS = ['PKR', 'USD', 'GBP', 'CAD'];
+const FLAG_LABELS = { content_calendar: 'Content calendar', bulk_generator: 'Bulk monthly generator', brand_kit: 'Brand kit', listing_to_post: 'Listing to post', priority_queue: 'Priority queue' };
+const allowForm = (a) => ({ set: !!a, credits: Object.fromEntries(CURS.map((c) => [c, a?.credits?.[c] ?? ''])), posts_per_day: a?.posts_per_day ?? '', posts_per_month: a?.posts_per_month ?? '', reel_seconds: a?.reel_seconds ?? '', flags: { ...Object.fromEntries(Object.keys(FLAG_LABELS).map((k) => [k, false])), ...(a?.flags || {}) } });
+const allowBody = (f) => (!f?.set ? null : { credits: Object.fromEntries(CURS.map((c) => [c, f.credits[c] === '' ? null : Number(f.credits[c])])), posts_per_day: f.posts_per_day === '' ? null : Number(f.posts_per_day), posts_per_month: f.posts_per_month === '' ? null : Number(f.posts_per_month), reel_seconds: f.reel_seconds === '' ? null : Number(f.reel_seconds), flags: f.flags });
 export function PlansPage() {
   const toast = useToast();
   const [d, setD] = useState(null);
@@ -29,8 +33,8 @@ export function PlansPage() {
   const [tab, setTab] = useState('real_estate');
   const load = useCallback(() => api.get(`${A}/plans`).then((x) => { setD(x); setSettings({ ...x.settings, trial_reminder_days: days(x.settings.trial_reminder_days), renewal_reminder_days: days(x.settings.renewal_reminder_days) }); }).catch((e) => setErr(e.message)), []);
   useEffect(() => { load(); }, [load]);
-  const open = (p) => setEdit(p ? { ...p, isNew: false, allModules: p.modules == null, modules: p.modules || [], features: (p.features || []).join('\n'), setup_fee: { ...(p.setup_fee || {}) }, email: emailForm(p.email_limits), price: { PKR: { ...(p.price.PKR || {}) }, USD: { ...(p.price.USD || {}) } } }
-    : { isNew: true, id: '', name: '', product: tab, description: '', seats: '', projects: '', properties: '', storage_mb: '', api_access: true, grace_days: 7, allModules: true, modules: [], features: '', highlight: false, trial_eligible: true, setup_fee: {}, email: emailForm(null), visible: true, active: true, price: { PKR: {}, USD: {} } });
+  const open = (p) => setEdit(p ? { ...p, isNew: false, allModules: p.modules == null, modules: p.modules || [], features: (p.features || []).join('\n'), setup_fee: { ...(p.setup_fee || {}) }, email: emailForm(p.email_limits), price: Object.fromEntries(CURS.map((c) => [c, { ...(p.price[c] || {}) }])), allow: allowForm(p.allowances) }
+    : { isNew: true, id: '', name: '', product: tab, description: '', seats: '', projects: '', properties: '', storage_mb: '', api_access: true, grace_days: 7, allModules: true, modules: [], features: '', highlight: false, trial_eligible: true, setup_fee: {}, email: emailForm(null), visible: true, active: true, launch_offer: false, allow: allowForm(null), price: Object.fromEntries(CURS.map((c) => [c, {}])) });
   const nul = (v) => (v === '' || v == null ? null : v);
   const emailText = (l) => (!l ? <span className="muted">Not set (sending paused)</span> : <>{['operational', 'marketing'].filter((k) => l[k]).map((k) => `${k === 'operational' ? 'Appointments' : 'Campaigns'} ${l[k].monthly == null ? 'no cap' : l[k].monthly}`).join(' · ') || 'Not set'}<div className="muted">warn {(l.thresholds || [70, 90, 100]).join('/')}% · {l.hard_stop === false ? 'overage allowed' : 'hard stop'}</div></>);
   const emailForm = (l) => ({ set: !!l, op_m: l?.operational?.monthly ?? '', op_d: l?.operational?.daily ?? '', mk_m: l?.marketing?.monthly ?? '', mk_d: l?.marketing?.daily ?? '', thresholds: (l?.thresholds || [70, 90, 100]).join(', '), hard_stop: l?.hard_stop !== false, topups: l?.topups !== false, op_on: !!l?.operational, mk_on: !!l?.marketing });
@@ -39,7 +43,7 @@ export function PlansPage() {
   const save = async () => {
     const body = { name: edit.name, product: edit.product, description: edit.description, seats: nul(edit.seats), projects: nul(edit.projects), properties: nul(edit.properties), storage_mb: nul(edit.storage_mb), api_access: edit.api_access,
       grace_days: edit.grace_days, modules: edit.allModules ? null : edit.modules, features: String(edit.features || '').split('\n').map((x) => x.trim()).filter(Boolean), highlight: edit.highlight, trial_eligible: edit.trial_eligible,
-      setup_fee: edit.setup_fee, email_limits: emailBody(edit.email), visible: edit.visible, active: edit.active, price: edit.price };
+      setup_fee: edit.setup_fee, email_limits: emailBody(edit.email), allowances: allowBody(edit.allow), launch_offer: !!edit.launch_offer, visible: edit.visible, active: edit.active, price: edit.price };
     try { await api.put(`${A}/plans/${encodeURIComponent(edit.id.trim().toLowerCase())}`, body); toast('Plan saved'); setEdit(null); load(); } catch (e) { toast(e.message, 'err'); }
   };
   const saveSettings = async () => {
@@ -105,12 +109,12 @@ export function PlansPage() {
           <Field label="Features shown on the pricing page" hint="One per line. Describe only what the plan really includes."><textarea className="input" rows={4} value={edit.features} onChange={(e) => setEdit({ ...edit, features: e.target.value })} /></Field>
           <h4 style={{ margin: '12px 0 6px' }}>Prices</h4>
           <div className="pa-grid2" style={{ marginBottom: 0 }}>
-            {['PKR', 'USD'].flatMap((cur) => ['month', 'year'].map((int) => (
+            {CURS.flatMap((cur) => ['month', 'year'].map((int) => (
               <Field key={cur + int} label={`${cur} per ${int}`} hint={!edit.isNew && edit.price[cur]?.[int] != null ? `Now ${n0(d.plans.find((p) => p.id === edit.id)?.price?.[cur]?.[int])}` : cur === 'PKR' ? 'Required' : 'Optional (card payments in USD)'}>
                 <TextInput type="number" value={edit.price[cur]?.[int] ?? ''} onChange={(v) => setEdit({ ...edit, price: { ...edit.price, [cur]: { ...edit.price[cur], [int]: v === '' ? undefined : Number(v) } } })} />
               </Field>
             )))}
-            {['PKR', 'USD'].map((cur) => <Field key={`fee${cur}`} label={`One-time setup fee (${cur})`} hint="Charged with the first payment only. Empty = none."><TextInput type="number" value={edit.setup_fee?.[cur] ?? ''} onChange={(v) => setEdit({ ...edit, setup_fee: { ...edit.setup_fee, [cur]: v === '' ? undefined : Number(v) } })} /></Field>)}
+            {CURS.map((cur) => <Field key={`fee${cur}`} label={`One-time setup fee (${cur})`} hint="Charged with the first payment only. Empty = none."><TextInput type="number" value={edit.setup_fee?.[cur] ?? ''} onChange={(v) => setEdit({ ...edit, setup_fee: { ...edit.setup_fee, [cur]: v === '' ? undefined : Number(v) } })} /></Field>)}
           </div>
           <p className="muted" style={{ marginTop: 0 }}>Annual discount: set the yearly price lower than 12 x monthly.</p>
           <h4 style={{ margin: '12px 0 6px' }}>Limits</h4>
@@ -122,6 +126,22 @@ export function PlansPage() {
             <Field label="Grace days after a failed payment"><TextInput type="number" value={edit.grace_days} onChange={(v) => setEdit({ ...edit, grace_days: v })} /></Field>
             <Field label="Website / partner API"><Toggle value={edit.api_access} onChange={(v) => setEdit({ ...edit, api_access: v })} label="Included" /></Field>
           </div>
+          <h4 style={{ margin: '12px 0 6px' }}>Content allowances (AI credits, posting, reels, features)</h4>
+          <Toggle value={edit.allow.set} onChange={(v) => setEdit({ ...edit, allow: { ...edit.allow, set: v } })} label="This plan sets credits, posting caps and reel length" />
+          {!edit.allow.set && <p className="muted" style={{ margin: '4px 0 0' }}>Not set: workspaces on this plan use the platform default credits and have no plan posting cap.</p>}
+          {edit.allow.set && <>
+            <p className="muted" style={{ fontSize: 12.5 }}>Credits are per month and can differ by country (the workspace's currency). A workspace's own credit override in its detail page still wins. Empty = no cap.</p>
+            <div className="pa-grid3" style={{ marginBottom: 0 }}>
+              {CURS.map((c) => <Field key={c} label={`Credits a month (${c})`}><TextInput type="number" value={edit.allow.credits[c]} onChange={(v) => setEdit({ ...edit, allow: { ...edit.allow, credits: { ...edit.allow.credits, [c]: v } } })} /></Field>)}
+              <Field label="Posts per day"><TextInput type="number" value={edit.allow.posts_per_day} onChange={(v) => setEdit({ ...edit, allow: { ...edit.allow, posts_per_day: v } })} /></Field>
+              <Field label="Posts per month"><TextInput type="number" value={edit.allow.posts_per_month} onChange={(v) => setEdit({ ...edit, allow: { ...edit.allow, posts_per_month: v } })} /></Field>
+              <Field label="Longest reel"><select className="input" value={edit.allow.reel_seconds} onChange={(e) => setEdit({ ...edit, allow: { ...edit.allow, reel_seconds: e.target.value } })}><option value="">No plan cap</option>{[8, 16, 24].map((n) => <option key={n} value={n}>{n} seconds</option>)}</select></Field>
+            </div>
+            <div className="pa-grid3" style={{ marginBottom: 0 }}>
+              {Object.entries(FLAG_LABELS).map(([k, l]) => <Field key={k} label={l}><Toggle value={!!edit.allow.flags[k]} onChange={(v) => setEdit({ ...edit, allow: { ...edit.allow, flags: { ...edit.allow.flags, [k]: v } } })} label="Included" /></Field>)}
+            </div>
+          </>}
+          <Toggle value={!!edit.launch_offer} onChange={(v) => setEdit({ ...edit, launch_offer: v })} label="Part of the launch offer (discount on the first monthly payments, set on the Launch offer page)" />
           <h4 style={{ margin: '12px 0 6px' }}>Email allowance (per workspace, per usage period)</h4>
           <Toggle value={edit.email.set} onChange={(v) => setEdit({ ...edit, email: { ...edit.email, set: v } })} label="This plan includes tenant email sending" />
           {!edit.email.set && <p className="muted" style={{ margin: '4px 0 0' }}>Nothing is preset. Until you set allowances here, workspaces on this plan cannot send tenant email.</p>}

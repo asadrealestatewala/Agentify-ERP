@@ -189,6 +189,28 @@ function NativeBilling() {
 
 export default function Billing() { return inNativeApp() ? <NativeBilling /> : <BillingPage />; }
 
+/** Plan card: plan name, credits, posts and emails left, reel length, and an Upgrade button that jumps to the plan list. */
+function PlanCard({ canEdit }) {
+  const { data: a } = useFetch('/api/billing/allowance');
+  if (!a || (a.credits.total == null && a.posts.per_day == null && a.posts.per_month == null && !a.emails)) return null;
+  const left = (total, used) => (total == null ? 'No limit' : `${Math.max(0, total - used).toLocaleString()} left of ${total.toLocaleString()}`);
+  const bar = (total, used) => (total ? <div style={{ height: 6, background: 'var(--line, #e5e7eb)', borderRadius: 4, marginTop: 4 }}><div style={{ width: `${Math.min(100, Math.round((used * 100) / total))}%`, height: 6, borderRadius: 4, background: used >= total ? '#b3261e' : 'var(--primary)' }} /></div> : null);
+  const off = a.offer?.on ? a.offer.countries?.[a.currency] : null;
+  const jump = () => document.getElementById('choose-plan')?.scrollIntoView({ behavior: 'smooth' });
+  return (
+    <div data-tour="plan-card"><Card title={`Your plan · ${a.plan_name || ''}`} actions={canEdit && a.upgrades.length ? <button className="btn primary sm" data-tour="upgrade" onClick={jump}>Upgrade</button> : null}>
+      <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 16 }}>
+        <div><div className="muted">AI credits this month</div><b>{left(a.credits.total, a.credits.used)}</b>{bar(a.credits.total, a.credits.used)}</div>
+        <div><div className="muted">Posts today</div><b>{left(a.posts.per_day, a.posts.today)}</b>{bar(a.posts.per_day, a.posts.today)}</div>
+        <div><div className="muted">Posts this month</div><b>{left(a.posts.per_month, a.posts.month)}</b>{bar(a.posts.per_month, a.posts.month)}</div>
+        <div><div className="muted">Emails this month</div><b>{a.emails ? left(a.emails.allowance, a.emails.used) : 'Not limited by your plan'}</b>{a.emails && bar(a.emails.allowance, a.emails.used)}</div>
+        <div><div className="muted">Longest reel</div><b>{a.reel_seconds ? `${a.reel_seconds} seconds` : 'No plan limit'}</b></div>
+      </div>
+      {off && <p className="muted" style={{ marginBottom: 0 }}>Launch offer: {off.banner}.</p>}
+    </Card></div>
+  );
+}
+
 function BillingPage() {
   const { can } = useAuth();
   const toast = useToast();
@@ -224,6 +246,7 @@ function BillingPage() {
   return (
     <div>
       <PageHead title="Plan & billing" sub={`${PRODUCT_LABEL[data.product] || ''} · your plan, usage and invoices`} />
+      <PlanCard canEdit={can('settings', 'edit')} />
       {sp.get('cancelled') === '1' && <div className="alert warn row between">You cancelled the online payment. Nothing was charged. <button className="btn sm" onClick={() => setSp({}, { replace: true })}>Dismiss</button></div>}
       {gw && gwStatus.data && (() => {
         const st = gwStatus.data.status;
@@ -258,7 +281,7 @@ function BillingPage() {
         </Card>
       </div>
       {data.plan !== 'legacy' && (
-        <Card title={`Choose a plan · ${PRODUCT_LABEL[data.product] || ''}`} actions={<div className="row" style={{ gap: 6 }}>{['month', 'year'].map((i) => <button key={i} className={`btn sm ${interval === i ? 'primary' : ''}`} onClick={() => setInterval(i)}>{i === 'month' ? 'Monthly' : `Yearly${intervalSaving ? ' (save)' : ''}`}</button>)}</div>}>
+        <div id="choose-plan"><Card title={`Choose a plan · ${PRODUCT_LABEL[data.product] || ''}`} actions={<div className="row" style={{ gap: 6 }}>{['month', 'year'].map((i) => <button key={i} className={`btn sm ${interval === i ? 'primary' : ''}`} onClick={() => setInterval(i)}>{i === 'month' ? 'Monthly' : `Yearly${intervalSaving ? ' (save)' : ''}`}</button>)}</div>}>
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
             {data.plans.map((p) => {
               const current = data.plan === p.id && data.status === 'active';
@@ -281,7 +304,7 @@ function BillingPage() {
               );
             })}
           </div>
-        </Card>
+        </Card></div>
       )}
       {data.invoices?.length > 0 && (
         <Card title="Invoices & receipts" flush style={{ marginTop: 16 }}>
