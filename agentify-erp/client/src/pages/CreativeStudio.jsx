@@ -203,7 +203,7 @@ export default function CreativeStudio() {
         <span className="muted">Story {st.costs.brand_story} credit · Image {st.costs.creative_post} credits · Video {st.costs.video_second} per second</span>
       </div>
       {st.reason && <Card><p style={{ margin: 0 }}>{st.reason}</p></Card>}
-      <Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'reels', label: 'Video reels' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} />
+      <div data-tour="creative-tabs"><Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'reels', label: 'Video reels' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} /></div>
       {tab === 'brand' && <Brand st={st} onSaved={() => { checkBrand(); refresh(); }} />}
       {tab === 'story' && <Story st={st} refresh={() => { refresh(); setVersion((v) => v + 1); }} brandSaved={brandSaved} />}
       {tab === 'posts' && <Posts st={st} refresh={refresh} brandSaved={brandSaved} onSaved={() => setVersion((v) => v + 1)} />}

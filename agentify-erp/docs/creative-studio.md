@@ -15,3 +15,7 @@
 * Console AI page: Video voices card (dropdowns from Azure's voice list, Hear it preview) and the Azure Test the connection button (`POST /ai/azure/test`, `PUT /ai/voices`, `POST /ai/voices/preview`).
 * Default video price estimate is $0.15 per second (Veo fast); change it in the price list.
 * Not live-tested against Google or Azure from this environment.
+
+## Guided tour
+
+Creative Studio has its own short tour (`creative` in `shared/help/tours.js`). It starts the first time a person opens the page and can be replayed with the Take the tour button. See CLAUDE.md > Guided tours and help.

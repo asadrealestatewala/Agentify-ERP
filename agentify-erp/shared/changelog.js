@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.68', date: '2026-11-02', title: 'A guided tour of the app',
+    items: [
+      { text: 'The first time you sign in, a short tour points out the search box, the menu, Ask, notifications and appearance. Press Skip any time; it will not start again on your other devices.', where: 'First sign-in', guide: 'product-tour' },
+      { text: 'Press the question-mark button at the top of the screen to take the tour again. Creative Studio has its own short tour the first time you open it.', where: 'Top bar > Take the tour', guide: 'product-tour' },
+    ],
+  },
+  {
     version: 'v1.67', date: '2026-11-02', title: 'Ask answers more questions from our guides',
     items: [
       { text: 'When Ask cannot match your question to your data or a guide, it now looks through our help guides and writes a step-by-step answer in your language (English, Urdu or Roman Urdu). It only answers from the guides, says so when it cannot find something, and shows a Watch button when a training video exists.', where: 'Ask button', guide: 'ask-ai-help' },

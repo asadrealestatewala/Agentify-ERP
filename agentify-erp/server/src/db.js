@@ -124,7 +124,7 @@ function migrate() {
     ['received_amount', 'INTEGER'], ['feed_id', 'INTEGER'], ['auto_matched', 'INTEGER NOT NULL DEFAULT 0'], ['auto_synced', 'INTEGER NOT NULL DEFAULT 0']]) addCol('payment_claims', c, t);
   addCol('receipts', 'qr_payload', 'TEXT'); addCol('receipts', 'qr_at', 'TEXT');
   addCol('site_posts', 'seo_title', 'TEXT'); addCol('site_posts', 'seo_desc', 'TEXT'); addCol('site_posts', 'focus_keyword', 'TEXT');
-  addCol('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 1'); addCol('users', 'totp_secret', 'TEXT'); addCol('users', 'totp_enabled', 'INTEGER NOT NULL DEFAULT 0'); addCol('users', 'recovery_codes', 'TEXT'); addCol('users', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0');
+  addCol('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 1'); addCol('users', 'totp_secret', 'TEXT'); addCol('users', 'totp_enabled', 'INTEGER NOT NULL DEFAULT 0'); addCol('users', 'recovery_codes', 'TEXT'); addCol('users', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0'); addCol('users', 'tour_seen', "TEXT NOT NULL DEFAULT '{}'");
   // developer partner portal (docs/DEVELOPER_PARTNER_PORTAL.md): own plots stay inventory_source='own' and are untouched
   addCol('properties', 'inventory_source', "TEXT NOT NULL DEFAULT 'own'"); addCol('properties', 'developer_id', 'INTEGER'); addCol('properties', 'agreement_id', 'INTEGER');
   for (const [c, t] of [['developer_id', 'INTEGER'], ['agreement_id', 'INTEGER'], ['booking_id', 'TEXT'], ['file_state', 'TEXT'], ['holder', "TEXT NOT NULL DEFAULT 'customer'"],

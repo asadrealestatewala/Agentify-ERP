@@ -21,3 +21,10 @@ See README.md and ARCHITECTURE.md for the product and code layout. Merging to `m
 * **Menu screens and Ask.** `shared/screens.generated.js` is generated from the menu in `client/src/components/Layout.jsx` (`node scripts/gen-screens.mjs`). Every new menu screen needs a plain-words note in `shared/screenNotes.js`; `server/test/screens.test.js` fails when either is missing or stale.
 * **What Ask knows about the system.** Ask reads permissions, settings keys, default roles, pick-lists, the chart of accounts and regional packs straight from the code (`server/src/services/systemKnowledge.js`). Add a note in `shared/systemNotes.js` for any new permission area, setting key, pick-list or regional flag, and update the matching flow in `shared/workflows.js` when a business flow changes; `server/test/system-knowledge.test.js` fails otherwise.
 * Concurrent PRs: if another PR already took the next number, rebase and take the next one.
+
+## Guided tours and help
+
+* Tour steps and help guides live together in `shared/help/` (`tours.js` and `guides.js`; `shared/guides.js` only re-exports). Ask reads this folder, so keep both accurate.
+* **When you add or change a feature in a module, update that module's tour steps in `shared/help/tours.js` and its guide in `shared/help/guides.js` in the same change.** Add a tour for a new module (set `path`, `guide`, `version`, `autostart`) and bump a tour's `version` only when everyone should see it again.
+* Steps attach to stable `data-tour="..."` attributes in the client, never CSS classes. A step whose target is hidden (role, plan, small screen) is skipped. `server/test/tours.test.js` fails if a step has no marker or its guide is missing.
+* "Seen" is stored on the user (`users.tour_seen`, `PUT /api/auth/tour`), not in the browser, so it follows the person across devices.

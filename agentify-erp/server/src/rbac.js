@@ -33,7 +33,7 @@ export function readMfaToken(tok) {
 }
 
 export function loadUser(id) {
-  const u = get(`SELECT u.id,u.name,u.email,u.phone,u.role_id,u.contact_id,u.vendor_id,u.developer_id,u.active,u.token_version,u.email_verified,u.totp_enabled,
+  const u = get(`SELECT u.id,u.name,u.email,u.phone,u.role_id,u.contact_id,u.vendor_id,u.developer_id,u.active,u.token_version,u.email_verified,u.totp_enabled,u.tour_seen,
     r.name role, r.own_scope, r.portal FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?`, id);
   if (!u) return null;
   u.perms = new Set(all('SELECT module,action FROM role_permissions WHERE role_id=?', u.role_id).map((p) => `${p.module}:${p.action}`));
