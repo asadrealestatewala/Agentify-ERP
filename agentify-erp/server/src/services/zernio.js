@@ -1,7 +1,7 @@
 // Zernio (zernio.com): the one place that talks to the posting service. A workspace's posts are published to Facebook and Instagram
 // through the connected accounts of its Zernio profile. Two billing modes (console setting `zernio_mode`):
+//   workspace - (default) the workspace pastes its own Zernio key and Zernio bills it directly; automatic posting is optional and the workspace switches it on itself
 //   platform  - Agentify's own Zernio key, one profile per workspace (Agentify pays Zernio and recovers it in plan prices)
-//   workspace - the workspace pastes its own Zernio key and Zernio bills it directly
 // Keys are stored encrypted and are never returned to a browser, written to a log, or put in an error message.
 import { getSetting as platformGet, setSetting as platformSet, encrypt, decrypt } from './platformConfig.js';
 import { getSetting, setSetting } from '../db.js';
@@ -13,7 +13,7 @@ export const PLATFORMS = { facebook: 'Facebook', instagram: 'Instagram' }; // la
 const KEY_RE = /^sk_[A-Za-z0-9_-]{16,128}$/;
 export const validKey = (k) => KEY_RE.test(String(k || '').trim());
 
-export const mode = () => (platformGet('zernio_mode') === 'workspace' ? 'workspace' : 'platform');
+export const mode = () => (platformGet('zernio_mode') === 'platform' ? 'platform' : 'workspace'); // default: each workspace connects its own Zernio account and pays Zernio directly
 export const platformKey = () => platformGet('zernio_api_key');
 export function workspaceKey() { const v = getSetting('zernio_key_enc'); if (!v) return null; try { return decrypt(v); } catch { return null; } }
 export const saveWorkspaceKey = (key) => { if (!key) { setSetting('zernio_key_enc', ''); return; } if (!validKey(key)) throw bad('That does not look like a Zernio API key (it starts with sk_).'); setSetting('zernio_key_enc', encrypt(String(key).trim())); };

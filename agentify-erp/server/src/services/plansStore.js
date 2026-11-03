@@ -9,7 +9,7 @@
 //   prices / setup fee                               new purchases and renewals only
 //   on sale (active = 0)                             no new purchases; current subscribers can still renew
 //   product family                                   cannot be changed once a workspace is subscribed to the plan
-import { PLANS, DEFAULT_PLANS, DEFAULT_CONSTRUCTION_PLANS, PLAN_SETTINGS, MODULES, PRODUCT_CHOICES, setAddonLookup } from './plans.js';
+import { PLANS, DEFAULT_PLANS, DEFAULT_CONSTRUCTION_PLANS, DEFAULT_TIER_PLANS, PLAN_SETTINGS, MODULES, PRODUCT_CHOICES, setAddonLookup } from './plans.js';
 import { bad, HttpError } from '../util.js';
 import { cleanEmailLimits } from './emailLimits.js';
 import { cleanWhatsappLimits } from './whatsappLimits.js';
@@ -43,8 +43,9 @@ CREATE INDEX IF NOT EXISTS idx_coupon_redemptions ON coupon_redemptions(code);
 `;
 /** Columns added to plans for the SaaS release (product families, more limits, marketing content, setup fee). */
 const PLAN_COLUMNS = [['product', "TEXT NOT NULL DEFAULT 'real_estate'"], ['properties', 'INTEGER'], ['storage_mb', 'INTEGER'], ['api_access', 'INTEGER NOT NULL DEFAULT 1'],
-  ['features', 'TEXT'], ['highlight', 'INTEGER NOT NULL DEFAULT 0'], ['trial_eligible', 'INTEGER NOT NULL DEFAULT 1'], ['setup_fee', 'TEXT'], ['email_limits', 'TEXT'], ['whatsapp_limits', 'TEXT']];
-export const CURRENCIES = ['PKR', 'USD'];
+  ['features', 'TEXT'], ['highlight', 'INTEGER NOT NULL DEFAULT 0'], ['trial_eligible', 'INTEGER NOT NULL DEFAULT 1'], ['setup_fee', 'TEXT'], ['email_limits', 'TEXT'], ['whatsapp_limits', 'TEXT'],
+  ['allowances', 'TEXT'], ['launch_offer', 'INTEGER NOT NULL DEFAULT 0']];
+export const CURRENCIES = ['PKR', 'USD', 'GBP', 'CAD'];
 const ID_RE = /^[a-z][a-z0-9_]{1,30}$/;
 
 let db = null;
@@ -54,6 +55,8 @@ const mark = (k) => db.prepare("INSERT OR IGNORE INTO platform_settings(key,valu
 function insertPlan(id, p, sort) {
   db.prepare('INSERT OR IGNORE INTO plans(id,name,product,seats,projects,properties,storage_mb,api_access,sort_order,updated_by) VALUES(?,?,?,?,?,?,?,?,?,?)')
     .run(id, p.name, p.product, p.seats, p.projects, p.properties ?? null, p.storage_mb ?? null, p.api_access ? 1 : 0, sort, 'system');
+  if (p.allowances) db.prepare('UPDATE plans SET allowances=?, launch_offer=?, features=?, email_limits=?, highlight=?, visible=? WHERE id=? AND allowances IS NULL')
+    .run(JSON.stringify(p.allowances), p.launch_offer ? 1 : 0, JSON.stringify(p.features || []), p.email_limits ? JSON.stringify(p.email_limits) : null, p.highlight ? 1 : 0, 0, id);
   for (const [cur, byInt] of Object.entries(p.price)) for (const [int, amount] of Object.entries(byInt)) {
     if (!db.prepare('SELECT 1 FROM plan_prices WHERE plan_id=? AND currency=? AND interval=?').get(id, cur, int)) db.prepare("INSERT INTO plan_prices(plan_id,currency,interval,amount,effective_from,created_by) VALUES(?,?,?,?,'2000-01-01 00:00:00','system')").run(id, cur, int, amount);
   }
@@ -93,6 +96,12 @@ export function initPlans(pdb) {
     }
     mark('seeded_local_currencies_v1');
   }
+  // the three content tiers are added once as HIDDEN plans: the owner reviews the demo prices in the console, then switches them on. Existing plans and workspaces are untouched.
+  if (!setting('seeded_content_tiers_v1')) {
+    let i = (db.prepare('SELECT COALESCE(MAX(sort_order),0) n FROM plans').get().n || 0) + 1;
+    for (const [id, p] of Object.entries(DEFAULT_TIER_PLANS)) insertPlan(id, p, i++);
+    mark('seeded_content_tiers_v1');
+  }
   setAddonLookup((tenant) => {
     if (!tenant?.id) return [];
     return db.prepare("SELECT a.entitlements, ta.quantity FROM tenant_addons ta JOIN addons a ON a.id=ta.addon_id WHERE ta.tenant_id=? AND ta.status='active'").all(tenant.id).map((r) => {
@@ -118,7 +127,7 @@ export function reloadPlans() {
     for (const p of prices.filter((x) => x.plan_id === r.id)) (price[p.currency] ||= {})[p.interval] = p.amount;
     PLANS[r.id] = { name: r.name, product: r.product || 'real_estate', description: r.description, seats: r.seats, projects: r.projects, properties: r.properties, storage_mb: r.storage_mb, api_access: !!r.api_access,
       grace_days: r.grace_days, modules: r.modules ? JSON.parse(r.modules) : null, visible: !!r.visible, active: !!r.active, features: parseJson(r.features, []), highlight: !!r.highlight,
-      trial_eligible: r.trial_eligible !== 0, setup_fee: parseJson(r.setup_fee, {}), email_limits: parseJson(r.email_limits, null), whatsapp_limits: parseJson(r.whatsapp_limits, null), price };
+      trial_eligible: r.trial_eligible !== 0, setup_fee: parseJson(r.setup_fee, {}), email_limits: parseJson(r.email_limits, null), whatsapp_limits: parseJson(r.whatsapp_limits, null), allowances: parseJson(r.allowances, null), launch_offer: !!r.launch_offer, price };
   }
   PLAN_SETTINGS.trial_plan = setting('trial_plan') || (PLANS.growth ? 'growth' : Object.keys(PLANS)[0] || 'growth');
   PLAN_SETTINGS.trial_plans = { real_estate: PLAN_SETTINGS.trial_plan, construction: setting('trial_plan_construction') || (PLANS.con_professional ? 'con_professional' : null) };
@@ -132,7 +141,7 @@ export function listPlans() {
   const subs = Object.fromEntries(db.prepare("SELECT plan, COUNT(*) n FROM tenants WHERE is_legacy=0 AND status='active' AND subscription_status NOT IN ('trialing','pending','expired') GROUP BY plan").all().map((r) => [r.plan, r.n]));
   return db.prepare('SELECT * FROM plans ORDER BY sort_order, id').all().map((r) => ({
     id: r.id, name: r.name, product: r.product, description: r.description, seats: r.seats, projects: r.projects, properties: r.properties, storage_mb: r.storage_mb, api_access: !!r.api_access,
-    grace_days: r.grace_days, modules: r.modules ? JSON.parse(r.modules) : null, features: parseJson(r.features, []), highlight: !!r.highlight, trial_eligible: r.trial_eligible !== 0, setup_fee: parseJson(r.setup_fee, {}), email_limits: parseJson(r.email_limits, null), whatsapp_limits: parseJson(r.whatsapp_limits, null),
+    grace_days: r.grace_days, modules: r.modules ? JSON.parse(r.modules) : null, features: parseJson(r.features, []), highlight: !!r.highlight, trial_eligible: r.trial_eligible !== 0, setup_fee: parseJson(r.setup_fee, {}), email_limits: parseJson(r.email_limits, null), whatsapp_limits: parseJson(r.whatsapp_limits, null), allowances: parseJson(r.allowances, null), launch_offer: !!r.launch_offer,
     visible: !!r.visible, active: !!r.active, sort_order: r.sort_order, updated_at: r.updated_at, updated_by: r.updated_by, subscribers: subs[r.id] || 0,
     price: PLANS[r.id]?.price || {},
     price_history: db.prepare('SELECT currency, interval, amount, effective_from, created_by FROM plan_prices WHERE plan_id=? ORDER BY effective_from DESC, id DESC LIMIT 40').all(r.id),
@@ -157,6 +166,33 @@ const cleanFeatures = (f) => {
   if (!Array.isArray(f)) throw bad('Features must be a list of short lines');
   return f.map((x) => String(x || '').trim().slice(0, 120)).filter(Boolean).slice(0, 30);
 };
+export const REEL_SECONDS_CHOICES = [8, 16, 24];
+export const TIER_FLAGS = { content_calendar: 'Content calendar', bulk_generator: 'Bulk monthly generator', brand_kit: 'Brand kit', listing_to_post: 'Listing to post', priority_queue: 'Priority queue' };
+const wholeOrNull = (v, label, max = 10_000_000) => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0 || n > max) throw bad(`${label} must be a whole number from 0, or empty for no limit`);
+  return n;
+};
+/** Content allowances of a plan: credits per currency, posts per day / month, longest reel and feature flags. Empty = the plan sets none. */
+export function cleanAllowances(a) {
+  if (a === null || a === undefined || a === '') return null;
+  if (typeof a !== 'object' || Array.isArray(a)) throw bad('Allowances must be an object');
+  const out = { credits: {}, flags: {} };
+  for (const [cur, v] of Object.entries(a.credits || {})) {
+    if (cur !== 'default' && !CURRENCIES.includes(cur)) throw bad(`Credits: unknown currency ${cur}`);
+    const n = wholeOrNull(v, `Credits in ${cur}`);
+    if (n !== null) out.credits[cur] = n;
+  }
+  out.posts_per_day = wholeOrNull(a.posts_per_day, 'Posts per day', 1000);
+  out.posts_per_month = wholeOrNull(a.posts_per_month, 'Posts per month', 100000);
+  if (out.posts_per_day !== null && out.posts_per_month !== null && out.posts_per_day > out.posts_per_month) throw bad('Posts per day cannot be more than posts per month');
+  const rs = wholeOrNull(a.reel_seconds, 'Longest reel');
+  if (rs !== null && !REEL_SECONDS_CHOICES.includes(rs)) throw bad('The longest reel must be 8, 16 or 24 seconds');
+  out.reel_seconds = rs;
+  for (const k of Object.keys(TIER_FLAGS)) if (a.flags?.[k] !== undefined) out.flags[k] = !!a.flags[k];
+  return out;
+}
 export function cleanMoneyMap(m, label) {
   if (m === null || m === undefined || m === '') return {};
   if (typeof m !== 'object') throw bad(`${label} must be amounts per currency`);
@@ -198,7 +234,8 @@ export function savePlan(id, b, actor) {
     setup_fee: b.setup_fee === undefined ? exists?.setup_fee ?? null : JSON.stringify(cleanMoneyMap(b.setup_fee, 'Setup fee')),
     email_limits: b.email_limits === undefined ? exists?.email_limits ?? null : (cleanEmailLimits(b.email_limits) ? JSON.stringify(cleanEmailLimits(b.email_limits)) : null),
     whatsapp_limits: b.whatsapp_limits === undefined ? exists?.whatsapp_limits ?? null : (cleanWhatsappLimits(b.whatsapp_limits) ? JSON.stringify(cleanWhatsappLimits(b.whatsapp_limits)) : null),
-    whatsapp_limits: b.whatsapp_limits === undefined ? exists?.whatsapp_limits ?? null : (cleanWhatsappLimits(b.whatsapp_limits) ? JSON.stringify(cleanWhatsappLimits(b.whatsapp_limits)) : null),
+    allowances: b.allowances === undefined ? exists?.allowances ?? null : (cleanAllowances(b.allowances) ? JSON.stringify(cleanAllowances(b.allowances)) : null),
+    launch_offer: b.launch_offer === undefined ? exists?.launch_offer ?? 0 : (b.launch_offer ? 1 : 0),
     visible: b.visible === undefined ? exists?.visible ?? 1 : (b.visible ? 1 : 0),
     active: b.active === undefined ? exists?.active ?? 1 : (b.active ? 1 : 0),
     sort_order: b.sort_order === undefined ? exists?.sort_order ?? (db.prepare('SELECT COALESCE(MAX(sort_order),0)+1 n FROM plans').get().n) : Math.trunc(Number(b.sort_order)) || 0,

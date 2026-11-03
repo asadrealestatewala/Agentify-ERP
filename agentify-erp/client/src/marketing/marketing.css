@@ -208,3 +208,11 @@ html[data-consent="open"] .lp .lsticky{display:none}
   .lp .mhero-t>p,.lp .mlead{font-size:15px}
   .lp .mh2{font-size:clamp(23px,7vw,28px)}
 }
+
+/* launch offer: banner at the very top and crossed-out prices in the plan cards (brand teal, same tokens as the rest of the page) */
+.lp .loffer{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;background:var(--g2);color:#fff;font-size:14px;padding:8px 44px 8px 16px;position:relative;text-align:center}
+.lp .loffer-go{background:#fff;color:var(--g2);border:0;border-radius:999px;padding:5px 14px;font-weight:600;font-size:13px;cursor:pointer}
+.lp .loffer-x{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:transparent;border:0;color:#fff;font-size:22px;line-height:1;width:32px;height:32px;cursor:pointer}
+.lp .lcut{font-size:15px;color:var(--mut);margin-top:4px}
+.lp .lsave{display:inline-block;margin:4px 0;padding:2px 10px;border-radius:999px;background:var(--g2);color:#fff;font-size:13px;font-weight:600}
+@media (max-width:600px){.lp .loffer{padding-right:40px;font-size:13px}}

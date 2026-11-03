@@ -13,7 +13,7 @@ export function overview(origin) {
     mode: z.mode(), key: mask(key), caps: getCaps(), platforms: z.PLATFORMS,
     webhook: { url: `${origin}/api/platform/webhooks/zernio`, secret_saved: !!getSetting('zernio_webhook_secret'), registered_at: getSetting('zernio_webhook_registered_at') || null },
     workspaces: listTenants().filter((t) => t.status === 'active').map((t) => ({ id: t.id, slug: t.slug, name: t.name, on: listedWorkspaces().includes(Number(t.id)) })),
-    note: 'Zernio bills the Agentify account for every connected account (profiles are free). In "workspace" mode each workspace pastes its own Zernio key and Zernio bills it directly.',
+    note: 'Default is "workspace": each workspace connects its own Zernio account and pays Zernio directly, so Zernio is not part of plan costs. In "platform" mode Zernio bills the Agentify account for every connected account (profiles are free).',
   };
 }
 export function save({ mode, key }, by) {

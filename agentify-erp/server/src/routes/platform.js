@@ -9,6 +9,7 @@ import { requireOperator, onPlatformHost } from '../services/platformAuth.js';
 import { need, auditContext } from '../services/platformAccess.js';
 import { audit } from '../services/platformConfig.js';
 import { planCatalog, PLAN_SETTINGS, PRODUCTS, PLANS } from '../services/plans.js';
+import { publicOffer } from '../services/launchOffer.js';
 import { submitReview, publicReviews, reviewPhoto } from '../services/reviews.js';
 import { publicContent, publicLegal, createDemoRequest, createDeletionRequest, marketingContent, termsVersion } from '../services/marketing.js';
 import { recordServerEvent, collect } from '../services/analytics.js';
@@ -286,6 +287,7 @@ r.get('/marketing', asyncH((req, res) => {
   const methods = [...new Set(platformDb().prepare('SELECT method FROM payment_accounts WHERE active=1 ORDER BY sort_order, id').all().map((a) => a.method))];
   const regions = [...selectableRegions(platformDb()).values()].map((p) => ({ code: p.code, name: p.name, currency: p.currency, sub_region_label: p.sub_region_label, sub_regions: p.sub_regions, languages: p.languages }));
   res.json({ content: { ...publicContent(), reviews: publicReviews() }, base_domain: BASE_DOMAIN, free_sites: { open: freeSitesOpen(), domain: freeSitesOpen() ? sitesDomain() : null }, regions, countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, trial_days: PLAN_SETTINGS.default_trial_days, one_trial_per_email: PLAN_SETTINGS.one_trial_per_email, products: PRODUCTS,
+    offer: publicOffer(),
     plans: planCatalog().filter((p) => PLANS[p.id]?.visible), addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })),
     google_signup: !!appCreds('google'), local_methods: methods, cards: stripe.stripeConfigured(), signup_email_code: signupCodeNeeded(), terms_version: termsVersion(), ga4_id: getSetting('ga4_measurement_id') || null });
 }));

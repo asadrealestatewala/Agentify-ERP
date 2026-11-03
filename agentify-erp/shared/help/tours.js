@@ -28,6 +28,14 @@ export const TOURS = {
       { target: 'take-tour', title: 'See this again', text: 'Press this button to replay the tour for the page you are on.' },
     ],
   },
+  plan: {
+    title: 'Plan & billing tour', guide: 'plan-credits-limits', version: 1, autostart: false, path: '/settings/billing',
+    steps: [
+      { target: 'plan-card', title: 'Your plan and what is left', text: 'See your AI credits, posts, emails and the longest reel your plan allows. A bar fills as you use them.' },
+      { target: 'upgrade', title: 'Need more?', text: 'Press Upgrade to compare plans and choose a bigger one. Any launch offer is shown with the normal price beside it.' },
+      { target: 'take-tour', title: 'See this again', text: 'Press this button to replay the tour for the page you are on.' },
+    ],
+  },
   content: {
     title: 'Content Calendar tour', guide: 'content-calendar-posting', version: 1, autostart: true, path: '/content',
     steps: [

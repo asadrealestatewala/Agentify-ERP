@@ -29,6 +29,8 @@ import { dashboard, health, listNotifications, markRead, search, generateNotific
 import { overview, tenantSummaries, tenantDetail, createWorkspace, extendTrial, trialAction, extendGrace, remindOwner, setOwner, userAction, setupChecklist, listAdmins, addAdmin, removeAdmin,
   updateAdmin, changeStatus, updateProfile, setEntitlements, listNotes, addNote, recordManualPayment, resendOnboarding, transactions } from '../services/platformTenants.js';
 import { listPlans, savePlan, savePlanSettings } from '../services/plansStore.js';
+import { getOffer, saveOffer, publicOffer, claimedSpots } from '../services/launchOffer.js';
+import { marginReport, saveMarginSettings } from '../services/planMargin.js';
 import { PLAN_SETTINGS, MODULES, PRODUCTS } from '../services/plans.js';
 import { setSubscription } from '../services/billing.js';
 import { caps as meetingCaps } from '../integrations/meetings.js';
@@ -315,6 +317,20 @@ r.put('/plans/:id', requireOperator, need('billing.configure'), asyncH((req, res
   const out = savePlan(req.params.id, req.body || {}, req.operator.email);
   audit(req.operator.email, out.changes.created ? 'plan-created' : 'plan-edited', { plan: out.plan.id, ...out.changes });
   res.json(out.plan);
+}));
+// ---- Content tiers: margin view and the launch offer
+r.get('/plan-margin', requireOperator, need('billing.view'), (_req, res) => res.json(marginReport()));
+r.put('/margin-settings', requireOperator, need('billing.configure'), asyncH((req, res) => {
+  const out = saveMarginSettings(req.body || {}, req.operator.email);
+  audit(req.operator.email, 'margin-settings', { keys: Object.keys(req.body || {}) });
+  res.json({ settings: out, report: marginReport(out) });
+}));
+const offerView = () => ({ offer: getOffer(), live: publicOffer(), claimed_spots: claimedSpots() });
+r.get('/launch-offer', requireOperator, need('billing.view'), (_req, res) => res.json(offerView()));
+r.put('/launch-offer', requireOperator, need('billing.configure'), asyncH((req, res) => {
+  const out = saveOffer(req.body || {}, req.operator.email);
+  audit(req.operator.email, 'launch-offer', { on: out.on, ends_at: out.ends_at, spots: out.spots, countries: out.countries });
+  res.json(offerView());
 }));
 r.put('/plan-settings', requireOperator, need('billing.configure'), asyncH((req, res) => {
   const out = savePlanSettings(req.body || {}, req.operator.email);

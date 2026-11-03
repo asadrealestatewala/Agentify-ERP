@@ -12,6 +12,7 @@ import { getTenant, withTenant } from '../platform.js';
 import { veoStart, veoStatus, veoDownload, azureSpeak, refundCredits, voiceFor, REEL_SECONDS, voiceLimit } from './aiGateway.js';
 import { assertSafeRequest } from './aiSafety.js';
 import { creditsLeft } from './aiGate.js';
+import { billingState } from './plans.js';
 import { ensureTable } from './aiUsage.js';
 import { storeBytes, brand, REEL_CREDITS, LANGUAGES } from './creativeStudio.js';
 import { removeRef, isStoredRef, readRefBytes } from './storage.js';
@@ -25,12 +26,15 @@ const clean = (v, n) => { const s = String(v ?? '').trim(); return s ? s.slice(0
 const tid = () => currentTenant()?.id ?? null;
 
 /** What the reel creator needs to draw its options: which lengths and voice paths this server can do. */
-export const options = () => ({ lengths: LENGTHS.filter((l) => l <= maxReelSeconds()), voice_paths: VOICE_PATHS, ffmpeg: ffmpegStatus(), clip_seconds: CLIP_SECONDS });
+/** Longest reel the workspace's plan allows (content tiers set it), or null when the plan sets no limit. */
+export const planReelSeconds = () => { try { return billingState(currentTenant()).limits.reel_seconds ?? null; } catch { return null; } };
+const reelCap = () => Math.min(maxReelSeconds(), planReelSeconds() ?? Infinity);
+export const options = () => ({ plan_max_seconds: planReelSeconds(), lengths: LENGTHS.filter((l) => l <= reelCap()), voice_paths: VOICE_PATHS, ffmpeg: ffmpegStatus(), clip_seconds: CLIP_SECONDS });
 
-const secondsOf = (v) => { const n = Number(v) || REEL_SECONDS; if (!LENGTHS.includes(n)) throw bad('A reel can be 8, 16 or 24 seconds long.'); if (n > maxReelSeconds()) throw bad(ffmpegStatus().message || 'That length is not available right now.', { code: 'ffmpeg_missing' }); return n; };
+const secondsOf = (v) => { const n = Number(v) || REEL_SECONDS; if (!LENGTHS.includes(n)) throw bad('A reel can be 8, 16 or 24 seconds long.'); const pm = planReelSeconds(); if (pm != null && n > pm) throw bad(`Your plan allows reels up to ${pm} seconds. Upgrade your plan for longer reels.`, { code: 'reel_length', upgrade: true, limit: pm }); if (n > maxReelSeconds()) throw bad(ffmpegStatus().message || 'That length is not available right now.', { code: 'ffmpeg_missing' }); return n; };
 
 export function quote({ script, seconds, voice_path } = {}) {
-  const sec = LENGTHS.includes(Number(seconds)) && Number(seconds) <= maxReelSeconds() ? Number(seconds) : REEL_SECONDS;
+  const sec = LENGTHS.includes(Number(seconds)) && Number(seconds) <= reelCap() ? Number(seconds) : REEL_SECONDS;
   const path_ = VOICE_PATHS.includes(voice_path) ? voice_path : 'script';
   const chars = String(script || '').trim().length;
   const video = sec * REEL_CREDITS.per_second;

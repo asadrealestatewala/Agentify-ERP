@@ -21,6 +21,7 @@ import { AdminsPage, SessionsPage, LoginsPage, AuditPage, MaintenancePage, Email
 import { ReportsPage, ReconciliationPage } from './platform/Reports.jsx';
 import { Dashboard, HealthPage, NotificationsPage, SetupPage } from './platform/Dashboard.jsx';
 import { PlansPage, TransactionsPage, SubscriptionHistoryPage } from './platform/Billing.jsx';
+import { PlanMarginPage, LaunchOfferPage } from './platform/PlanTiers.jsx';
 import { FinancePage } from './platform/Finance.jsx';
 import { AnalyticsPage, WebsitePage, DemoRequestsPage, AnnouncementsPage, IntegrationsPage, ReviewsPage } from './platform/Content.jsx';
 import LandingEditorPage from './platform/LandingEditor.jsx';
@@ -441,6 +442,8 @@ function ConsoleRoutes() {
         <Route path="setup" element={<Allowed perm="system.view"><SetupPage /></Allowed>} />
         <Route path="workspaces/*" element={<Allowed perm="workspaces.view">{page(filterLabel, 'Every company on the platform, with setup progress, usage and access dates. Click a row to manage it.', <Workspaces onOpen={open} />)}</Allowed>} />
         <Route path="expiry" element={<Allowed perm="workspaces.view">{page('Renewals & expiry', 'Trials and paid periods by how soon they end.', <Expiry onOpen={open} />)}</Allowed>} />
+        <Route path="plans/margin" element={<Allowed perm="billing.view">{page('Plan margins', 'What each tier earns after AI, storage, fixed costs, payment fees, tax and the commission estimate.', <PlanMarginPage />)}</Allowed>} />
+        <Route path="plans/launch-offer" element={<Allowed perm="billing.view">{page('Launch offer', 'A discount on the first months, shown on the landing page and charged automatically at checkout.', <LaunchOfferPage />)}</Allowed>} />
         <Route path="plans" element={<Allowed perm="billing.view"><PlansPage /></Allowed>} />
         <Route path="analytics" element={<Allowed perm="analytics.view"><AnalyticsPage /></Allowed>} />
         <Route path="website/visual" element={<Allowed perm="content.manage"><LandingEditorPage /></Allowed>} />

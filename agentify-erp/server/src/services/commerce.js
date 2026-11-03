@@ -6,6 +6,7 @@
 import { platformDb, getTenant, logTenantEvent } from '../platform.js';
 import { PLANS, PRODUCTS, assertSellable } from './plans.js';
 import { CURRENCIES, cleanMoneyMap } from './plansStore.js';
+import { launchLine } from './launchOffer.js';
 import { bad, HttpError } from '../util.js';
 
 const pdb = () => platformDb();
@@ -140,6 +141,8 @@ export function quote(tenant, { plan, interval = 'month', currency = 'PKR', coup
   const base = p.price?.[cur]?.[interval];
   if (base == null) throw bad(`${p.name} has no ${cur} ${interval}ly price`);
   const lines = [{ kind: 'plan', label: `${p.name} (${interval === 'year' ? 'yearly' : 'monthly'})`, amount: base }];
+  const launch = launchLine(tenant, p, cur, interval, base);
+  if (launch) lines.push({ kind: 'launch_offer', label: `Launch offer: ${launch.percent}% off (month ${launch.month_no} of ${launch.months})`, amount: -launch.amount });
   const fee = p.setup_fee?.[cur] || 0;
   const firstPayment = !tenant || !hasPaid(tenant.id);
   if (fee && firstPayment) lines.push({ kind: 'setup_fee', label: 'One-time setup fee', amount: fee });

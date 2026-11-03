@@ -7,6 +7,7 @@
 import { getSetting } from './platformConfig.js';
 import { AI_FEATURES, flag, featuresOff, dayStart, monthStartOf, ensureTable } from './aiUsage.js';
 import { bad } from '../util.js';
+import { billingState } from './plans.js';
 
 export const DEFAULT_DAILY_LIMIT = 300;
 const db = () => ensureTable();
@@ -31,10 +32,17 @@ export function spentUsd({ feature = null, now = new Date() } = {}) {
 }
 export const usesToday = (tenantId, now = new Date()) => db().prepare("SELECT COUNT(*) n FROM ai_usage WHERE key_owner='platform' AND tenant_id=? AND purpose<>'refund' AND at>=?").get(tenantId, dayStart(now)).n;
 
+/** Monthly credits the workspace's plan includes (content tiers only, in the workspace's currency), or null when the plan sets none. */
+export function planCredits(tenantId) {
+  try {
+    const t = db().prepare('SELECT * FROM tenants WHERE id=?').get(tenantId);
+    return t ? billingState(t).limits.credits ?? null : null;
+  } catch { return null; }
+}
 /** Credits a workspace may spend this month (allowance + any top-up made this month), or null for no limit. */
 export function creditsAllowance(tenantId, now = new Date()) {
   const r = db().prepare('SELECT monthly_credits, topup_credits, topup_month FROM ai_tenant_credits WHERE tenant_id=?').get(tenantId);
-  const base = r?.monthly_credits ?? defaultMonthlyCredits();
+  const base = r?.monthly_credits ?? planCredits(tenantId) ?? defaultMonthlyCredits();
   if (base == null) return null;
   return base + (r && r.topup_month === now.toISOString().slice(0, 7) ? r.topup_credits : 0);
 }

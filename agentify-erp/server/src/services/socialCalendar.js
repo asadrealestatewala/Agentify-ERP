@@ -150,7 +150,9 @@ const rolling24 = (accountId, nowMs = Date.now()) => {
 };
 function planCaps() { try { const l = billingState(currentTenant()).limits || {}; return { per_day: l.posts_per_day ?? null, per_month: l.posts_per_month ?? null }; } catch { return { per_day: null, per_month: null }; } }
 /** Posts this workspace published through Zernio on a day (YYYY-MM-DD) or in a month (YYYY-MM), in workspace time. */
-const countPublished = (prefix) => all("SELECT posted FROM content_posts WHERE stage='posted' AND zernio_post_id IS NOT NULL").filter((r) => Object.values(jparse(r.posted, {})).some((t) => String(t).startsWith(prefix))).length;
+const countPublished = (prefix) => all("SELECT posted FROM content_posts WHERE stage='posted'").filter((r) => Object.values(jparse(r.posted, {})).some((t) => String(t).startsWith(prefix))).length;
+/** What the plan's posting caps look like right now, for the plan card: posts made today / this month against the caps. */
+export function postsUsage() { const pc = planCaps(), day = now().slice(0, 10); return { per_day: pc.per_day, per_month: pc.per_month, today: countPublished(day), month: countPublished(day.slice(0, 7)) }; }
 /** A reason the post cannot go out right now, or null. */
 export function capReason(p, accounts) {
   const caps = getCaps();

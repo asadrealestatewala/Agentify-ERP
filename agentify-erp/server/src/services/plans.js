@@ -38,6 +38,28 @@ export const DEFAULT_CONSTRUCTION_PLANS = {
   con_professional: { name: 'Professional', product: 'construction', seats: 25,   projects: 25,   properties: null, storage_mb: 10240, api_access: 1, price: { USD: { month: 79, year: 790 },   PKR: { month: 22000, year: 220000 } } },
   con_enterprise:   { name: 'Enterprise',   product: 'construction', seats: null, projects: null, properties: null, storage_mb: null,  api_access: 1, price: { USD: { month: 199, year: 1990 }, PKR: { month: 55000, year: 550000 } } },
 };
+/**
+ * The three content tiers (small realtor, growth, pro), seeded once as hidden plans so the owner can review the demo prices in the console
+ * before switching them on. `allowances` holds what the older plans do not have: AI credits per currency (so credits can differ by country),
+ * posts per day / month, the longest reel and on/off feature flags. Prices are whole amounts per currency; yearly = 12 months less 15%.
+ */
+export const DEFAULT_TIER_PLANS = {
+  tier1: { name: 'Small realtor', product: 'real_estate', seats: 3, projects: 3, properties: 300, storage_mb: 2048, api_access: 0, launch_offer: 1,
+    features: ['AI credits every month', 'Content calendar with approval', 'Reels up to 8 seconds', '2 posts a day, 30 a month'],
+    allowances: { credits: { PKR: 120, USD: 300, GBP: 300, CAD: 300 }, posts_per_day: 2, posts_per_month: 30, reel_seconds: 8, flags: { content_calendar: true, bulk_generator: false, brand_kit: false, listing_to_post: false, priority_queue: false } },
+    email_limits: { operational: { monthly: 400, daily: null }, marketing: { monthly: 600, daily: null } },
+    price: { PKR: { month: 3500, year: 35700 }, USD: { month: 24, year: 245 }, GBP: { month: 19, year: 194 }, CAD: { month: 32, year: 326 } } },
+  tier2: { name: 'Growth', product: 'real_estate', seats: 10, projects: 10, properties: 1500, storage_mb: 10240, api_access: 1, launch_offer: 1, highlight: 1,
+    features: ['About 3 times the AI credits of Small realtor', 'Content calendar with approval', 'Reels up to 16 seconds', 'Bulk monthly generator', '6 posts a day, 90 a month'],
+    allowances: { credits: { PKR: 400, USD: 900, GBP: 900, CAD: 900 }, posts_per_day: 6, posts_per_month: 90, reel_seconds: 16, flags: { content_calendar: true, bulk_generator: true, brand_kit: false, listing_to_post: false, priority_queue: false } },
+    email_limits: { operational: { monthly: 1000, daily: null }, marketing: { monthly: 1500, daily: null } },
+    price: { PKR: { month: 9500, year: 96900 }, USD: { month: 59, year: 602 }, GBP: { month: 47, year: 479 }, CAD: { month: 79, year: 806 } } },
+  tier3: { name: 'Pro', product: 'real_estate', seats: 30, projects: null, properties: null, storage_mb: 51200, api_access: 1, launch_offer: 1,
+    features: ['High AI credit allowance', 'Content calendar with approval', 'Reels up to 24 seconds', 'Bulk monthly generator, brand kit, listing to post', 'Priority queue', '15 posts a day, 300 a month'],
+    allowances: { credits: { PKR: 1000, USD: 2400, GBP: 2400, CAD: 2400 }, posts_per_day: 15, posts_per_month: 300, reel_seconds: 24, flags: { content_calendar: true, bulk_generator: true, brand_kit: true, listing_to_post: true, priority_queue: true } },
+    email_limits: { operational: { monthly: 2400, daily: null }, marketing: { monthly: 3600, daily: null } },
+    price: { PKR: { month: 24000, year: 244800 }, USD: { month: 149, year: 1520 }, GBP: { month: 119, year: 1214 }, CAD: { month: 199, year: 2030 } } },
+};
 export const PLANS = Object.fromEntries(Object.entries(DEFAULT_PLANS).map(([k, v]) => [k, { ...v, grace_days: 7, modules: null, visible: true, active: true, trial_eligible: true, features: [], setup_fee: {} }]));
 /** Platform-wide plan settings, kept in sync by plansStore. */
 export const PLAN_SETTINGS = { trial_plan: 'growth', trial_plans: { real_estate: 'growth', construction: 'con_professional' }, default_trial_days: 7, trial_reminder_days: [3, 1, 0], renewal_reminder_days: [7, 3, 1], one_trial_per_email: true };
@@ -100,6 +122,10 @@ const parseJson = (s) => { try { return s ? JSON.parse(s) : null; } catch { retu
 export function effectiveLimits(tenant, base, addons = []) {
   const out = { name: base.name, seats: base.seats ?? null, projects: base.projects ?? null, properties: base.properties ?? null, storage_mb: base.storage_mb ?? null,
     api_access: base.api_access === undefined ? true : !!base.api_access, modules: base.modules ?? null };
+  // content allowances (only the content tiers carry them; null = no plan cap): AI credits for the workspace's currency, posting caps, reel length, feature flags
+  const al = base.allowances || null;
+  out.credits = al ? (al.credits?.[tenant?.currency] ?? al.credits?.default ?? null) : null;
+  out.posts_per_day = al?.posts_per_day ?? null; out.posts_per_month = al?.posts_per_month ?? null; out.reel_seconds = al?.reel_seconds ?? null; out.flags = al?.flags ? { ...al.flags } : null;
   // add-ons raise numeric limits (an unlimited limit stays unlimited) and can switch on API access
   for (const a of addons) {
     for (const k of ['seats', 'projects', 'properties', 'storage_mb']) if (a[k] && out[k] != null) out[k] += a[k];
@@ -110,6 +136,7 @@ export function effectiveLimits(tenant, base, addons = []) {
     for (const k of ['seats', 'projects', 'properties', 'storage_mb']) if (o[k] !== undefined) out[k] = o[k];
     if (o.api_access !== undefined) out.api_access = !!o.api_access;
     if (o.modules !== undefined) out.modules = o.modules;
+    for (const k of ['credits', 'posts_per_day', 'posts_per_month', 'reel_seconds']) if (o[k] !== undefined) out[k] = o[k];
     out.overridden = true;
   }
   return out;
@@ -185,7 +212,7 @@ export function billingState(tenant, today = todayUtc(), nowMs = Date.now()) {
 export const planCatalog = (current, product = null) => Object.entries(PLANS)
   .filter(([id, p]) => ((p.visible && p.active) || id === current) && (!product || p.product === product || p.product === 'bundle' || id === current))
   .map(([id, p]) => ({ id, name: p.name, product: p.product, description: p.description || null, seats: p.seats, projects: p.projects, properties: p.properties ?? null, storage_mb: p.storage_mb ?? null,
-    api_access: !!p.api_access, modules: p.modules, features: p.features || [], highlight: !!p.highlight, trial_eligible: p.trial_eligible !== false, setup_fee: p.setup_fee || {}, price: p.price }));
+    api_access: !!p.api_access, modules: p.modules, features: p.features || [], launch_offer: !!p.launch_offer, allowances: p.allowances || null, highlight: !!p.highlight, trial_eligible: p.trial_eligible !== false, setup_fee: p.setup_fee || {}, price: p.price }));
 /** A plan may be bought when it is on sale, or renewed when it is the workspace's current plan. */
 export function assertSellable(plan, tenant) {
   const p = PLANS[plan];

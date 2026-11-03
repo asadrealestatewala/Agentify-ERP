@@ -183,6 +183,45 @@ function CalcStrip() {
   );
 }
 
+// ---------------------------------------------------------------- launch offer
+// Everything comes from info.offer (the console's Launch offer page). When the offer is off, ended or out of spots the server sends
+// { on: false }, so the banner and the crossed-out prices disappear on their own.
+/** The launch price of a plan in a currency for monthly billing, or null when no offer applies. */
+function launchOf(offer, plan, cur) {
+  const o = offer?.on ? offer.countries?.[cur] : null;
+  const normal = plan.price?.[cur]?.month;
+  if (!o || !plan.launch_offer || normal == null) return null;
+  return { percent: o.percent, months: o.months, normal, launch: Math.round(normal * (1 - o.percent / 100)) };
+}
+function OfferBar({ info }) {
+  const { country } = useCountry();
+  const nav = useNavigate();
+  const [closed, setClosed] = useState(() => { try { return sessionStorage.getItem('agentify_offer_closed') === '1'; } catch { return false; } });
+  const o = info.offer?.on ? info.offer.countries?.[country.currency] : null;
+  if (!o || closed) return null;
+  const days = info.offer.ends_at ? Math.max(0, Math.ceil((Date.parse(info.offer.ends_at) - Date.now()) / 864e5)) : null;
+  const close = () => { setClosed(true); try { sessionStorage.setItem('agentify_offer_closed', '1'); } catch { /* ignore */ } };
+  return (
+    <div className="loffer" role="region" aria-label="Launch offer">
+      <span><b>{o.banner}</b>{days != null && <> · ends in {days} {days === 1 ? 'day' : 'days'}</>}{info.offer.spots_left != null && <> · {info.offer.spots_left} founding {info.offer.spots_left === 1 ? 'spot' : 'spots'} left</>}</span>
+      <button type="button" className="loffer-go" onClick={() => nav('/pricing')}>{info.offer.button_text || 'See the prices'}</button>
+      <button type="button" className="loffer-x" aria-label="Close the offer banner" onClick={close}>×</button>
+    </div>
+  );
+}
+/** Price block of a plan card: with an offer the normal price is crossed out and the launch price is large. */
+function PriceBlock({ plan, cur, int, info }) {
+  const l = int === 'month' ? launchOf(info.offer, plan, cur) : null;
+  if (!l) return <div className="lprice">{plan.price[cur]?.[int] != null ? fmt(plan.price[cur][int], cur) : '—'}<small> / {int === 'month' ? 'month' : 'year'}</small></div>;
+  return (
+    <>
+      <div className="lcut" aria-label={`Normal price ${fmt(l.normal, cur)}`}><s>{fmt(l.normal, cur)}</s></div>
+      <div className="lprice">{fmt(l.launch, cur)}<small> / month</small></div>
+      <div className="lsave">Save {l.percent}% for {l.months} months</div>
+      <div className="lmini">Then {fmt(l.normal, cur)} / month from month {l.months + 1}</div>
+    </>
+  );
+}
 function Header({ info }) {
   const [open, setOpen] = useState(false);
   const loc = useLocation();
@@ -191,6 +230,7 @@ function Header({ info }) {
   const links = [['/real-estate', 'Real Estate'], ['/construction', 'Construction'], ['/pricing', 'Pricing'], ['/contact', 'Book a demo']];
   return (
     <>
+      <OfferBar info={info} />
       {info.content.announcement_bar && <div className="lbar">{info.content.announcement_bar}</div>}
       <header><div className="lwrap">
         <Link className="llogo" to="/" aria-label={`${brand} home`}><LogoMark size={28} />{brand}</Link>
@@ -565,7 +605,7 @@ function ProductPage({ info, product }) {
         <div className="lcard"><h3>Shared with every product</h3><ul className="lcheck"><li>Contacts and CRM</li><li>Users, roles and invitations</li><li>Accounting, invoices and receipts</li><li>Documents and notifications</li><li>Reports and exports</li><li>Customer / client portal</li></ul></div>
       </div></section>}
       {!!plans.length && <section><div className="lwrap"><div className="lsh"><h2>Plans</h2><p>Monthly prices. Yearly billing and all details on the pricing page.</p></div>
-        <div className="lgrid">{plans.map((p) => <div key={p.id} className={`lcard lplan ${p.highlight ? 'hot' : ''}`}>{p.highlight && <span className="ltag">Recommended</span>}<h3>{p.name}</h3><div className="lprice">{p.price[cur]?.month != null ? fmt(p.price[cur].month, cur) : '—'}<small> / month</small></div><p>{p.description || ''}</p><Link className={`lbtn ${p.highlight ? 'p' : ''}`} to={`/signup?product=${product}`}>Start free trial</Link></div>)}</div>
+        <div className="lgrid">{plans.map((p) => <div key={p.id} className={`lcard lplan ${p.highlight ? 'hot' : ''}`}>{p.highlight && <span className="ltag">Recommended</span>}<h3>{p.name}</h3><PriceBlock plan={p} cur={cur} int="month" info={info} /><p>{p.description || ''}</p><Link className={`lbtn ${p.highlight ? 'p' : ''}`} to={`/signup?product=${product}`}>Start free trial</Link></div>)}</div>
         <p className="lfine" style={{ textAlign: 'center' }}><Link to={`/pricing?product=${product}`}>Compare plans →</Link></p>
       </div></section>}
       <Band info={info} product={product} />
@@ -610,7 +650,7 @@ function Pricing({ info }) {
             <div key={p.id} className={`lcard lplan ${p.highlight ? 'hot' : ''}`}>
               {p.highlight && <span className="ltag">Recommended</span>}
               <h3>{p.name}</h3>
-              <div className="lprice">{p.price[cur]?.[int] != null ? fmt(p.price[cur][int], cur) : '—'}<small> / {int === 'month' ? 'month' : 'year'}</small></div>
+              <PriceBlock plan={p} cur={cur} int={int} info={info} />
               {int === 'year' && saving(p) > 0 && <div className="lmini">Save {saving(p)}% compared with monthly</div>}
               {p.setup_fee?.[cur] ? <div className="lmini">+ {fmt(p.setup_fee[cur], cur)} one-time setup</div> : null}
               {p.description && <p>{p.description}</p>}

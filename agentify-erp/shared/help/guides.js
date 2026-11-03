@@ -8,6 +8,24 @@ import { SCREENS } from '../screens.generated.js';
 import { SCREEN_NOTES } from '../screenNotes.js';
 
 export const GUIDES = {
+  'plan-credits-limits': {
+    title: 'Your plan: credits, posting limits and the launch offer', since: 'v1.71', module: 'Plan & billing',
+    who: 'People who can see Settings; changing plan needs permission to edit settings',
+    keywords: ['plan', 'upgrade', 'credits', 'allowance', 'quota', 'launch', 'offer', 'discount', 'tier'],
+    steps: [
+      'Open Settings, then Plan & billing. The Your plan card at the top shows your AI credits, posts today, posts this month, the mail allowance and the longest video your plan allows.',
+      'A bar fills as you use something. When it is full, that action waits or is refused until the next day or month, or until you upgrade.',
+      'Press Upgrade to jump to the plan list, compare plans and choose one.',
+      'If a launch offer is running for your country, the pricing page and the plan list show the normal price crossed out, the launch price, how many months it lasts and the price after that.',
+    ],
+    limits: ['Credits renew every month. Posts and video length follow your plan.', 'The launch offer applies to monthly billing for the first months only, and only to new paying customers.'],
+    faq: [
+      { q: 'What happens when my credits run out?', a: 'AI actions that cost credits stop until next month. Everything else keeps working. Upgrade for a bigger allowance.' },
+      { q: 'Does the launch price last forever?', a: 'No. It applies for the number of months shown on the pricing page, then the normal monthly price starts. The page states the normal price before you pay.' },
+      { q: 'Why can I only make short videos?', a: 'The longest video depends on your plan. A higher plan allows 16 or 24 seconds.' },
+    ],
+    internal: ['Plan numbers live in the console Plans page (content allowances section) and the offer in the Launch offer page. Credits come from the plan unless the workspace has its own override on its detail page.'],
+  },
   'content-calendar-posting': {
     title: 'Content Calendar: approval and automatic posting', since: 'v1.70', module: 'Content Calendar',
     who: 'People with the Content permission; approvers need the Approve permission; shown where posting is switched on for the workspace',

@@ -6,6 +6,19 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.71', date: '2026-11-03', title: 'Plans with credits and posting limits, and a launch offer',
+    items: [
+      { text: 'Your plan page now shows your plan, AI credits left, posts left today and this month, emails left and the longest reel your plan allows, with an Upgrade button.', where: 'Settings > Plan & billing', guide: 'plan-credits-limits' },
+      { text: 'Reels can be 8, 16 or 24 seconds depending on your plan, and your plan sets how many posts you can publish a day and a month. You see a clear message and an upgrade option when a limit is reached.', where: 'Creative Studio and Content Calendar', guide: 'plan-credits-limits' },
+      { text: 'Launch offer: new customers pay a lower price for their first months. The offer, the end date and the monthly price afterwards are shown on the pricing page before you choose.', where: 'Pricing page and Plan & billing', guide: 'plan-credits-limits' },
+      { text: 'Prices are now available in Pakistani rupees, US dollars, pounds and Canadian dollars.', where: 'Pricing page' },
+      { text: 'Console: three content tiers (Small realtor, Growth, Pro) with credits per country, posting caps, reel length, email caps and feature switches, edited in Plans. They start hidden until you switch them on.', where: 'Console > Plans', audience: 'platform' },
+      { text: 'Console: a Plan margins page shows each price against the estimated cost (AI, storage, server, email, payment fees, tax and a commission estimate), with orange and red warnings.', where: 'Console > Plan margins', audience: 'platform' },
+      { text: 'Console: a Launch offer page switches the offer on or off, sets the discount and months per country, the banner text, an optional end date and founding spots, with a live preview. The banner, crossed-out prices and checkout all follow it.', where: 'Console > Launch offer', audience: 'platform' },
+      { text: 'Console: Zernio automatic posting now defaults to each workspace connecting its own Zernio account, so it is not part of plan costs.', where: 'Console > Social posting', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.70', date: '2026-11-03', title: 'Content Calendar: approval and automatic posting',
     items: [
       { text: 'Posts now move through Draft, Waiting approval, Approved, Scheduled and Posted. Only someone with approval rights can approve, and each post shows who approved it.', where: 'Content Calendar', guide: 'content-calendar-posting' },
