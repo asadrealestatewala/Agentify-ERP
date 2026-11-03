@@ -40,7 +40,7 @@ export function overview(now = new Date()) {
   const features = Object.entries(FEATURES).map(([key, f]) => ({ key, label: f.label, uses: byF.get(key)?.uses || 0, usd: byF.get(key)?.usd || 0, pkr: pkr(byF.get(key)?.usd || 0), enabled: !off.has(switchKey(key)) }));
   const per = new Map(db().prepare("SELECT tenant_id, COALESCE(SUM(usd),0) usd FROM ai_usage WHERE key_owner='platform' AND tenant_id IS NOT NULL AND at>=? GROUP BY tenant_id").all(since).map((r) => [r.tenant_id, r.usd]));
   const ws = new Map(db().prepare('SELECT tenant_id, ai_enabled, platform_daily_limit FROM workspace_ai_settings').all().map((r) => [r.tenant_id, r]));
-  const workspaces = db().prepare('SELECT id, name, slug, plan FROM tenants ORDER BY name').all().map((t) => {
+  const workspaces = db().prepare('SELECT id, name, slug, plan, status, data_deleted_at FROM tenants ORDER BY name').all().map((t) => {
     const allowance = creditsAllowance(t.id, now), used = creditsUsed(t.id, now), usd = per.get(t.id) || 0;
     return { ...t, ai_enabled: ws.get(t.id) ? !!ws.get(t.id).ai_enabled : true, usd, pkr: pkr(usd), uses_today: usesToday(t.id, now), daily_limit: platformDailyLimit(t.id), own_daily_limit: ws.get(t.id)?.platform_daily_limit ?? null,
       credits: { allowance, used, left: allowance == null ? null : Math.max(0, allowance - used) } };

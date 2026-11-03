@@ -59,6 +59,8 @@ export function Workspaces({ onOpen }) {
   const f = FILTERS.some(([k]) => k === params.get('status')) ? params.get('status') : 'all';
   const setF = (v) => { const p = new URLSearchParams(params); if (v === 'all') p.delete('status'); else p.set('status', v); setParams(p); setPage(0); };
   const [create, setCreate] = useState(null);
+  const [sel, setSel] = useState(() => new Set());
+  const [del, setDel] = useState(null);
   const [sort, setSort] = useState({ key: 'created', dir: -1 });
   const [page, setPage] = useState(0);
   const PER = 25;
@@ -73,6 +75,19 @@ export function Workspaces({ onOpen }) {
   }, [rows, q, f, sort, prod]);
   const pages = Math.max(1, Math.ceil(shown.length / PER));
   const pageRows = shown.slice(page * PER, page * PER + PER);
+  const deletable = (t) => t.status === 'cancelled' && !t.is_legacy && !t.data_deleted_at;
+  // cancelled workspaces nobody ever used: no sign-in, one user at most, no properties or sales
+  const isTest = (t) => deletable(t) && !t.stats?.last_activity && (t.stats?.seats ?? 0) <= 1 && !t.stats?.properties && !t.stats?.sales;
+  const tests = (rows || []).filter(isTest);
+  const pickable = pageRows.filter(deletable);
+  const toggle = (id) => setSel((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const doDelete = async () => {
+    try {
+      const out = await api.post(`${A}/workspaces/delete-data-bulk`, { ids: del.ids, reason: del.reason, owner_request: del.owner_request, keep_archive: del.keep_archive, confirm: del.confirm });
+      toast(`${out.deleted.length} deleted${out.failed.length ? `, ${out.failed.length} skipped: ${out.failed[0].error}` : ''}`, out.failed.length ? 'err' : undefined);
+      setDel(null); setSel(new Set()); load();
+    } catch (e) { toast(e.message, 'err'); }
+  };
   const th = (key, label) => <th className="pa-sortable" onClick={() => setSort((x) => ({ key, dir: x.key === key ? -x.dir : 1 }))} aria-sort={sort.key === key ? (sort.dir > 0 ? 'ascending' : 'descending') : 'none'}>{label}{sort.key === key ? (sort.dir > 0 ? ' ▲' : ' ▼') : ''}</th>;
   const exportCsv = () => {
     const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -90,23 +105,36 @@ export function Workspaces({ onOpen }) {
       <select className="input" style={{ width: 170 }} value={prod} onChange={(e) => { setProd(e.target.value); setPage(0); }} aria-label="Product"><option value="">Both products</option><option value="real_estate">Real estate</option><option value="construction">Construction</option><option value="bundle">Bundle</option></select>
       <select className="input" style={{ width: 180 }} value={f} onChange={(e) => setF(e.target.value)} aria-label="Filter">{FILTERS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
       <button className="btn sm" onClick={exportCsv} disabled={!shown.length}>Export CSV</button>
+      {tests.length > 0 && <button className="btn sm danger" onClick={() => setDel({ ids: tests.map((t) => t.id), names: tests.map((t) => t.name), reason: 'Test workspace cleanup', owner_request: true, keep_archive: false, confirm: '' })}>Delete {tests.length} unused test workspace{tests.length === 1 ? '' : 's'}…</button>}
+      {sel.size > 0 && <button className="btn sm danger" onClick={() => setDel({ ids: [...sel], names: (rows || []).filter((t) => sel.has(t.id)).map((t) => t.name), reason: '', owner_request: false, keep_archive: false, confirm: '' })}>Delete {sel.size} selected…</button>}
       <button className="btn primary sm" onClick={() => setCreate(blank)}>New workspace</button>
     </>}>
       {!shown.length ? <Empty title="No workspaces match" /> : (
-        <div className="table-wrap"><table className="t"><thead><tr>{th('name', 'Workspace')}{th('progress', 'Setup progress')}{th('users', 'Usage')}{th('active', 'Last active')}{th('expiry', 'Plan / expiry')}<th>Status</th></tr></thead><tbody>
+        <div className="table-wrap"><table className="t"><thead><tr><th style={{ width: 28 }}>{pickable.length > 0 && <input type="checkbox" aria-label="Select all cancelled on this page" checked={pickable.every((t) => sel.has(t.id))} onChange={(e) => setSel((x) => { const n = new Set(x); pickable.forEach((t) => (e.target.checked ? n.add(t.id) : n.delete(t.id))); return n; })} />}</th>{th('name', 'Workspace')}{th('progress', 'Setup progress')}{th('users', 'Usage')}{th('active', 'Last active')}{th('expiry', 'Plan / expiry')}<th>Status</th></tr></thead><tbody>
           {pageRows.map((t) => (
             <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(t.id)}>
+              <td onClick={(e) => e.stopPropagation()}>{deletable(t) && <input type="checkbox" aria-label={`Select ${t.name}`} checked={sel.has(t.id)} onChange={() => toggle(t.id)} />}</td>
               <td><b>{t.name}</b><div className="muted">{t.slug}{t.custom_domain ? ` · ${t.custom_domain}` : ''}</div><div className="muted">{t.owner_email || ''}</div></td>
               <td style={{ minWidth: 140 }}>{t.progress ? <><ProgressBar value={t.progress.percent} tone="green" /><div className="muted">{t.progress.done} of {t.progress.total} steps</div></> : <span className="err">{t.error || '—'}</span>}</td>
               <td className="nowrap">{t.stats && <><div>{limit(t.stats.seats, t.expiry.limits?.seats)} users</div><div className="muted">{limit(t.stats.projects, t.expiry.limits?.projects)} projects · {num(t.stats.properties)} properties · {num(t.stats.sales)} sales</div></>}</td>
               <td className="nowrap">{ago(t.stats?.last_activity)}</td>
               <td><div style={{ textTransform: 'capitalize' }}>{t.is_legacy ? 'Original (unmetered)' : t.plan}</div><div className="muted">{PRODUCT_SHORT[t.product] || ''}</div><ExpiryBadge e={t.expiry} /></td>
-              <td><StatusBadge status={t.status} /></td>
+              <td><StatusBadge status={t.status} />{t.data_deleted_at && <div className="muted">Data deleted</div>}{deletable(t) && <div><button className="btn sm danger" onClick={(e) => { e.stopPropagation(); setDel({ ids: [t.id], names: [t.name], reason: '', owner_request: false, keep_archive: false, confirm: '' }); }}>Delete…</button></div>}</td>
             </tr>
           ))}
         </tbody></table></div>
       )}
       {pages > 1 && <div className="pa-pager"><span className="muted">{page * PER + 1}–{Math.min(shown.length, (page + 1) * PER)} of {shown.length}</span><span><button className="btn sm" disabled={!page} onClick={() => setPage(page - 1)}>Previous</button> <button className="btn sm" disabled={page >= pages - 1} onClick={() => setPage(page + 1)}>Next</button></span></div>}
+      {del && (
+        <Modal title={`Delete data of ${del.ids.length} workspace${del.ids.length === 1 ? '' : 's'}`} onClose={() => setDel(null)} footer={<><button className="btn" onClick={() => setDel(null)}>Cancel</button><button className="btn danger" disabled={del.confirm !== 'DELETE' || del.reason.trim().length < 5} onClick={doDelete}>Delete permanently</button></>}>
+          <div className="alert err">This permanently deletes each workspace's database and uploaded files. It cannot be undone. Invoices, payments and subscription history are kept.</div>
+          <p className="muted" style={{ maxHeight: 90, overflow: 'auto' }}>{del.names.join(', ')}</p>
+          <Toggle value={del.owner_request} onChange={(v) => setDel({ ...del, owner_request: v })} label="Delete now, even if the retention period is not over (test or abandoned workspaces, or the customer asked)" />
+          <Toggle value={del.keep_archive} onChange={(v) => setDel({ ...del, keep_archive: v })} label="Keep one final archive copy of each in the backup folder" />
+          <Field label="Reason" required><TextInput value={del.reason} onChange={(v) => setDel({ ...del, reason: v })} /></Field>
+          <Field label="Type DELETE to confirm" required><TextInput value={del.confirm} onChange={(v) => setDel({ ...del, confirm: v })} /></Field>
+        </Modal>
+      )}
       {create && (
         <Modal title="New workspace" onClose={() => setCreate(null)} footer={<><button className="btn" onClick={() => setCreate(null)}>Cancel</button><button className="btn primary" onClick={save}>Create</button></>}>
           <p className="muted">For a customer you are onboarding yourself. Give them the address and the password, and ask them to change it after signing in.</p>

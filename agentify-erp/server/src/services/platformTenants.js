@@ -98,7 +98,7 @@ export function expiryOf(t) {
 
 const tenantRow = (t, req) => ({
   id: t.id, slug: t.slug, name: t.name, owner_email: t.owner_email, is_legacy: !!t.is_legacy, status: t.status, plan: t.plan, product: t.product || 'real_estate', products: tenantProducts(t),
-  trial_started_at: t.trial_started_at || null, trial_note: t.trial_note || null, canceled_at: t.canceled_at || null,
+  trial_started_at: t.trial_started_at || null, trial_note: t.trial_note || null, canceled_at: t.canceled_at || null, data_deleted_at: t.data_deleted_at || null,
   subscription_status: t.subscription_status, billing_interval: t.billing_interval, billing_provider: t.billing_provider,
   trial_ends_at: t.trial_ends_at, current_period_end: t.current_period_end, grace_until: t.grace_until, custom_domain: t.custom_domain,
   timezone: t.timezone, currency: t.currency, created_at: t.created_at, url: workspaceUrl(t, req), expiry: expiryOf(t),

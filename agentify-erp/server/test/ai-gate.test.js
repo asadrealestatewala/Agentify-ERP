@@ -89,3 +89,15 @@ test('the gateway refuses before calling Google and records credits when a call 
   assert.equal(gate.budgetUsd(), 25); assert.equal(gate.videoBudgetUsd(), 10);
   reset();
 });
+
+test('a suspended or cancelled workspace is refused by the gate', () => {
+  const db = platformDb();
+  reset();
+  const ok = () => code(() => gate.assertPlatformAllowed({ feature: 'creative_post', tenantId: T }));
+  assert.equal(ok(), null);
+  db.prepare("UPDATE tenants SET status='cancelled' WHERE id=?").run(T);
+  assert.equal(ok(), 'tenant_inactive');
+  assert.ok(code(() => aiu.assertAiAllowed(T)), 'own-key path refuses too');
+  db.prepare("UPDATE tenants SET status='active' WHERE id=?").run(T);
+  assert.equal(ok(), null);
+});
