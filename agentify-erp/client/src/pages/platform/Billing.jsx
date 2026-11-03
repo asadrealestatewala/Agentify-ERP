@@ -5,6 +5,7 @@ import { Card, Empty, ErrorBox, Field, Loading, Modal, StatusBadge, TextInput, T
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, PageTitle } from './AdminShell.jsx';
+import { fmtWhen } from './dates.js';
 
 const n0 = (v) => Number(v || 0).toLocaleString();
 const limitText = (v) => (v == null ? 'Unlimited' : n0(v));
@@ -306,7 +307,7 @@ export function TransactionsPage() {
           <div className="table-wrap"><table className="t"><thead><tr><th>Date</th><th>Workspace</th><th>Reference</th><th>Method</th><th className="right">Amount</th><th>Payment</th><th>Invoice</th><th>Covers</th></tr></thead><tbody>
             {d.rows.map((r) => (
               <tr key={`${r.kind}-${r.id}`} style={{ cursor: 'pointer' }} onClick={() => nav(`/platform/workspaces/${r.tenant_id}`)}>
-                <td className="nowrap muted">{String(r.created_at).slice(0, 16)}</td><td><b>{r.tenant}</b><div className="muted">{r.slug}</div></td>
+                <td className="nowrap muted">{fmtWhen(r.created_at)}</td><td><b>{r.tenant}</b><div className="muted">{r.slug}</div></td>
                 <td className="mono">{r.reference}{r.note && <div className="muted" style={{ fontFamily: 'inherit' }}>{r.note}</div>}</td><td>{r.method || '—'}</td>
                 <td className="right mono nowrap">{r.currency} {n0(r.amount)}</td>
                 <td>{r.payment_status ? <StatusBadge status={r.payment_status} /> : <span className="muted">—</span>}</td>
@@ -346,7 +347,7 @@ export function SubscriptionHistoryPage() {
       <Card flush>
         {!d ? (!err && <Loading />) : !d.rows.length ? <Empty title="No changes recorded yet" /> : (
           <div className="table-wrap"><table className="t"><thead><tr><th>When (UTC)</th><th>Workspace</th><th>Change</th><th>By</th><th>Reason</th></tr></thead><tbody>
-            {d.rows.map((h) => <tr key={h.id} style={{ cursor: 'pointer' }} onClick={() => nav(`/platform/workspaces/${h.tenant_id}`)}><td className="nowrap muted">{h.created_at.slice(0, 16)}</td><td><b>{h.tenant_name}</b></td><td>{historyLine(h)}</td><td>{h.actor || h.source}</td><td className="muted">{h.reason || '—'}</td></tr>)}
+            {d.rows.map((h) => <tr key={h.id} style={{ cursor: 'pointer' }} onClick={() => nav(`/platform/workspaces/${h.tenant_id}`)}><td className="nowrap muted">{fmtWhen(h.created_at)}</td><td><b>{h.tenant_name}</b></td><td>{historyLine(h)}</td><td>{h.actor || h.source}</td><td className="muted">{h.reason || '—'}</td></tr>)}
           </tbody></table></div>
         )}
         {d && d.total > 50 && <div className="pa-pager"><span className="muted">{page * 50 + 1}–{Math.min(d.total, (page + 1) * 50)} of {d.total}</span><span><button className="btn sm" disabled={!page} onClick={() => setPage(page - 1)}>Previous</button> <button className="btn sm" disabled={(page + 1) * 50 >= d.total} onClick={() => setPage(page + 1)}>Next</button></span></div>}

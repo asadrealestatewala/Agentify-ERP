@@ -7,6 +7,7 @@ import TwoFactor from '../components/TwoFactor.jsx';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { Workspaces, WorkspaceDetail, Expiry, FILTERS } from './SuperAdmin.jsx';
 import AdminShell, { PageTitle, Allowed, useCan } from './platform/AdminShell.jsx';
+import { fmtDay, fmtWhen } from './platform/dates.js';
 import MobileAppPage from './platform/MobileApp.jsx';
 import TrainingVideosPage from './platform/TrainingVideos.jsx';
 import SupportKnowledge from './platform/SupportKnowledge.jsx';
@@ -221,7 +222,7 @@ function Payments() {
         <div className="table-wrap"><table className="t"><thead><tr><th>Date</th><th>Workspace</th><th>Plan</th><th>Method</th><th>Amount</th><th>Reference</th><th>Status</th><th /></tr></thead><tbody>
           {rows.map((s) => (
             <tr key={s.id}>
-              <td className="nowrap">{String(s.created_at).slice(0, 10)}</td><td><b>{s.tenant_name}</b><div className="muted">{s.slug}</div></td>
+              <td className="nowrap">{fmtDay(s.created_at)}</td><td><b>{s.tenant_name}</b><div className="muted">{s.slug}</div></td>
               <td style={{ textTransform: 'capitalize' }}>{s.plan} / {s.interval}</td><td>{s.method}</td><td className="mono nowrap">{s.currency} {Number(s.amount).toLocaleString()}</td>
               <td className="mono">{s.reference}{s.note && <div className="muted">{s.note}</div>}{s.proof_name && <div><a href={`/api/platform/admin/payments/${s.id}/proof`} target="_blank" rel="noreferrer">Receipt file: {s.proof_name}</a></div>}</td><td><StatusBadge status={s.status} /></td>
               <td className="right nowrap">{s.status === 'pending' && <><button className="btn sm primary" onClick={() => setAsk({ s, act: 'approve' })}>Approve</button>{' '}<button className="btn sm" onClick={() => setAsk({ s, act: 'reject' })}>Reject</button></>}</td>
@@ -408,7 +409,7 @@ function Backups() {
       <Card flush>
         {!d.backups.length ? <Empty title="No backups yet" hint="The first one runs about a minute after the server starts, or press Back up now." /> : (
           <div className="table-wrap"><table className="t"><thead><tr><th>Backup</th><th>Taken</th><th>Workspaces</th><th>Size</th><th>Problems</th></tr></thead><tbody>
-            {d.backups.map((b) => <tr key={b.name}><td className="mono">{b.name}</td><td>{b.created_at ? String(b.created_at).replace('T', ' ').slice(0, 16) : 'unfinished'}</td><td>{b.tenants ?? '—'}</td><td>{fmtBytes(b.bytes)}</td><td>{b.errors.length ? b.errors.join('; ') : 'None'}</td></tr>)}
+            {d.backups.map((b) => <tr key={b.name}><td className="mono">{b.name}</td><td>{b.created_at ? fmtWhen(b.created_at) : 'unfinished'}</td><td>{b.tenants ?? '—'}</td><td>{fmtBytes(b.bytes)}</td><td>{b.errors.length ? b.errors.join('; ') : 'None'}</td></tr>)}
           </tbody></table></div>
         )}
       </Card>

@@ -5,6 +5,7 @@ import { Card, Empty, ErrorBox, Loading, StatusBadge } from '../../components/ui
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, useCan } from './AdminShell.jsx';
+import { fmtWhen } from './dates.js';
 
 const TONE = { sent: ['green', 'Sent'], failed: ['red', 'Not sent'], pending: ['amber', 'Sending'] };
 
@@ -40,7 +41,7 @@ export default function BillingMailPage() {
             <tbody>{d.receipts.map((r) => {
               const [tone, label] = TONE[r.status] || ['grey', r.status];
               return <tr key={r.id}>
-                <td>{String(r.created_at).slice(0, 16).replace('T', ' ')}</td>
+                <td>{fmtWhen(r.created_at)}</td>
                 <td>{r.tenant_name || '—'}</td>
                 <td>{r.currency} {Number(r.amount).toLocaleString()}</td>
                 <td className="mono">{r.reference}</td>
