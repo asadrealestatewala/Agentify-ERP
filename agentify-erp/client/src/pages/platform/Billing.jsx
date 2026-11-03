@@ -273,7 +273,7 @@ function CouponsCard({ plans }) {
 }
 
 // ---------------------------------------------------------------- transactions
-const TX_STATUS = [['', 'Any status'], ['paid', 'Invoice paid'], ['pending', 'Waiting for approval'], ['approved', 'Approved'], ['rejected', 'Rejected']];
+const TX_STATUS = [['', 'Any status'], ['paid', 'Invoice paid'], ['pending', 'Waiting for approval'], ['approved', 'Approved'], ['rejected', 'Rejected'], ['refunded', 'Refunded']];
 export function TransactionsPage() {
   const nav = useNavigate();
   const [f, setF] = useState({ status: '', method: '', q: '', page: 0 });
@@ -297,7 +297,7 @@ export function TransactionsPage() {
       <PageTitle title="Transactions & invoices" sub="Every payment and invoice in one list. Payment status (for bank and wallet transfers) and invoice status are shown separately.">
         <button className="btn sm" onClick={exportAll} disabled={!d?.total}>Export CSV</button>
       </PageTitle>
-      <Card flush title={d ? `${d.total} record${d.total === 1 ? '' : 's'}${Object.keys(d.paid_totals).length ? ` · paid ${Object.entries(d.paid_totals).map(([c, v]) => `${c} ${n0(v)}`).join(' · ')}` : ''}` : 'Loading'} actions={<>
+      <Card flush title={d ? `${d.total} record${d.total === 1 ? '' : 's'}${Object.keys(d.paid_totals).length ? ` · paid ${Object.entries(d.paid_totals).map(([c, v]) => `${c} ${n0(v)}`).join(' · ')}` : ''}${Object.keys(d.refund_totals || {}).length ? ` · refunded ${Object.entries(d.refund_totals).map(([c, v]) => `${c} ${n0(v)}`).join(' · ')}` : ''}` : 'Loading'} actions={<>
         <input className="input" style={{ width: 220 }} placeholder="Reference or workspace" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value, page: 0 })} aria-label="Search transactions" />
         <select className="input" style={{ width: 190 }} value={f.status} onChange={(e) => setF({ ...f, status: e.target.value, page: 0 })} aria-label="Status">{TX_STATUS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <select className="input" style={{ width: 160 }} value={f.method} onChange={(e) => setF({ ...f, method: e.target.value, page: 0 })} aria-label="Method"><option value="">Any method</option>{['stripe', 'bank', 'raast', 'easypaisa', 'jazzcash', 'sadapay', 'nayapay', 'manual'].map((m) => <option key={m}>{m}</option>)}</select>
@@ -309,9 +309,9 @@ export function TransactionsPage() {
               <tr key={`${r.kind}-${r.id}`} style={{ cursor: 'pointer' }} onClick={() => nav(`/platform/workspaces/${r.tenant_id}`)}>
                 <td className="nowrap muted">{fmtWhen(r.created_at)}</td><td><b>{r.tenant}</b><div className="muted">{r.slug}</div></td>
                 <td className="mono">{r.reference}{r.note && <div className="muted" style={{ fontFamily: 'inherit' }}>{r.note}</div>}</td><td>{r.method || '—'}</td>
-                <td className="right mono nowrap">{r.currency} {n0(r.amount)}</td>
+                <td className="right mono nowrap">{r.kind === 'refund' ? '−' : ''}{r.currency} {n0(r.amount)}</td>
                 <td>{r.payment_status ? <StatusBadge status={r.payment_status} /> : <span className="muted">—</span>}</td>
-                <td>{r.invoice_status ? <StatusBadge status={r.invoice_status} /> : <span className="muted">Not issued</span>}</td>
+                <td>{r.kind === 'refund' ? <StatusBadge status="pending" label="Refund" /> : r.invoice_status ? <StatusBadge status={r.invoice_status} /> : <span className="muted">Not issued</span>}</td>
                 <td className="nowrap muted">{r.period_start ? `${r.period_start} → ${r.period_end}` : r.plan ? `${r.plan} / ${r.interval}` : '—'}</td>
               </tr>
             ))}

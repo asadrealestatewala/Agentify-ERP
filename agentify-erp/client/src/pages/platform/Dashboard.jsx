@@ -62,7 +62,7 @@ export function Dashboard() {
   const cards = k && [
     ['Total workspaces', 'total_workspaces'], ['Active workspaces', 'active_workspaces'], ['Paying workspaces', 'paying_workspaces'], ['Free trials', 'trial_workspaces'],
     ['Suspended', 'suspended_workspaces'], ['Expiring subscriptions', 'expiring'], ['Monthly recurring revenue', 'mrr'], ['Annual recurring revenue', 'arr'],
-    ['Payments received', 'payments_received'], ['Failed / rejected payments', 'failed_payments'], ['Trial → paid conversion', 'trial_conversion'], ['Churn rate', 'churn_rate'],
+    ['Payments received', 'payments_received'], ['Refunds', 'refunds'], ['Net received', 'net_received'], ['Failed / rejected payments', 'failed_payments'], ['Trial → paid conversion', 'trial_conversion'], ['Churn rate', 'churn_rate'],
   ];
   return (
     <>
@@ -117,14 +117,14 @@ export function Dashboard() {
             </Card>
           </div>
           <div className="pa-grid2">
-            <Card title="Top workspaces by revenue (period)" flush>
+            <Card title="Top workspaces by revenue (period, net of refunds)" flush>
               {!c.top_workspaces.length ? <Empty title="No payments in this period" /> : <div className="table-wrap"><table className="t"><tbody>
                 {c.top_workspaces.map((t) => <tr key={`${t.id}-${t.currency}`} style={{ cursor: 'pointer' }} onClick={() => nav(`/platform/workspaces/${t.id}`)}><td><b>{t.name}</b><div className="muted">{t.slug}</div></td><td className="muted">{t.n} payment(s)</td><td className="right mono">{t.currency} {n0(t.total)}</td></tr>)}
               </tbody></table></div>}
             </Card>
             <Card title="Recent transactions" flush actions={<button className="btn sm" onClick={() => nav('/platform/payments')}>Payments</button>}>
               {!c.recent_transactions.length ? <Empty title="No transactions yet" /> : <div className="table-wrap"><table className="t"><tbody>
-                {c.recent_transactions.map((t) => <tr key={`${t.kind}-${t.id}`} style={{ cursor: 'pointer' }} onClick={() => nav(`/platform/workspaces/${t.tenant_id}`)}><td className="nowrap muted">{String(t.created_at).slice(0, 10)}</td><td><b>{t.tenant}</b><div className="muted mono">{t.reference}</div></td><td>{t.kind === 'invoice' ? 'Invoice' : `Transfer · ${t.method}`}</td><td className="mono right nowrap">{t.currency} {n0(t.amount)}</td><td><span className={`pill ${t.status === 'paid' || t.status === 'approved' ? 'green' : t.status === 'pending' ? 'amber' : 'red'}`}><i />{t.status}</span></td></tr>)}
+                {c.recent_transactions.map((t) => <tr key={`${t.kind}-${t.id}`} style={{ cursor: 'pointer' }} onClick={() => nav(`/platform/workspaces/${t.tenant_id}`)}><td className="nowrap muted">{String(t.created_at).slice(0, 10)}</td><td><b>{t.tenant}</b><div className="muted mono">{t.reference}</div></td><td>{t.kind === 'invoice' ? 'Invoice' : t.kind === 'refund' ? 'Refund' : `Transfer · ${t.method}`}</td><td className="mono right nowrap">{t.kind === 'refund' ? '−' : ''}{t.currency} {n0(t.amount)}</td><td><span className={`pill ${t.status === 'paid' || t.status === 'approved' ? 'green' : t.status === 'pending' || t.status === 'refunded' ? 'amber' : 'red'}`}><i />{t.status}</span></td></tr>)}
               </tbody></table></div>}
             </Card>
           </div>

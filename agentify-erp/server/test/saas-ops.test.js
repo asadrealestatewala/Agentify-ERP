@@ -128,3 +128,19 @@ test('remove record: only a data-deleted workspace without billing history can b
   assert.ok(!platformDb().prepare('SELECT 1 FROM tenants WHERE id=?').get(t.id), 'row gone');
   assert.ok(platformDb().prepare("SELECT 1 FROM platform_audit WHERE action='workspace-records-removed'").get());
 });
+
+test('refunds show on the dashboard and the transactions list, and a refunded workspace keeps its record', async () => {
+  const { getTenantBySlug, platformDb } = await import('../src/platform.js');
+  const g = getTenantBySlug('goneco');
+  const inv = platformDb().prepare("SELECT id, currency FROM invoices WHERE tenant_id=? AND provider_invoice_id='keep-me'").get(g.id);
+  platformDb().prepare("INSERT INTO refunds(tenant_id,invoice_id,amount,currency,reason,provider) VALUES(?,?,?,?,?,?)").run(g.id, inv.id, 400, inv.currency, 'Customer left', 'manual');
+  const k = (await adm('GET', '/dashboard?range=30d')).data.kpis;
+  assert.equal(k.refunds.count, 1); assert.equal(k.refunds.by_currency[inv.currency], 400);
+  assert.equal(k.net_received.by_currency[inv.currency], k.payments_received.by_currency[inv.currency] - 400);
+  const tx = (await adm('GET', '/transactions')).data;
+  const row = tx.rows.find((r) => r.kind === 'refund'); assert.ok(row, 'refund row listed'); assert.equal(row.amount, 400);
+  assert.equal(tx.refund_totals[inv.currency], 400);
+  assert.equal((await adm('GET', '/transactions?status=refunded')).data.rows.every((r) => r.kind === 'refund'), true);
+  const blocker = (await adm('GET', '/workspaces')).data.find((w) => w.id === g.id).remove_blocker;
+  assert.match(blocker, /invoices|refunds/);
+});
