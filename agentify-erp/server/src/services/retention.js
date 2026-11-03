@@ -97,3 +97,43 @@ export function flagEligible() {
   }
   return n;
 }
+
+/** Why a leftover (data-deleted) workspace row cannot be removed, or null when it can: money and cost history must stay. */
+export function removeBlocker(t) {
+  if (!t.data_deleted_at) return 'Its data has not been deleted yet';
+  if (t.is_legacy) return 'The original workspace cannot be removed';
+  const has = (sql) => !!pdb().prepare(sql).get(t.id);
+  if (has('SELECT 1 FROM invoices WHERE tenant_id=? LIMIT 1')) return 'It has invoices';
+  if (has('SELECT 1 FROM payment_submissions WHERE tenant_id=? LIMIT 1')) return 'It has payments';
+  if (has('SELECT 1 FROM refunds WHERE tenant_id=? LIMIT 1')) return 'It has refunds';
+  if (has('SELECT 1 FROM billing_events WHERE tenant_id=? LIMIT 1')) return 'It has billing events';
+  try { if (has('SELECT 1 FROM ai_usage WHERE tenant_id=? LIMIT 1')) return 'It has AI usage records'; } catch { /* table is created on first AI use */ }
+  return null;
+}
+
+/**
+ * Remove the leftover row of a workspace whose data was already deleted, but only when it has no invoices, payments,
+ * refunds, billing events or AI usage. The slug is typed back to confirm. Its notes, events and history go with it.
+ */
+export function removeWorkspaceRecord(id, { confirm_slug, reason }, actor) {
+  const t = getTenant(Number(id));
+  if (!t) throw new HttpError(404, 'Workspace not found');
+  const why = removeBlocker(t);
+  if (why) throw bad(`${t.name} cannot be removed: ${why}. Billing and usage history is kept.`);
+  if (String(confirm_slug || '').trim().toLowerCase() !== t.slug) throw bad(`Type the workspace address (${t.slug}) to confirm`);
+  if (String(reason || '').trim().length < 5) throw bad('A reason is required');
+  pdb().prepare('DELETE FROM tenants WHERE id=?').run(t.id);
+  return { slug: t.slug, name: t.name, by: actor };
+}
+
+export function removeWorkspaceRecordsBulk(ids, { reason }, actor) {
+  const list = [...new Set((Array.isArray(ids) ? ids : []).map(Number).filter(Number.isInteger))];
+  if (!list.length) throw bad('Choose at least one workspace');
+  if (list.length > 100) throw bad('Remove at most 100 records at a time');
+  const done = [], failed = [];
+  for (const id of list) {
+    try { const t = getTenant(id); done.push(removeWorkspaceRecord(id, { confirm_slug: t?.slug, reason }, actor).slug); }
+    catch (e) { failed.push({ id, error: e.message }); }
+  }
+  return { removed: done, failed };
+}
