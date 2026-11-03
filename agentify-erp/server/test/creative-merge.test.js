@@ -181,3 +181,17 @@ test('Punjabi voice lab: console only, costs confirmed, tenants never see Punjab
   const a = await login('mrg', 'owner@mrg.test');
   assert.deepEqual((await a('GET', '/api/creative/status')).data.languages, ['English', 'Urdu']);
 });
+
+test('Brand setup wizard fields save, are cleaned, and survive an older client save', async () => {
+  if (!getTenantBySlug('mrg')) assert.equal((await signup('mrg', 'owner@mrg.test')).status, 201);
+  const a = await login('mrg', 'owner@mrg.test');
+  const put = await a('PUT', '/api/creative/brand', { brand_name: 'Wizard Co', audience: 'Young families', city: 'Lahore', platforms: ['Instagram', 'Bogus'], languages: ['Roman Urdu', 'Klingon'], posts_per_week: 5, tone_tags: ['Warm', 'Bold', 'Calm', 'Playful', 'Friendly'] });
+  assert.equal(put.status, 200);
+  assert.deepEqual(put.data.platforms, ['Instagram']);
+  assert.deepEqual(put.data.languages, ['Roman Urdu']);
+  assert.equal(put.data.tone_tags.length, 4);
+  assert.equal(put.data.posts_per_week, 5);
+  const old = await a('PUT', '/api/creative/brand', { brand_name: 'Wizard Co', tone: 'Calm' });
+  assert.equal(old.data.city, 'Lahore');
+  assert.deepEqual(old.data.platforms, ['Instagram']);
+});
