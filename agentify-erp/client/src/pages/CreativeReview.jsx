@@ -22,6 +22,7 @@ const css = `.rv{display:grid;grid-template-columns:minmax(260px,330px) minmax(2
 .rv-pill{display:inline-flex;gap:6px;align-items:center;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:none;color:inherit;cursor:pointer;font-size:13px}.rv-pill.on{background:var(--primary);border-color:var(--primary);color:#fff}
 .rv-ph{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--card,#fff)}.rv-ph img,.rv-ph video{width:100%;display:block;max-height:460px;object-fit:cover}
 kbd{border:1px solid var(--border);border-radius:5px;padding:0 6px;font-size:12px}
+.rv-empty{grid-template-columns:1fr;max-width:640px}.rv-empty .rv-prev{display:none}.rv-empty .rv-side{display:none}.rv-col{margin-bottom:8px}
 @media(max-width:1000px){.rv{grid-template-columns:1fr}}`;
 
 function Thumb({ p }) {
@@ -69,7 +70,7 @@ export default function CreativeReview({ onGoReels, brandName }) {
   return (
     <div>
       <style>{css}</style>
-      <div className="rv">
+      <div className={`rv${posts && !list.length ? ' rv-empty' : ''}`}>
         <div className="rv-col">
           <div className="row" style={{ gap: 8, justifyContent: 'space-between', marginBottom: 8 }}>
             <span className="row" style={{ gap: 4 }}><button className="btn sm" aria-label="Previous week" onClick={() => setWeek(addDays(week, -7))}>‹</button><b>{short(week)} – {short(addDays(week, 6))}</b><button className="btn sm" aria-label="Next week" onClick={() => setWeek(addDays(week, 7))}>›</button></span>
@@ -85,7 +86,7 @@ export default function CreativeReview({ onGoReels, brandName }) {
           {tab === 'waiting' && canApprove && list.length > 1 && (bulk
             ? <div className="row" style={{ gap: 6, marginBottom: 8 }}><button className="btn sm primary" disabled={busy} onClick={approveSeveral}>Approve selected</button><button className="btn sm" onClick={() => setBulk(null)}>Cancel</button></div>
             : <div style={{ textAlign: 'end', marginBottom: 4 }}><button className="btn sm" onClick={() => setBulk({})}>Approve several</button></div>)}
-          {!posts ? <Loading rows={3} /> : !list.length ? <Empty title={tab === 'waiting' ? 'Nothing waiting' : 'Nothing here'} hint="Create posts in Brand story, Post images or Video reels, then use Send to calendar." /> : groups.map(([d, ps]) => (
+          {!posts ? <Loading rows={3} /> : !list.length ? <div style={{ padding: '36px 12px', textAlign: 'center' }}><Empty title={tab === 'waiting' ? 'Nothing waiting this week' : 'Nothing here yet'} hint="Make a post in Brand story, Post images or Video reels, then choose Send to calendar." /></div> : groups.map(([d, ps]) => (
             <div key={d} style={{ marginBottom: 8 }}>
               <div className="muted" style={{ fontSize: 12, margin: '6px 0' }}>{dayName(d)}, {short(d)}</div>
               {ps.map((p) => (
@@ -103,7 +104,7 @@ export default function CreativeReview({ onGoReels, brandName }) {
           </div>
         </div>
 
-        <div className="rv-col">
+        <div className="rv-col rv-prev">
           {cur ? (
             <div className="rv-ph">
               <div className="row" style={{ gap: 8, padding: 10 }}><span style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary)', color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 700 }}>{(brandName || 'A')[0].toUpperCase()}</span><span><b>{brandName || 'Your brand'}</b><br /><span className="muted" style={{ fontSize: 12 }}>{cur.stage_label} · {short(cur.post_date)}{cur.post_time ? `, ${cur.post_time}` : ''}</span></span></div>
@@ -111,10 +112,10 @@ export default function CreativeReview({ onGoReels, brandName }) {
               {cur.creative_kind === 'video' && <video src={`/api/content/posts/${cur.id}/creative`} controls playsInline />}
               <div style={{ padding: 12, whiteSpace: 'pre-wrap' }} dir={rtl(cur.caption) ? 'rtl' : 'ltr'}>{cur.caption || <span className="muted">No caption yet.</span>}</div>
               <div className="muted" style={{ textAlign: 'center', fontSize: 12, padding: 8 }}>How it will look on {label((cur.platforms || ['your page'])[0])}</div>
-            </div>) : posts && <p className="muted">Pick a post to preview it.</p>}
+            </div>) : null}
         </div>
 
-        <div className="rv-col">
+        <div className="rv-col rv-side">
           {cur && (<>
             <div className="muted" style={{ fontSize: 13 }}>{(cur.platforms || []).map(label).join(', ')} · {dayName(cur.post_date)} {short(cur.post_date)}{cur.post_time ? `, ${cur.post_time}` : ''}</div>
             <h3 style={{ margin: '6px 0 10px' }} dir={rtl(cur.title) ? 'rtl' : 'ltr'}>{cur.title}</h3>
