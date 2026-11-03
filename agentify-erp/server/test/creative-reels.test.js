@@ -18,7 +18,7 @@ const { runReelJobs } = await import('../src/services/creativeJobs.js');
 const { creditsLeft } = await import('../src/services/aiGate.js');
 const dbm = await import('../src/db.js');
 
-const MP3 = Buffer.alloc(600, 7), MP4 = Buffer.alloc(4000, 9);
+const MP3 = Buffer.concat([Buffer.from([0xff, 0xfb, 0x90, 0x00]), Buffer.alloc(596, 7)]), MP4 = Buffer.alloc(4000, 9);
 let server, port, veoStarts = 0, ttsCalls = 0, failStart = false; const ops = {};
 const realFetch = globalThis.fetch;
 before(() => new Promise((res) => {
