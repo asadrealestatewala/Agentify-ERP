@@ -1,12 +1,13 @@
 // Creative Studio: save your brand, then have AI write a brand story with captions and create post images in your brand's look.
 // Everything goes through Agentify's AI service; each use spends workspace credits and the page shows what is left.
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, Empty, ErrorBox, Field, Loading, PageHead, Tabs } from '../components/ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useToast } from '../context.jsx';
 import { dateTime } from '../format.js';
 
+const CreativeReview = lazy(() => import('./CreativeReview.jsx'));
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 12 };
 
 /** Flag a result as wrong, unsafe or poor. Agentify reviews these. */
@@ -264,9 +265,9 @@ function Mine({ version }) {
 }
 
 export default function CreativeStudio() {
-  const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'reels', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'brand'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false);
+  const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'reels', 'review', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'brand'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false); const [brandName, setBrandName] = useState('');
   const refresh = useCallback(() => api.get('/api/creative/status').then((x) => { setSt(x); setErr(''); }).catch((e) => setErr(e.message)), []);
-  const checkBrand = useCallback(() => api.get('/api/creative/brand').then((b) => setBrandSaved(!!b.saved)).catch(() => {}), []);
+  const checkBrand = useCallback(() => api.get('/api/creative/brand').then((b) => { setBrandSaved(!!b.saved); setBrandName(b.brand_name || ''); }).catch(() => {}), []);
   useEffect(() => { refresh(); checkBrand(); }, [refresh, checkBrand]);
   if (err && !st) return <ErrorBox error={err} />;
   if (!st) return <Loading />;
@@ -280,7 +281,8 @@ export default function CreativeStudio() {
         <span className="muted">Story {st.costs.brand_story} credit · Image {st.costs.creative_post} credits · Video {st.costs.video_second} per second</span>
       </div>
       {st.reason && <Card><p style={{ margin: 0 }}>{st.reason}</p></Card>}
-      <div data-tour="creative-tabs"><Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'reels', label: 'Video reels' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} /></div>
+      <div data-tour="creative-tabs"><Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'reels', label: 'Video reels' }, { key: 'review', label: 'Review posts' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} /></div>
+      {tab === 'review' && <Suspense fallback={<Loading rows={3} />}><CreativeReview onGoReels={() => setTab('reels')} brandName={brandName} /></Suspense>}
       {tab === 'brand' && <Brand st={st} onSaved={() => { checkBrand(); refresh(); }} />}
       {tab === 'story' && <Story st={st} refresh={() => { refresh(); setVersion((v) => v + 1); }} brandSaved={brandSaved} />}
       {tab === 'posts' && <Posts st={st} refresh={refresh} brandSaved={brandSaved} onSaved={() => setVersion((v) => v + 1)} />}
