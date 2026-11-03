@@ -125,6 +125,10 @@ function paymentsIn(from, to) {
   const rows = pdb().prepare("SELECT currency, SUM(amount) total, COUNT(*) n FROM invoices WHERE status='paid' AND created_at>=? AND created_at<? GROUP BY currency").all(utcStart(from), utcStart(addDays(to, 1)));
   return { by_currency: sumByCurrency(rows), count: rows.reduce((s, r) => s + r.n, 0) };
 }
+function refundsIn(from, to) {
+  const rows = pdb().prepare("SELECT currency, SUM(amount) total, COUNT(*) n FROM refunds WHERE created_at>=? AND created_at<? GROUP BY currency").all(utcStart(from), utcStart(addDays(to, 1)));
+  return { by_currency: sumByCurrency(rows), count: rows.reduce((s, r) => s + r.n, 0) };
+}
 function failuresIn(from, to) {
   const a = utcStart(from), b = utcStart(addDays(to, 1));
   const failed = pdb().prepare("SELECT COUNT(*) n FROM billing_events WHERE type='payment.failed' AND created_at>=? AND created_at<?").get(a, b).n;
@@ -152,6 +156,9 @@ const mainCurrency = (maps) => { const tot = {}; for (const m of maps) for (cons
 export function kpis(r, live = liveState()) {
   const end = stateAt(r.to, live), prevEnd = stateAt(r.prev_to, live);
   const pay = paymentsIn(r.from, r.to), payPrev = paymentsIn(r.prev_from, r.prev_to);
+  const ref = refundsIn(r.from, r.to), refPrev = refundsIn(r.prev_from, r.prev_to);
+  const netBy = (p, f) => { const o = {}; for (const c of new Set([...Object.keys(p.by_currency), ...Object.keys(f.by_currency)])) o[c] = (p.by_currency[c] || 0) - (f.by_currency[c] || 0); return o; };
+  const net = netBy(pay, ref), netPrev = netBy(payPrev, refPrev);
   const paid = paidTenantIds();
   const conv = conversionIn(r.from, r.to, paid), convPrev = conversionIn(r.prev_from, r.prev_to, paid);
   const churn = churnIn(r.from, r.to), churnPrev = churnIn(r.prev_from, r.prev_to);
@@ -170,6 +177,8 @@ export function kpis(r, live = liveState()) {
     mrr: { value: end ? money(end.mrr) : null, ...delta(end ? money(end.mrr) : null, prevEnd ? money(prevEnd.mrr) : null), by_currency: end?.mrr || null, money: true, link: '/platform/workspaces?status=paying' },
     arr: { value: end ? money(end.mrr) * 12 : null, ...delta(end ? money(end.mrr) * 12 : null, prevEnd ? money(prevEnd.mrr) * 12 : null), money: true, link: '/platform/workspaces?status=paying' },
     payments_received: { value: pay.by_currency[cur] || 0, ...delta(pay.by_currency[cur] || 0, payPrev.by_currency[cur] || 0), by_currency: pay.by_currency, count: pay.count, money: true, link: '/platform/payments' },
+    refunds: { value: ref.by_currency[cur] || 0, ...delta(ref.by_currency[cur] || 0, refPrev.by_currency[cur] || 0), by_currency: ref.by_currency, count: ref.count, money: true, inverse: true, link: '/platform/payments?status=refunded' },
+    net_received: { value: net[cur] || 0, ...delta(net[cur] || 0, netPrev[cur] || 0), by_currency: net, money: true, note: 'Payments received minus refunds', link: '/platform/payments' },
     failed_payments: { value: failedNow, ...delta(failedNow, failedPrev), past_due_now: live.past_due, inverse: true, link: '/platform/workspaces?status=attention' },
     trial_conversion: { value: conv.rate, ...delta(conv.rate, convPrev.rate), percent_unit: true, detail: conv, link: '/platform/workspaces?status=trial' },
     churn_rate: { value: churn.rate, ...delta(churn.rate, churnPrev.rate), percent_unit: true, inverse: true, detail: churn, link: '/platform/workspaces?status=cancelled' },
@@ -226,10 +235,12 @@ export function charts(r, req) {
     if (i < 8) weeks[i][e.kind === 'trial' ? 'trials' : 'subscriptions'] += 1;
   }
 
-  const top = pdb().prepare(`SELECT t.id, t.name, t.slug, i.currency, SUM(i.amount) total, COUNT(*) n FROM invoices i JOIN tenants t ON t.id=i.tenant_id
-    WHERE i.status='paid' AND i.created_at>=? AND i.created_at<? GROUP BY t.id, i.currency ORDER BY total DESC LIMIT 8`).all(a, b);
+  // net of refunds made in the same period
+  const top = pdb().prepare(`SELECT t.id, t.name, t.slug, i.currency, SUM(i.amount) - COALESCE((SELECT SUM(r.amount) FROM refunds r WHERE r.tenant_id=t.id AND r.currency=i.currency AND r.created_at>=? AND r.created_at<?), 0) total, COUNT(*) n FROM invoices i JOIN tenants t ON t.id=i.tenant_id
+    WHERE i.status='paid' AND i.created_at>=? AND i.created_at<? GROUP BY t.id, i.currency ORDER BY total DESC LIMIT 8`).all(a, b, a, b);
   const recentTx = [
     ...pdb().prepare(`SELECT 'invoice' kind, i.id, i.created_at, i.amount, i.currency, i.status, i.provider_invoice_id reference, t.name tenant, t.id tenant_id FROM invoices i JOIN tenants t ON t.id=i.tenant_id ORDER BY i.id DESC LIMIT 10`).all(),
+    ...pdb().prepare(`SELECT 'refund' kind, r.id, r.created_at, r.amount, r.currency, 'refunded' status, COALESCE(r.reference, 'refund') reference, t.name tenant, t.id tenant_id FROM refunds r JOIN tenants t ON t.id=r.tenant_id ORDER BY r.id DESC LIMIT 10`).all(),
     ...pdb().prepare(`SELECT 'submission' kind, s.id, s.created_at, s.amount, s.currency, s.status, s.reference, t.name tenant, t.id tenant_id, s.method FROM payment_submissions s JOIN tenants t ON t.id=s.tenant_id ORDER BY s.id DESC LIMIT 10`).all(),
   ].sort((x, y) => String(y.created_at).localeCompare(String(x.created_at))).slice(0, 10);
   const activity = pdb().prepare('SELECT id, admin, action, detail, created_at FROM platform_audit ORDER BY id DESC LIMIT 10').all();

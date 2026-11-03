@@ -565,14 +565,20 @@ export function transactions({ status, method, tenant, q, page = 0, per = 50 } =
   const subs = pdb.prepare(`SELECT 'payment' kind, s.id, s.tenant_id, t.name tenant, t.slug, s.reference, s.amount, s.currency,
       (SELECT i.status FROM invoices i WHERE i.provider_invoice_id='local-' || s.id) invoice_status, s.status payment_status, s.method, s.plan, s.interval, s.note, s.decision_note, s.submitted_by, s.decided_at, s.created_at
       FROM payment_submissions s JOIN tenants t ON t.id=s.tenant_id`).all();
-  let rows = [...subs, ...inv.filter((i) => !String(i.reference || '').startsWith('local-'))];
+  const refunds = pdb.prepare(`SELECT 'refund' kind, r.id, r.tenant_id, t.name tenant, t.slug, COALESCE(r.reference, i.provider_invoice_id) reference, r.amount, r.currency, 'refunded' invoice_status, NULL payment_status,
+      r.provider method, r.reason note, r.created_by submitted_by, r.created_at FROM refunds r JOIN tenants t ON t.id=r.tenant_id LEFT JOIN invoices i ON i.id=r.invoice_id`).all();
+  let rows = [...subs, ...inv.filter((i) => !String(i.reference || '').startsWith('local-')), ...refunds];
   if (status) rows = rows.filter((r) => r.payment_status === status || r.invoice_status === status);
   if (method) rows = rows.filter((r) => r.method === method);
   if (tenant) rows = rows.filter((r) => r.tenant_id === Number(tenant));
   if (q) { const s = String(q).toLowerCase(); rows = rows.filter((r) => `${r.reference} ${r.tenant} ${r.slug}`.toLowerCase().includes(s)); }
   rows.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   const totals = {};
-  for (const r of rows) if (r.invoice_status === 'paid') totals[r.currency] = (totals[r.currency] || 0) + r.amount;
+  const refunded = {};
+  for (const r of rows) {
+    if (r.kind === 'refund') refunded[r.currency] = (refunded[r.currency] || 0) + r.amount;
+    else if (r.invoice_status === 'paid') totals[r.currency] = (totals[r.currency] || 0) + r.amount;
+  }
   const p = Math.max(0, Math.trunc(Number(page)) || 0), n = Math.min(200, Math.max(1, Math.trunc(Number(per)) || 50));
-  return { total: rows.length, page: p, per: n, paid_totals: totals, rows: rows.slice(p * n, p * n + n) };
+  return { total: rows.length, page: p, per: n, paid_totals: totals, refund_totals: refunded, rows: rows.slice(p * n, p * n + n) };
 }

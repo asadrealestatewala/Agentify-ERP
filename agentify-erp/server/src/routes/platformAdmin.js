@@ -575,7 +575,7 @@ r.get('/dashboard', requireOperator, need('dashboard.view'), asyncH((req, res) =
   const out = dashboard(req.query, req);
   // roles without financial reporting see counts and activity, never money
   if (!can(req.operator, 'finance.view')) {
-    for (const k of ['mrr', 'arr', 'payments_received']) if (out.kpis[k]) out.kpis[k] = { hidden: true };
+    for (const k of ['mrr', 'arr', 'payments_received', 'refunds', 'net_received']) if (out.kpis[k]) out.kpis[k] = { hidden: true };
     out.charts.revenue = []; out.charts.top_workspaces = []; out.charts.recent_transactions = [];
   }
   if (!can(req.operator, 'workspaces.view')) { out.charts.top_workspaces = []; out.charts.recent_transactions = []; out.charts.recent_activity = []; }
