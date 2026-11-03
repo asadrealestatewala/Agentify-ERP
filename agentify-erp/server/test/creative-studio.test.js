@@ -94,7 +94,8 @@ test('Creative Studio end to end', async () => {
   const file = await a('GET', `/api/creative/items/${saved.data.id}/file`);
   assert.equal(file.status, 200); assert.match(file.headers['content-type'], /image\/png/);
   assert.equal((await b('GET', `/api/creative/items/${saved.data.id}/file`)).status, 404, 'another workspace cannot read it');
-  const list = (await a('GET', '/api/creative/items')).data; assert.equal(list.length, 2);
+  assert.ok(posts.data.options[0].id, 'a paid image is kept in My creations without clicking Save');
+  const list = (await a('GET', '/api/creative/items')).data; assert.equal(list.length, 3); assert.ok(list.some((x) => x.id === posts.data.options[0].id && x.credits === 3), 'the auto-kept image records its credits');
   assert.equal((await a('DELETE', `/api/creative/items/${saved.data.id}`)).status, 200);
 
   // top-up lets generation continue; Google blocks do not charge credits

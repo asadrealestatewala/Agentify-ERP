@@ -135,7 +135,7 @@ function Posts({ st, refresh, brandSaved, onSaved }) {
   const toast = useToast();
   const [f, setF] = useState({ description: '', size: 'square', count: 2 }); const [res, setRes] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [saved, setSaved] = useState({});
   const cost = st.costs.creative_post;
-  const go = async () => { setBusy(true); setErr(''); setSaved({}); try { setRes(await api.post('/api/creative/posts', { ...f, language: st.languages[0] })); refresh(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const go = async () => { setBusy(true); setErr(''); setSaved({}); try { setRes(await api.post('/api/creative/posts', { ...f, language: st.languages[0] })); refresh(); onSaved(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   const save = async (i) => { try { await api.post('/api/creative/items', { data: res.options[i].data, title: f.description.slice(0, 60), prompt: f.description, size: f.size }); setSaved((s) => ({ ...s, [i]: true })); toast('Saved to your creations'); onSaved(); } catch (e) { toast(e.message, 'err'); } };
   const download = (i) => { const a = document.createElement('a'); a.href = dataUrl(res.options[i]); a.download = `post-${i + 1}.png`; a.click(); };
   return (
@@ -156,7 +156,7 @@ function Posts({ st, refresh, brandSaved, onSaved }) {
             <div key={i} className="card" style={{ padding: 8 }}>
               <img src={dataUrl(o)} alt={`Option ${i + 1}`} style={{ width: '100%', borderRadius: 6 }} />
               <div className="row" style={{ gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                <button className="btn sm primary" disabled={saved[i]} onClick={() => save(i)}>{saved[i] ? 'Saved' : 'Save'}</button>
+                <button className="btn sm primary" disabled={saved[i] || !!o.id} onClick={() => save(i)}>{saved[i] || o.id ? 'Saved in My creations' : 'Save'}</button>
                 <button className="btn sm" onClick={() => download(i)}>Download</button>
                 <ReportButton feature="creative_post" prompt={f.description} output={`image option ${i + 1}`} />
               </div>
