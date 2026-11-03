@@ -92,6 +92,7 @@ function migrate() {
   db.exec(`CREATE TABLE IF NOT EXISTS zernio_accounts(
     id INTEGER PRIMARY KEY, account_id TEXT UNIQUE NOT NULL, platform TEXT NOT NULL, name TEXT, username TEXT, status TEXT NOT NULL DEFAULT 'connected', connected_at TEXT, updated_at TEXT)`);
   addCol('creative_jobs', 'voice_path', "TEXT NOT NULL DEFAULT 'script'"); addCol('creative_jobs', 'clips', 'TEXT'); addCol('creative_jobs', 'scenes', 'TEXT'); addCol('creative_jobs', 'note', 'TEXT'); // reels with the voice inside (v1.69)
+  for (const [c, d] of [['audience', 'TEXT'], ['website', 'TEXT'], ['city', 'TEXT'], ['platforms', "TEXT NOT NULL DEFAULT '[]'"], ['languages', "TEXT NOT NULL DEFAULT '[]'"], ['posts_per_week', 'INTEGER'], ['tone_tags', "TEXT NOT NULL DEFAULT '[]'"]]) addCol('creative_brand', c, d); // brand setup wizard fields (additive)
   addCol('training_library', 'youtube_url', 'TEXT'); // set when the video lives on YouTube; workspaces then show a link, not a file
   const hasSales = cols('sales').length > 0;
   if (hasSales) {

@@ -33,30 +33,67 @@ function ReportButton({ feature, prompt, output }) {
   return <button className="btn sm" onClick={send} disabled={done} data-tour="creative-report">{done ? 'Reported' : 'Report'}</button>;
 }
 
+/** Toggle chips for multi-select choices (platforms, languages, tone words). */
+function Chips({ options, value, onChange, max, disabled, label }) {
+  const toggle = (o) => { if (disabled) return; const on = value.includes(o); if (!on && max && value.length >= max) return; onChange(on ? value.filter((x) => x !== o) : [...value, o]); };
+  return <div className="row" style={{ gap: 6, flexWrap: 'wrap' }} role="group" aria-label={label}>{options.map((o) => <button type="button" key={o} className={`btn sm${value.includes(o) ? ' primary' : ''}`} aria-pressed={value.includes(o)} onClick={() => toggle(o)} disabled={disabled}>{o}</button>)}</div>;
+}
+
+const STEPS = ['Your business', 'Where you post', 'Your look'];
 function Brand({ st, onSaved }) {
   const toast = useToast(); const { can } = useAuth();
-  const [b, setB] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
-  useEffect(() => { api.get('/api/creative/brand').then(setB).catch((e) => setErr(e.message)); }, []);
-  if (err) return <ErrorBox error={err} />;
+  const [b, setB] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [step, setStep] = useState(null);
+  useEffect(() => { api.get('/api/creative/brand').then((x) => { setB(x); if (!x.saved) setStep(0); }).catch((e) => setErr(e.message)); }, []);
+  if (err && !b) return <ErrorBox error={err} />;
   if (!b) return <Loading rows={2} />;
   const set = (k) => (e) => setB({ ...b, [k]: e.target.value });
-  const save = async () => { setBusy(true); setErr(''); try { setB(await api.put('/api/creative/brand', b)); toast('Brand profile saved'); onSaved(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const setV = (k) => (v) => setB({ ...b, [k]: v });
+  const opts = st.brand_options || { platforms: [], languages: [], tones: [], posts_per_week: [] };
+  const save = async () => { setBusy(true); setErr(''); try { setB(await api.put('/api/creative/brand', b)); toast('Brand profile saved'); setStep(null); onSaved(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   const edit = can('content', 'edit');
+  const business = (<>
+    <Field label="Brand name" required><input className="input" value={b.brand_name || ''} onChange={set('brand_name')} maxLength={80} disabled={!edit} /></Field>
+    <Field label="Business type" hint="For example real estate agency"><input className="input" value={b.business_type || ''} onChange={set('business_type')} maxLength={80} disabled={!edit} /></Field>
+    <Field label="About your business" hint="What you do or sell. Real facts only. The AI never invents numbers, awards or customers."><textarea className="input" rows={3} value={b.about || ''} onChange={set('about')} maxLength={600} disabled={!edit} /></Field>
+    <Field label="Who are your customers? (optional)"><input className="input" value={b.audience || ''} onChange={set('audience')} maxLength={200} disabled={!edit} /></Field>
+    <div style={grid}>
+      <Field label="Website (optional)"><input className="input" value={b.website || ''} onChange={set('website')} maxLength={200} disabled={!edit} /></Field>
+      <Field label="City or country"><input className="input" value={b.city || ''} onChange={set('city')} maxLength={80} disabled={!edit} /></Field>
+    </div></>);
+  const channels = (<>
+    <Field label="Where you post"><Chips label="Platforms" options={opts.platforms} value={b.platforms || []} onChange={setV('platforms')} disabled={!edit} /></Field>
+    <Field label="Languages" hint="Posts are written for the languages you pick."><Chips label="Languages" options={opts.languages} value={b.languages || []} onChange={setV('languages')} disabled={!edit} /></Field>
+    <div style={grid}>
+      <Field label="Posts per week"><select className="input" value={b.posts_per_week || ''} onChange={(e) => setB({ ...b, posts_per_week: e.target.value ? Number(e.target.value) : null })} disabled={!edit}><option value="">Not set</option>{opts.posts_per_week.map((n) => <option key={n} value={n}>{n} a week</option>)}</select></Field>
+      <Field label="Default language"><select className="input" value={b.language} onChange={set('language')} disabled={!edit}>{st.languages.map((l) => <option key={l}>{l}</option>)}</select></Field>
+    </div></>);
+  const look = (<>
+    <div style={grid}>
+      <Field label="Main color"><span className="row" style={{ gap: 8 }}><input type="color" value={b.primary_color || '#0e7c6b'} onChange={set('primary_color')} disabled={!edit} aria-label="Main color" /><input className="input" value={b.primary_color || ''} onChange={set('primary_color')} maxLength={7} style={{ width: 110 }} disabled={!edit} /></span></Field>
+      <Field label="Second color (optional)"><span className="row" style={{ gap: 8 }}><input type="color" value={b.secondary_color || '#ffffff'} onChange={set('secondary_color')} disabled={!edit} aria-label="Second color" /><input className="input" value={b.secondary_color || ''} onChange={set('secondary_color')} maxLength={7} style={{ width: 110 }} disabled={!edit} /></span></Field>
+    </div>
+    <Field label="Tone words" hint="Pick up to 4."><Chips label="Tone words" options={opts.tones} value={b.tone_tags || []} onChange={setV('tone_tags')} max={4} disabled={!edit} /></Field>
+    <Field label="Tone of voice (in your words)" hint="For example warm and professional"><input className="input" value={b.tone || ''} onChange={set('tone')} maxLength={120} disabled={!edit} /></Field>
+    <p className="muted" style={{ fontSize: 13 }}>Logo: {b.logo ? <><img src={`/uploads/${b.logo}`} alt="Your logo" style={{ height: 28, verticalAlign: 'middle', marginInline: 6 }} /> from your Branding settings.</> : 'none set. Add one under Settings > Branding.'}</p></>);
+  if (step !== null) {
+    return (
+      <Card title={`Brand setup: step ${step + 1} of 3, ${STEPS[step]}`}>
+        <ErrorBox error={err} />
+        <p className="muted" style={{ marginTop: 0 }}>Set this once so every story and post matches your brand. It starts from your Branding settings.</p>
+        {step === 0 && business}{step === 1 && channels}{step === 2 && look}
+        <div className="row" style={{ gap: 8, marginTop: 8 }}>
+          {step > 0 && <button className="btn" onClick={() => setStep(step - 1)}>Back</button>}
+          {step < 2 ? <button className="btn primary" disabled={step === 0 && !(b.brand_name || '').trim()} onClick={() => setStep(step + 1)}>Continue</button> : edit && <button className="btn primary" disabled={busy} onClick={save}>Save and finish</button>}
+          {b.saved && <button className="btn" onClick={() => setStep(null)}>Cancel</button>}
+        </div>
+      </Card>);
+  }
   return (
     <Card title="Brand profile">
       <ErrorBox error={err} />
-      <p className="muted" style={{ marginTop: 0 }}>{b.saved ? 'Every story and post is written to match this.' : 'Save this once so every story and post matches your brand. It starts from your Branding settings.'}</p>
-      <div style={grid}>
-        <Field label="Brand name" required><input className="input" value={b.brand_name || ''} onChange={set('brand_name')} maxLength={80} disabled={!edit} /></Field>
-        <Field label="Business type" hint="For example real estate agency"><input className="input" value={b.business_type || ''} onChange={set('business_type')} maxLength={80} disabled={!edit} /></Field>
-        <Field label="Tone of voice" hint="For example warm and professional"><input className="input" value={b.tone || ''} onChange={set('tone')} maxLength={120} disabled={!edit} /></Field>
-        <Field label="Main color"><span className="row" style={{ gap: 8 }}><input type="color" value={b.primary_color || '#0e7c6b'} onChange={set('primary_color')} disabled={!edit} aria-label="Main color" /><input className="input" value={b.primary_color || ''} onChange={set('primary_color')} maxLength={7} style={{ width: 110 }} disabled={!edit} /></span></Field>
-        <Field label="Second color (optional)"><span className="row" style={{ gap: 8 }}><input type="color" value={b.secondary_color || '#ffffff'} onChange={set('secondary_color')} disabled={!edit} aria-label="Second color" /><input className="input" value={b.secondary_color || ''} onChange={set('secondary_color')} maxLength={7} style={{ width: 110 }} disabled={!edit} /></span></Field>
-        <Field label="Default language"><select className="input" value={b.language} onChange={set('language')} disabled={!edit}>{st.languages.map((l) => <option key={l}>{l}</option>)}</select></Field>
-      </div>
-      <Field label="About your business" hint="Real facts only. The AI never invents numbers, awards or customers."><textarea className="input" rows={3} value={b.about || ''} onChange={set('about')} maxLength={600} disabled={!edit} /></Field>
-      <p className="muted" style={{ fontSize: 13 }}>Logo: {b.logo ? <><img src={`/uploads/${b.logo}`} alt="Your logo" style={{ height: 28, verticalAlign: 'middle', marginInline: 6 }} /> from your Branding settings.</> : 'none set. Add one under Settings > Branding.'}</p>
-      {edit && <button className="btn primary" disabled={busy} onClick={save}>Save brand profile</button>}
+      <p className="muted" style={{ marginTop: 0 }}>Every story and post is written to match this.</p>
+      <div style={grid}>{business}</div>{channels}{look}
+      <div className="row" style={{ gap: 8 }}>{edit && <button className="btn primary" disabled={busy} onClick={save}>Save brand profile</button>}{edit && <button className="btn" onClick={() => setStep(0)}>Guided setup</button>}</div>
     </Card>
   );
 }

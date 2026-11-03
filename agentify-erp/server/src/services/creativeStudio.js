@@ -20,6 +20,12 @@ export const CREDIT_COST = { brand_story: 1, creative_post: 3 };
 export const REEL_CREDITS = { per_second: 8, voice_per_100_chars: 1 };
 export const SIZES = { square: { label: 'Square (1:1)', hint: 'Feed post' }, portrait: { label: 'Portrait (4:5)', hint: 'Feed post, more room' }, story: { label: 'Story (9:16)', hint: 'Story or reel cover' } };
 export const LANGUAGES = ['English', 'Urdu'];
+export const BRAND_PLATFORMS = ['Instagram', 'Facebook Page', 'LinkedIn company page', 'LinkedIn profile'];
+export const BRAND_LANGUAGES = ['English', 'Roman Urdu', 'Urdu'];
+export const BRAND_TONES = ['Friendly', 'Professional', 'Warm', 'Playful', 'Calm', 'Bold'];
+export const POSTS_PER_WEEK = [3, 5];
+const pick = (v, allowed, max = 99) => (Array.isArray(v) ? [...new Set(v)].filter((x) => allowed.includes(x)).slice(0, max) : []);
+const list = (t) => { try { const a = JSON.parse(t || '[]'); return Array.isArray(a) ? a : []; } catch { return []; } };
 const COLOR = /^#[0-9a-fA-F]{6}$/;
 const voiceReady = () => { const a = azureStatus(); return !!(a.key_added && a.region); };
 const tenantId = () => currentTenant()?.id ?? null;
@@ -28,20 +34,27 @@ const clean = (v, n) => { const s = String(v ?? '').trim(); return s ? s.slice(0
 export function brand() {
   const b = get('SELECT * FROM creative_brand WHERE id=1');
   // first use: start from what the workspace already set in Branding so nothing is typed twice
-  return b ? { ...b, saved: true } : { brand_name: getSetting('company_name', '') || '', logo: getSetting('brand_logo', '') || null, primary_color: getSetting('brand_color', '') || '#0e7c6b', secondary_color: null, tone: 'Friendly and professional', business_type: '', about: '', language: 'English', saved: false };
+  return b ? { ...b, platforms: list(b.platforms), languages: list(b.languages), tone_tags: list(b.tone_tags), saved: true } : { brand_name: getSetting('company_name', '') || '', logo: getSetting('brand_logo', '') || null, primary_color: getSetting('brand_color', '') || '#0e7c6b', secondary_color: null, tone: 'Friendly and professional', business_type: '', about: '', language: 'English', audience: '', website: '', city: '', platforms: [], languages: [], posts_per_week: null, tone_tags: [], saved: false };
 }
 export function saveBrand(b, userId) {
   const d = { brand_name: clean(b.brand_name, 80), tone: clean(b.tone, 120), business_type: clean(b.business_type, 80), about: clean(b.about, 600), primary_color: clean(b.primary_color, 7), secondary_color: clean(b.secondary_color, 7), language: LANGUAGES.includes(b.language) ? b.language : 'English' };
+  // wizard fields: only overwritten when sent, so older clients never wipe them
+  const prevW = get('SELECT audience, website, city, platforms, languages, posts_per_week, tone_tags FROM creative_brand WHERE id=1') || {};
+  const w = {
+    audience: 'audience' in b ? clean(b.audience, 200) : prevW.audience || null, website: 'website' in b ? clean(b.website, 200) : prevW.website || null, city: 'city' in b ? clean(b.city, 80) : prevW.city || null,
+    platforms: 'platforms' in b ? JSON.stringify(pick(b.platforms, BRAND_PLATFORMS)) : prevW.platforms || '[]', languages: 'languages' in b ? JSON.stringify(pick(b.languages, BRAND_LANGUAGES)) : prevW.languages || '[]',
+    posts_per_week: 'posts_per_week' in b ? (POSTS_PER_WEEK.includes(Number(b.posts_per_week)) ? Number(b.posts_per_week) : null) : prevW.posts_per_week ?? null,
+    tone_tags: 'tone_tags' in b ? JSON.stringify(pick(b.tone_tags, BRAND_TONES, 4)) : prevW.tone_tags || '[]' };
   if (!d.brand_name) throw bad('Enter your brand name');
   for (const k of ['primary_color', 'secondary_color']) if (d[k] && !COLOR.test(d[k])) throw bad('Colors look like #0e7c6b');
   const prev = get('SELECT logo FROM creative_brand WHERE id=1');
   const logo = 'logo' in b ? clean(b.logo, 300) : (prev ? prev.logo : getSetting('brand_logo', '') || null);
-  run(`INSERT INTO creative_brand(id, brand_name, logo, primary_color, secondary_color, tone, business_type, about, language, updated_by, updated_at) VALUES(1,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(id) DO UPDATE SET brand_name=excluded.brand_name, logo=excluded.logo, primary_color=excluded.primary_color, secondary_color=excluded.secondary_color, tone=excluded.tone, business_type=excluded.business_type, about=excluded.about, language=excluded.language, updated_by=excluded.updated_by, updated_at=excluded.updated_at`,
-  d.brand_name, logo, d.primary_color, d.secondary_color, d.tone, d.business_type, d.about, d.language, userId || null, now());
+  run(`INSERT INTO creative_brand(id, brand_name, logo, primary_color, secondary_color, tone, business_type, about, language, audience, website, city, platforms, languages, posts_per_week, tone_tags, updated_by, updated_at) VALUES(1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET brand_name=excluded.brand_name, logo=excluded.logo, primary_color=excluded.primary_color, secondary_color=excluded.secondary_color, tone=excluded.tone, business_type=excluded.business_type, about=excluded.about, language=excluded.language, audience=excluded.audience, website=excluded.website, city=excluded.city, platforms=excluded.platforms, languages=excluded.languages, posts_per_week=excluded.posts_per_week, tone_tags=excluded.tone_tags, updated_by=excluded.updated_by, updated_at=excluded.updated_at`,
+  d.brand_name, logo, d.primary_color, d.secondary_color, d.tone, d.business_type, d.about, d.language, w.audience, w.website, w.city, w.platforms, w.languages, w.posts_per_week, w.tone_tags, userId || null, now());
   return { ...brand(), saved: true };
 }
-const brandLines = (b) => [`Brand name: ${b.brand_name}`, b.business_type && `Business: ${b.business_type}`, b.about && `About: ${b.about}`, b.tone && `Tone of voice: ${b.tone}`, b.primary_color && `Brand colors: ${[b.primary_color, b.secondary_color].filter(Boolean).join(', ')}`].filter(Boolean).join('\n');
+const brandLines = (b) => [`Brand name: ${b.brand_name}`, b.business_type && `Business: ${b.business_type}`, b.about && `About: ${b.about}`, b.tone && `Tone of voice: ${b.tone}`, b.tone_tags?.length && `Tone words: ${b.tone_tags.join(', ')}`, b.audience && `Customers: ${b.audience}`, b.city && `Location: ${b.city}`, b.languages?.length && `Audience languages: ${b.languages.join(', ')}`, b.primary_color && `Brand colors: ${[b.primary_color, b.secondary_color].filter(Boolean).join(', ')}`].filter(Boolean).join('\n');
 
 /** What the page needs to decide whether to show the module: AI on for this workspace, a key added, credits left. */
 export function status() {
@@ -52,7 +65,7 @@ export function status() {
   const left = id ? creditsLeft(id) : null;
   const featuresOn = Object.fromEntries(Object.keys(CREDIT_COST).map((f) => [f, !featuresOff().includes(switchKey(f))]));
   const reason = off ? 'AI is switched off for your workspace.' : !config().key ? 'Creative Studio is not available yet.' : left === 0 ? 'You have used all your credits for this month. Ask support to top up.' : null;
-  return { available: !reason, reason, credits: { allowance: id ? creditsAllowance(id) : null, left }, costs: { ...CREDIT_COST, video_second: REEL_CREDITS.per_second, voice_per_100: REEL_CREDITS.voice_per_100_chars }, reel_seconds: REEL_SECONDS, voice_ready: voiceReady(), features: { ...featuresOn, creative_video: !featuresOff().includes('creative_video') }, sizes: SIZES, languages: LANGUAGES, storage: storageEnabled() ? 'cloud' : 'local', image_model: imageModel() };
+  return { available: !reason, reason, credits: { allowance: id ? creditsAllowance(id) : null, left }, costs: { ...CREDIT_COST, video_second: REEL_CREDITS.per_second, voice_per_100: REEL_CREDITS.voice_per_100_chars }, reel_seconds: REEL_SECONDS, voice_ready: voiceReady(), features: { ...featuresOn, creative_video: !featuresOff().includes('creative_video') }, sizes: SIZES, languages: LANGUAGES, brand_options: { platforms: BRAND_PLATFORMS, languages: BRAND_LANGUAGES, tones: BRAND_TONES, posts_per_week: POSTS_PER_WEEK }, storage: storageEnabled() ? 'cloud' : 'local', image_model: imageModel() };
 }
 
 function parseJson(text) { try { return JSON.parse(String(text).match(/\{[\s\S]*\}/)?.[0] || ''); } catch { return null; } }
