@@ -115,13 +115,13 @@ export default function StoragePage() {
       </Card>
 
       <Card title="Storage included in each plan" flush>
-        <div className="table-wrap"><table className="table"><thead><tr><th>Plan</th><th>Product</th><th className="num">Workspaces</th><th className="num">Now</th><th>Change{canEditPlans ? '' : ' (needs plan editing access)'}</th></tr></thead>
+        <div className="table-wrap"><table className="t"><thead><tr><th>Plan</th><th>Product</th><th className="num">Workspaces</th><th className="num">Now</th><th>Change{canEditPlans ? '' : ' (needs plan editing access)'}</th></tr></thead>
           <tbody>{d.plans.map((p) => <PlanRow key={p.id} plan={p} canEdit={canEditPlans} reload={load} />)}</tbody></table></div>
         <p className="muted" style={{ margin: '8px 14px 12px', fontSize: 13 }}>A new limit applies to every workspace on the plan that has no limit of its own. Empty means unlimited. The same plan appears in Plans & pricing.</p>
       </Card>
 
       <Card title="Workspaces" actions={<input className="input" style={{ width: 200 }} placeholder="Find a workspace" aria-label="Find a workspace" value={q} onChange={(e) => setQ(e.target.value)} />} flush>
-        <div className="table-wrap"><table className="table"><thead><tr><th>Workspace</th><th>Plan</th><th className="num">Public images</th><th className="num">Private files</th><th className="num">Used</th><th className="num">Limit</th><th>Usage</th><th className="num">In bucket (counted)</th><th /></tr></thead>
+        <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th>Plan</th><th className="num">Public images</th><th className="num">Private files</th><th className="num">Used</th><th className="num">Limit</th><th>Usage</th><th className="num">In bucket (counted)</th><th /></tr></thead>
           <tbody>{rows.map((x) => (
             <tr key={x.id}>
               <td>{x.name}<div className="cell-sub">{x.slug}{x.status !== 'active' ? ` · ${x.status}` : ''}</div></td>

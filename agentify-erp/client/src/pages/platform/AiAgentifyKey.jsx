@@ -11,7 +11,7 @@ const n0 = (v) => Number(v || 0).toLocaleString();
 const usd = (v) => (v == null ? '—' : `$${v < 1 ? v.toFixed(4) : v.toFixed(2)}`);
 const rs = (v, cur) => (v == null ? '—' : `${cur} ${Math.round(v).toLocaleString()}`);
 const SRC = { default: 'estimate', average: '3-month average', override: 'set by you' };
-const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12, alignItems: 'end' };
+const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12, alignItems: 'start' };
 
 function Rate({ o, can, reload }) {
   const toast = useToast();
@@ -60,7 +60,7 @@ function Prices({ o, can, reload }) {
   };
   return (
     <Card title="Price list" flush>
-      <div className="table-wrap"><table className="table"><thead><tr><th>Feature</th><th>One use</th><th className="num">USD</th><th className="num">{o.display_currency}</th><th>Based on</th>{can && <th />}</tr></thead>
+      <div className="table-wrap"><table className="t"><thead><tr><th>Feature</th><th>One use</th><th className="num">USD</th><th className="num">{o.display_currency}</th><th>Based on</th>{can && <th />}</tr></thead>
         <tbody>{o.prices.map((p) => <tr key={p.key}><td>{p.label}</td><td>{p.per}</td><td className="num">{usd(p.usd)}</td><td className="num">{(p.usd * o.rate.rate).toFixed(2)}</td><td>{SRC[p.source]}{p.source === 'average' ? ` (${p.sample} uses)` : ''}</td>{can && <td><button className="btn sm" onClick={() => pin(p)}>Set price</button></td>}</tr>)}</tbody></table></div>
       <p className="muted" style={{ fontSize: 13, margin: 12 }}>Prices start as estimates and switch to the average of the last 3 months once a feature has 10 real uses. Check them against Google's and Azure's current pricing.</p>
     </Card>
@@ -75,11 +75,11 @@ function Workspaces({ o, can, reload }) {
   const limit = (w) => { const v = window.prompt(`Daily uses for ${w.name}. Leave empty to use the default.`, w.own_daily_limit ?? ''); if (v !== null) act(() => api.put(`${A}/ai/workspaces/${w.id}`, { platform_daily_limit: v }), 'Limit saved'); };
   return (
     <Card title="Workspaces (Agentify's own key)" flush>
-      <div className="table-wrap"><table className="table"><thead><tr><th>Workspace</th><th className="num">Cost this month</th><th className="num">Uses today</th><th className="num">Credits left</th><th>AI</th></tr></thead>
+      <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th className="num">Cost this month</th><th className="num">Uses today</th><th className="num">Credits left</th><th>AI</th></tr></thead>
         <tbody>{o.workspaces.map((w) => (
           <tr key={w.id}><td>{w.name} <span className="muted">{w.slug}</span></td><td className="num">{usd(w.usd)} <span className="muted">· {rs(w.pkr, o.display_currency)}</span></td>
-            <td className="num">{n0(w.uses_today)} / {n0(w.daily_limit)} {can && <button className="btn sm" onClick={() => limit(w)}>Change</button>}</td>
-            <td className="num">{w.credits.left == null ? 'No limit' : `${n0(w.credits.left)} of ${n0(w.credits.allowance)}`} {can && <><button className="btn sm" onClick={() => allowance(w)}>Set</button> <button className="btn sm" onClick={() => topup(w)}>Top up</button></>}</td>
+            <td className="num"><span className="cell-act">{n0(w.uses_today)} / {n0(w.daily_limit)} {can && <button className="btn sm" onClick={() => limit(w)}>Change</button>}</span></td>
+            <td className="num"><span className="cell-act">{w.credits.left == null ? 'No limit' : `${n0(w.credits.left)} of ${n0(w.credits.allowance)}`} {can && <><button className="btn sm" onClick={() => allowance(w)}>Set</button><button className="btn sm" onClick={() => topup(w)}>Top up</button></>}</span></td>
             <td>{can ? <button className={`btn sm ${w.ai_enabled ? '' : 'danger'}`} onClick={() => act(() => api.put(`${A}/ai/workspaces/${w.id}`, { ai_enabled: !w.ai_enabled }), `${w.name}: saved`)}>{w.ai_enabled ? 'On' : 'Off'}</button> : (w.ai_enabled ? 'On' : 'Off')}</td></tr>))}</tbody></table></div>
     </Card>
   );
@@ -94,7 +94,7 @@ function Reports({ can }) {
   return (
     <Card title="Reported AI answers" actions={<label className="row" style={{ gap: 6, fontSize: 13 }}><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Show handled too</label>}>
       {!rows ? <Loading rows={1} /> : !rows.length ? <p className="muted" style={{ margin: 0 }}>Nothing reported. Results that people flag with the Report button appear here.</p> : (
-        <div className="table-wrap"><table className="table"><thead><tr><th>When</th><th>Workspace</th><th>Feature</th><th>What was asked</th><th>Result</th><th>Note</th>{can && <th />}</tr></thead>
+        <div className="table-wrap"><table className="t"><thead><tr><th>When</th><th>Workspace</th><th>Feature</th><th>What was asked</th><th>Result</th><th>Note</th>{can && <th />}</tr></thead>
           <tbody>{rows.map((r) => <tr key={r.id}><td>{new Date(r.created_at.replace(' ', 'T') + (r.created_at.includes('Z') ? '' : 'Z')).toLocaleString()}</td><td>{r.tenant_name || '—'}<div className="muted" style={{ fontSize: 12 }}>{r.user_name}</div></td><td>{r.feature}</td><td style={{ maxWidth: 220 }}>{r.prompt || '—'}</td><td style={{ maxWidth: 260 }}>{(r.output || '—').slice(0, 220)}</td><td>{r.note || '—'}</td>
             {can && <td>{r.status === 'open' ? <button className="btn sm" onClick={() => mark(r, true)}>Mark handled</button> : <button className="btn sm" onClick={() => mark(r, false)}>Reopen</button>}</td>}</tr>)}</tbody></table></div>)}
     </Card>
@@ -150,12 +150,12 @@ function Technical({ o, can, reload, voices, onTested }) {
         <Field label="Azure region" hint="For example uaenorth or eastus"><TextInput value={az.region} onChange={(v) => setAz({ ...az, region: v })} /></Field>
         <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={save}>Save Azure details</button>{t.azure.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled={!t.azure.key_added || !t.azure.region || testing} onClick={testAzure}>{testing ? 'Testing…' : 'Test the connection'}</button></div>
       </div>}
-      <div className="table-wrap" style={{ marginTop: 12 }}><table className="table"><thead><tr><th>Feature</th><th>Model or service</th></tr></thead><tbody>{t.models.map((m) => <tr key={m.key}><td>{m.label}</td><td>{m.model}</td></tr>)}</tbody></table></div>
+      <div className="table-wrap" style={{ marginTop: 12 }}><table className="t"><thead><tr><th>Feature</th><th>Model or service</th></tr></thead><tbody>{t.models.map((m) => <tr key={m.key}><td>{m.label}</td><td>{m.model}</td></tr>)}</tbody></table></div>
     </Card>
   );
 }
 
-export default function AiAgentifyKey() {
+export default function AiAgentifyKey({ tab = 'overview' }) {
   const can = useCan()('integrations.manage');
   const [o, setO] = useState(null); const [err, setErr] = useState('');
   const [voices, setVoices] = useState(null); const [selected, setSelected] = useState({ English: '', Urdu: '' });
@@ -168,23 +168,29 @@ export default function AiAgentifyKey() {
   const cur = o.display_currency;
   return (
     <>
+      {tab === 'overview' && <>
       <div className="cc-stats">
         <Card><div className="cc-k">Agentify-key AI cost this month</div><div className="cc-v">{usd(o.month.spent_usd)}</div><div className="cell-sub">{rs(o.month.spent_pkr, cur)} at {o.rate.rate} {cur} per USD</div></Card>
         <Card><div className="cc-k">Video cost this month</div><div className="cc-v">{usd(o.month.video_spent_usd)}</div><div className="cell-sub">{o.month.video_budget_usd != null ? `of ${usd(o.month.video_budget_usd)} video budget` : 'No video budget set'}</div></Card>
       </div>
       <Card title="Cost this month by feature" flush>
-        <div className="table-wrap"><table className="table"><thead><tr><th>Feature</th><th className="num">Uses</th><th className="num">USD</th><th className="num">{cur}</th><th>Switch</th></tr></thead>
+        <div className="table-wrap"><table className="t"><thead><tr><th>Feature</th><th className="num">Uses</th><th className="num">USD</th><th className="num">{cur}</th><th>Switch</th></tr></thead>
           <tbody>{o.features.map((f) => <tr key={f.key}><td>{f.label}</td><td className="num">{n0(f.uses)}</td><td className="num">{usd(f.usd)}</td><td className="num">{rs(f.pkr, cur).replace(`${cur} `, '')}</td><td>{f.enabled ? 'On' : <span className="pill red">Off</span>}</td></tr>)}</tbody></table></div>
       </Card>
-      <Prices o={o} can={can} reload={load} />
-      <Workspaces o={o} can={can} reload={load} />
-      <Limits o={o} can={can} reload={load} />
-      <Rate o={o} can={can} reload={load} />
-      <Reports can={can} />
-      <Voices o={o} can={can} voices={voices} selected={selected} setSelected={setSelected} reload={load} />
-      <FfmpegStatus ffmpeg={o.ffmpeg} />
-      <AiVoiceLab can={can} />
-      <Technical o={o} can={can} reload={load} voices={voices} onTested={setVoices} />
+      </>}
+      {tab === 'prices' && <>
+        <Prices o={o} can={can} reload={load} />
+        <Rate o={o} can={can} reload={load} />
+      </>}
+      {tab === 'workspaces' && <Workspaces o={o} can={can} reload={load} />}
+      {tab === 'limits' && <Limits o={o} can={can} reload={load} />}
+      {tab === 'usage' && <Reports can={can} />}
+      {tab === 'keys' && <>
+        <Voices o={o} can={can} voices={voices} selected={selected} setSelected={setSelected} reload={load} />
+        <FfmpegStatus ffmpeg={o.ffmpeg} />
+        <AiVoiceLab can={can} />
+        <Technical o={o} can={can} reload={load} voices={voices} onTested={setVoices} />
+      </>}
     </>
   );
 }

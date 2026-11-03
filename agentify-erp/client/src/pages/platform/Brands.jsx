@@ -100,7 +100,7 @@ function Editor({ brand, canEdit, onClose, reload }) {
               </div>
               <Card title="Workspaces in this brand" flush>
                 {!detail.workspaces.length ? <p className="muted" style={{ margin: 12 }}>None yet. Open a workspace (Workspaces &gt; Company profile) and choose this brand.</p> : (
-                  <div className="table-wrap"><table className="table"><thead><tr><th>Workspace</th><th>Owner</th><th>Status</th><th>Main</th>{canEdit && <th />}</tr></thead><tbody>
+                  <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th>Owner</th><th>Status</th><th>Main</th>{canEdit && <th />}</tr></thead><tbody>
                     {detail.workspaces.map((w) => (
                       <tr key={w.id}><td>{w.name} <span className="muted">{w.slug}</span></td><td>{w.owner_email || '—'}</td><td>{w.status}</td>
                         <td>{w.main ? <span className="pill green">Main</span> : canEdit ? <button className="btn sm" onClick={() => setMain(w.id)}>Make main</button> : '—'}</td>
@@ -129,7 +129,7 @@ export default function BrandsPage() {
       </PageTitle>
       <ErrorBox error={err} />
       {!rows ? (!err && <Loading />) : !rows.length ? <Empty title="No brands yet" hint="Add a brand when one owner runs several branches or franchise offices that should look the same." /> : (
-        <Card flush><div className="table-wrap"><table className="table"><thead><tr><th>Brand</th><th>Owner</th><th>Colours</th><th className="num">Workspaces</th><th>Main workspace</th><th /></tr></thead><tbody>
+        <Card flush><div className="table-wrap"><table className="t"><thead><tr><th>Brand</th><th>Owner</th><th>Colours</th><th className="num">Workspaces</th><th>Main workspace</th><th /></tr></thead><tbody>
           {rows.map((b) => (
             <tr key={b.id}><td><b>{b.name}</b></td><td>{b.owner_email || '—'}</td><td><Swatch c={b.primary_color} /> <Swatch c={b.accent_color} /></td>
               <td className="num">{b.workspaces.length}</td><td>{b.workspaces.find((w) => w.main)?.name || '—'}</td>

@@ -35,7 +35,7 @@ export default function BillingMailPage() {
       </Card>
       <Card title="Payment receipts">
         {!d.receipts.length ? <Empty>No receipts yet. One is sent for each payment you approve or record, and for each paid card invoice.</Empty> : (
-          <div className="table-wrap"><table className="table">
+          <div className="table-wrap"><table className="t">
             <thead><tr><th>When</th><th>Workspace</th><th>Amount</th><th>Reference</th><th>Sent to</th><th>Status</th><th /></tr></thead>
             <tbody>{d.receipts.map((r) => {
               const [tone, label] = TONE[r.status] || ['grey', r.status];
