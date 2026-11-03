@@ -39,9 +39,12 @@ export function ExpiryBadge({ e }) {
 }
 
 // ---------------------------------------------------------------- workspace list
-export const FILTERS = [['all', 'All workspaces'], ['active', 'Active'], ['trial', 'Free trials'], ['paying', 'Paying'], ['attention', 'Need attention'], ['suspended', 'Suspended'], ['cancelled', 'Cancelled']];
+export const FILTERS = [['all', 'All workspaces'], ['active', 'Active'], ['trial', 'Free trials'], ['paying', 'Paying'], ['attention', 'Need attention'], ['suspended', 'Suspended'], ['cancelled', 'Cancelled'], ['deleted', 'Data deleted (records only)']];
 const matches = (t, f) => {
   const e = t.expiry;
+  // workspaces whose data was deleted stay only as a billing record: hidden everywhere except their own filter
+  if (f === 'deleted') return !!t.data_deleted_at;
+  if (t.data_deleted_at) return false;
   if (f === 'trial') return e.kind === 'trial' && t.status === 'active';
   if (f === 'paying') return e.billing_status === 'active' && t.status === 'active' && !t.is_legacy;
   if (f === 'attention') return t.status === 'active' && ['expired', 'urgent', 'soon'].includes(e.level);
@@ -79,6 +82,7 @@ export function Workspaces({ onOpen }) {
   const deletable = (t) => t.status === 'cancelled' && !t.is_legacy && !t.data_deleted_at;
   // cancelled workspaces nobody ever used: no sign-in, one user at most, no properties or sales
   const isTest = (t) => deletable(t) && !t.stats?.last_activity && (t.stats?.seats ?? 0) <= 1 && !t.stats?.properties && !t.stats?.sales;
+  const hiddenDeleted = (rows || []).filter((t) => t.data_deleted_at).length;
   const tests = (rows || []).filter(isTest);
   const pickable = pageRows.filter(deletable);
   const toggle = (id) => setSel((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -110,7 +114,7 @@ export function Workspaces({ onOpen }) {
       {sel.size > 0 && <button className="btn sm danger" onClick={() => setDel({ ids: [...sel], names: (rows || []).filter((t) => sel.has(t.id)).map((t) => t.name), reason: '', owner_request: false, keep_archive: false, confirm: '' })}>Delete {sel.size} selected…</button>}
       <button className="btn primary sm" onClick={() => setCreate(blank)}>New workspace</button>
     </>}>
-      {!shown.length ? <Empty title="No workspaces match" /> : (
+      {!shown.length ? <Empty title="No workspaces match" hint={hiddenDeleted ? `${hiddenDeleted} with deleted data are hidden. Pick "Data deleted" in the filter to see them.` : undefined} /> : (
         <div className="table-wrap"><table className="t pa-ws"><thead><tr><th style={{ width: 28 }}>{pickable.length > 0 && <input type="checkbox" aria-label="Select all cancelled on this page" checked={pickable.every((t) => sel.has(t.id))} onChange={(e) => setSel((x) => { const n = new Set(x); pickable.forEach((t) => (e.target.checked ? n.add(t.id) : n.delete(t.id))); return n; })} />}</th>{th('name', 'Workspace')}{th('progress', 'Setup progress')}{th('users', 'Usage')}{th('active', 'Last active')}{th('expiry', 'Plan / expiry')}<th>Status</th></tr></thead><tbody>
           {pageRows.map((t) => (
             <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(t.id)}>
@@ -120,11 +124,12 @@ export function Workspaces({ onOpen }) {
               <td>{t.stats && <div className="pa-cell"><div className="nowrap">{limit(t.stats.seats, t.expiry.limits?.seats)} users</div><div className="muted">{limit(t.stats.projects, t.expiry.limits?.projects)} projects · {num(t.stats.properties)} properties · {num(t.stats.sales)} sales</div></div>}</td>
               <td className="nowrap pa-ws-last">{ago(t.stats?.last_activity)}</td>
               <td><div className="pa-cell"><div><b style={{ textTransform: 'capitalize' }}>{t.is_legacy ? 'Original (unmetered)' : t.plan}</b>{PRODUCT_SHORT[t.product] ? <span className="muted"> · {PRODUCT_SHORT[t.product]}</span> : null}</div>{!(t.status === 'cancelled' && t.expiry.kind === 'cancelled') && <ExpiryBadge e={t.expiry} />}</div></td>
-              <td className="nowrap"><div className="pa-cell"><StatusBadge status={t.status} />{t.data_deleted_at && <div className="muted">Data deleted</div>}{deletable(t) && <div><button className="btn sm danger" onClick={(e) => { e.stopPropagation(); setDel({ ids: [t.id], names: [t.name], reason: '', owner_request: false, keep_archive: false, confirm: '' }); }}>Delete…</button></div>}</div></td>
+              <td className="nowrap"><div className="pa-cell"><StatusBadge status={t.status} />{t.data_deleted_at && <div className="muted" title="The workspace's database and files were permanently deleted. This row stays only so its invoices, payments and subscription history are kept.">Data deleted {fmtDay(t.data_deleted_at)}<div>Billing records kept</div></div>}{deletable(t) && <div><button className="btn sm danger" onClick={(e) => { e.stopPropagation(); setDel({ ids: [t.id], names: [t.name], reason: '', owner_request: false, keep_archive: false, confirm: '' }); }}>Delete…</button></div>}</div></td>
             </tr>
           ))}
         </tbody></table></div>
       )}
+      {f !== 'deleted' && hiddenDeleted > 0 && <div className="pa-pager"><span className="muted">{hiddenDeleted} workspace{hiddenDeleted === 1 ? '' : 's'} with deleted data hidden (only a billing record remains). <button className="btn sm" onClick={() => setF('deleted')}>Show them</button></span></div>}
       {pages > 1 && <div className="pa-pager"><span className="muted">{page * PER + 1}–{Math.min(shown.length, (page + 1) * PER)} of {shown.length}</span><span><button className="btn sm" disabled={!page} onClick={() => setPage(page - 1)}>Previous</button> <button className="btn sm" disabled={page >= pages - 1} onClick={() => setPage(page + 1)}>Next</button></span></div>}
       {del && (
         <Modal title={`Delete data of ${del.ids.length} workspace${del.ids.length === 1 ? '' : 's'}`} onClose={() => setDel(null)} footer={<><button className="btn" onClick={() => setDel(null)}>Cancel</button><button className="btn danger" disabled={del.confirm !== 'DELETE' || del.reason.trim().length < 5} onClick={doDelete}>Delete permanently</button></>}>
