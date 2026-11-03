@@ -8,6 +8,10 @@ import { useAuth, useToast } from '../context.jsx';
 import { dateTime } from '../format.js';
 
 const CreativeReview = lazy(() => import('./CreativeReview.jsx'));
+const pageCss = `.cs-page .card-b{padding:20px 22px}.cs-page .field{gap:6px;margin-bottom:18px}.cs-page .field>label{font-size:14px;font-weight:600;color:var(--text)}
+.cs-page .field .hint{font-size:12.5px;color:var(--muted);font-weight:400;line-height:1.4}.cs-page textarea.input{line-height:1.5;padding:10px 12px}
+.cs-sec{border-top:1px solid var(--border);padding-top:18px;margin-top:6px}.cs-sec:first-of-type{border-top:0;padding-top:0;margin-top:0}
+.cs-sec>h4{margin:0 0 4px;font-size:15px}.cs-sec>.cs-sub{margin:0 0 14px;color:var(--muted);font-size:13px}.cs-big textarea.input{min-height:110px;font-size:15px}`;
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 12 };
 
 /** Flag a result as wrong, unsafe or poor. Agentify reviews these. */
@@ -185,11 +189,20 @@ function Reels({ st, refresh, brandSaved }) {
     <>
       <Card title="Make a reel">
         <ErrorBox error={err} />
-        <p className="muted" style={{ marginTop: 0 }}>A vertical video of {f.seconds} seconds. It takes a few minutes, you can leave this page, and we will notify you when it is ready.</p>
-        <Field label="Length" hint={st.reels?.ffmpeg?.available ? 'Longer reels join 8-second clips into one video.' : st.reels?.ffmpeg?.message}>
+        <div className="cs-sec cs-big">
+          <h4>1. Your idea</h4>
+        <p className="cs-sub">A vertical video. It takes a few minutes. You can leave this page and we will notify you.</p>
+        <Field label="Describe the reel" required hint="What should we see? One or two sentences."><textarea className="input" rows={4} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} maxLength={600} placeholder="A sunrise over our new apartment tower, slow drone shot" /></Field>
+        <Field label="Length" hint={st.reels?.ffmpeg?.available ? 'Longer reels join 8-second clips.' : st.reels?.ffmpeg?.message}>
           <div className="row" style={{ gap: 8 }} data-tour="reel-length">{[8, 16, 24].map((n) => <button key={n} type="button" className={`btn sm ${f.seconds === n ? 'primary' : ''}`} disabled={!(st.reels?.lengths || [8]).includes(n)} aria-pressed={f.seconds === n} onClick={() => setF({ ...f, seconds: n })}>{n} seconds</button>)}</div>
         </Field>
-        <Field label="Describe the reel" required><textarea className="input" rows={3} value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} maxLength={600} placeholder="A sunrise over our new apartment tower, slow drone shot" /></Field>
+        {f.seconds > 8 && (
+          <Field label="What happens in each part (optional)" hint="One line per 8-second part helps the parts match. Leave empty to let the video model decide.">
+            {Array.from({ length: f.seconds / 8 }, (_, i) => <input key={i} className="input" style={{ marginBottom: 6 }} maxLength={300} value={f.scenes[i] || ''} placeholder={`Part ${i + 1}`} onChange={(e) => setF({ ...f, scenes: f.scenes.map((x, j) => (j === i ? e.target.value : x)) })} />)}
+          </Field>)}
+        </div>
+        <div className="cs-sec">
+          <h4>2. Voice (optional)</h4>
         <Field label="How should the voice work?">
           <div className="row" style={{ gap: 8, flexWrap: 'wrap' }} data-tour="reel-voice-path">
             <button type="button" className={`btn sm ${f.voice_path === 'script' ? 'primary' : ''}`} aria-pressed={f.voice_path === 'script'} onClick={() => setF({ ...f, voice_path: 'script' })}>Exact script (best for ads)</button>
@@ -203,12 +216,9 @@ function Reels({ st, refresh, brandSaved }) {
             <button type="button" className="btn sm" disabled={busy || !st.voice_ready} onClick={hear}>{busy === 'hear' ? 'Making the voice…' : 'Hear the voice'}</button>
             <span className="muted" style={{ fontSize: 12 }}>{heardInfo ? `About ${heardInfo.voice_seconds ?? '?'} seconds long${heardInfo.fits === false ? ', which is TOO LONG for this reel: shorten the script or choose a longer reel.' : ' and it fits.'}` : `Listening uses the voice credits (${q?.voice ?? 0}). If you then make the reel, you are not charged for the voice again.`}</span>
           </div>)}
-        {f.seconds > 8 && (
-          <Field label="What happens in each part (optional)" hint="One line per 8-second part helps the parts match. Leave empty to let the video model decide.">
-            {Array.from({ length: f.seconds / 8 }, (_, i) => <input key={i} className="input" style={{ marginBottom: 6 }} maxLength={300} value={f.scenes[i] || ''} placeholder={`Part ${i + 1}`} onChange={(e) => setF({ ...f, scenes: f.scenes.map((x, j) => (j === i ? e.target.value : x)) })} />)}
-          </Field>)}
         {f.script.trim() && <Field label="Voice language"><select className="input" style={{ maxWidth: 220 }} value={f.language} onChange={(e) => setF({ ...f, language: e.target.value })}>{st.languages.map((l) => <option key={l}>{l}</option>)}</select></Field>}
-        <div className="callout" role="note" style={{ padding: 12, borderRadius: 8, background: 'var(--surface-2, #f1f5f4)', margin: '8px 0' }}>
+        </div>
+        <div className="callout cs-sec" role="note" style={{ padding: 14, borderRadius: 8, background: 'var(--surface-2, #f1f5f4)', margin: '14px 0' }}>
           <b>Cost warning:</b> this {f.seconds}-second reel uses <b>{q ? q.total : '…'} credits</b> ({q?.video} for the video{q?.voice ? `, ${q.voice} for the voice` : ''}). The price grows with the length. Video is the most expensive thing here. {st.credits.left != null ? `You have ${st.credits.left} left this month.` : ''} If the reel fails, the credits are returned.
         </div>
         {!confirm ? <button className="btn primary" disabled={busy || !canMake || !q || f.description.trim().length < 10} onClick={() => setConfirm(true)}>Make my reel…</button>
@@ -273,7 +283,8 @@ export default function CreativeStudio() {
   if (!st) return <Loading />;
   const left = st.credits.left;
   return (
-    <>
+    <div className="cs-page">
+      <style>{pageCss}</style>
       <PageHead title="Creative Studio" sub="Write your brand story, create post images and short video reels that match your brand. Each use spends credits." />
       <div className="row" style={{ gap: 12, marginBottom: 12, flexWrap: 'wrap' }} data-tour="creative-credits">
         <span className={`pill ${st.available ? 'green' : 'red'}`}>{st.available ? 'Ready' : 'Not available'}</span>
@@ -288,6 +299,6 @@ export default function CreativeStudio() {
       {tab === 'posts' && <Posts st={st} refresh={refresh} brandSaved={brandSaved} onSaved={() => setVersion((v) => v + 1)} />}
       {tab === 'reels' && <Reels st={st} refresh={refresh} brandSaved={brandSaved} />}
       {tab === 'mine' && <Mine version={version} />}
-    </>
+    </div>
   );
 }
