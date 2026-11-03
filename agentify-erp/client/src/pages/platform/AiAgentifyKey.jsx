@@ -112,7 +112,9 @@ function Voices({ o, can, voices, selected, setSelected, reload }) {
     setBusy(lang);
     try {
       const r = await api.post(`${A}/ai/voices/preview`, { lang, voice: selected[lang] });
-      const audio = new Audio(`data:${r.mime};base64,${r.audio}`); await audio.play();
+      if (!r?.audio) throw new Error('The server did not send any audio. Check the Azure key and region, then try again.');
+      const audio = new Audio(`data:${r.mime || 'audio/mpeg'};base64,${r.audio}`);
+      await new Promise((resolve, reject) => { audio.onerror = () => reject(new Error('The sample could not be played in this browser.')); audio.play().then(resolve, reject); });
     } catch (e) { toast(e.message, 'err'); } finally { setBusy(''); }
   };
   const save = async () => { try { await api.put(`${A}/ai/voices`, selected); toast('Voices saved'); reload(); } catch (e) { toast(e.message, 'err'); } };

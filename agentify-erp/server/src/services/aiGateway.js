@@ -151,9 +151,15 @@ export async function azureSpeak({ lang, text, voice, tenantId = null, userId = 
   try {
     const res = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`, { method: 'POST', signal: AbortSignal.timeout(45_000), body: `<speak version='1.0' xml:lang='${v.split('-').slice(0, 2).join('-')}' xmlns='http://www.w3.org/2001/10/synthesis'><voice name='${v}'>${esc(t)}</voice></speak>`,
       headers: { 'Ocp-Apim-Subscription-Key': key, 'Content-Type': 'application/ssml+xml', 'X-Microsoft-OutputFormat': 'audio-24khz-48kbitrate-mono-mp3', 'User-Agent': 'AgentifyERP' } });
-    if (!res.ok) throw new Error(`Azure answered ${res.status}`);
     buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length < 200) throw new Error('empty audio');
+    if (!res.ok) {
+      const detail = buf.toString('utf8').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+      const hint = res.status === 401 || res.status === 403 ? 'Azure did not accept the key for this region' : `Azure answered ${res.status}`;
+      throw new Error(detail && !/^\s*[<{]/.test(detail) ? `${hint}: ${detail}` : hint);
+    }
+    // A playable mp3 starts with an ID3 tag or an MPEG frame sync. Anything else (JSON, XML, text) is an error body, not audio.
+    const isMp3 = buf.length >= 200 && ((buf[0] === 0x49 && buf[1] === 0x44 && buf[2] === 0x33) || (buf[0] === 0xff && (buf[1] & 0xe0) === 0xe0));
+    if (!isMp3) throw new Error(`Azure sent back something that is not audio${buf.length ? `: ${buf.toString('utf8', 0, 150).replace(/\s+/g, ' ').trim()}` : ''}`);
   } catch (e) {
     record({ keyOwner: 'platform', provider: 'azure', model: v, purpose: feature, ok: false, tenantId, userId, feature });
     throw bad(`The voice could not be made (${e.message}). Please try again in a moment.`, { code: 'provider_error' });
