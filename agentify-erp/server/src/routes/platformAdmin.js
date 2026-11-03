@@ -6,7 +6,7 @@ import { platformDb, BASE_DOMAIN, isMultiTenant, getTenant } from '../platform.j
 import { listAddons, saveAddon, setTenantAddon, listCoupons, saveCoupon, recordRefund, quote } from '../services/commerce.js';
 import { runLifecycle } from '../services/lifecycle.js';
 import { finance } from '../services/finance.js';
-import { retentionDays, setRetentionDays, eligibleForDeletion, retentionState, deleteWorkspaceData } from '../services/retention.js';
+import { retentionDays, setRetentionDays, eligibleForDeletion, retentionState, deleteWorkspaceData, deleteWorkspacesBulk } from '../services/retention.js';
 import { listAnnouncements, saveAnnouncement, setAnnouncementStatus } from '../services/announcements.js';
 import { versionInfo } from '../services/version.js';
 import { registry as integrationRegistry, configure as configureIntegration, test as testIntegration, disconnect as disconnectIntegration } from '../services/integrations.js';
@@ -542,6 +542,14 @@ r.post('/workspaces/:id/delete-data', requireOperator, need('workspaces.suspend'
   if (!TOP_ROLES.includes(req.operator.role) && req.operator.via !== 'token') throw new HttpError(403, 'Only a Platform Owner or Super Admin can delete workspace data');
   const out = deleteWorkspaceData(req.params.id, req.body || {}, req.operator.email);
   audit(req.operator.email, 'workspace-data-deleted', { slug: out.slug, reason: req.body?.reason, owner_request: !!req.body?.owner_request, archive: out.archive });
+  res.json(out);
+}));
+r.post('/workspaces/delete-data-bulk', requireOperator, need('workspaces.suspend'), limiter, asyncH((req, res) => {
+  if (!TOP_ROLES.includes(req.operator.role) && req.operator.via !== 'token') throw new HttpError(403, 'Only a Platform Owner or Super Admin can delete workspace data');
+  if (req.body?.confirm !== 'DELETE') throw new HttpError(400, 'Type DELETE to confirm');
+  if (String(req.body?.reason || '').trim().length < 5) throw new HttpError(400, 'A reason is required');
+  const out = deleteWorkspacesBulk(req.body?.ids, req.body || {}, req.operator.email);
+  audit(req.operator.email, 'workspace-data-deleted-bulk', { deleted: out.deleted, failed: out.failed.length, reason: req.body?.reason, owner_request: !!req.body?.owner_request });
   res.json(out);
 }));
 r.post('/lifecycle/run', requireOperator, need('system.manage'), limiter, asyncH(async (req, res) => {

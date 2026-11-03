@@ -1,7 +1,7 @@
 // The part of the AI page about calls made with Agentify's OWN keys (Gemini, Azure): cost per feature and workspace in dollars
 // and rupees, the price list, limits and credits, the dollar rate, and the provider connections. Keys are written here and never shown again.
 import { useCallback, useEffect, useState } from 'react';
-import { Card, ErrorBox, Field, Loading, TextInput } from '../../components/ui.jsx';
+import { Card, ErrorBox, Field, Loading, StatusBadge, TextInput } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, useCan } from './AdminShell.jsx';
@@ -69,15 +69,18 @@ function Prices({ o, can, reload }) {
 
 function Workspaces({ o, can, reload }) {
   const toast = useToast();
+  const [showAll, setShowAll] = useState(false);
+  const hidden = o.workspaces.filter((w) => w.status && w.status !== 'active').length;
+  const rows = showAll ? o.workspaces : o.workspaces.filter((w) => !w.status || w.status === 'active');
   const act = async (fn, msg) => { try { await fn(); toast(msg); reload(); } catch (e) { toast(e.message, 'err'); } };
   const topup = (w) => { const v = window.prompt(`Add credits to ${w.name} for this month:`, '100'); if (v) act(() => api.put(`${A}/ai/workspaces/${w.id}/credits`, { add_topup: v }), 'Credits added'); };
   const allowance = (w) => { const v = window.prompt(`Monthly credits for ${w.name}. Leave empty to use the default.`, w.credits.allowance ?? ''); if (v !== null) act(() => api.put(`${A}/ai/workspaces/${w.id}/credits`, { monthly_credits: v }), 'Credits saved'); };
   const limit = (w) => { const v = window.prompt(`Daily uses for ${w.name}. Leave empty to use the default.`, w.own_daily_limit ?? ''); if (v !== null) act(() => api.put(`${A}/ai/workspaces/${w.id}`, { platform_daily_limit: v }), 'Limit saved'); };
   return (
-    <Card title="Workspaces (Agentify's own key)" flush>
+    <Card title="Workspaces (Agentify's own key)" flush actions={hidden > 0 && <label className="row" style={{ gap: 6, fontSize: 13 }}><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show cancelled and suspended ({hidden})</label>}>
       <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th className="num">Cost this month</th><th className="num">Uses today</th><th className="num">Credits left</th><th>AI</th></tr></thead>
-        <tbody>{o.workspaces.map((w) => (
-          <tr key={w.id}><td>{w.name} <span className="muted">{w.slug}</span></td><td className="num">{usd(w.usd)} <span className="muted">· {rs(w.pkr, o.display_currency)}</span></td>
+        <tbody>{rows.map((w) => (
+          <tr key={w.id}><td>{w.name} <span className="muted">{w.slug}</span>{w.status && w.status !== 'active' && <> <StatusBadge status={w.status} /></>}</td><td className="num">{usd(w.usd)} <span className="muted">· {rs(w.pkr, o.display_currency)}</span></td>
             <td className="num"><span className="cell-act">{n0(w.uses_today)} / {n0(w.daily_limit)} {can && <button className="btn sm" onClick={() => limit(w)}>Change</button>}</span></td>
             <td className="num"><span className="cell-act">{w.credits.left == null ? 'No limit' : `${n0(w.credits.left)} of ${n0(w.credits.allowance)}`} {can && <><button className="btn sm" onClick={() => allowance(w)}>Set</button><button className="btn sm" onClick={() => topup(w)}>Top up</button></>}</span></td>
             <td>{can ? <button className={`btn sm ${w.ai_enabled ? '' : 'danger'}`} onClick={() => act(() => api.put(`${A}/ai/workspaces/${w.id}`, { ai_enabled: !w.ai_enabled }), `${w.name}: saved`)}>{w.ai_enabled ? 'On' : 'Off'}</button> : (w.ai_enabled ? 'On' : 'Off')}</td></tr>))}</tbody></table></div>

@@ -51,7 +51,7 @@ function Table({ title, rows, cols, empty }) {
 /** Limits for AI that workspaces run with their own keys: kill switch, monthly cap, feature switches and a limit per workspace. */
 function WorkspaceControls({ canEdit, show }) {
   const toast = useToast();
-  const [c, setC] = useState(null); const [err, setErr] = useState('');
+  const [c, setC] = useState(null); const [err, setErr] = useState(''); const [showAll, setShowAll] = useState(false);
   const [g, setG] = useState({ default_daily_limit: '', monthly_cap: '' });
   const load = useCallback(() => api.get(`${A}/ai/controls`).then((x) => { setC(x); setG({ default_daily_limit: x.default_daily_limit ?? '', monthly_cap: x.month.cap ?? '' }); setErr(''); }).catch((e) => setErr(e.message)), []);
   useEffect(() => { load(); }, [load]);
@@ -78,9 +78,9 @@ function WorkspaceControls({ canEdit, show }) {
       {show === 'features' && <Table title="Workspace AI by feature (this month)" rows={c.features} empty=""
         cols={[['Feature', (r) => r.label], ['Calls', (r) => n0(r.calls), 1], ['Tokens', (r) => n0(r.input_tokens + r.output_tokens), 1], ['Est. cost', (r) => est(r.est_cost), 1],
           ['Switch', (r) => (canEdit ? <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={r.enabled} onChange={(e) => put(`${A}/ai/controls`, { features: { [r.key]: e.target.checked } }, `${r.label} ${e.target.checked ? 'on' : 'off'}`)} aria-label={`${r.label} on or off`} />{r.enabled ? 'On' : 'Off'}</label> : r.enabled ? 'On' : 'Off')]]} />}
-      {show === 'workspaces' && <Card title="Workspace AI by workspace" flush>
+      {show === 'workspaces' && <Card title="Workspace AI by workspace" flush actions={c.workspaces.some((w) => w.status !== 'active') && <label className="row" style={{ gap: 6, fontSize: 13 }}><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show cancelled and suspended ({c.workspaces.filter((w) => w.status !== 'active').length})</label>}>
         <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th>Plan</th><th className="num">Calls today</th><th className="num">Daily limit</th><th className="num">Calls this month</th><th className="num">Est. cost this month</th><th>AI</th></tr></thead><tbody>
-          {c.workspaces.map((w) => <WsRow key={w.id} w={w} canEdit={canEdit} est={est} def={c.default_daily_limit} save={(body) => put(`${A}/ai/workspaces/${w.id}`, body, `${w.name}: saved`)} />)}
+          {c.workspaces.filter((w) => showAll || w.status === 'active').map((w) => <WsRow key={w.id} w={w} canEdit={canEdit} est={est} def={c.default_daily_limit} save={(body) => put(`${A}/ai/workspaces/${w.id}`, body, `${w.name}: saved`)} />)}
         </tbody></table></div>
       </Card>}
     </>

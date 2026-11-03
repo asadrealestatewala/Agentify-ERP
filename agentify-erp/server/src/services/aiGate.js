@@ -73,6 +73,8 @@ export function assertPlatformAllowed({ feature, tenantId = null, credits = 0, n
   if (flag('ai_kill_switch')) throw refuse('ai_off', 'AI is switched off for everyone right now. Please try again later.');
   if (featuresOff().includes(sw)) throw refuse('feature_off', `${label} is switched off at the moment.`);
   if (tenantId) {
+    const st = db().prepare('SELECT status FROM tenants WHERE id=?').get(tenantId);
+    if (st && st.status !== 'active') throw refuse('tenant_inactive', 'This workspace is suspended or cancelled, so AI is not available.');
     const ws = db().prepare('SELECT ai_enabled FROM workspace_ai_settings WHERE tenant_id=?').get(tenantId);
     if (ws && !ws.ai_enabled) throw refuse('tenant_off', 'AI is switched off for this workspace. Contact Agentify support to switch it back on.');
     const limit = platformDailyLimit(tenantId);

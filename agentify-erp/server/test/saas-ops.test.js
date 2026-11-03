@@ -98,5 +98,12 @@ test('retention: closure request, no early deletion, owner-requested deletion re
   assert.equal((await adm('POST', `/workspaces/${t.id}/status`, { status: 'active' })).status, 400, 'cannot be reactivated');
   assert.ok(platformDb().prepare("SELECT 1 FROM platform_audit WHERE action='workspace-data-deleted'").get());
   assert.equal((await adm('PUT', '/retention', { retention_days: 5 })).status, 400);
+  // bulk delete: needs the word DELETE and a reason; skips (reports) workspaces that are not cancelled
+  const live = platformDb().prepare("SELECT id FROM tenants WHERE is_legacy=1 OR status='active' LIMIT 1").get();
+  assert.equal((await adm('POST', '/workspaces/delete-data-bulk', { ids: [live.id], reason: 'Test cleanup', owner_request: true })).status, 400, 'must type DELETE');
+  const bulk = await adm('POST', '/workspaces/delete-data-bulk', { ids: [live.id], confirm: 'DELETE', reason: 'Test cleanup', owner_request: true });
+  assert.equal(bulk.status, 200);
+  assert.equal(bulk.data.deleted.length, 0);
+  assert.equal(bulk.data.failed.length, 1, 'an active or original workspace is refused');
   assert.equal((await adm('PUT', '/retention', { retention_days: 120 })).data.retention_days, 120);
 });

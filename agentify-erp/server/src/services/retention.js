@@ -72,6 +72,22 @@ export function deleteWorkspaceData(id, { confirm_slug, reason, owner_request = 
   return { slug: t.slug, archive: archive ? path.basename(archive) : null };
 }
 
+/**
+ * Delete several cancelled workspaces' data in one go (console bulk action). Each one still has to be cancelled, is never
+ * the original workspace, and is checked on its own; a failure on one does not stop the rest.
+ */
+export function deleteWorkspacesBulk(ids, { reason, owner_request = false, keep_archive = false }, actor) {
+  const list = [...new Set((Array.isArray(ids) ? ids : []).map(Number).filter(Number.isInteger))];
+  if (!list.length) throw bad('Choose at least one workspace');
+  if (list.length > 100) throw bad('Delete at most 100 workspaces at a time');
+  const done = [], failed = [];
+  for (const id of list) {
+    try { const t = getTenant(id); const r = deleteWorkspaceData(id, { confirm_slug: t?.slug, reason, owner_request, keep_archive }, actor); done.push(r.slug); }
+    catch (e) { failed.push({ id, error: e.message }); }
+  }
+  return { deleted: done, failed };
+}
+
 /** Lifecycle hook: raise one console alert per workspace that has reached the end of its retention period. */
 export function flagEligible() {
   const ins = pdb().prepare("INSERT INTO platform_notifications(kind,severity,title,body,link,tenant_id,dedupe) VALUES('retention','info',?,?,?,?,?) ON CONFLICT(dedupe) DO NOTHING");

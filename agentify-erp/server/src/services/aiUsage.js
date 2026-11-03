@@ -169,6 +169,8 @@ export function assertAiAllowed(tenantId, purpose = 'workspace_ai', now = new Da
   if (featuresOff().includes(purpose)) throw bad(`${AI_FEATURES[purpose] || 'This AI feature'} is switched off at the moment.`);
   if (workspaceMonth(now).over) throw bad('AI is paused for now because the monthly AI allowance is used up. It starts again next month or when the allowance is raised.');
   if (!tenantId) return;
+  const st = db().prepare('SELECT status FROM tenants WHERE id=?').get(tenantId);
+  if (st && st.status !== 'active') throw bad('This workspace is suspended or cancelled, so AI is not available.');
   const ws = wsRow(tenantId);
   if (ws && !ws.ai_enabled) throw bad('AI is switched off for this workspace. Contact Agentify support to switch it back on.');
   const limit = ws?.daily_call_limit ?? defaultDailyLimit();
@@ -185,7 +187,7 @@ export function controls(now = new Date()) {
   const usage = new Map(db().prepare(`SELECT tenant_id, COUNT(*) calls, COALESCE(SUM(input_tokens),0) i, COALESCE(SUM(output_tokens),0) o,
     SUM(CASE WHEN at>=? THEN 1 ELSE 0 END) today FROM ai_usage WHERE key_owner='tenant' AND at>=? AND tenant_id IS NOT NULL GROUP BY tenant_id`).all(dayStart(now), since).map((r) => [r.tenant_id, r]));
   const def = defaultDailyLimit();
-  const workspaces = db().prepare("SELECT id, name, slug, plan, status FROM tenants ORDER BY name").all().map((t) => {
+  const workspaces = db().prepare("SELECT id, name, slug, plan, status, data_deleted_at FROM tenants ORDER BY name").all().map((t) => {
     const s = wsRow(t.id); const u = usage.get(t.id);
     return { ...t, ai_enabled: s ? !!s.ai_enabled : true, daily_call_limit: s?.daily_call_limit ?? null, effective_limit: s?.daily_call_limit ?? def,
       calls_today: u?.today || 0, calls_month: u?.calls || 0, tokens_month: u ? u.i + u.o : 0, est_cost_month: u ? cost(u.i, u.o, c) : (c.price_in == null || c.price_out == null ? null : 0) };
