@@ -46,6 +46,7 @@ import content, { contentReminders } from './routes/content.js';
 import promos from './routes/promos.js';
 import creative from './routes/creative.js';
 import { runReelJobs } from './services/creativeJobs.js';
+import { checkFfmpeg } from './services/ffmpeg.js';
 import announcements from './routes/announcements.js';
 import training from './routes/training.js';
 import construction from './routes/construction.js';
@@ -285,6 +286,7 @@ if (isMain) {
   const webhookTick = () => forEachTenantAsync(() => runDueDeliveries()).then(() => markJob('webhook-deliveries')).catch((e) => markJob('webhook-deliveries', e));
   setInterval(webhookTick, 60 * 1000).unref();
   // video reels: Google takes minutes, so running jobs are checked every 20 seconds (only workspaces that started one recently are opened)
+  checkFfmpeg().then((f) => console.log(f.available ? `[reels] ${f.version}` : `[reels] ffmpeg not found: reels stay 8 seconds, voice as a separate file`)).catch(() => {});
   const reelTick = () => runReelJobs().then(() => markJob('creative-reels')).catch((e) => markJob('creative-reels', e));
   setInterval(reelTick, 20 * 1000).unref();
   const meetingTick = () => forEachTenantAsync(() => runMeetingReminders()).then(() => markJob('meeting-reminders')).catch((e) => markJob('meeting-reminders', e));

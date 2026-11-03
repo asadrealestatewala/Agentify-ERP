@@ -15,7 +15,7 @@ import { createReport } from '../services/aiReports.js';
 const r = Router();
 r.use(requireStaff);
 
-r.get('/status', can('content', 'view'), (_req, res) => res.json(cs.status()));
+r.get('/status', can('content', 'view'), (_req, res) => res.json({ ...cs.status(), reels: jobs.options() }));
 r.get('/brand', can('content', 'view'), (_req, res) => res.json(cs.brand()));
 r.put('/brand', can('content', 'edit'), asyncH((req, res) => { const b = cs.saveBrand(req.body || {}, req.user.id); audit(req, 'Creative brand profile saved', 'creative', 1, b.brand_name); res.json(b); }));
 r.post('/story', can('content', 'create'), asyncH(async (req, res) => { const out = await cs.writeStory(req.body || {}, req.user); audit(req, 'Brand story written', 'creative', out.id, out.title); res.status(201).json(out); }));
@@ -41,6 +41,7 @@ r.delete('/items/:id(\\d+)', can('content', 'delete'), asyncH(async (req, res) =
 // ---- video reels (8 seconds, vertical) with an optional voice-over; made in the background
 r.post('/reels/quote', can('content', 'view'), (req, res) => res.json(jobs.quote(req.body || {})));
 r.post('/reels', can('content', 'create'), asyncH(async (req, res) => { const out = await jobs.startReel(req.body || {}, req.user); audit(req, 'Reel started', 'creative', out.id, `${out.credits_used} credits`); res.status(201).json(out); }));
+r.post('/reels/voice-preview', can('content', 'create'), asyncH(async (req, res) => res.json(await jobs.previewVoice(req.body || {}, req.user))));
 r.get('/reels', can('content', 'view'), (_req, res) => res.json(jobs.listJobs()));
 const sendFileRef = async (req, res, ref, mime, name) => {
   if (!ref) return res.status(404).json({ error: 'No file' });

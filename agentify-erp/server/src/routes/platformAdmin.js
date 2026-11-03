@@ -48,6 +48,7 @@ import * as cal from '../services/contentCalendar.js';
 import { addPromoDrafts } from '../services/promoDrafts.js';
 import * as aiu from '../services/aiUsage.js';
 import * as aiRep from '../services/aiReport.js';
+import * as aiLab from '../services/aiVoiceLab.js';
 import * as aiPrice from '../services/aiPricing.js';
 import * as aiFx from '../services/fxRate.js';
 import * as aiGate from '../services/aiGate.js';
@@ -693,6 +694,11 @@ r.put('/ai/azure', requireOperator, need('integrations.manage'), asyncH((req, re
 r.get('/ai/voices', requireOperator, need('finance.view'), (_req, res) => res.json(aiRep.voicesView()));
 r.put('/ai/voices', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiRep.saveVoices(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-voices-changed', {}); res.json(v); }));
 r.post('/ai/azure/test', requireOperator, need('integrations.manage'), asyncH(async (req, res) => res.json(await aiRep.testAzure(req.operator.email))));
+// Voice test lab (Punjabi is tested here first and not offered to workspaces)
+r.get('/ai/lab/voices', requireOperator, need('finance.view'), asyncH(async (_req, res) => res.json({ ...(await aiLab.voices('punjabi')), clip: aiLab.clipCost() })));
+r.post('/ai/lab/voice', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const out = await aiLab.speakLine(req.body || {}); audit(req.operator.email, 'ai-lab-voice', {}); res.json(out); }));
+r.post('/ai/lab/clip', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const out = await aiLab.startClip(req.body || {}); audit(req.operator.email, 'ai-lab-clip', {}); res.json(out); }));
+r.get('/ai/lab/clip', requireOperator, need('finance.view'), asyncH(async (req, res) => res.json(await aiLab.clipStatus(String(req.query.operation || '')))));
 r.post('/ai/voices/preview', requireOperator, need('integrations.manage'), asyncH(async (req, res) => res.json(await aiRep.previewVoice(req.body?.lang, req.body?.voice))));
 r.delete('/ai/azure/key', requireOperator, need('integrations.manage'), (req, res) => { aiRep.removeAzureKey(); audit(req.operator.email, 'ai-azure-key-removed', {}); res.json(aiRep.azureStatus()); });
 r.get('/ai/reports', requireOperator, need('finance.view'), (req, res) => res.json(aiReports.listReports({ handled: req.query.handled === '1' })));

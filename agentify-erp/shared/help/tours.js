@@ -18,10 +18,12 @@ export const TOURS = {
     ],
   },
   creative: {
-    title: 'Creative Studio tour', guide: 'creative-studio', version: 1, autostart: true, path: '/creative',
+    title: 'Creative Studio tour', guide: 'creative-studio', version: 2, autostart: true, path: '/creative',
     steps: [
       { target: 'creative-credits', title: 'Your credits', text: 'Stories, images and reels spend credits. This line shows what is left this month and what each one costs.' },
       { target: 'creative-tabs', title: 'Five tabs', text: 'Start with Brand profile, then write a Brand story, create Post images or Video reels. Saved work is under My creations.' },
+      { target: 'reel-length', title: 'Reel length', text: 'On the Video reels tab choose 8, 16 or 24 seconds. Longer reels cost more credits.' },
+      { target: 'reel-voice-path', title: 'Two ways to add a voice', text: 'Exact script puts your own words, read by a voice you can listen to first, inside the finished video. The quick way lets the video itself speak, but the voice and words can vary.' },
       { target: 'take-tour', title: 'See this again', text: 'Press this button to replay the tour for the page you are on.' },
     ],
   },

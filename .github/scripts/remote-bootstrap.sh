@@ -18,6 +18,12 @@ if ! have curl || ! have rsync || ! have git || ! have tar; then
   apt-get install -y -qq curl rsync git ca-certificates xz-utils
 fi
 
+# ffmpeg builds the finished Creative Studio reels (joins clips, puts the voice inside the video). Optional: without it reels stay 8 seconds.
+if ! have ffmpeg || ! have ffprobe; then
+  echo "installing ffmpeg"
+  apt-get update -y -qq && apt-get install -y -qq ffmpeg || echo "ffmpeg install failed; reels will stay 8 seconds with the voice as a separate file"
+fi
+
 if [ ! -x "$NODE_DIR/bin/node" ]; then
   echo "installing Node $NODE_VERSION to $NODE_DIR"
   curl -fsSL "https://nodejs.org/dist/$NODE_VERSION/node-$NODE_VERSION-linux-x64.tar.xz" -o /tmp/node22.tar.xz

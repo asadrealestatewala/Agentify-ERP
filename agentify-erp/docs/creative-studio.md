@@ -8,7 +8,7 @@
 * Not in this stage: video reels, Azure voice-overs, logo placed inside images, sending an image straight to the Content Calendar.
 
 ## Stage 4b: video reels and voice-overs (v1.66)
-* Reel = one Gemini Veo clip, 8 seconds, 9:16 (`REEL_SECONDS` in `aiGateway.js`; model setting `creative_video_model`, default `veo-3.0-fast-generate-001`). 15 and 30 second reels need clips stitched with ffmpeg, which the server does not have; not built.
+* Reel = one Gemini Veo clip, 8 seconds, 9:16 (`REEL_SECONDS` in `aiGateway.js`; model setting `creative_video_model`, default `veo-3.0-fast-generate-001`). 16 and 24 second reels join 2 or 3 clips with ffmpeg (see Finished reels below).
 * Voice-over: Azure Speech (`azureSpeak`), max 600 characters, voices from settings `azure_voice_en` / `azure_voice_ur` (defaults en-US-JennyNeural, ur-PK-UzmaNeural). The audio is stored next to the video and plays separately (no mixing).
 * Credits: 8 per video second, 1 per 100 voice characters (`REEL_CREDITS`). The request must carry `accept_cost` equal to the quoted total (`POST /api/creative/reels/quote`). The voice is made first, then the video job starts; a failed start refunds the voice. Refunds are negative-credit ledger rows (`purpose='refund'`), not counted as uses.
 * Jobs: workspace table `creative_jobs`; `runReelJobs()` (every 20 s from `index.js`) opens only workspaces that started a video in the last 40 minutes, polls Google, downloads, stores in the workspace's folder, notifies the requester. Timeout 25 minutes. At most 2 running per workspace.
@@ -19,3 +19,11 @@
 ## Guided tour
 
 Creative Studio has its own short tour (`creative` in `shared/help/tours.js`). It starts the first time a person opens the page and can be replayed with the Take the tour button. See CLAUDE.md > Guided tours and help.
+
+## Finished reels (v1.69)
+
+* `services/ffmpeg.js` checks `ffmpeg`/`ffprobe` at startup. Without them reels are one 8-second clip with the voice as a separate file; with them: 8, 16 or 24 seconds (1 to 3 clips), one MP4. The deploy installs ffmpeg through `.github/scripts/remote-bootstrap.sh`; by hand: `apt-get update && apt-get install -y ffmpeg`.
+* Voice path per reel: `script` (default; Azure reads the exact script, ffmpeg lays it over the video and drops Veo's own sound) or `speech` (the quoted line is in the Veo prompt, Veo's sound is kept; for several clips the lines are shared out sentence by sentence).
+* Cost: 8 credits per video second, so 64 / 128 / 192; plus 1 credit per 100 voice characters on the script path only. Script limit 600 characters per 8 seconds. Hearing the voice first charges the voice credits once and the reel start reuses it for 30 minutes.
+* Any failure before the file exists refunds everything. If only the voice merge fails on a single clip, the clip and the voice are delivered separately and nothing is refunded.
+* Punjabi is not offered to workspaces. Console > AI > Voice test lab tries one line through both paths (Azure voice; one real 8-second Veo clip after a cost confirmation).

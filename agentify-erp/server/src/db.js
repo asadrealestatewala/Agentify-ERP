@@ -85,6 +85,7 @@ function migrate() {
     file_key TEXT PRIMARY KEY, tenant_id INTEGER NOT NULL, module TEXT NOT NULL, size_bytes INTEGER NOT NULL DEFAULT 0, mime_type TEXT,
     original_name TEXT, storage_provider TEXT NOT NULL DEFAULT 'contabo_s3' CHECK(storage_provider IN ('contabo_s3','local')), created_at TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS idx_stored_files_module ON stored_files(module)`);
+  addCol('creative_jobs', 'voice_path', "TEXT NOT NULL DEFAULT 'script'"); addCol('creative_jobs', 'clips', 'TEXT'); addCol('creative_jobs', 'scenes', 'TEXT'); addCol('creative_jobs', 'note', 'TEXT'); // reels with the voice inside (v1.69)
   addCol('training_library', 'youtube_url', 'TEXT'); // set when the video lives on YouTube; workspaces then show a link, not a file
   const hasSales = cols('sales').length > 0;
   if (hasSales) {

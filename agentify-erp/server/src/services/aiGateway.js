@@ -133,15 +133,16 @@ export const voiceFor = (lang) => { const v = getSetting(lang === 'Urdu' ? 'azur
 export const SAMPLE_TEXT = { English: 'Welcome to Agentify ERP. This is how your video voice will sound.', Urdu: 'ایجنٹیفائی ای آر پی میں خوش آمدید۔ آپ کی ویڈیو کی آواز کچھ ایسی ہوگی۔' };
 const azure = () => ({ key: getSetting('azure_speech_key'), region: getSetting('azure_speech_region') });
 const esc = (t) => String(t).replace(/[<>&"']/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[ch]));
-export const MAX_VOICE_CHARS = 600;
+export const MAX_VOICE_CHARS = 600; // for one 8-second clip; longer reels allow 600 per clip
+export const voiceLimit = (seconds) => MAX_VOICE_CHARS * Math.max(1, Math.round(seconds / 8));
 
 /** Speech as an mp3 Buffer. text up to 600 characters. Metered per character as video_voice_en / video_voice_ur. */
-export async function azureSpeak({ lang, text, voice, tenantId = null, userId = null, credits = 0 }) {
+export async function azureSpeak({ lang, text, voice, tenantId = null, userId = null, credits = 0, maxChars = MAX_VOICE_CHARS }) {
   const { key, region } = azure();
   if (!key || !region) throw bad('Voice-overs are not available yet. Please try again later.');
   const t = String(text || '').trim();
   if (!t) throw bad('There is no text to speak.');
-  if (t.length > MAX_VOICE_CHARS) throw bad(`The voice-over can be at most ${MAX_VOICE_CHARS} characters.`);
+  if (t.length > maxChars) throw bad(`The voice-over can be at most ${maxChars} characters.`);
   const feature = lang === 'Urdu' ? 'video_voice_ur' : 'video_voice_en';
   assertPlatformAllowed({ feature, tenantId, credits });
   refreshIfStale();
@@ -175,4 +176,19 @@ export async function azureTest(keyOverride, regionOverride) {
   } catch (e) { throw bad(`Azure connection failed: ${e.message}`); }
   const pick = (loc) => (Array.isArray(voices) ? voices : []).filter((x) => String(x.Locale || '').startsWith(loc) && /Neural/.test(x.ShortName || '')).map((x) => ({ name: x.ShortName, label: `${x.LocalName || x.ShortName} (${x.Locale}, ${x.Gender})` }));
   return { English: pick('en-'), Urdu: pick('ur-') };
+}
+
+/** Console voice lab: the neural voices Azure offers for a locale prefix such as "pa-" (Punjabi). Empty list when there are none. */
+export async function azureVoicesFor(prefix) {
+  const { key, region } = azure();
+  if (!key || !region) throw bad('Add the Azure key and region first.');
+  if (!/^[a-z]{2,3}-$/.test(prefix)) throw bad('Unknown language prefix');
+  let voices;
+  try {
+    const res = await fetch(`https://${region}.tts.speech.microsoft.com/cognitiveservices/voices/list`, { headers: { 'Ocp-Apim-Subscription-Key': key }, signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) throw new Error(`Azure answered ${res.status}`);
+    voices = await res.json();
+  } catch (e) { throw bad(`Azure connection failed: ${e.message}`); }
+  return (Array.isArray(voices) ? voices : []).filter((x) => String(x.Locale || '').startsWith(prefix) && /Neural/.test(x.ShortName || ''))
+    .map((x) => ({ name: x.ShortName, label: `${x.LocalName || x.ShortName} (${x.Locale}, ${x.Gender})` }));
 }

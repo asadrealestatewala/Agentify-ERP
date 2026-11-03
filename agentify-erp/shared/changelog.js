@@ -6,6 +6,15 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.69', date: '2026-11-03', title: 'Creative Studio: finished reels with the voice inside',
+    items: [
+      { text: 'Reels now come as one finished video with the voice inside, instead of a video and a separate audio file.', where: 'Creative Studio > Video reels', guide: 'creative-studio' },
+      { text: 'Choose a reel length of 8, 16 or 24 seconds. The credit cost is shown before you confirm and grows with the length.', where: 'Creative Studio > Video reels', guide: 'creative-studio' },
+      { text: 'Pick how the voice works: your exact script in English or Urdu, which you can listen to first, or a quick option where the video speaks the line itself.', where: 'Creative Studio > Video reels', guide: 'creative-studio' },
+      { text: 'Console: Reel video tools show whether video joining is ready, and a Voice test lab lets the team try Punjabi privately.', where: 'Console > AI', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.68', date: '2026-11-02', title: 'A guided tour of the app',
     items: [
       { text: 'The first time you sign in, a short tour points out the search box, the menu, Ask, notifications and appearance. Press Skip any time; it will not start again on your other devices.', where: 'First sign-in', guide: 'product-tour' },

@@ -5,6 +5,7 @@ import { Card, ErrorBox, Field, Loading, TextInput } from '../../components/ui.j
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, useCan } from './AdminShell.jsx';
+import AiVoiceLab, { FfmpegStatus } from './AiVoiceLab.jsx';
 
 const n0 = (v) => Number(v || 0).toLocaleString();
 const usd = (v) => (v == null ? '—' : `$${v < 1 ? v.toFixed(4) : v.toFixed(2)}`);
@@ -181,6 +182,8 @@ export default function AiAgentifyKey() {
       <Rate o={o} can={can} reload={load} />
       <Reports can={can} />
       <Voices o={o} can={can} voices={voices} selected={selected} setSelected={setSelected} reload={load} />
+      <FfmpegStatus ffmpeg={o.ffmpeg} />
+      <AiVoiceLab can={can} />
       <Technical o={o} can={can} reload={load} voices={voices} onTested={setVoices} />
     </>
   );

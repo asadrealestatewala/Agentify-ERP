@@ -7,6 +7,7 @@ import { imageModel, videoModel, voiceFor, azureTest, azureSpeak, DEFAULT_VOICES
 import { config, monthStartOf, ensureTable, featuresOff } from './aiUsage.js';
 import { FEATURES, priceList, textPrices } from './aiPricing.js';
 import { getRate, displayCurrency } from './fxRate.js';
+import { ffmpegStatus } from './ffmpeg.js';
 import { budgetUsd, videoBudgetUsd, platformDailyLimit, usesToday, creditsAllowance, creditsUsed, defaultMonthlyCredits, switchKey } from './aiGate.js';
 
 const db = () => ensureTable();
@@ -46,7 +47,7 @@ export function overview(now = new Date()) {
   });
   const tp = textPrices();
   return {
-    rate, display_currency: displayCurrency(),
+    rate, display_currency: displayCurrency(), ffmpeg: ffmpegStatus(),
     month: { spent_usd: spent, spent_pkr: pkr(spent), budget_usd: budgetUsd(), video_budget_usd: videoBudgetUsd(), video_spent_usd: byF.get('creative_video')?.usd || 0 },
     features, prices: priceList(now), text_price_source: tp.source, workspaces,
     limits: { platform_daily_limit: numSetting('ai_platform_daily_limit'), platform_daily_limit_effective: platformDailyLimit(null), default_monthly_credits: defaultMonthlyCredits() },
