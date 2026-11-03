@@ -2,7 +2,7 @@
 // Money figures are estimates from prices the owner enters; nothing is priced by default.
 import { useCallback, useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { Card, ErrorBox, Field, Loading, TextInput } from '../../components/ui.jsx';
+import { Card, ErrorBox, Field, Loading, Tabs, TextInput } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, PageTitle, useCan } from './AdminShell.jsx';
@@ -41,7 +41,7 @@ function Table({ title, rows, cols, empty }) {
   return (
     <Card title={title}>
       {!rows.length ? <p className="muted" style={{ margin: 0 }}>{empty}</p> : (
-        <div className="table-wrap"><table className="table"><thead><tr>{cols.map((c) => <th key={c[0]} className={c[2] ? 'num' : ''}>{c[0]}</th>)}</tr></thead>
+        <div className="table-wrap"><table className="t"><thead><tr>{cols.map((c) => <th key={c[0]} className={c[2] ? 'num' : ''}>{c[0]}</th>)}</tr></thead>
           <tbody>{rows.map((r, i) => <tr key={i}>{cols.map((c) => <td key={c[0]} className={c[2] ? 'num' : ''}>{c[1](r)}</td>)}</tr>)}</tbody></table></div>)}
     </Card>
   );
@@ -49,7 +49,7 @@ function Table({ title, rows, cols, empty }) {
 
 
 /** Limits for AI that workspaces run with their own keys: kill switch, monthly cap, feature switches and a limit per workspace. */
-function WorkspaceControls({ canEdit }) {
+function WorkspaceControls({ canEdit, show }) {
   const toast = useToast();
   const [c, setC] = useState(null); const [err, setErr] = useState('');
   const [g, setG] = useState({ default_daily_limit: '', monthly_cap: '' });
@@ -62,10 +62,10 @@ function WorkspaceControls({ canEdit }) {
   const est = (v) => (v == null ? '—' : `${cur} ${v < 1 ? v.toFixed(4) : v.toFixed(2)}`);
   return (
     <>
-      <Card title="Master switch, feature switches and workspace-key limits" actions={c.kill_switch ? <span className="pill red">AI is switched off for all workspaces</span> : <span className="pill green">AI is on</span>}>
+      {show === 'controls' && <Card title="Master switch, feature switches and workspace-key limits" actions={c.kill_switch ? <span className="pill red">AI is switched off for all workspaces</span> : <span className="pill green">AI is on</span>}>
         <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>These apply to AI that workspaces run with their own provider keys (data assistant, property writer, website builder, promo video scripts). Limits are checked before a feature starts. Agentify's own Gemini drafts have their own budget above. Speech-to-text transcripts are not counted or limited yet.</p>
         {canEdit && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12, alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12, alignItems: 'start' }}>
             <Field label="Default daily calls per workspace" hint="Empty means no limit. A workspace's own limit below wins."><input className="input" type="number" min={0} value={g.default_daily_limit} onChange={(e) => setG({ ...g, default_daily_limit: e.target.value })} /></Field>
             <Field label={`Monthly cap on workspace AI (${cur})`} hint={c.prices_set ? 'Estimated from the prices above; AI pauses for everyone when reached' : 'Enter the provider prices first'}><input className="input" type="number" min={0} step="any" value={g.monthly_cap} disabled={!c.prices_set} onChange={(e) => setG({ ...g, monthly_cap: e.target.value })} /></Field>
             <div className="row" style={{ gap: 8 }}>
@@ -74,15 +74,15 @@ function WorkspaceControls({ canEdit }) {
             </div>
           </div>)}
         <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>This month: {n0(c.month.calls)} calls · {n0(c.month.input_tokens + c.month.output_tokens)} tokens · estimated {est(c.month.spent)}{c.month.cap != null ? ` of a ${cur} ${c.month.cap} cap${c.month.over ? ' (reached, AI is paused)' : ''}` : ''}</p>
-      </Card>
-      <Table title="Workspace AI by feature (this month)" rows={c.features} empty=""
+      </Card>}
+      {show === 'features' && <Table title="Workspace AI by feature (this month)" rows={c.features} empty=""
         cols={[['Feature', (r) => r.label], ['Calls', (r) => n0(r.calls), 1], ['Tokens', (r) => n0(r.input_tokens + r.output_tokens), 1], ['Est. cost', (r) => est(r.est_cost), 1],
-          ['Switch', (r) => (canEdit ? <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={r.enabled} onChange={(e) => put(`${A}/ai/controls`, { features: { [r.key]: e.target.checked } }, `${r.label} ${e.target.checked ? 'on' : 'off'}`)} aria-label={`${r.label} on or off`} />{r.enabled ? 'On' : 'Off'}</label> : r.enabled ? 'On' : 'Off')]]} />
-      <Card title="Workspace AI by workspace" flush>
-        <div className="table-wrap"><table className="table"><thead><tr><th>Workspace</th><th>Plan</th><th className="num">Calls today</th><th className="num">Daily limit</th><th className="num">Calls this month</th><th className="num">Est. cost this month</th><th>AI</th></tr></thead><tbody>
+          ['Switch', (r) => (canEdit ? <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={r.enabled} onChange={(e) => put(`${A}/ai/controls`, { features: { [r.key]: e.target.checked } }, `${r.label} ${e.target.checked ? 'on' : 'off'}`)} aria-label={`${r.label} on or off`} />{r.enabled ? 'On' : 'Off'}</label> : r.enabled ? 'On' : 'Off')]]} />}
+      {show === 'workspaces' && <Card title="Workspace AI by workspace" flush>
+        <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th>Plan</th><th className="num">Calls today</th><th className="num">Daily limit</th><th className="num">Calls this month</th><th className="num">Est. cost this month</th><th>AI</th></tr></thead><tbody>
           {c.workspaces.map((w) => <WsRow key={w.id} w={w} canEdit={canEdit} est={est} def={c.default_daily_limit} save={(body) => put(`${A}/ai/workspaces/${w.id}`, body, `${w.name}: saved`)} />)}
         </tbody></table></div>
-      </Card>
+      </Card>}
     </>
   );
 }
@@ -98,8 +98,12 @@ function WsRow({ w, canEdit, est, save, def }) {
   );
 }
 
+const TABS = [{ key: 'overview', label: 'Overview' }, { key: 'prices', label: 'Prices & rate' }, { key: 'workspaces', label: 'Workspaces' }, { key: 'limits', label: 'Budget & limits' }, { key: 'usage', label: 'Usage reports' }, { key: 'keys', label: 'Voices & keys' }];
+
 export default function AiUsagePage() {
   const can = useCan();
+  const [tab, setTab] = useState(() => { try { return sessionStorage.getItem('ai-tab') || 'overview'; } catch { return 'overview'; } });
+  const go = (k) => { setTab(k); try { sessionStorage.setItem('ai-tab', k); } catch { /* ignore */ } };
   const [d, setD] = useState(null); const [err, setErr] = useState('');
   const load = useCallback(() => api.get(`${A}/ai/usage`).then((x) => { setD(x); setErr(''); }).catch((e) => setErr(e.message)), []);
   useEffect(() => { load(); }, [load]);
@@ -114,7 +118,9 @@ export default function AiUsagePage() {
   return (
     <>
       <PageTitle title="AI" sub="Cost, limits and keys for AI: what Agentify's own keys are used for, credits used and left this month, and which workspaces and plans use AI." />
-      <AiAgentifyKey />
+      <Tabs value={tab} onChange={go} tabs={TABS} />
+      <div className="ai-tab">
+      {tab === 'overview' && <>
       <div className="cc-stats">
         <Card><div className="cc-k">Credits used this month</div><div className="cc-v">{est(m.spent)}</div><div className="cell-sub">{n0(m.input_tokens + m.output_tokens)} tokens · {n0(m.calls)} calls</div></Card>
         <Card><div className="cc-k">Credits left this month</div><div className="cc-v">{est(m.left)}</div><div className="cell-sub">{m.budget != null ? `of a ${cur} ${m.budget} budget${pct != null ? ` (${pct}% used)` : ''}` : 'Set a monthly budget below'}</div></Card>
@@ -124,14 +130,23 @@ export default function AiUsagePage() {
       <p className="muted" style={{ fontSize: 13 }}>{d.notes.estimate} {d.notes.tenant_keys}</p>
       {days.length > 0 && <Card title="Tokens per day (last 30 days)"><div style={{ height: 220 }}><ResponsiveContainer><BarChart data={days}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="day" tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} /><Tooltip /><Legend />
         <Bar dataKey="platform" name="Agentify key" stackId="a" fill="#0e7c6b" /><Bar dataKey="tenant" name="Workspace keys" stackId="a" fill="#94a3b8" /></BarChart></ResponsiveContainer></div></Card>}
+      </>}
+      <AiAgentifyKey tab={tab} />
+      {tab === 'workspaces' && <WorkspaceControls canEdit={can('integrations.manage')} show="workspaces" />}
+      {tab === 'usage' && <>
       <Table title="By workspace (last 30 days)" rows={d.by_tenant} empty="No AI calls recorded yet."
         cols={[['Workspace', (r) => r.name ? <>{r.name} <span className="muted">{r.slug}</span></> : 'Agentify itself'], ['Plan', (r) => r.current_plan || '—'], ['Key', (r) => OWNER[r.key_owner]], ['Calls', (r) => n0(r.calls), 1], ['Tokens', tok, 1], ['Est. cost', (r) => est(r.est_cost), 1]]} />
       <Table title="By subscription plan (last 30 days)" rows={d.by_plan} empty="No AI calls recorded yet."
         cols={[['Plan', (r) => r.plan], ['Key', (r) => OWNER[r.key_owner]], ['Workspaces', (r) => n0(r.tenants), 1], ['Calls', (r) => n0(r.calls), 1], ['Tokens', tok, 1], ['Est. cost', (r) => est(r.est_cost), 1]]} />
       <Table title="By use (last 30 days)" rows={d.by_purpose} empty="No AI calls recorded yet."
         cols={[['Use', (r) => PURPOSES[r.purpose] || r.purpose], ['Key', (r) => OWNER[r.key_owner]], ['Calls', (r) => n0(r.calls), 1], ['Tokens', tok, 1], ['Est. cost', (r) => est(r.est_cost), 1]]} />
-      <WorkspaceControls canEdit={can('integrations.manage')} />
+      <WorkspaceControls canEdit={can('integrations.manage')} show="features" />
+      </>}
+      {tab === 'limits' && <>
+      <WorkspaceControls canEdit={can('integrations.manage')} show="controls" />
       {can('integrations.manage') ? <Settings s={s} reload={load} /> : <Card title="AI settings"><p className="muted" style={{ margin: 0 }}>Your role cannot change the AI connection or budget.</p></Card>}
+      </>}
+      </div>
     </>
   );
 }

@@ -48,7 +48,7 @@ export default function LibraryPage() {
       <ErrorBox error={err} />
       <p className="muted" style={{ fontSize: 13 }}>Items appear read-only in each workspace under Documents &gt; Shared library. Wording here is a starting point: have contracts and clauses reviewed by a licensed professional for each country before use.</p>
       {!d.items.length ? <Empty title="The library is empty" hint="Add the first item to give every workspace something to start from." /> : (
-        <Card flush><div className="table-wrap"><table className="table"><thead><tr><th>Item</th><th>Kind</th><th className="num">Version</th><th className="num">Own versions</th><th>Updated</th><th>Status</th><th /></tr></thead><tbody>
+        <Card flush><div className="table-wrap"><table className="t"><thead><tr><th>Item</th><th>Kind</th><th className="num">Version</th><th className="num">Own versions</th><th>Updated</th><th>Status</th><th /></tr></thead><tbody>
           {d.items.map((i) => (
             <tr key={i.id}><td><b>{i.title}</b></td><td>{d.types[i.type]}</td><td className="num">v{i.version}</td><td className="num">{i.overrides}</td><td>{when(i.updated_at)}</td>
               <td>{i.status === 'active' ? <span className="pill green">Active</span> : <span className="pill grey">Retired</span>}</td>
@@ -56,7 +56,7 @@ export default function LibraryPage() {
         </tbody></table></div></Card>)}
       <Card title="Workspaces using their own version">
         {!d.drift.length ? <p className="muted" style={{ margin: 0 }}>No workspace has replaced a shared item.</p> : (
-          <div className="table-wrap"><table className="table"><thead><tr><th>Item</th><th>Workspace</th><th>Their copy is based on</th><th>Shared text now</th><th /></tr></thead><tbody>
+          <div className="table-wrap"><table className="t"><thead><tr><th>Item</th><th>Workspace</th><th>Their copy is based on</th><th>Shared text now</th><th /></tr></thead><tbody>
             {d.drift.map((r) => (
               <tr key={`${r.item_id}-${r.tenant_id}`}><td>{r.title}{r.status === 'retired' && <span className="pill grey" style={{ marginLeft: 6 }}>retired</span>}</td><td>{r.workspace} <span className="muted">{r.slug}</span></td><td>v{r.base_version}</td><td>v{r.version}</td>
                 <td>{r.behind ? <span className="pill amber">Shared text has moved on</span> : <span className="pill green">Up to date</span>}</td></tr>))}

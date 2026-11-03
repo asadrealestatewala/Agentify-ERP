@@ -576,3 +576,24 @@ html[dir="rtl"] .input-group .addon { border-radius: 0 var(--radius, 8px) var(--
 .driver-popover.erp-tour .driver-popover-arrow-side-top.driver-popover-arrow { border-top-color: var(--surface, #fff); }
 .driver-popover.erp-tour .driver-popover-arrow-side-bottom.driver-popover-arrow { border-bottom-color: var(--surface, #fff); }
 @media print { .driver-popover, .driver-overlay { display: none !important; } }
+
+/* ---------- Platform console: AI page (stat tiles, grouped tabs, action cells) ---------- */
+.cc-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.cc-stats .card { margin: 0; }
+.cc-k { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.cc-v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin: 4px 0 2px; }
+.cell-sub { color: var(--muted); font-size: 12px; }
+.ai-tab { padding-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+.ai-tab > .card, .ai-tab > p { margin: 0; }
+.ai-tab .t td { white-space: nowrap; }
+.ai-tab .t td:first-child { white-space: normal; min-width: 160px; }
+.cell-act { display: inline-flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px 8px; }
+.card-b > .field + .field { margin-top: 0; }
+@media (max-width: 720px) {
+  .cc-stats { grid-template-columns: 1fr 1fr; }
+  .cc-v { font-size: 19px; }
+  .ai-tab .t td, .ai-tab .t td:first-child { white-space: normal; min-width: 0; }
+  .cell-act { justify-content: flex-end; }
+}
+.card-b > div[style*="grid"] + .row, .card-b > div[style*="grid"] > .row { margin-top: 14px; }
+.card-b > div[style*="grid"] { align-items: start; }
