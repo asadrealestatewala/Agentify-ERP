@@ -179,7 +179,7 @@ test('Punjabi voice lab: console only, costs confirmed, tenants never see Punjab
   assert.equal((await as(owner, 'POST', '/ai/lab/voice', { text: 'Sat sri akal', voice: 'en-US-JennyNeural' })).status, 400, 'must be a Punjabi voice');
   if (!getTenantBySlug('mrg')) assert.equal((await signup('mrg', 'owner@mrg.test')).status, 201); // the reels test that creates it is skipped where ffmpeg is missing (CI)
   const a = await login('mrg', 'owner@mrg.test');
-  assert.deepEqual((await a('GET', '/api/creative/status')).data.languages, ['English', 'Urdu']);
+  assert.deepEqual((await a('GET', '/api/creative/status')).data.languages, ['English', 'Roman Urdu', 'Urdu']);
 });
 
 test('Brand setup wizard fields save, are cleaned, and survive an older client save', async () => {
