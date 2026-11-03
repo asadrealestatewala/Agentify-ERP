@@ -94,7 +94,7 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
   const [open, setOpen] = useState(() => { try { return JSON.parse(localStorage.getItem('nav-open')) || {}; } catch { return {}; } });
   const { meta } = useMeta();
   const ent = useFetch('/api/billing/status').data;
-  const creativeSt = useFetch('/api/creative/status').data; // shown only when AI is on for this workspace and credits are left
+  const creativeSt = useFetch('/api/creative/status').data; // the menu item always shows when this loads; the page itself says why Creative Studio is unavailable
   const fieldMe = useFetch('/api/field/me').data; // missing (error) when the plan has no field module: both links stay hidden
   const fieldOk = (spec) => (spec === 'field:me' ? !!fieldMe && (fieldMe.settings.enabled || fieldMe.status.location) : spec === 'field:team' ? !!fieldMe?.can_view_team : true);
   const products = ent?.products || null; // null while loading: show everything rather than flicker
@@ -113,7 +113,7 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
     if (siteOnly && !['Website', 'Settings'].includes(g.label)) return null;
     if (!g.always && !ok(null, g.module)) return null;
     if (!hasProduct(g.product)) return null;
-    if (g.creative && !creativeSt?.available) return null;
+    if (g.creative && !creativeSt) return null; // status unreachable (no Content access): hide; otherwise always show, the page explains why it is unavailable
     if (g.flag && !getRegion().config.flags?.[g.flag]) return null;
     if (!g.children) return g;
     const kids = (g.always ? g.children.filter((c) => fieldOk(c[2])) : g.children.filter((c) => ok(c[2], g.module))).filter((c) => hasProduct(PRODUCT_PATHS[c[1]])).filter((c) => !siteOnly || SITE_ONLY_PATHS.has(c[1]));
