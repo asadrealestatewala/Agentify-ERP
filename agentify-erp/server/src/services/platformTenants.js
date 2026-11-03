@@ -8,7 +8,7 @@ import { platformDb, listTenants, getTenant, withTenant, logTenantEvent, BASE_DO
 import { all, get, run, val } from '../db.js';
 import { billingState, usage, PLANS, PLAN_SETTINGS, MODULES, PRODUCTS, tenantProducts } from './plans.js';
 import { refundsFor, tenantAddons, listAddons } from './commerce.js';
-import { retentionState } from './retention.js';
+import { retentionState, removeBlocker } from './retention.js';
 import { cleanModules } from './plansStore.js';
 import { recordSubscriptionChange, subscriptionHistory } from './subscriptions.js';
 import { approveSubmission, LOCAL_METHODS } from './billing.js';
@@ -112,7 +112,7 @@ export function tenantSummaries(req) {
   return listTenants().map((t) => {
     let stats = null, progress = null, error = null;
     try { inTenant(t, () => { stats = statsNow(t.timezone); progress = progressNow(); }); } catch (e) { error = e.message; }
-    return { ...tenantRow(t, req), stats, progress, error };
+    return { ...tenantRow(t, req), stats, progress, error, ...(t.data_deleted_at ? { remove_blocker: removeBlocker(t) } : {}) };
   });
 }
 

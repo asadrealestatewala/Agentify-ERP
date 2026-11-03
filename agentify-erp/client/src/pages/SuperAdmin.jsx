@@ -65,6 +65,7 @@ export function Workspaces({ onOpen }) {
   const [create, setCreate] = useState(null);
   const [sel, setSel] = useState(() => new Set());
   const [del, setDel] = useState(null);
+  const [rem, setRem] = useState(null);
   const [sort, setSort] = useState({ key: 'created', dir: -1 });
   const [page, setPage] = useState(0);
   const PER = 25;
@@ -84,8 +85,16 @@ export function Workspaces({ onOpen }) {
   const isTest = (t) => deletable(t) && !t.stats?.last_activity && (t.stats?.seats ?? 0) <= 1 && !t.stats?.properties && !t.stats?.sales;
   const hiddenDeleted = (rows || []).filter((t) => t.data_deleted_at).length;
   const tests = (rows || []).filter(isTest);
-  const pickable = pageRows.filter(deletable);
+  const removable = (t) => !!t.data_deleted_at && !t.remove_blocker;
+  const pickable = pageRows.filter((t) => deletable(t) || removable(t));
   const toggle = (id) => setSel((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const doRemove = async () => {
+    try {
+      const out = await api.post(`${A}/workspaces/remove-records`, { ids: rem.ids, reason: rem.reason, confirm: rem.confirm });
+      toast(`${out.removed.length} record${out.removed.length === 1 ? '' : 's'} removed${out.failed.length ? `, ${out.failed.length} kept: ${out.failed[0].error}` : ''}`, out.failed.length ? 'err' : undefined);
+      setRem(null); setSel(new Set()); load();
+    } catch (e) { toast(e.message, 'err'); }
+  };
   const doDelete = async () => {
     try {
       const out = await api.post(`${A}/workspaces/delete-data-bulk`, { ids: del.ids, reason: del.reason, owner_request: del.owner_request, keep_archive: del.keep_archive, confirm: del.confirm });
@@ -112,19 +121,20 @@ export function Workspaces({ onOpen }) {
       <button className="btn sm" onClick={exportCsv} disabled={!shown.length}>Export CSV</button>
       {tests.length > 0 && <button className="btn sm danger" onClick={() => setDel({ ids: tests.map((t) => t.id), names: tests.map((t) => t.name), reason: 'Test workspace cleanup', owner_request: true, keep_archive: false, confirm: '' })}>Delete {tests.length} unused test workspace{tests.length === 1 ? '' : 's'}…</button>}
       {sel.size > 0 && <button className="btn sm danger" onClick={() => setDel({ ids: [...sel], names: (rows || []).filter((t) => sel.has(t.id)).map((t) => t.name), reason: '', owner_request: false, keep_archive: false, confirm: '' })}>Delete {sel.size} selected…</button>}
+      {f === 'deleted' && sel.size > 0 && <button className="btn sm danger" onClick={() => setRem({ ids: [...sel], names: (rows || []).filter((t) => sel.has(t.id)).map((t) => t.name), reason: '', confirm: '' })}>Remove {sel.size} record{sel.size === 1 ? '' : 's'}…</button>}
       <button className="btn primary sm" onClick={() => setCreate(blank)}>New workspace</button>
     </>}>
       {!shown.length ? <Empty title="No workspaces match" hint={hiddenDeleted ? `${hiddenDeleted} with deleted data are hidden. Pick "Data deleted" in the filter to see them.` : undefined} /> : (
-        <div className="table-wrap"><table className="t pa-ws"><thead><tr><th style={{ width: 28 }}>{pickable.length > 0 && <input type="checkbox" aria-label="Select all cancelled on this page" checked={pickable.every((t) => sel.has(t.id))} onChange={(e) => setSel((x) => { const n = new Set(x); pickable.forEach((t) => (e.target.checked ? n.add(t.id) : n.delete(t.id))); return n; })} />}</th>{th('name', 'Workspace')}{th('progress', 'Setup progress')}{th('users', 'Usage')}{th('active', 'Last active')}{th('expiry', 'Plan / expiry')}<th>Status</th></tr></thead><tbody>
+        <div className="table-wrap"><table className="t pa-ws"><thead><tr><th style={{ width: 28 }}>{pickable.length > 0 && <input type="checkbox" aria-label="Select all removable on this page" checked={pickable.every((t) => sel.has(t.id))} onChange={(e) => setSel((x) => { const n = new Set(x); pickable.forEach((t) => (e.target.checked ? n.add(t.id) : n.delete(t.id))); return n; })} />}</th>{th('name', 'Workspace')}{th('progress', 'Setup progress')}{th('users', 'Usage')}{th('active', 'Last active')}{th('expiry', 'Plan / expiry')}<th>Status</th></tr></thead><tbody>
           {pageRows.map((t) => (
             <tr key={t.id} style={{ cursor: 'pointer' }} onClick={() => onOpen(t.id)}>
-              <td onClick={(e) => e.stopPropagation()}>{deletable(t) && <input type="checkbox" aria-label={`Select ${t.name}`} checked={sel.has(t.id)} onChange={() => toggle(t.id)} />}</td>
+              <td onClick={(e) => e.stopPropagation()}>{(deletable(t) || removable(t)) && <input type="checkbox" aria-label={`Select ${t.name}`} checked={sel.has(t.id)} onChange={() => toggle(t.id)} />}</td>
               <td><div className="pa-cell"><b>{t.name}</b><div className="muted">{t.slug}{t.custom_domain ? ` · ${t.custom_domain}` : ''}</div><div className="muted">{t.owner_email || ''}</div></div></td>
               <td className="pa-ws-prog">{t.progress ? <><ProgressBar value={t.progress.percent} tone="green" /><div className="muted">{t.progress.done} of {t.progress.total} steps</div></> : <span className="err">{t.error || '—'}</span>}</td>
               <td>{t.stats && <div className="pa-cell"><div className="nowrap">{limit(t.stats.seats, t.expiry.limits?.seats)} users</div><div className="muted">{limit(t.stats.projects, t.expiry.limits?.projects)} projects · {num(t.stats.properties)} properties · {num(t.stats.sales)} sales</div></div>}</td>
               <td className="nowrap pa-ws-last">{ago(t.stats?.last_activity)}</td>
               <td><div className="pa-cell"><div><b style={{ textTransform: 'capitalize' }}>{t.is_legacy ? 'Original (unmetered)' : t.plan}</b>{PRODUCT_SHORT[t.product] ? <span className="muted"> · {PRODUCT_SHORT[t.product]}</span> : null}</div>{!(t.status === 'cancelled' && t.expiry.kind === 'cancelled') && <ExpiryBadge e={t.expiry} />}</div></td>
-              <td className="nowrap"><div className="pa-cell"><StatusBadge status={t.status} />{t.data_deleted_at && <div className="muted" title="The workspace's database and files were permanently deleted. This row stays only so its invoices, payments and subscription history are kept.">Data deleted {fmtDay(t.data_deleted_at)}<div>Billing records kept</div></div>}{deletable(t) && <div><button className="btn sm danger" onClick={(e) => { e.stopPropagation(); setDel({ ids: [t.id], names: [t.name], reason: '', owner_request: false, keep_archive: false, confirm: '' }); }}>Delete…</button></div>}</div></td>
+              <td className="nowrap"><div className="pa-cell"><StatusBadge status={t.status} />{t.data_deleted_at && <div className="muted" title="The workspace's database and files were permanently deleted. This row stays only so its invoices, payments and subscription history are kept.">Data deleted {fmtDay(t.data_deleted_at)}<div>Billing records kept</div></div>}{removable(t) && <div><button className="btn sm danger" onClick={(e) => { e.stopPropagation(); setRem({ ids: [t.id], names: [t.name], reason: '', confirm: '' }); }}>Remove record…</button></div>}{!!t.data_deleted_at && t.remove_blocker && <div className="muted" title="Billing and usage history must be kept">Kept: {t.remove_blocker.replace(/^It has /, '')}</div>}{deletable(t) && <div><button className="btn sm danger" onClick={(e) => { e.stopPropagation(); setDel({ ids: [t.id], names: [t.name], reason: '', owner_request: false, keep_archive: false, confirm: '' }); }}>Delete…</button></div>}</div></td>
             </tr>
           ))}
         </tbody></table></div>
@@ -139,6 +149,14 @@ export function Workspaces({ onOpen }) {
           <Toggle value={del.keep_archive} onChange={(v) => setDel({ ...del, keep_archive: v })} label="Keep one final archive copy of each in the backup folder" />
           <Field label="Reason" required><TextInput value={del.reason} onChange={(v) => setDel({ ...del, reason: v })} /></Field>
           <Field label="Type DELETE to confirm" required><TextInput value={del.confirm} onChange={(v) => setDel({ ...del, confirm: v })} /></Field>
+        </Modal>
+      )}
+      {rem && (
+        <Modal title={`Remove ${rem.ids.length} workspace record${rem.ids.length === 1 ? '' : 's'}`} onClose={() => setRem(null)} footer={<><button className="btn" onClick={() => setRem(null)}>Cancel</button><button className="btn danger" disabled={rem.confirm !== 'REMOVE' || rem.reason.trim().length < 5} onClick={doRemove}>Remove permanently</button></>}>
+          <div className="alert err">This removes the leftover row, with its notes and history, from the console. The workspace's data is already deleted. Records that have invoices, payments, refunds or AI usage are never removed.</div>
+          <p className="muted" style={{ maxHeight: 90, overflow: 'auto' }}>{rem.names.join(', ')}</p>
+          <Field label="Reason" required><TextInput value={rem.reason} onChange={(v) => setRem({ ...rem, reason: v })} /></Field>
+          <Field label="Type REMOVE to confirm" required><TextInput value={rem.confirm} onChange={(v) => setRem({ ...rem, confirm: v })} /></Field>
         </Modal>
       )}
       {create && (

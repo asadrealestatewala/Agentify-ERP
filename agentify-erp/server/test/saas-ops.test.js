@@ -107,3 +107,24 @@ test('retention: closure request, no early deletion, owner-requested deletion re
   assert.equal(bulk.data.failed.length, 1, 'an active or original workspace is refused');
   assert.equal((await adm('PUT', '/retention', { retention_days: 120 })).data.retention_days, 120);
 });
+
+test('remove record: only a data-deleted workspace without billing history can be removed', async () => {
+  const { getTenantBySlug, platformDb } = await import('../src/platform.js');
+  await ws('rmco', 'construction');
+  const t = getTenantBySlug('rmco');
+  const rm = (body) => adm('POST', '/workspaces/remove-records', { ids: [t.id], confirm: 'REMOVE', reason: 'Test cleanup', ...body });
+  assert.equal((await rm({ confirm: 'no' })).status, 400, 'must type REMOVE');
+  assert.equal((await rm({})).data.failed.length, 1, 'data not deleted yet');
+  assert.equal((await adm('POST', `/workspaces/${t.id}/status`, { status: 'cancelled', reason: 'Test' })).status, 200);
+  assert.equal((await adm('POST', `/workspaces/${t.id}/delete-data`, { confirm_slug: 'rmco', reason: 'Test cleanup', owner_request: true })).status, 200);
+  const row = (await adm('GET', '/workspaces')).data.find((w) => w.id === t.id);
+  assert.equal(row.remove_blocker, null, 'removable');
+  // goneco kept an invoice in the previous test: its record must stay
+  const g = getTenantBySlug('goneco');
+  const kept = await adm('POST', '/workspaces/remove-records', { ids: [g.id], confirm: 'REMOVE', reason: 'Test cleanup' });
+  assert.equal(kept.data.removed.length, 0); assert.match(kept.data.failed[0].error, /invoices/);
+  const out = await rm({});
+  assert.deepEqual(out.data.removed, ['rmco']);
+  assert.ok(!platformDb().prepare('SELECT 1 FROM tenants WHERE id=?').get(t.id), 'row gone');
+  assert.ok(platformDb().prepare("SELECT 1 FROM platform_audit WHERE action='workspace-records-removed'").get());
+});
