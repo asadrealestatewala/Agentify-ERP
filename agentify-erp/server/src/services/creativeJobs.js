@@ -55,6 +55,7 @@ export async function previewVoice({ script, language, seconds }, user) {
   if (!text) throw bad('Type the voice-over first.');
   if (String(script).trim().length > limit) throw bad(`The voice can be at most ${limit} characters for a ${sec}-second reel.`);
   const lang = LANGUAGES.includes(language) ? language : 'English';
+  if (lang === 'Roman Urdu' && text && true) throw bad('The exact-script voice cannot read Roman Urdu well. Choose Urdu or English for the voice, or let the video speak the line itself.');
   assertSafeRequest(text);
   pruneHeard();
   const voice = voiceFor(lang), key = heardKey(lang, voice, text);
@@ -106,6 +107,7 @@ export async function startReel({ description, script, language, accept_cost, se
   if (String(script || '').trim().length > limit) throw bad(`The voice can be at most ${limit} characters for a ${sec}-second reel.`);
   const sceneList = Array.isArray(scenes) ? scenes.slice(0, n).map((x) => clean(x, 300)) : [];
   const lang = LANGUAGES.includes(language) ? language : 'English';
+  if (lang === 'Roman Urdu' && text && vp === 'script') throw bad('The exact-script voice cannot read Roman Urdu well. Choose Urdu or English for the voice, or let the video speak the line itself.');
   assertSafeRequest(desc, text, ...sceneList.filter(Boolean));
   const q = quote({ script: text, seconds: sec, voice_path: vp });
   if (Number(accept_cost) !== q.total) throw bad(`Please confirm the cost first: this reel uses ${q.total} credits.`, { code: 'cost_changed', credits: q.total });

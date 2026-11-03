@@ -19,7 +19,7 @@ import { assertStorageAvailable } from './plans.js';
 export const CREDIT_COST = { brand_story: 1, creative_post: 3 };
 export const REEL_CREDITS = { per_second: 8, voice_per_100_chars: 1 };
 export const SIZES = { square: { label: 'Square (1:1)', hint: 'Feed post' }, portrait: { label: 'Portrait (4:5)', hint: 'Feed post, more room' }, story: { label: 'Story (9:16)', hint: 'Story or reel cover' } };
-export const LANGUAGES = ['English', 'Urdu'];
+export const LANGUAGES = ['English', 'Roman Urdu', 'Urdu'];
 export const BRAND_PLATFORMS = ['Instagram', 'Facebook Page', 'LinkedIn company page', 'LinkedIn profile'];
 export const BRAND_LANGUAGES = ['English', 'Roman Urdu', 'Urdu'];
 export const BRAND_TONES = ['Friendly', 'Professional', 'Warm', 'Playful', 'Calm', 'Bold'];
@@ -70,7 +70,7 @@ export function status() {
 
 function parseJson(text) { try { return JSON.parse(String(text).match(/\{[\s\S]*\}/)?.[0] || ''); } catch { return null; } }
 
-const STORY_SYSTEM = 'You write brand stories and social media captions for small businesses. Use ONLY the facts in the brand profile and brief. Never invent statistics, awards, customer names, testimonials, prices, partnerships or promises. Write in the requested language. Reply with JSON only: {"title": "short title", "story": "the brand story, 120-220 words, plain paragraphs", "captions": ["caption 1", "caption 2", "caption 3"]}. Captions are one or two sentences each.';
+const STORY_SYSTEM = 'You write brand stories and social media captions for small businesses. Use ONLY the facts in the brand profile and brief. Never invent statistics, awards, customer names, testimonials, prices, partnerships or promises. Write in the requested language. "Roman Urdu" means Urdu written in Latin letters the way people text it in Pakistan (for example "Aap ka ghar, aap ki pasand"), never in Arabic script. Reply with JSON only: {"title": "short title", "story": "the brand story, 120-220 words, plain paragraphs", "captions": ["caption 1", "caption 2", "caption 3"]}. Captions are one or two sentences each.';
 export async function writeStory({ language, focus }, user) {
   const b = brand();
   if (!b.saved) throw bad('Save your brand profile first so the story matches your brand.');
@@ -95,7 +95,7 @@ export async function makePosts({ description, size, count = 2, language }, user
   const n = Math.min(3, Math.max(1, Number(count) || 2));
   const b = brand();
   assertSafeRequest(desc);
-  const prompt = `Create a polished social media image for a business. ${brandLines(b)}\nSubject: ${desc}\nUse the brand colors as the main palette. Clean professional composition, no watermark, no distorted text. ${language === 'Urdu' ? 'If any text appears in the image it must be correct Urdu.' : 'If any text appears in the image keep it short and spelled correctly.'}`;
+  const prompt = `Create a polished social media image for a business. ${brandLines(b)}\nSubject: ${desc}\nUse the brand colors as the main palette. Clean professional composition, no watermark, no distorted text. ${language === 'Urdu' ? 'If any text appears in the image it must be correct Urdu.' : language === 'Roman Urdu' ? 'If any text appears in the image it must be short Roman Urdu (Urdu in Latin letters), spelled consistently.' : 'If any text appears in the image keep it short and spelled correctly.'}`;
   const options = []; let lastErr = null;
   for (let i = 0; i < n; i += 1) {
     try { const img = await geminiImage({ feature: 'creative_post', prompt: `${prompt}\nVariation ${i + 1}: use a different composition.`, aspect: size, tenantId: tenantId(), userId: user?.id, credits: CREDIT_COST.creative_post }); options.push({ mime: img.mime, data: img.data }); }
