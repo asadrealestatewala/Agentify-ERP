@@ -67,3 +67,10 @@ html[data-insets="web"] body { padding: var(--safe-top, 0px) var(--safe-right, 0
   .card-b, .kv, .kv > * { overflow-wrap: anywhere; }
   .card-b .btn { max-width: 100%; }
 }
+
+/* a wide child can never push the whole page sideways, which shifted headers off the left edge */
+@media (max-width: 800px) {
+  .content { overflow-x: hidden; }
+  .row.wrap > .btn, .card-b .row.wrap > .btn { max-width: 100%; white-space: normal; text-align: center; height: auto; min-height: 34px; padding-top: 6px; padding-bottom: 6px; }
+  .page-head h1, .content h1, .content h2 { overflow-wrap: anywhere; }
+}

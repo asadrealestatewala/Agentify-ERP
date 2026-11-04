@@ -40,7 +40,7 @@ export default function PortalsCard({ propertyId, published }) {
             </div>);
         })}
       </div>
-      <div className="row" style={{ marginTop: 10 }}><button className="btn primary sm" disabled={!Object.values(pick).some(Boolean)} onClick={go}>Publish to selected</button><Link className="btn sm" to="/settings/integrations">Portal settings and feed addresses</Link></div>
+      <div className="row wrap" style={{ marginTop: 10 }}><button className="btn primary sm" disabled={!Object.values(pick).some(Boolean)} onClick={go}>Publish to selected</button><Link className="btn sm" to="/settings/integrations">Portal settings and feed addresses</Link></div>
     </Card>
   );
 }
