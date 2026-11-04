@@ -69,6 +69,12 @@ export function propertyDeveloperFields(d, existing) {
   return { inventory_source: 'developer', developer_id: dev.id, agreement_id: ag.id };
 }
 
+/** The rebate rules a file is booked under: the plot's own rebate when it has one, else the agreement's per-stage rates. */
+export function rebateTermsOf(prop, ag) {
+  if (prop?.rebate_type) return { mode: 'plot', type: prop.rebate_type, value: Number(prop.rebate_value) || 0 };
+  return { mode: 'agreement', down: Number(ag?.rebate_down_pct) || 0, installment: Number(ag?.rebate_installment_pct) || 0, balloon: Number(ag?.rebate_balloon_pct) || 0 };
+}
+
 /** Columns that mark a new sale as a developer file (snapshotting the agreement so later edits never rewrite history). */
 export function developerSaleFields(prop, saleDate) {
   if (!prop || prop.inventory_source !== 'developer') return null;
@@ -77,6 +83,7 @@ export function developerSaleFields(prop, saleDate) {
   return {
     developer_id: prop.developer_id, agreement_id: ag.id, booking_id: nextNo('BK', 'BK'), file_state: 'active', holder: 'customer',
     cancel_window_until: ag.cancel_window_days > 0 ? addDays(saleDate, ag.cancel_window_days) : null, cancel_tiers: ag.cancel_tiers || '[]',
+    rebate_terms: JSON.stringify(rebateTermsOf(prop, ag)),
   };
 }
 
@@ -106,11 +113,83 @@ export function createDeveloperPortalUser(developerId, password) {
   return { created: true, login: email, password: pw };
 }
 
+/** Per-plot rebate: what the developer owes the company on this plot, as a percent of the plot price or a fixed amount.
+ *  Both empty means the plot follows its agreement's per-stage rates. */
+export function cleanRebate(d, price) {
+  const type = d.rebate_type === '' || d.rebate_type === undefined ? null : d.rebate_type;
+  if (type === null || type === 'none') return { rebate_type: null, rebate_value: null };
+  if (!['percent', 'fixed'].includes(type)) throw bad('Rebate type must be percent or fixed');
+  const v = num(d.rebate_value);
+  if (!(v >= 0)) throw bad('Enter the rebate as a positive number');
+  if (type === 'percent' && v > 100) throw bad('A rebate percentage must be between 0 and 100');
+  if (type === 'fixed' && price && v > Number(price)) throw bad('A fixed rebate cannot exceed the plot price');
+  return { rebate_type: type, rebate_value: v };
+}
+
+/** Rebate amount for one plot at its current price (0 when the plot uses the agreement rates). */
+export function plotRebateAmount(p) {
+  if (!p?.rebate_type) return 0;
+  return p.rebate_type === 'percent' ? Math.round((Number(p.net_price) || 0) * Number(p.rebate_value || 0) / 100) : Math.round(Number(p.rebate_value) || 0);
+}
+
+const unsold = (p) => p.status !== 'sold' && !get("SELECT 1 FROM sales WHERE property_id=? AND status='confirmed'", p.id);
+const plotsByIds = (ids) => {
+  const list = [...new Set((Array.isArray(ids) ? ids : []).map((x) => int(x)).filter(Boolean))];
+  if (!list.length) throw bad('Choose at least one plot');
+  if (list.length > 500) throw bad('Link at most 500 plots at a time');
+  return list.map((id) => get('SELECT * FROM properties WHERE id=?', id) || (() => { throw bad(`Plot ${id} not found`); })());
+};
+
+/** Link already-added properties to a developer + agreement (bulk). Sold or booked plots are skipped and reported. */
+export function linkPlots(developerId, agreementId, ids, rebate) {
+  const fields = propertyDeveloperFields({ inventory_source: 'developer', developer_id: developerId, agreement_id: agreementId });
+  const reb = rebate && rebate.rebate_type ? rebate : null;
+  const linked = [], skipped = [];
+  for (const p of plotsByIds(ids)) {
+    if (!unsold(p)) { skipped.push({ id: p.id, title: p.title, reason: 'Already sold or booked' }); continue; }
+    if (p.inventory_source === 'developer' && p.developer_id !== Number(developerId)) { skipped.push({ id: p.id, title: p.title, reason: 'Belongs to another developer' }); continue; }
+    const r = reb ? cleanRebate(reb, p.net_price) : null;
+    run('UPDATE properties SET inventory_source=?, developer_id=?, agreement_id=?, rebate_type=COALESCE(?,rebate_type), rebate_value=CASE WHEN ? IS NULL THEN rebate_value ELSE ? END, updated_at=? WHERE id=?',
+      fields.inventory_source, fields.developer_id, fields.agreement_id, r?.rebate_type ?? null, r?.rebate_type ?? null, r?.rebate_value ?? null, now(), p.id);
+    linked.push(p.id);
+  }
+  return { linked, skipped };
+}
+
+/** Return plots to the company's own stock. Booked or sold plots stay put. */
+export function unlinkPlots(developerId, ids) {
+  const unlinked = [], skipped = [];
+  for (const p of plotsByIds(ids)) {
+    if (p.developer_id !== Number(developerId)) { skipped.push({ id: p.id, title: p.title, reason: 'Not this developer’s plot' }); continue; }
+    if (!unsold(p)) { skipped.push({ id: p.id, title: p.title, reason: 'Already sold or booked' }); continue; }
+    run("UPDATE properties SET inventory_source='own', developer_id=NULL, agreement_id=NULL, rebate_type=NULL, rebate_value=NULL, updated_at=? WHERE id=?", now(), p.id);
+    unlinked.push(p.id);
+  }
+  return { unlinked, skipped };
+}
+
+/** Set (or clear) the same rebate on many of a developer's plots. ids omitted = every plot of that developer. */
+export function setPlotRebates(developerId, ids, rebate) {
+  const rows = ids ? plotsByIds(ids) : all('SELECT * FROM properties WHERE developer_id=?', developerId);
+  const updated = [], skipped = [];
+  for (const p of rows) {
+    if (p.developer_id !== Number(developerId)) { skipped.push({ id: p.id, title: p.title, reason: 'Not this developer’s plot' }); continue; }
+    const r = cleanRebate(rebate || {}, p.net_price);
+    run('UPDATE properties SET rebate_type=?, rebate_value=?, updated_at=? WHERE id=?', r.rebate_type, r.rebate_value, now(), p.id);
+    updated.push(p.id);
+  }
+  return { updated, skipped };
+}
+
 export function developerSummary(id) {
+  const rebate = all("SELECT net_price, rebate_type, rebate_value, status FROM properties WHERE developer_id=?", id);
+  const rebate_expected = rebate.reduce((t, p) => t + plotRebateAmount(p), 0);
+  const rebate_on_sold = rebate.filter((p) => p.status === 'sold').reduce((t, p) => t + plotRebateAmount(p), 0);
   const files = get(`SELECT COUNT(*) n, COALESCE(SUM(net_price),0) value, COALESCE(SUM(paid_amount),0) paid FROM sales WHERE developer_id=? AND status='confirmed'`, id);
   return {
     plots: get("SELECT COUNT(*) n FROM properties WHERE developer_id=?", id).n,
     available: get("SELECT COUNT(*) n FROM properties WHERE developer_id=? AND status IN ('available','featured')", id).n,
+    rebate_expected, rebate_on_sold,
     files: files.n, contract_value: files.value, collected: files.paid, outstanding: files.value - files.paid,
   };
 }

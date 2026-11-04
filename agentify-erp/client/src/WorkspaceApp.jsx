@@ -116,6 +116,8 @@ const DeveloperLayout = lazy(() => import('./pages/DeveloperPortal.jsx').then((m
 const DeveloperDashboard = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperDashboard })));
 const DeveloperFiles = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperFiles })));
 const DeveloperFile = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperFile })));
+const DeveloperPayments = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperPayments })));
+const DeveloperRebates = lazy(() => import('./pages/DeveloperPortal.jsx').then((m) => ({ default: m.DeveloperRebates })));
 const VendorBids = lazy(() => import('./pages/VendorPortal.jsx').then((m) => ({ default: m.VendorBids })));
 const VendorDashboard = lazy(() => import('./pages/VendorPortal.jsx').then((m) => ({ default: m.VendorDashboard })));
 const VendorLayout = lazy(() => import('./pages/VendorPortal.jsx').then((m) => ({ default: m.VendorLayout })));
@@ -224,7 +226,7 @@ export default function App() {
     return (
       <Routes>
         <Route path="/developer" element={<DeveloperLayout />}>
-          <Route index element={<DeveloperDashboard />} /><Route path="files" element={<DeveloperFiles />} /><Route path="files/:id" element={<DeveloperFile />} />
+          <Route index element={<DeveloperDashboard />} /><Route path="files" element={<DeveloperFiles />} /><Route path="files/:id" element={<DeveloperFile />} /><Route path="payments" element={<DeveloperPayments />} /><Route path="rebates" element={<DeveloperRebates />} />
         </Route>
         <Route path="*" element={<Navigate to="/developer" replace />} />
       </Routes>

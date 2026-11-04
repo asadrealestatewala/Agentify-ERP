@@ -166,3 +166,130 @@ test('developer portal: own files only, allow-listed fields, no CNIC or phone an
   assert.equal((await w.get('/api/developer/files')).status, 403);
   assert.equal((await call(w.host, 'GET', '/api/developer/files')).status, 401);
 });
+
+test('link existing plots to a developer in bulk and set per-plot rebates', async () => {
+  const w = await workspace('devlink');
+  const d = ok(await w.post('/api/developers', { name: 'Link Dev' }), 201);
+  const d2 = ok(await w.post('/api/developers', { name: 'Other Dev' }), 201);
+  const ag = ok(await w.post(`/api/developers/${d.id}/agreements`, { title: 'A1', rebate_down_pct: 5 }), 201);
+  const mk = async (title, price) => ok(await w.post('/api/properties', { title, property_type: 'Plot', area_size: 5, unit: 'Marla', total_price: price }), 201);
+  const [p1, p2, p3] = [await mk('P1', 1_000_000), await mk('P2', 2_000_000), await mk('P3', 3_000_000)];
+
+  const linkable = ok(await w.get(`/api/developers/${d.id}/linkable-plots`));
+  assert.equal(linkable.length, 3);
+  assert.equal(ok(await w.get(`/api/developers/${d.id}/linkable-plots?q=P2`)).length, 1);
+
+  // bulk link with one rebate (5%) for both
+  const out = ok(await w.post(`/api/developers/${d.id}/link-plots`, { property_ids: [p1.id, p2.id], agreement_id: ag.id, rebate_type: 'percent', rebate_value: 5 }));
+  assert.deepEqual(out.linked.sort(), [p1.id, p2.id].sort());
+  let plots = ok(await w.get(`/api/developers/${d.id}/plots`));
+  assert.equal(plots.length, 2);
+  assert.equal(plots.find((p) => p.id === p2.id).rebate_amount, 100_000);
+  assert.equal(ok(await w.get(`/api/developers/${d.id}`)).rebate_expected, 150_000);
+  assert.equal(ok(await w.get(`/api/developers/${d.id}/linkable-plots`)).length, 1);
+
+  // another developer cannot take a linked plot; bad agreement / empty list refused
+  const ag2 = ok(await w.post(`/api/developers/${d2.id}/agreements`, { title: 'B1' }), 201);
+  assert.equal(ok(await w.post(`/api/developers/${d2.id}/link-plots`, { property_ids: [p1.id], agreement_id: ag2.id })).skipped.length, 1);
+  assert.equal((await w.post(`/api/developers/${d.id}/link-plots`, { property_ids: [p3.id], agreement_id: ag2.id })).status, 400);
+  assert.equal((await w.post(`/api/developers/${d.id}/link-plots`, { property_ids: [], agreement_id: ag.id })).status, 400);
+
+  // bulk rebate: fixed on one plot, then percent on all; validation
+  ok(await w.post(`/api/developers/${d.id}/plot-rebates`, { property_ids: [p1.id], rebate_type: 'fixed', rebate_value: 40_000 }));
+  assert.equal(ok(await w.get(`/api/developers/${d.id}/plots`)).find((p) => p.id === p1.id).rebate_amount, 40_000);
+  assert.equal((await w.post(`/api/developers/${d.id}/plot-rebates`, { rebate_type: 'percent', rebate_value: 150 })).status, 400);
+  ok(await w.post(`/api/developers/${d.id}/plot-rebates`, { rebate_type: 'percent', rebate_value: 2 }));
+  assert.equal(ok(await w.get(`/api/developers/${d.id}`)).rebate_expected, 20_000 + 40_000);
+  ok(await w.post(`/api/developers/${d.id}/plot-rebates`, { rebate_type: '' }));
+  assert.equal(ok(await w.get(`/api/developers/${d.id}`)).rebate_expected, 0);
+
+  // per-plot edit through the property form, and a rebate on an own plot is refused
+  ok(await w.put(`/api/properties/${p2.id}`, { rebate_type: 'fixed', rebate_value: 25_000 }));
+  assert.equal(ok(await w.get(`/api/developers/${d.id}`)).rebate_expected, 25_000);
+  assert.equal((await w.put(`/api/properties/${p3.id}`, { rebate_type: 'percent', rebate_value: 3 })).status, 400);
+
+  // a booked plot cannot be unlinked; a free one can
+  ok(await w.post(`/api/properties/${p1.id}/publish`));
+  const cust = ok(await w.post('/api/contacts', { full_name: 'Zara', phone: '+92 300 5550001' }), 201);
+  ok(await w.post('/api/sales', { contact_id: cust.id, property_id: p1.id, sale_price: 1_000_000, discount: 0, booking_amount: 100_000, num_installments: 5, first_due: month() }), 201);
+  const un = ok(await w.post(`/api/developers/${d.id}/unlink-plots`, { property_ids: [p1.id, p2.id] }));
+  assert.deepEqual(un.unlinked, [p2.id]); assert.equal(un.skipped.length, 1);
+  assert.equal(ok(await w.get(`/api/properties/${p2.id}`)).inventory_source, 'own');
+});
+
+test('developer portal: approve / reject customer payments, rebate statement, reports, isolation and audit', async () => {
+  const w = await workspace('devpay');
+  const mkDev = async (name, email, extra = {}) => {
+    const d = ok(await w.post('/api/developers', { name, email }), 201);
+    const ag = ok(await w.post(`/api/developers/${d.id}/agreements`, { title: 'A', rebate_down_pct: 10, rebate_installment_pct: 5, ...extra }), 201);
+    const login = ok(await w.post(`/api/developers/${d.id}/portal-login`, {}), 201);
+    const dc = (await call(w.host, 'POST', '/api/auth/login', { identifier: login.login, password: login.password, portal: true })).cookie;
+    return { d, ag, get: (u) => call(w.host, 'GET', u, null, { cookie: dc }), post: (u, b) => call(w.host, 'POST', u, b || {}, { cookie: dc }) };
+  };
+  const one = await mkDev('Pay Dev One', 'p1@dev.test'); const two = await mkDev('Pay Dev Two', 'p2@dev.test');
+  const plot = ok(await w.post('/api/properties', { title: 'Plot 9', plot_no: '9', area_size: 10, unit: 'Marla', total_price: 4_000_000, inventory_source: 'developer', developer_id: one.d.id, agreement_id: one.ag.id }), 201);
+  ok(await w.post(`/api/properties/${plot.id}/publish`));
+  const c = ok(await w.post('/api/contacts', { full_name: 'Hina Raza', phone: '+92 300 7771234', email: 'hina@private.test' }), 201);
+  const sale = ok(await w.post('/api/sales', { contact_id: c.id, property_id: plot.id, sale_price: 4_000_000, discount: 0, booking_amount: 400_000, num_installments: 6, first_due: month() }), 201);
+  const access = (await w.post(`/api/customers/${c.id}/portal-access`, { password: 'Client@12345' })).data;
+  const cc = (await call(w.host, 'POST', '/api/auth/login', { identifier: access.login, password: 'Client@12345', portal: true })).cookie;
+  const cust = (m, u, b) => call(w.host, m, u, b, { cookie: cc });
+  const dues = ok(await cust('GET', '/api/portal/dues')).filter((d) => d.sale_id === sale.id);
+  const report = async (inst, txn) => ok(await cust('POST', '/api/portal/payment-claims', { installment_ids: [inst.id], amount: inst.remaining, method: 'Bank Transfer', bank: 'HBL', txn_id: txn }), 201);
+  const first = await report(dues[0], 'TXN-A1');
+  const second = await report(dues[1], 'TXN-A2');
+
+  // the developer sees both, without contact details; another developer sees nothing and cannot act
+  const list = ok(await one.get('/api/developer/payments?status=open'));
+  assert.equal(list.length, 2); assert.equal(list[0].customer_name, 'Hina Raza');
+  assert.ok(!/7771234|private\.test/.test(JSON.stringify(list)));
+  assert.equal(ok(await two.get('/api/developer/payments')).length, 0);
+  assert.equal((await two.post(`/api/developer/payments/${first.id}/approve`)).status, 404);
+  assert.equal((await w.post(`/api/developer/payments/${first.id}/approve`)).status, 403, 'staff cannot use the developer API');
+  assert.equal((await cust('POST', `/api/developer/payments/${first.id}/approve`)).status, 403, 'customers cannot either');
+  assert.equal((await one.post(`/api/developer/payments/${second.id}/reject`, { reason: ' ' })).status, 400, 'a reason is required');
+
+  // approve: receipt clears 2610, no company cash moves, the file and schedule update, then it cannot be decided twice
+  const tbBefore = ok(await w.get('/api/accounting/trial-balance'));
+  const ap = ok(await one.post(`/api/developer/payments/${first.id}/approve`, { note: 'received in my bank' }));
+  assert.ok(ap.receipt_id);
+  const tbAfter = ok(await w.get('/api/accounting/trial-balance'));
+  for (const code of ['1110', '1120', '1210']) assert.equal(tbAmount(tbAfter, code), tbAmount(tbBefore, code), `cash account ${code} untouched`);
+  assert.equal((await one.post(`/api/developer/payments/${first.id}/approve`)).status, 400, 'already decided');
+  const detail = ok(await one.get(`/api/developer/files/${sale.id}`));
+  assert.equal(detail.paid, dues[0].remaining);
+  assert.ok(detail.history.some((h) => h.event === 'payment_approved'));
+
+  // reject with a reason
+  ok(await one.post(`/api/developer/payments/${second.id}/reject`, { reason: 'Not received in my account' }));
+  const all_ = ok(await one.get('/api/developer/payments'));
+  assert.deepEqual(all_.map((p) => p.status).sort(), ['approved', 'rejected']);
+  assert.equal(ok(await one.get('/api/developer/payments?status=open')).length, 0);
+
+  // rebate statement: first payment was the booking amount => 10% of it
+  const st = ok(await one.get('/api/developer/rebates'));
+  assert.equal(st.rows.length, 1); assert.equal(st.total_received, dues[0].remaining);
+  assert.equal(st.total_rebate, Math.round(dues[0].remaining * (dues[0].kind === 'installment' ? 5 : 10) / 100));
+  assert.equal(ok(await two.get('/api/developer/rebates')).rows.length, 0);
+  // the same rebate is posted to the books as company income, owed by the developer
+  const tbRebate = ok(await w.get('/api/accounting/trial-balance'));
+  assert.equal(tbAmount(tbRebate, '1350'), st.total_rebate); assert.equal(tbAmount(tbRebate, '4500'), st.total_rebate);
+  assert.equal(tbRebate.total_debit, tbRebate.total_credit);
+
+  // reports download as csv, are scoped, validated and audited
+  const csv = await one.get('/api/developer/reports/rebate-statement?format=csv');
+  assert.equal(csv.status, 200); assert.match(String(csv.data), /Pay Dev|Plot 9|BK-/);
+  assert.equal((await one.get('/api/developer/reports/files?format=xlsx')).status, 200);
+  assert.equal((await one.get('/api/developer/reports/nope')).status, 404);
+  assert.equal((await one.get('/api/developer/reports/files?format=exe')).status, 400);
+  assert.ok(!/BK-/.test(String((await two.get('/api/developer/reports/files?format=csv')).data)), 'other developer gets no rows');
+  const aud = ok(await w.get('/api/audit?limit=100'));
+  const text = JSON.stringify(aud);
+  assert.match(text, /Developer approved customer payment/); assert.match(text, /Developer declined customer payment/); assert.match(text, /Developer downloaded report/);
+
+  // an inactive developer can no longer approve
+  const third = await report(dues[2], 'TXN-A3');
+  ok(await w.put(`/api/developers/${one.d.id}`, { status: 'inactive' }));
+  const blocked = await one.post(`/api/developer/payments/${third.id}/approve`);
+  assert.ok([400, 401, 403].includes(blocked.status), String(blocked.status));
+});
