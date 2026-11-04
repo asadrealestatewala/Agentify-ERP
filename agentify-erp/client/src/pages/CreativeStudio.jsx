@@ -8,6 +8,7 @@ import { useAuth, useToast } from '../context.jsx';
 import { dateTime } from '../format.js';
 
 const CreativeReview = lazy(() => import('./CreativeReview.jsx'));
+const CreativeResults = lazy(() => import('./CreativeResults.jsx'));
 const CreativeListing = lazy(() => import('./CreativeListing.jsx'));
 const pageCss = `.cs-page .card-b{padding:20px 22px}.cs-page .field{gap:6px;margin-bottom:18px}.cs-page .field>label{font-size:14px;font-weight:600;color:var(--text)}
 .cs-page .field .hint{font-size:12.5px;color:var(--muted);font-weight:400;line-height:1.4}.cs-page textarea.input{line-height:1.5;padding:10px 12px}
@@ -295,8 +296,18 @@ function Mine({ version }) {
   );
 }
 
+/** A small usage bar: how much of a monthly allowance is spent. Turns amber at 80% and red when used up. */
+function Meter({ label, used, max, noLimit }) {
+  if (noLimit || max == null || used == null) return <span>{label}: <b>No limit</b></span>;
+  const pct = Math.min(100, Math.round((used / Math.max(1, max)) * 100)); const color = pct >= 100 ? '#dc2626' : pct >= 80 ? '#d97706' : 'var(--primary, #0e7c6b)';
+  return (<span style={{ display: 'inline-flex', flexDirection: 'column', gap: 3, minWidth: 150 }}>
+    <span style={{ fontSize: 13 }}>{label}: <b>{max - used < 0 ? 0 : max - used}</b> left of {max}</span>
+    <span role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={used} style={{ height: 6, borderRadius: 3, background: 'var(--border, #e2e8f0)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: `${pct}%`, background: color }} /></span>
+  </span>);
+}
+
 export default function CreativeStudio() {
-  const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'listing', 'reels', 'review', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'brand'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false); const [brandName, setBrandName] = useState('');
+  const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'listing', 'reels', 'review', 'results', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'brand'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false); const [brandName, setBrandName] = useState('');
   const refresh = useCallback(() => api.get('/api/creative/status').then((x) => { setSt(x); setErr(''); }).catch((e) => setErr(e.message)), []);
   const checkBrand = useCallback(() => api.get('/api/creative/brand').then((b) => { setBrandSaved(!!b.saved); setBrandName(b.brand_name || ''); }).catch(() => {}), []);
   useEffect(() => { refresh(); checkBrand(); }, [refresh, checkBrand]);
@@ -309,17 +320,20 @@ export default function CreativeStudio() {
       <PageHead title="Creative Studio" sub="Write your brand story, create post images and short video reels that match your brand. Each use spends credits." />
       <div className="row" style={{ gap: 12, marginBottom: 12, flexWrap: 'wrap' }} data-tour="creative-credits">
         <span className={`pill ${st.available ? 'green' : 'red'}`}>{st.available ? 'Ready' : 'Not available'}</span>
-        <span>Credits left this month: <b>{left == null ? 'No limit' : left}</b>{st.credits.allowance != null ? ` of ${st.credits.allowance}` : ''}</span>
+        <Meter label="Credits this month" used={st.credits.allowance != null && left != null ? st.credits.allowance - left : null} max={st.credits.allowance} noLimit={left == null} />
+        {st.plan && (st.plan.posts.per_month != null) && <Meter label="Posts this month" used={st.plan.posts.month} max={st.plan.posts.per_month} />}
+        {st.plan?.trial && <span className="pill amber" title={st.plan.trial_ends_at ? `Trial ends ${st.plan.trial_ends_at.slice(0, 10)}` : undefined}>Trial{st.plan.days_left != null ? `: ${st.plan.days_left} day${st.plan.days_left === 1 ? '' : 's'} left` : ''}</span>}
         <span className="muted">Story {st.costs.brand_story} credit · Image {st.costs.creative_post} credits · Video {st.costs.video_second} per second</span>
       </div>
       {st.reason && <Card><p style={{ margin: 0 }}>{st.reason}</p></Card>}
-      <div data-tour="creative-tabs"><Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'listing', label: 'Listing to post' }, { key: 'reels', label: 'Video reels' }, { key: 'review', label: 'Review posts' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} /></div>
+      <div data-tour="creative-tabs"><Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'listing', label: 'Listing to post' }, { key: 'reels', label: 'Video reels' }, { key: 'review', label: 'Review posts' }, { key: 'results', label: 'Results' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} /></div>
       {tab === 'review' && <Suspense fallback={<Loading rows={3} />}><CreativeReview onGoReels={() => setTab('reels')} brandName={brandName} /></Suspense>}
       {tab === 'brand' && <Brand st={st} onSaved={() => { checkBrand(); refresh(); }} />}
       {tab === 'story' && <Story st={st} refresh={() => { refresh(); setVersion((v) => v + 1); }} brandSaved={brandSaved} />}
       {tab === 'posts' && <Posts st={st} refresh={refresh} brandSaved={brandSaved} onSaved={() => setVersion((v) => v + 1)} />}
       {tab === 'listing' && <Suspense fallback={<Loading rows={3} />}><CreativeListing onSaved={() => setVersion((v) => v + 1)} /></Suspense>}
       {tab === 'reels' && <Reels st={st} refresh={refresh} brandSaved={brandSaved} />}
+      {tab === 'results' && <Suspense fallback={<Loading rows={3} />}><CreativeResults onGoReview={() => setTab('review')} /></Suspense>}
       {tab === 'mine' && <Mine version={version} />}
     </div>
   );

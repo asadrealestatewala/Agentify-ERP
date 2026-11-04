@@ -11,9 +11,10 @@ import { geminiGenerate, geminiImage, ASPECTS, imageModel, REEL_SECONDS } from '
 import { azureStatus } from './aiReport.js';
 import { assertSafeRequest } from './aiSafety.js';
 import { creditsAllowance, creditsLeft, assertPlatformAllowed, switchKey } from './aiGate.js';
-import { config, flag, featuresOff, ensureTable } from './aiUsage.js';
+import { config, flag, featuresOff, ensureTable, AI_FEATURES } from './aiUsage.js';
 import { putFile, storageEnabled } from './storage.js';
-import { assertStorageAvailable } from './plans.js';
+import { assertStorageAvailable, billingState } from './plans.js';
+import { postsUsage } from './socialCalendar.js';
 
 /** Credits one use costs a workspace. */
 export const CREDIT_COST = { brand_story: 1, creative_post: 3 };
@@ -57,6 +58,37 @@ export function saveBrand(b, userId) {
 }
 const brandLines = (b) => [`Brand name: ${b.brand_name}`, b.business_type && `Business: ${b.business_type}`, b.about && `About: ${b.about}`, b.tone && `Tone of voice: ${b.tone}`, b.tone_tags?.length && `Tone words: ${b.tone_tags.join(', ')}`, b.audience && `Customers: ${b.audience}`, b.site_summary && `Facts from the business website (use only these, do not add others): ${b.site_summary}`, b.city && `Location: ${b.city}`, b.languages?.length && `Audience languages: ${b.languages.join(', ')}`, b.primary_color && `Brand colors: ${[b.primary_color, b.secondary_color].filter(Boolean).join(', ')}`].filter(Boolean).join('\n');
 
+/** Plan, trial days and posting limits for the usage meter in the page header. Null when the workspace has no plan (older workspaces). */
+function planMeter() {
+  try {
+    const t = currentTenant(); if (!t || t.is_legacy) return null;
+    const b = billingState(t); const u = postsUsage();
+    return { name: b.limits?.name || null, status: b.status, trial: b.status === 'trialing', days_left: b.days_left ?? null, trial_ends_at: b.trial_ends_at || null, posts: { today: u.today, month: u.month, per_day: u.per_day, per_month: u.per_month } };
+  } catch { return null; }
+}
+
+const iso10 = (d) => d.toISOString().slice(0, 10);
+/** What happened to this workspace's posts and credits lately, from its own calendar and AI ledger. No reach or likes: those need the platforms' analytics, which are not connected. */
+export function results({ days } = {}) {
+  const n = [7, 30, 90].includes(Number(days)) ? Number(days) : 30;
+  const today = new Date(); const from = new Date(today); from.setUTCDate(from.getUTCDate() - n); const to = new Date(today); to.setUTCDate(to.getUTCDate() + 7);
+  const rows = all('SELECT id, title, stage, post_date, platforms, posted, results, fail_reason, reject_note FROM content_posts WHERE post_date>=? AND post_date<=? ORDER BY post_date DESC, id DESC', iso10(from), iso10(to));
+  const J = (t, d) => { try { return JSON.parse(t || ''); } catch { return d; } };
+  const stages = { draft: 0, pending_approval: 0, approved: 0, scheduled: 0, posted: 0, failed: 0 }; const byPlatform = {}; const posted = []; const failed = []; let sentBack = 0;
+  for (const r of rows) {
+    const st = stages[r.stage] !== undefined ? r.stage : 'draft'; stages[st] += 1;
+    if (st === 'draft' && r.reject_note) sentBack += 1;
+    const done = J(r.posted, {});
+    for (const p of Object.keys(done)) byPlatform[p] = (byPlatform[p] || 0) + 1;
+    if (st === 'posted' && posted.length < 8) posted.push({ id: r.id, title: r.title, post_date: r.post_date, platforms: Object.keys(done), links: Object.values(J(r.results, {})).map((x) => x?.url).filter(Boolean).slice(0, 3) });
+    if (st === 'failed' && failed.length < 5) failed.push({ id: r.id, title: r.title, post_date: r.post_date, reason: r.fail_reason || 'The post could not be sent.' });
+  }
+  const id = tenantId(); const ms = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)).toISOString();
+  const spent = id ? ensureTable().prepare("SELECT feature, SUM(credits) c, COUNT(*) n FROM ai_usage WHERE key_owner='platform' AND tenant_id=? AND at>=? AND credits>0 AND purpose<>'refund' GROUP BY feature ORDER BY c DESC").all(id, ms).map((x) => ({ feature: x.feature, label: AI_FEATURES[x.feature] || x.feature, credits: x.c, uses: x.n })) : [];
+  const made = Object.fromEntries(all('SELECT kind, COUNT(*) n FROM creative_items WHERE created_at>=? GROUP BY kind', ms).map((x) => [x.kind, x.n]));
+  return { days: n, total: rows.length, stages, sent_back: sentBack, by_platform: byPlatform, posted, failed, credits_by_feature: spent, made_this_month: { images: made.post || 0, stories: made.story || 0, reels: get('SELECT COUNT(*) n FROM creative_jobs WHERE created_at>=?', ms)?.n || 0 }, engagement_connected: false };
+}
+
 /** What the page needs to decide whether to show the module: AI on for this workspace, a key added, credits left. */
 export function status() {
   ensureTable();
@@ -66,7 +98,7 @@ export function status() {
   const left = id ? creditsLeft(id) : null;
   const featuresOn = Object.fromEntries(Object.keys(CREDIT_COST).map((f) => [f, !featuresOff().includes(switchKey(f))]));
   const reason = off ? 'AI is switched off for your workspace.' : !config().key ? 'Creative Studio is not available yet.' : left === 0 ? 'You have used all your credits for this month. Ask support to top up.' : null;
-  return { available: !reason, reason, credits: { allowance: id ? creditsAllowance(id) : null, left }, costs: { ...CREDIT_COST, video_second: REEL_CREDITS.per_second, voice_per_100: REEL_CREDITS.voice_per_100_chars }, reel_seconds: REEL_SECONDS, voice_ready: voiceReady(), features: { ...featuresOn, creative_video: !featuresOff().includes('creative_video') }, sizes: SIZES, languages: LANGUAGES, brand_options: { platforms: BRAND_PLATFORMS, languages: BRAND_LANGUAGES, tones: BRAND_TONES, posts_per_week: POSTS_PER_WEEK }, storage: storageEnabled() ? 'cloud' : 'local', image_model: imageModel() };
+  return { available: !reason, reason, plan: planMeter(), credits: { allowance: id ? creditsAllowance(id) : null, left }, costs: { ...CREDIT_COST, video_second: REEL_CREDITS.per_second, voice_per_100: REEL_CREDITS.voice_per_100_chars }, reel_seconds: REEL_SECONDS, voice_ready: voiceReady(), features: { ...featuresOn, creative_video: !featuresOff().includes('creative_video') }, sizes: SIZES, languages: LANGUAGES, brand_options: { platforms: BRAND_PLATFORMS, languages: BRAND_LANGUAGES, tones: BRAND_TONES, posts_per_week: POSTS_PER_WEEK }, storage: storageEnabled() ? 'cloud' : 'local', image_model: imageModel() };
 }
 
 function parseJson(text) { try { return JSON.parse(String(text).match(/\{[\s\S]*\}/)?.[0] || ''); } catch { return null; } }
