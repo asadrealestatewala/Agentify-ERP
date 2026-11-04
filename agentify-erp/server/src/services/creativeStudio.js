@@ -88,6 +88,40 @@ export async function writeStory({ language, focus }, user) {
   return { id, title: clean(out.title, 140) || 'Brand story', story: String(out.story).slice(0, 4000), captions, language: lang, credits_used: CREDIT_COST.brand_story, credits_left: creditsLeft(tenantId()) };
 }
 
+const PLAN_SYSTEM = 'You plan a week of social media posts for a small business. Use ONLY the facts in the brand profile and the listed properties. Never invent statistics, awards, customer names, testimonials, prices, discounts or promises. Mix useful tips for the business\'s customers, trust and behind-the-scenes posts, and (when listings are given) one post per listing using its real details. Write each caption in the requested language ("Roman Urdu" means Urdu in Latin letters as people text it in Pakistan, never Arabic script), ready to post, 1 to 4 short sentences, with 2 to 4 relevant hashtags at the end. Reply with JSON only: {"posts": [{"title": "short title (max 60 chars)", "caption": "the caption", "theme": "tip | trust | listing | story"}]}';
+const PLAN_CHANNEL = { 'Instagram': 'instagram', 'Facebook Page': 'facebook', 'LinkedIn company page': 'linkedin', 'LinkedIn profile': 'linkedin' };
+const PLAN_DAYS = { 3: [0, 2, 4], 5: [0, 1, 2, 3, 4] };
+const isoDay = (d) => d.toISOString().slice(0, 10);
+export const nextMonday = (from = new Date()) => { const d = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate())); d.setUTCDate(d.getUTCDate() + ((8 - d.getUTCDay()) % 7 || 7)); return isoDay(d); };
+
+/** One text request that fills a week of draft posts in the content calendar. Nothing is posted: every post waits in Review posts for approval. */
+export async function planWeek({ week_start, count, language }, user) {
+  const b = brand();
+  if (!b.saved) throw bad('Save your brand profile first so the plan matches your brand.');
+  const n = [3, 5].includes(Number(count)) ? Number(count) : (POSTS_PER_WEEK.includes(b.posts_per_week) ? b.posts_per_week : 3);
+  let start = String(week_start || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || Number.isNaN(Date.parse(`${start}T00:00:00Z`))) start = nextMonday();
+  const startD = new Date(`${start}T00:00:00Z`); startD.setUTCDate(startD.getUTCDate() - ((startD.getUTCDay() + 6) % 7)); // always a Monday
+  const lang = LANGUAGES.includes(language) ? language : (b.languages?.[0] && LANGUAGES.includes(b.languages[0]) ? b.languages[0] : b.language || 'English');
+  const props = listings({ limit: 3 }).filter((l) => l.price || l.photos.length).slice(0, 3);
+  const propLines = props.length ? `\nProperties that can be featured (real, use only these details):\n${props.map((l) => `- ${l.title}${l.area_name || l.city ? `, ${[l.area_name, l.city].filter(Boolean).join(', ')}` : ''}${l.area_size ? `, ${l.area_size} ${l.unit || ''}` : ''}${l.bedrooms ? `, ${l.bedrooms} bedrooms` : ''}${l.price ? `, price ${l.price}` : ''}`).join('\n')}` : '';
+  const d = await geminiGenerate({ feature: 'brand_story', purpose: 'week_plan', tenantId: tenantId(), userId: user?.id, credits: CREDIT_COST.brand_story,
+    body: { systemInstruction: { parts: [{ text: PLAN_SYSTEM }] }, contents: [{ role: 'user', parts: [{ text: `${brandLines(b)}\nLanguage: ${lang}\nNumber of posts: ${n}${propLines}` }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 2500 } } });
+  const out = parseJson((d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join(''));
+  const items = (Array.isArray(out?.posts) ? out.posts : []).filter((x) => x && String(x.caption || '').trim()).slice(0, n);
+  if (!items.length) throw bad('The plan could not be written this time. Please try again.');
+  const channels = [...new Set((b.platforms || []).map((p) => PLAN_CHANNEL[p]).filter(Boolean))];
+  const platforms = JSON.stringify(channels.length ? channels : ['instagram', 'facebook']);
+  const days = PLAN_DAYS[n];
+  const created = items.map((x, i) => {
+    const day = new Date(startD); day.setUTCDate(day.getUTCDate() + days[Math.min(i, days.length - 1)]);
+    const id = Number(run(`INSERT INTO content_posts(title,post_type,caption,platforms,post_date,post_time,status,stage,account_ids,assigned_to,created_by,notes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      clean(x.title, 120) || `${brand().brand_name} post ${i + 1}`, 'static', String(x.caption).trim().slice(0, 2000), platforms, isoDay(day), '11:00', 'planned', 'draft', '[]', user?.id || null, user?.id || null, 'Made by Week plan', now(), now()).lastInsertRowid);
+    return { id, title: clean(x.title, 120), post_date: isoDay(day) };
+  });
+  return { week: isoDay(startD), language: lang, posts: created, credits_used: CREDIT_COST.brand_story, credits_left: creditsLeft(tenantId()) };
+}
+
 /** A few image options for a post. Not stored until the user saves one. Each image costs credits; a failed one costs none. */
 export async function makePosts({ description, size, count = 2, language }, user) {
   const desc = clean(description, 600);

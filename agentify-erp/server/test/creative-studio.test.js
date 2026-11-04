@@ -31,6 +31,7 @@ before(() => new Promise((res) => {
       if (blockImages) return new Response(JSON.stringify({ promptFeedback: { blockReason: 'SAFETY' } }), { status: 200 });
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: PNG } }] } }] }), { status: 200 });
     }
+    if (u.includes(':generateContent') && String(opts.body || '').includes('Number of posts')) { textCalls += 1; return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ posts: [{ title: 'Tip one', caption: 'Check the plot file before you pay. #realestate', theme: 'tip' }, { title: 'Why trust us', caption: 'Honest advice, every time. #lahore', theme: 'trust' }, { title: 'Open house', caption: 'Visit us this week. #homes', theme: 'story' }] }) }] } }] }), { status: 200 }); }
     if (u.includes(':generateContent')) { textCalls += 1; return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"title":"Our story","story":"We help families find homes.","captions":["Find home","Trusted by you"]}' }] } }], usageMetadata: { promptTokenCount: 200, candidatesTokenCount: 300 } }), { status: 200 }); }
     throw new Error(`unexpected fetch ${u}`);
   };
@@ -138,6 +139,13 @@ test('Creative Studio end to end', async () => {
   // Listing to post: real inventory facts and photos for the browser to draw (no AI, no credits)
   const ls = await a('GET', '/api/creative/listings?q=nothing-matches-this'); assert.equal(ls.status, 200); assert.deepEqual(ls.data, []);
   assert.equal(Array.isArray((await a('GET', '/api/creative/listings')).data), true);
+
+  // Week plan: one text request fills draft posts in the calendar, 1 credit, nothing published
+  const lb = (await a('GET', '/api/creative/status')).data.credits.left;
+  const wp = await a('POST', '/api/creative/week-plan', { count: 3, language: 'Roman Urdu', week_start: '2030-01-09' }); assert.equal(wp.status, 201, JSON.stringify(wp.data));
+  assert.equal(wp.data.week, '2030-01-07'); assert.deepEqual(wp.data.posts.map((x) => x.post_date), ['2030-01-07', '2030-01-09', '2030-01-11']); assert.equal(wp.data.credits_used, 1);
+  assert.equal((await a('GET', '/api/creative/status')).data.credits.left, lb - 1);
+  const cal = (await a('GET', '/api/content/posts?from=2030-01-07&to=2030-01-13')).data; assert.equal(cal.length, 3); assert.equal(cal[0].stage, 'draft');
 
   // the workspace switch and master switch stop it
   await as(owner, 'PUT', `/ai/workspaces/${tid}`, { ai_enabled: false });
