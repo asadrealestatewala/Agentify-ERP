@@ -122,7 +122,7 @@ function migrate() {
   addCol('projects', 'budget', 'INTEGER');
   addCol('projects', 'site_visible', 'INTEGER NOT NULL DEFAULT 1');
   addCol('notifications', 'dedupe', 'TEXT');
-  addCol('employees', 'photo', 'TEXT'); addCol('employees', 'father_name', 'TEXT');
+  addCol('employees', 'photo', 'TEXT'); addCol('employees', 'terminated_date', 'TEXT'); addCol('employees', 'termination_reason', 'TEXT'); addCol('employees', 'father_name', 'TEXT');
   addCol('leaves', 'decision_note', 'TEXT'); addCol('leaves', 'decided_at', 'TEXT');
   addCol('properties', 'file_no', 'TEXT'); addCol('properties', 'registration_no', 'TEXT');
   addCol('properties', 'file_status', 'TEXT'); addCol('properties', 'file_notes', 'TEXT');

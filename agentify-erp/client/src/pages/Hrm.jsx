@@ -26,7 +26,7 @@ export function Employees() {
   const emps = useFetch('/api/hrm/employees', { limit: 500 });
   return (
     <ResourcePage title="Employees" sub="Draft → Approved → Active" endpoint="/api/hrm/employees" module="hrm" noun="employee" tableId="employees" fields={empFields(emps.data?.rows || [], users)} defaults={{ employment_type: 'Full time' }}
-      filterUI={(t) => <div style={{ width: 150 }}><Select value={t.extra.status || ''} onChange={(v) => t.setFilter({ status: v })} placeholder="All statuses" options={['draft', 'approved', 'active', 'inactive']} /></div>}
+      filterUI={(t) => <div style={{ width: 150 }}><Select value={t.extra.status || ''} onChange={(v) => t.setFilter({ status: v })} placeholder="All current staff" options={['draft', 'approved', 'active', 'inactive', 'terminated']} /></div>}
       columns={[{ key: 'name', label: 'Employee', render: (r) => <div className="row"><Avatar name={r.name} size="sm" /><div><Link to={`/hrm/employees/${r.id}`} className="cell-main">{r.name}</Link>{r.is_demo ? <span className="demo-chip">DEMO</span> : null}<div className="cell-sub">{r.emp_code}</div></div></div> },
         { key: 'department', label: 'Department' }, { key: 'designation', label: 'Designation' }, { key: 'hire_date', label: 'Joined', render: (r) => date(r.hire_date) }, { key: 'salary', label: 'Salary', num: true, render: (r) => money(r.salary) }, { key: 'manager_name', label: 'Reports to', hidden: true }, { key: 'phone', label: 'Phone', hidden: true }, { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.status} /> }]}
       rowActions={(r) => <Link to={`/hrm/employees/${r.id}`}>Open profile</Link>} canDeleteRow={(r) => r.status === 'draft'} />
@@ -41,6 +41,7 @@ export function EmployeeProfile() {
   const emps = useFetch('/api/hrm/employees', { limit: 500 });
   const [tab, setTab] = useState('info');
   const [editing, setEditing] = useState(false);
+  const [terminating, setTerminating] = useState(false);
   const { users } = useLookups();
   const photoRef = useRef(null);
   if (error) return <div className="alert err">{error}</div>;
@@ -59,13 +60,14 @@ export function EmployeeProfile() {
         {can('hrm', 'approve') && e.status === 'draft' && <button className="btn primary" onClick={() => wf('approve', 'Approved')}>Approve</button>}
         {can('hrm', 'approve') && e.status === 'approved' && <button className="btn primary" onClick={() => wf('activate', 'Employee is active')}>Activate</button>}
         {can('hrm', 'approve') && e.status === 'active' && <button className="btn danger" onClick={() => wf('deactivate', 'Deactivated')}>Deactivate</button>}
+        {can('hrm', 'approve') && ['active', 'inactive', 'approved', 'draft'].includes(e.status) && <button className="btn danger" onClick={() => setTerminating(true)}>Terminate</button>}
         {can('hrm', 'approve') && e.status === 'inactive' && <button className="btn" onClick={() => wf('reactivate', 'Reactivated')}>Reactivate</button>}
       </PageHead>
       <Card flush><Tabs value={tab} onChange={setTab} tabs={[{ key: 'info', label: 'Profile' }, { key: 'docs', label: 'Documents', count: data.documents.length }, { key: 'pay', label: 'Salary history' }, { key: 'leave', label: 'Leave' }, { key: 'att', label: 'Attendance' }, { key: 'assets', label: 'Assets', count: data.assets?.length || 0 }]} />
         <div className="card-b">
           {tab === 'info' && <div className="row" style={{ gap: 16, alignItems: 'flex-start', marginBottom: 14 }}>{e.photo ? <img src={fileUrl(e.photo)} alt={e.name} style={{ width: 84, height: 84, borderRadius: '50%', objectFit: 'cover' }} /> : <Avatar name={e.name} />}<div><b style={{ fontSize: 16 }}>{e.name}</b><div className="muted">{e.designation} · {e.department}</div><div style={{ marginTop: 6 }}><EmpTypePill type={e.employment_type} /></div></div></div>}
           {tab === 'info' && <div className="grid g2"><KV items={[['Father’s name', e.father_name], ['CNIC', e.cnic], ['Date of birth', date(e.dob)], ['Gender', e.gender], ['Phone', e.phone], ['Email', e.email], ['Address', e.address], ['Emergency contact', e.emergency_contact], ['Login', e.login_email || <span className="muted">not linked</span>]]} />
-            <KV items={[['Department', e.department], ['Designation', e.designation], ['Recruitment date', date(e.hire_date)], ['Employment type', e.employment_type], ['Salary', money(e.salary)], ['Bonus', money(e.bonus)], ['Commission', e.commission_note], ['Branch', e.branch]]} /></div>}
+            <KV items={[['Department', e.department], ['Designation', e.designation], ['Recruitment date', date(e.hire_date)], ['Employment type', e.employment_type], ['Salary', money(e.salary)], ['Bonus', money(e.bonus)], ['Commission', e.commission_note], ['Branch', e.branch], ...(e.status === 'terminated' ? [['Terminated on', date(e.terminated_date)], ['Termination reason', e.termination_reason]] : [])]} /></div>}
           {tab === 'docs' && <DocumentsPanel entityType="employee" entityId={e.id} canEdit={can('hrm', 'edit')} categories={['CNIC', 'Resume/CV', 'Educational', 'Experience Letter', 'Contract', 'Passport', 'Photo', 'Other']} />}
           {tab === 'pay' && (data.payroll.length ? <table className="t"><thead><tr><th>Period</th><th className="num">Basic</th><th className="num">Allowances</th><th className="num">Bonus</th><th className="num">Commission</th><th className="num">Deductions</th><th className="num">Net</th><th>Status</th></tr></thead><tbody>{data.payroll.map((p) => <tr key={p.id}><td>{p.period}</td><td className="num mono">{money(p.basic)}</td><td className="num mono">{money(p.allowances)}</td><td className="num mono">{money(p.bonus)}</td><td className="num mono">{money(p.commission)}</td><td className="num mono">{money(p.deductions + p.advances + p.loans)}</td><td className="num mono bold">{money(p.net)}</td><td><StatusBadge status={p.status} /></td></tr>)}</tbody></table> : <Empty>No payroll yet.</Empty>)}
           {tab === 'leave' && <div className="stack"><div className="grid g4">{data.balances.map((b) => <Stat key={b.type} label={`${b.type} leave`} value={b.quota ? `${b.balance} left` : `${b.used} used`} sub={b.quota ? `${b.used} of ${b.quota} used` : 'unlimited'} />)}</div>
@@ -74,6 +76,9 @@ export function EmployeeProfile() {
           {tab === 'att' && data.attendance_summary && <div className="row wrap" style={{ gap: 14, marginBottom: 12 }}><Stat label={`Attendance ${data.attendance_summary.month}`} value={data.attendance_summary.percentage == null ? '—' : `${data.attendance_summary.percentage}%`} sub={`${data.attendance_summary.attended} of ${data.attendance_summary.working_days - data.attendance_summary.leave} working days`} /></div>}
           {tab === 'att' && (data.attendance.length ? <table className="t"><thead><tr><th>Date</th><th>In</th><th>Out</th><th>Late (min)</th><th>Early (min)</th><th>Status</th></tr></thead><tbody>{data.attendance.map((a) => <tr key={a.id}><td>{date(a.date)}</td><td>{a.check_in || '—'}</td><td>{a.check_out || '—'}</td><td>{a.late_minutes || ''}</td><td>{a.early_minutes || ''}</td><td><StatusBadge status={a.status} /></td></tr>)}</tbody></table> : <Empty>No attendance records.</Empty>)}
         </div></Card>
+      {terminating && <FormModal title={`Terminate ${e.name}`} size="sm" initial={{ date: new Date().toISOString().slice(0, 10), reason: '' }}
+        fields={[{ name: 'date', label: 'Last working day', type: 'date', required: true }, { name: 'reason', label: 'Reason', type: 'textarea', required: true, full: true, hint: e.user_id ? 'Their login will be switched off and signed out. Payroll, attendance and leave history are kept.' : 'Payroll, attendance and leave history are kept.' }]}
+        onClose={() => setTerminating(false)} onSave={async (f) => { await api.post(`/api/hrm/employees/${e.id}/terminate`, f); setTerminating(false); reload(); toast('Employee terminated', 'ok'); }} />}
       {editing && <FormModal title="Edit employee" fields={empFields(emps.data?.rows || [], users)} initial={e} onClose={() => setEditing(false)} onSave={async (f) => { await api.put(`/api/hrm/employees/${e.id}`, f); setEditing(false); reload(); toast('Saved', 'ok'); }} />}
     </div>
   );

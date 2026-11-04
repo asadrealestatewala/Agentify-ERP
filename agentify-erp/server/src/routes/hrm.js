@@ -41,6 +41,8 @@ crud(emp, {
     if (!u) return;
     run('UPDATE users SET name=COALESCE(?,name), email=COALESCE(?,email), phone=COALESCE(?,phone) WHERE id=?', e.name || null, e.email?.trim() || null, e.phone || null, u.id);
   },
+  // terminated staff stay on file but are hidden from the default list; ask for them with ?status=terminated or ?include_terminated=1
+  scope: (r) => (r.query.status || r.query.include_terminated ? null : { sql: "employees.status<>'terminated'", params: [] }),
   canDelete: (e) => { if (e.status !== 'draft') throw bad('Only draft employees can be deleted — mark inactive instead'); if (get('SELECT 1 FROM payroll WHERE employee_id=?', e.id)) throw bad('Employee has payroll records'); },
 });
 // crud strips status on update; creation needs it — patch after insert via before hook workaround
@@ -68,12 +70,36 @@ r.delete('/employees/:id(\\d+)/photo', can('hrm', 'edit'), asyncH((req, res) => 
 r.post('/employees/:id(\\d+)/workflow', can('hrm', 'approve'), asyncH((req, res) => {
   const e = get('SELECT * FROM employees WHERE id=?', req.params.id);
   if (!e) throw notFound();
+  if (e.status === 'terminated') throw bad('This employee has been terminated');
   const next = { approve: ['draft', 'approved'], activate: ['approved', 'active'], deactivate: ['active', 'inactive'], reactivate: ['inactive', 'active'] }[req.body.action];
   if (!next) throw bad('Unknown action');
   if (e.status !== next[0]) throw bad(`Employee must be ${next[0]} to ${req.body.action}`);
   run('UPDATE employees SET status=? WHERE id=?', next[1], e.id);
   audit(req, `Employee ${req.body.action}`, 'employee', e.id, e.name);
   res.json({ status: next[1] });
+}));
+/**
+ * Terminate an employee: records the date and reason, switches off the linked login (and signs it out),
+ * and keeps every payroll, attendance, leave and document record. Terminated staff drop out of active lists.
+ */
+r.post('/employees/:id(\\d+)/terminate', can('hrm', 'approve'), asyncH((req, res) => {
+  const e = get('SELECT * FROM employees WHERE id=?', req.params.id);
+  if (!e) throw notFound();
+  if (e.status === 'terminated') throw bad('This employee is already terminated');
+  const date = String(req.body.date || today()).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date))) throw bad('Termination date must be a valid date');
+  const reason = String(req.body.reason || '').trim();
+  if (!reason) throw bad('Reason is required');
+  if (reason.length > 500) throw bad('Reason must be 500 characters or fewer');
+  const u = e.user_id ? get('SELECT u.id, u.email, r.name role FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?', e.user_id) : null;
+  if (u && u.id === req.user.id) throw bad('You cannot terminate your own account');
+  if (u?.role === 'Super Admin' && !req.user.isSuper) throw bad('Only a Super Admin can terminate a Super Admin');
+  tx(() => {
+    run("UPDATE employees SET status='terminated', terminated_date=?, termination_reason=? WHERE id=?", date, reason, e.id);
+    if (u) run('UPDATE users SET active=0, token_version=token_version+1 WHERE id=?', u.id);
+  });
+  audit(req, 'Employee terminated', 'employee', e.id, `${e.name} (${e.emp_code}) effective ${date}: ${reason}${u ? ` — login ${u.email} disabled` : ''}`);
+  res.json({ status: 'terminated', terminated_date: date, termination_reason: reason, login_disabled: !!u });
 }));
 r.get('/employees/:id(\\d+)/profile', can('hrm', 'view'), asyncH((req, res) => {
   const e = get('SELECT * FROM employees WHERE id=?', req.params.id);
