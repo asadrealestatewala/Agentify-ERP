@@ -477,6 +477,24 @@ export function seedDemo() {
   return true;
 }
 
+// Grants that upgradePermissions() adds on top of ROLES (keep in step with it; a test checks a fresh database matches).
+const LATER_GRANTS = {
+  'Admin': P(['developers', 'website', 'listings', 'seo', 'construction']),
+  'Sales Manager': [...P(['developers'], ['view']), ...P(['website'], RW), ...P(['construction'], ['view'])],
+  'Sales Agent': P(['properties'], ['create', 'edit']),
+  'Project Manager': P(['construction'], [...RW, 'delete', 'approve', 'export', 'print']),
+  'Finance Manager': P(['construction'], ['view', 'approve', 'export', 'print']),
+};
+const contentGrant = (name) => P(['content'], name === 'Super Admin' || name === 'Admin' ? ACTIONS : name === 'Sales Manager' ? [...RW, 'approve', 'delete'] : RW);
+
+/** The built-in definition of a role as shipped: its permissions, description and row scope. Null for custom or portal roles. */
+export function defaultRole(name) {
+  const def = ROLES.find((r) => r.name === name && !r.portal);
+  if (!def) return null;
+  const perms = [...new Set([...def.perms, ...(LATER_GRANTS[name] || []), ...contentGrant(name)])];
+  return { name, description: def.description, own_scope: def.own_scope || 0, perms };
+}
+
 /** Permissions added in later versions, applied to existing databases without touching what admins customised. */
 export function upgradePermissions() {
   const grant = (roleName, perms) => {
