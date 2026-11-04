@@ -57,7 +57,7 @@ r.get('/rebates', asyncH((req, res) => res.json(rebateStatement(mine(req), range
 
 const REPORTS = {
   'rebate-statement': { title: 'Rebate statement', columns: [{ key: 'date', label: 'Date' }, { key: 'booking_id', label: 'Booking' }, { key: 'plot', label: 'Plot' }, { key: 'customer_name', label: 'Customer' },
-    { key: 'method', label: 'Method' }, { key: 'amount', label: 'Payment amount', type: 'money' }, { key: 'rebate', label: 'Rebate due', type: 'money' }],
+    { key: 'method', label: 'Method' }, { key: 'amount', label: 'Payment amount', type: 'money' }, { key: 'rebate', label: 'Rebate', type: 'money' }, { key: 'rebate_status', label: 'Status' }],
     rows: (dev, q) => rebateStatement(dev, range(q)).rows },
   files: { title: 'Files', columns: [{ key: 'booking_id', label: 'Booking' }, { key: 'plot', label: 'Plot' }, { key: 'registration_no', label: 'Registration no.' }, { key: 'customer_name', label: 'Customer' },
     { key: 'state', label: 'State' }, { key: 'contract_value', label: 'Contract value', type: 'money' }, { key: 'paid', label: 'Paid', type: 'money' }, { key: 'outstanding', label: 'Outstanding', type: 'money' }],

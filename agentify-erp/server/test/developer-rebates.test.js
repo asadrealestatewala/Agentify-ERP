@@ -158,7 +158,7 @@ test('rebate posting needs developers.approve and the developer sees only their 
   const login = ok(await w.post(`/api/developers/${d.id}/portal-login`, {}), 201);
   const dc = (await call(w.host, 'POST', '/api/auth/login', { identifier: login.login, password: login.password, portal: true })).cookie;
   const mine = ok(await call(w.host, 'GET', '/api/developer/rebates', null, { cookie: dc }));
-  assert.equal(mine.totals.due, 30_000); assert.equal(mine.rows[0].customer_name, 'Sana Malik');
+  assert.equal(mine.total_rebate, 30_000); assert.equal(mine.rebate_due, 30_000); assert.equal(mine.rows[0].customer_name, 'Sana Malik');
   assert.ok(!/phone|cnic|email|agent|notes/i.test(JSON.stringify(mine)));
   // the developer cannot record or receive rebates through staff routes
   assert.equal((await call(w.host, 'POST', `/api/developers/${d.id}/files/${sale.id}/payments`, { amount: 1000, method: 'Cash' }, { cookie: dc })).status, 403);

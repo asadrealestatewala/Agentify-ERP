@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
 import ResourcePage, { FormModal } from '../components/ResourcePage.jsx';
-import { BackLink, Card, Empty, Loading, Modal, PageHead, Select, Stat, StatusBadge } from '../components/ui.jsx';
+import { BackLink, Card, Empty, Field, Loading, Modal, PageHead, Select, Stat, StatusBadge } from '../components/ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useFetch, useToast } from '../context.jsx';
 import { money } from '../format.js';
@@ -98,12 +98,72 @@ function LinkPlotsModal({ developer, agreements, onClose, onDone }) {
   );
 }
 
+const METHODS = ['Cash', 'Bank Transfer', 'Online Transfer', 'JazzCash', 'Easypaisa', 'Cheque', 'Other'];
+
+/** Staff record a customer payment the developer has approved (call, chat, cash at the developer's office). The rebate is posted with it. */
+function ApprovedPaymentModal({ developerId, files, onClose, onDone }) {
+  const toast = useToast();
+  const [f, setF] = useState({ sale_id: files[0]?.sale_id || '', amount: '', payment_type: 'Installment', method: 'Cash', txn_id: '', bank: '', date: '' });
+  const [busy, setBusy] = useState(false);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target ? e.target.value : e });
+  const online = ['Bank Transfer', 'Online Transfer', 'JazzCash', 'Easypaisa'].includes(f.method);
+  const save = async () => {
+    setBusy(true);
+    try {
+      const out = await api.post(`/api/developers/${developerId}/files/${f.sale_id}/payments`, { ...f, amount: Number(f.amount), date: f.date || undefined });
+      toast(`Payment recorded${out.rebate ? `, rebate ${money(out.rebate)} posted` : ''}`); onDone();
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <Modal title="Record developer-approved payment" onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || !f.sale_id || !(Number(f.amount) > 0)} onClick={save}>Record payment</button></>}>
+      <p>Use this when the developer has confirmed they received the customer’s money. It is not company cash: it settles the customer’s installments and posts the rebate the developer owes.</p>
+      <div className="form-grid">
+        <Field label="File" required><Select value={f.sale_id} onChange={(v) => set('sale_id')(v)} allowEmpty={false} options={files.map((p) => ({ value: p.sale_id, label: `${p.booking_id} · ${p.title} · ${p.customer_name}` }))} /></Field>
+        <Field label="Amount" required><input className="input" type="number" min="0" value={f.amount} onChange={set('amount')} /></Field>
+        <Field label="Payment type"><Select value={f.payment_type} onChange={(v) => set('payment_type')(v)} allowEmpty={false} options={['Booking Payment', 'Down Payment', 'Installment', 'Balloon Payment', 'Partial Payment', 'Full Payment'].map((x) => ({ value: x, label: x }))} /></Field>
+        <Field label="Method"><Select value={f.method} onChange={(v) => set('method')(v)} allowEmpty={false} options={METHODS.map((x) => ({ value: x, label: x }))} /></Field>
+        {online && <Field label="Transaction ID" required><input className="input" value={f.txn_id} onChange={set('txn_id')} /></Field>}
+        {(online || f.method === 'Cheque') && <Field label="Bank / channel" required><input className="input" value={f.bank} onChange={set('bank')} /></Field>}
+        <Field label="Date received"><input className="input" type="date" value={f.date} onChange={set('date')} /></Field>
+      </div>
+    </Modal>
+  );
+}
+
+/** The developer paid some or all of the rebate it owes the company. */
+function RebatePaidModal({ developerId, onClose, onDone }) {
+  const toast = useToast();
+  const { data: accounts } = useFetch('/api/accounting/accounts');
+  const treasury = (accounts || []).filter((a) => ['cash', 'bank', 'custody', 'online'].includes(a.subtype));
+  const [f, setF] = useState({ account_id: '', method: 'Bank Transfer', reference_no: '' });
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try { const out = await api.post(`/api/developers/${developerId}/rebates/receive`, f); toast(`${money(out.received)} received`); onDone(); } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <Modal title="Rebate received from developer" onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || !f.account_id} onClick={save}>Mark all due rebate as received</button></>}>
+      <p>Records that the developer paid everything currently due. It moves the amount from “Rebate receivable” into the account you choose.</p>
+      <div className="form-grid">
+        <Field label="Paid into" required><Select value={f.account_id} onChange={(v) => setF({ ...f, account_id: v })} options={treasury.map((a) => ({ value: a.id, label: `${a.code} ${a.name}` }))} /></Field>
+        <Field label="Method"><Select value={f.method} onChange={(v) => setF({ ...f, method: v })} allowEmpty={false} options={METHODS.map((x) => ({ value: x, label: x }))} /></Field>
+        <Field label="Reference"><input className="input" value={f.reference_no} onChange={(e) => setF({ ...f, reference_no: e.target.value })} /></Field>
+      </div>
+    </Modal>
+  );
+}
+
 export function DeveloperDetail() {
   const { id } = useParams();
   const { can } = useAuth();
   const toast = useToast();
   const { data, error, reload } = useFetch(`/api/developers/${id}`);
   const plots = useFetch(`/api/developers/${id}/plots`);
+  const rebates = useFetch(`/api/developers/${id}/rebates`);
+  const [paying, setPaying] = useState(false);
+  const [rebatePaid, setRebatePaid] = useState(false);
   const [editing, setEditing] = useState(false);
   const [agreement, setAgreement] = useState(null); // {} for new, row for edit
   const [login, setLogin] = useState(null);
@@ -118,7 +178,7 @@ export function DeveloperDetail() {
     if (agreement.id) await api.put(`/api/developers/${id}/agreements/${agreement.id}`, body); else await api.post(`/api/developers/${id}/agreements`, body);
     toast(agreement.id ? 'Agreement updated' : 'Agreement added'); setAgreement(null); reload();
   };
-  const refresh = () => { reload(); plots.reload?.(); setSel([]); };
+  const refresh = () => { reload(); plots.reload?.(); rebates.reload?.(); setSel([]); };
   const applyRebate = async () => {
     try {
       const out = await api.post(`/api/developers/${id}/plot-rebates`, { property_ids: sel, ...bulkRebate });
@@ -170,8 +230,26 @@ export function DeveloperDetail() {
                 <td>{p.area_size} {p.unit}{p.area_sqft ? <div className="cell-sub">{p.area_sqft} sqft</div> : null}</td><td className="num">{money(p.net_price)}</td><td>{rebateText(p)}</td>
                 <td><StatusBadge status={p.status} /></td><td>{p.sale_id ? <Link to={`/sales/${p.sale_id}`}>{p.booking_id}</Link> : '-'}</td><td>{p.customer_name || '-'}</td></tr>))}</tbody></table>)}
       </Card>
+      <div style={{ height: 12 }} />
+      <Card title="Rebate statement" flush actions={(
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {can('developers', 'approve') && <button className="btn" disabled={!plots.data?.some((p) => p.sale_id)} onClick={() => setPaying(true)}>Record approved payment</button>}
+          {can('developers', 'approve') && <button className="btn primary" disabled={!rebates.data?.totals.due} onClick={() => setRebatePaid(true)}>Rebate received</button>}
+        </div>)}>
+        {!rebates.data ? <Loading /> : (
+          <>
+            <div className="grid g4" style={{ padding: 12 }}><Stat label="Rebate earned" value={money(rebates.data.totals.earned)} /><Stat label="Due from developer" value={money(rebates.data.totals.due)} /><Stat label="Received" value={money(rebates.data.totals.received)} /></div>
+            {rebates.data.rows.length === 0 ? <Empty title="No rebate yet" hint="Rebate is posted when a customer payment on one of this developer’s files is approved." /> : (
+              <table className="t"><thead><tr><th>Date</th><th>File</th><th>Customer</th><th>Stage</th><th className="num">Payment</th><th className="num">Rebate</th><th>Status</th></tr></thead>
+                <tbody>{rebates.data.rows.map((r) => (
+                  <tr key={r.id}><td>{r.payment_date}<div className="cell-sub">{r.receipt_no}</div></td><td>{r.booking_id}<div className="cell-sub">{r.plot_title}</div></td><td>{r.customer_name}</td>
+                    <td>{r.stage}{r.rate != null ? ` · ${r.rate}%` : ''}</td><td className="num">{money(r.base_amount)}</td><td className="num">{money(r.amount)}</td><td><StatusBadge status={r.status} /></td></tr>))}</tbody></table>)}
+          </>)}
+      </Card>
       {editing && <FormModal title="Edit developer" fields={devFields} initial={data} onClose={() => setEditing(false)} onSave={async (f) => { await api.put(`/api/developers/${id}`, f); toast('Saved'); setEditing(false); reload(); }} />}
       {agreement && <FormModal title={agreement.id ? 'Edit agreement' : 'Add agreement'} fields={agreementFields} initial={agreement} onClose={() => setAgreement(null)} onSave={saveAgreement} />}
+      {paying && <ApprovedPaymentModal developerId={id} files={plots.data.filter((p) => p.sale_id)} onClose={() => setPaying(false)} onDone={() => { setPaying(false); refresh(); }} />}
+      {rebatePaid && <RebatePaidModal developerId={id} onClose={() => setRebatePaid(false)} onDone={() => { setRebatePaid(false); refresh(); }} />}
       {linking && <LinkPlotsModal developer={data} agreements={data.agreements} onClose={() => setLinking(false)} onDone={() => { setLinking(false); refresh(); }} />}
       {bulkRebate && (
         <Modal title={sel.length ? `Set rebate on ${sel.length} selected plot${sel.length === 1 ? '' : 's'}` : 'Set rebate on all of this developer’s plots'} onClose={() => setBulkRebate(null)}
