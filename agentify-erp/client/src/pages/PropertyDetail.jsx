@@ -39,7 +39,7 @@ export default function PropertyDetail() {
       </PageHead>
       <div className="row wrap" style={{ marginBottom: 12 }}><StatusBadge status={p.status} /><span className="pill grey">Review: {p.review_state}</span><WebsiteBadge state={p.website_state} /></div>
       {p.review_note && p.review_state === 'draft' && <div className="alert err" style={{ marginBottom: 12 }}><b>Sent back by the Listing Manager:</b> {p.review_note}</div>}
-      <div className="grid" style={{ gridTemplateColumns: 'minmax(0,2fr) minmax(280px,1fr)', alignItems: 'start' }}>
+      <div className="grid" style={{ gridTemplateColumns: 'minmax(0,2fr) minmax(280px,1fr)', alignItems: 'start' }} data-stack="md">
         <div className="stack">
           <RegionFields entity="property" id={p.id} />
           <PortalsCard propertyId={p.id} published={!!p.published} />

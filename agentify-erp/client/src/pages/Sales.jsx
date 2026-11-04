@@ -166,7 +166,7 @@ export function SaleForm() {
         <button className={`chip ${!isHouse ? 'active' : ''}`} onClick={() => setMode('property')}>Property sale (plot / house / shop)</button>
         <button className={`chip ${isHouse ? 'active' : ''}`} onClick={() => setMode('construction')}>Construction contract (house building)</button>
       </div>
-      <div className="grid" style={{ gridTemplateColumns: 'minmax(0,3fr) minmax(300px,2fr)', alignItems: 'start' }}>
+      <div className="grid" style={{ gridTemplateColumns: 'minmax(0,3fr) minmax(300px,2fr)', alignItems: 'start' }} data-stack="md">
         <div className="stack">
           <Card title="Customer">
             <div className="form-grid">

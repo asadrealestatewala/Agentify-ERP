@@ -64,7 +64,7 @@ export default function Branding() {
       <PageHead title="Receipts & branding" sub="Logo, header, footer, contact details and social handles used on receipt vouchers, expense vouchers and customer statements">
         <button className="btn primary" disabled={busy || ro} onClick={save}>Save branding</button>
       </PageHead>
-      <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', alignItems: 'start' }}>
+      <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', alignItems: 'start' }} data-stack="md">
         <div className="stack">
           <Card title="Workspace colour & logo" actions={null}>
             <div className="stack" style={{ gap: 14 }}>

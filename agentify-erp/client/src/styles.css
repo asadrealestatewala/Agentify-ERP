@@ -275,7 +275,7 @@ a.stat { color: inherit; text-decoration: none; } a.stat:hover { border-color: #
 
 /* ---- phase 3 (my space, content calendar, hr extras) ---- */
 .alert.info { background: var(--primary-l); color: var(--primary-d, #1d4ed8); }
-.grid[data-stack="md"] { } @media (max-width: 900px) { .grid[data-stack="md"] { grid-template-columns: 1fr !important; } }
+[data-stack="md"] { } @media (max-width: 900px) { .grid[data-stack="md"], [data-stack="md"][style*="grid"] { grid-template-columns: minmax(0, 1fr) !important; } }
 .role-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: var(--text); font-weight: 500; cursor: pointer; }
 .role-item:hover { background: var(--grey-bg); color: var(--text); } .role-item.active { background: var(--primary-l); color: var(--primary); }
 .seg-btns { display: inline-flex; border: 1px solid var(--border-2); border-radius: 8px; overflow: hidden; background: var(--surface); } .seg-btns button { border: 0; background: none; padding: 5px 10px; font-size: 12px; cursor: pointer; color: var(--muted); border-right: 1px solid var(--border); } .seg-btns button:last-child { border-right: 0; }
