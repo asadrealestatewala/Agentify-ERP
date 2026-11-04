@@ -32,6 +32,7 @@ before(() => new Promise((res) => {
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: PNG } }] } }] }), { status: 200 });
     }
     if (u.includes(':generateContent') && String(opts.body || '').includes('Number of posts')) { textCalls += 1; return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ posts: [{ title: 'Tip one', caption: 'Check the plot file before you pay. #realestate', theme: 'tip' }, { title: 'Why trust us', caption: 'Honest advice, every time. #lahore', theme: 'trust' }, { title: 'Open house', caption: 'Visit us this week. #homes', theme: 'story' }] }) }] } }] }), { status: 200 }); }
+    if (u.includes(':generateContent') && String(opts.body || '').includes('Caption:')) { textCalls += 1; return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"text":"Plot ki file khareedne se pehle check karein. #realestate"}' }] } }] }), { status: 200 }); }
     if (u.includes(':generateContent')) { textCalls += 1; return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"title":"Our story","story":"We help families find homes.","captions":["Find home","Trusted by you"]}' }] } }], usageMetadata: { promptTokenCount: 200, candidatesTokenCount: 300 } }), { status: 200 }); }
     throw new Error(`unexpected fetch ${u}`);
   };
@@ -146,6 +147,13 @@ test('Creative Studio end to end', async () => {
   assert.equal(wp.data.week, '2030-01-07'); assert.deepEqual(wp.data.posts.map((x) => x.post_date), ['2030-01-07', '2030-01-09', '2030-01-11']); assert.equal(wp.data.credits_used, 1);
   assert.equal((await a('GET', '/api/creative/status')).data.credits.left, lb - 1);
   const cal = (await a('GET', '/api/content/posts?from=2030-01-07&to=2030-01-13')).data; assert.equal(cal.length, 3); assert.equal(cal[0].stage, 'draft');
+
+  // language switch on a caption: free, reviewed before saving
+  const l0 = (await a('GET', '/api/creative/status')).data.credits.left;
+  const tr = await a('POST', '/api/creative/translate', { text: 'Check the plot file before you pay. #realestate', language: 'Roman Urdu' }); assert.equal(tr.status, 200, JSON.stringify(tr.data)); assert.match(tr.data.text, /khareedne/); assert.equal(tr.data.credits_used, 0);
+  assert.equal((await a('GET', '/api/creative/status')).data.credits.left, l0, 'free');
+  assert.equal((await a('POST', '/api/creative/translate', { text: 'Hello', language: 'French' })).status, 400);
+  assert.equal((await a('POST', '/api/creative/translate', { text: '', language: 'Urdu' })).status, 400);
 
   // the workspace switch and master switch stop it
   await as(owner, 'PUT', `/ai/workspaces/${tid}`, { ai_enabled: false });
