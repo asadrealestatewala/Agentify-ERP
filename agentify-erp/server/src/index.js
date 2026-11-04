@@ -94,6 +94,7 @@ import { runDueDeliveries } from './services/webhooksOut.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
+const APP_START_PATHS = new Set(['/login', '/portal/login', '/vendor/login', '/developer/login']);
 export function createApp() {
   console.log('[boot] createApp: bootstrapping tenants');
   bootstrapTenants();
@@ -230,6 +231,13 @@ export function createApp() {
     app.use('/downloads', express.static(path.join(dist, 'downloads'), { maxAge: 0, setHeaders: (r, f) => {
       if (/\.apk$/i.test(f)) { r.setHeader('Content-Type', 'application/vnd.android.package-archive'); r.setHeader('Content-Disposition', 'attachment; filename="agentify-erp.apk"'); r.setHeader('Cache-Control', 'no-cache'); }
     } }));
+    // Installed-app manifest. The start page follows the login page it was added from (iPhone "Add to Home Screen"), so the icon never opens the public site.
+    app.get('/manifest.webmanifest', (req, res) => {
+      const m = JSON.parse(fs.readFileSync(path.join(dist, 'manifest.webmanifest'), 'utf8'));
+      const start = typeof req.query.start === 'string' ? req.query.start : '';
+      m.start_url = APP_START_PATHS.has(start) ? `${start}?source=pwa` : '/?source=pwa';
+      res.type('application/manifest+json').set('Cache-Control', 'no-cache').send(JSON.stringify(m));
+    });
     app.use(express.static(dist));
     // marketing pages on the main domain get their title, description, canonical and sharing tags on the server (crawlers)
     let shell = null;

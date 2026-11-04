@@ -19,6 +19,18 @@ const WorkspaceApp = lazy(() => import('./WorkspaceApp.jsx'));
  * Main domain (multi-tenant mode): the public website. On a workspace address, or in a single-company install, the same
  * paths keep their old meaning ("/" goes to the company's own /site, /login and /signup are the workspace pages).
  */
+// Home-screen icon on iPhone/Android opens "/"; signed-out installed apps go to the login page, never the public site.
+const installedApp = () => window.navigator.standalone === true || window.matchMedia?.('(display-mode: standalone)').matches || new URLSearchParams(window.location.search).get('source') === 'pwa';
+// Keep the installable manifest pointed at the login page being viewed (portals included).
+function useManifestStart(pathname) {
+  useEffect(() => {
+    const link = document.querySelector('link[rel="manifest"]');
+    if (!link) return;
+    const start = ['/login', '/portal/login', '/vendor/login', '/developer/login'].includes(pathname) ? pathname : '';
+    link.setAttribute('href', start ? `/manifest.webmanifest?start=${encodeURIComponent(start)}` : '/manifest.webmanifest');
+  }, [pathname]);
+}
+
 function MainGate({ fallback }) {
   const [info, setInfo] = useState(null);
   useEffect(() => { api.get('/api/platform/site').then(setInfo).catch(() => setInfo({ landing: false })); }, []);
@@ -29,6 +41,7 @@ function MainGate({ fallback }) {
 export default function App() {
   const { user } = useAuth();
   const loc = useLocation();
+  useManifestStart(loc.pathname);
   if (loc.pathname.startsWith('/meet/')) return <Suspense fallback={<Loading />}><Routes><Route path="/meet/:code" element={<MeetingRoom />} /></Routes></Suspense>;
   if (loc.pathname === '/site' || loc.pathname.startsWith('/site/')) return <Suspense fallback={<Loading />}><Routes><Route path="/site/*" element={<SiteApp />} /></Routes></Suspense>;
   if (loc.pathname.startsWith('/verify-email/')) return <Routes><Route path="/verify-email/:token" element={<VerifyEmail />} /></Routes>;
@@ -38,7 +51,7 @@ export default function App() {
   if (!user) {
     return (
       <Routes>
-        <Route path="/" element={<MainGate fallback={<Navigate to={inNativeApp() ? '/login' : '/site'} replace />} />} />
+        <Route path="/" element={<MainGate fallback={<Navigate to={inNativeApp() || installedApp() ? '/login' : '/site'} replace />} />} />
         {['/real-estate', '/construction', '/preview', '/pricing', '/contact', '/delete-account', '/download-app', '/legal/:slug'].map((p) => <Route key={p} path={p} element={<MainGate fallback={<Navigate to="/login" replace />} />} />)}
         <Route path="/portal/login" element={<Login portal />} />
         <Route path="/vendor/login" element={<Login portal vendor />} />
