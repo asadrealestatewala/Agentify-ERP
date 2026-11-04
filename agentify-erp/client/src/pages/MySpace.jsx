@@ -60,6 +60,7 @@ export function MyProfile() {
               <button className="icon-btn" aria-label="Change photo" onClick={() => fileRef.current?.click()} style={{ position: 'absolute', right: 2, bottom: 2, background: 'var(--primary)', color: '#fff', width: 34, height: 34 }}><Icon name="image" size={16} /></button>
               <input ref={fileRef} type="file" accept="image/*" hidden onChange={(ev) => upload(ev.target.files?.[0])} />
             </div>
+            {e.photo && <button className="btn sm" style={{ marginBottom: 8 }} onClick={async () => { try { await api.del('/api/staff/me/profile/photo'); toast('Photo removed', 'ok'); reload(); } catch (er) { toast(er.message, 'err'); } }}><Icon name="trash" size={13} />Remove photo</button>}
             <h2 style={{ margin: '4px 0' }}>{e.name}</h2>
             <div className="muted">{e.designation}{e.department ? ` · ${e.department}` : ''}</div>
             <div style={{ marginTop: 10 }}><EmpTypePill type={e.employment_type} /></div>

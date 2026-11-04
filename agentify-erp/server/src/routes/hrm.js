@@ -4,6 +4,7 @@ import { all, get, run, tx, update, nextNo, getSetting } from '../db.js';
 import { can, hasPerm, requireStaff } from '../rbac.js';
 import { audit, notify, notifyPerm } from '../audit.js';
 import { crud, sendTable, uploader } from './helpers.js';
+import { removeRef } from '../services/storage.js';
 import { asyncH, bad, notFound, int, now, today, jparse, addDays, moneyText, curCode } from '../util.js';
 import { postJournal, assertTreasury, assertFunds } from '../services/accounting.js';
 import { payCommission } from '../services/commissions.js';
@@ -39,8 +40,19 @@ r.post('/employees/:id(\\d+)/photo', can('hrm', 'edit'), photoUp.single('photo')
   if (!e) throw notFound();
   if (!req.file) throw bad('Choose a photo');
   run('UPDATE employees SET photo=? WHERE id=?', `media/${req.file.filename}`, e.id);
+  if (e.photo) removeRef(e.photo).catch(() => {});
   audit(req, 'Employee photo updated', 'employee', e.id, e.name);
   res.json({ photo: `media/${req.file.filename}` });
+}));
+/** Remove the picture and delete the stored file; the avatar falls back to the person's initials. */
+r.delete('/employees/:id(\\d+)/photo', can('hrm', 'edit'), asyncH((req, res) => {
+  const e = get('SELECT * FROM employees WHERE id=?', req.params.id);
+  if (!e) throw notFound();
+  if (!e.photo) throw bad('This employee has no photo to remove');
+  run('UPDATE employees SET photo=NULL WHERE id=?', e.id);
+  removeRef(e.photo).catch(() => {});
+  audit(req, 'Employee photo removed', 'employee', e.id, e.name);
+  res.json({ photo: null });
 }));
 r.post('/employees/:id(\\d+)/workflow', can('hrm', 'approve'), asyncH((req, res) => {
   const e = get('SELECT * FROM employees WHERE id=?', req.params.id);

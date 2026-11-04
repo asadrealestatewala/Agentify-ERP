@@ -7,6 +7,7 @@ import { acct } from '../services/accounting.js';
 import { createVoucher } from '../services/expenses.js';
 import { sendPdf } from '../services/pdf.js';
 import { uploader } from './helpers.js';
+import { removeRef } from '../services/storage.js';
 import { syncFromTask } from '../services/onboarding.js';
 import { attendanceSummary, createLeave, decideLeave, employeeOf, leaveBalances, managerUserId, canDecideLeave, commissionDue } from '../services/hr.js';
 
@@ -45,12 +46,22 @@ const saveProfile = asyncH((req, res) => {
   const b = req.body;
   run('UPDATE employees SET phone=COALESCE(?,phone), emergency_contact=COALESCE(?,emergency_contact), address=COALESCE(?,address), photo=COALESCE(?,photo) WHERE id=?',
     b.phone ?? null, b.emergency_contact ?? null, b.address ?? null, req.file ? `media/${req.file.filename}` : null, e.id);
+  if (req.file && e.photo) removeRef(e.photo).catch(() => {});
   if (b.phone) run('UPDATE users SET phone=? WHERE id=?', b.phone, req.user.id);
   audit(req, 'Profile updated', 'employee', e.id, e.name);
   res.json({ ok: true });
 });
 r.put('/me/profile', photoUp.single('photo'), saveProfile);
 r.post('/me/profile', photoUp.single('photo'), saveProfile);
+/** Employees can take their own picture down; the stored file is deleted too. */
+r.delete('/me/profile/photo', asyncH((req, res) => {
+  const e = me(req);
+  if (!e.photo) throw bad('You have no photo to remove');
+  run('UPDATE employees SET photo=NULL WHERE id=?', e.id);
+  removeRef(e.photo).catch(() => {});
+  audit(req, 'Profile photo removed', 'employee', e.id, e.name);
+  res.json({ ok: true });
+}));
 
 // ---------------------------------------------------------------- attendance
 r.get('/me/attendance', asyncH((req, res) => res.json(attendanceSummary(me(req).id, req.query.month || undefined))));
