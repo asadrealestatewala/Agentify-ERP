@@ -2,7 +2,7 @@
 // Everything goes through Agentify's AI service; each use spends workspace credits and the page shows what is left.
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Card, Empty, ErrorBox, Field, Loading, PageHead, Tabs } from '../components/ui.jsx';
+import { Card, Empty, ErrorBox, Field, Loading, PageHead } from '../components/ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useToast } from '../context.jsx';
 import { dateTime } from '../format.js';
@@ -10,10 +10,18 @@ import { dateTime } from '../format.js';
 const CreativeReview = lazy(() => import('./CreativeReview.jsx'));
 const CreativeResults = lazy(() => import('./CreativeResults.jsx'));
 const CreativeListing = lazy(() => import('./CreativeListing.jsx'));
+const CreativeWeek = lazy(() => import('./CreativeWeek.jsx'));
 const pageCss = `.cs-page .card-b{padding:20px 22px}.cs-page .field{gap:6px;margin-bottom:18px}.cs-page .field>label{font-size:14px;font-weight:600;color:var(--text)}
 .cs-page .field .hint{font-size:12.5px;color:var(--muted);font-weight:400;line-height:1.4}.cs-page textarea.input{line-height:1.5;padding:10px 12px}
 .cs-sec{border-top:1px solid var(--border);padding-top:18px;margin-top:6px}.cs-sec:first-of-type{border-top:0;padding-top:0;margin-top:0}
-.cs-sec>h4{margin:0 0 4px;font-size:15px}.cs-sec>.cs-sub{margin:0 0 14px;color:var(--muted);font-size:13px}.cs-big textarea.input{min-height:110px;font-size:15px}`;
+.cs-sec>h4{margin:0 0 4px;font-size:15px}.cs-sec>.cs-sub{margin:0 0 14px;color:var(--muted);font-size:13px}.cs-big textarea.input{min-height:110px;font-size:15px}
+.cs-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:20px;align-items:start}.cs-main{min-width:0}
+.cs-nav{position:sticky;top:12px;display:flex;flex-direction:column;gap:2px;padding:10px;border:1px solid var(--border);border-radius:14px;background:var(--card,#fff)}
+.cs-nav .cs-grp{margin:10px 8px 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.cs-nav .cs-grp:first-child{margin-top:2px}
+.cs-nav button.cs-it{text-align:start;padding:9px 12px;border-radius:10px;border:0;background:none;color:inherit;cursor:pointer;font-size:14px}
+.cs-nav button.cs-it:hover{background:var(--primary-l)}.cs-nav button.cs-it.on{background:var(--primary);color:#fff;font-weight:600}
+.cs-usage{border-top:1px solid var(--border);margin-top:10px;padding:12px 8px 4px;display:flex;flex-direction:column;gap:10px}.cs-usage .muted{font-size:12px}
+@media(max-width:900px){.cs-layout{grid-template-columns:1fr}.cs-nav{position:static;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;gap:4px;padding:6px}.cs-nav .cs-grp,.cs-nav .cs-usage{display:none}.cs-nav button.cs-it{white-space:nowrap;flex:none}}`;
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 12 };
 
 /** Flag a result as wrong, unsafe or poor. Agentify reviews these. */
@@ -306,11 +314,18 @@ function Meter({ label, used, max, noLimit }) {
   </span>);
 }
 
+const NAV = [
+  ['Posts', [['review', 'Posts'], ['week', 'Week plan'], ['results', 'Results']]],
+  ['Create', [['story', 'Brand story'], ['posts', 'Post images'], ['listing', 'Listing to post'], ['reels', 'Video reels']]],
+  ['Brand', [['brand', 'Brand profile']]],
+  ['Library', [['mine', 'My creations']]],
+];
+
 export default function CreativeStudio() {
-  const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'listing', 'reels', 'review', 'results', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'brand'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false); const [brandName, setBrandName] = useState('');
+  const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'listing', 'reels', 'review', 'week', 'results', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'review'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false); const [brandName, setBrandName] = useState('');
   const refresh = useCallback(() => api.get('/api/creative/status').then((x) => { setSt(x); setErr(''); }).catch((e) => setErr(e.message)), []);
-  const checkBrand = useCallback(() => api.get('/api/creative/brand').then((b) => { setBrandSaved(!!b.saved); setBrandName(b.brand_name || ''); }).catch(() => {}), []);
-  useEffect(() => { refresh(); checkBrand(); }, [refresh, checkBrand]);
+  const checkBrand = useCallback(() => api.get('/api/creative/brand').then((b) => { setBrandSaved(!!b.saved); setBrandName(b.brand_name || ''); return b; }).catch(() => null), []);
+  useEffect(() => { refresh(); checkBrand().then((b) => { if (b && !b.saved && !params.get('tab')) setTab('brand'); }); }, [refresh, checkBrand]); // eslint-disable-line react-hooks/exhaustive-deps
   if (err && !st) return <ErrorBox error={err} />;
   if (!st) return <Loading />;
   const left = st.credits.left;
@@ -318,23 +333,33 @@ export default function CreativeStudio() {
     <div className="cs-page">
       <style>{pageCss}</style>
       <PageHead title="Creative Studio" sub="Write your brand story, create post images and short video reels that match your brand. Each use spends credits." />
-      <div className="row" style={{ gap: 12, marginBottom: 12, flexWrap: 'wrap' }} data-tour="creative-credits">
-        <span className={`pill ${st.available ? 'green' : 'red'}`}>{st.available ? 'Ready' : 'Not available'}</span>
-        <Meter label="Credits this month" used={st.credits.allowance != null && left != null ? st.credits.allowance - left : null} max={st.credits.allowance} noLimit={left == null} />
-        {st.plan && (st.plan.posts.per_month != null) && <Meter label="Posts this month" used={st.plan.posts.month} max={st.plan.posts.per_month} />}
-        {st.plan?.trial && <span className="pill amber" title={st.plan.trial_ends_at ? `Trial ends ${st.plan.trial_ends_at.slice(0, 10)}` : undefined}>Trial{st.plan.days_left != null ? `: ${st.plan.days_left} day${st.plan.days_left === 1 ? '' : 's'} left` : ''}</span>}
-        <span className="muted">Story {st.costs.brand_story} credit · Image {st.costs.creative_post} credits · Video {st.costs.video_second} per second</span>
-      </div>
       {st.reason && <Card><p style={{ margin: 0 }}>{st.reason}</p></Card>}
-      <div data-tour="creative-tabs"><Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'listing', label: 'Listing to post' }, { key: 'reels', label: 'Video reels' }, { key: 'review', label: 'Review posts' }, { key: 'results', label: 'Results' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} /></div>
+      <div className="cs-layout">
+        <nav className="cs-nav" aria-label="Creative Studio" data-tour="creative-tabs">
+          {NAV.map(([grp, items]) => (<div key={grp} style={{ display: 'contents' }}>
+            <div className="cs-grp">{grp}</div>
+            {items.map(([k, l]) => <button key={k} type="button" className={`cs-it${tab === k ? ' on' : ''}`} aria-current={tab === k ? 'page' : undefined} onClick={() => setTab(k)}>{l}</button>)}
+          </div>))}
+          <div className="cs-usage" data-tour="creative-credits">
+            <span className={`pill ${st.available ? 'green' : 'red'}`} style={{ alignSelf: 'flex-start' }}>{st.available ? 'Ready' : 'Not available'}</span>
+            {st.plan?.trial && <span className="pill amber" style={{ alignSelf: 'flex-start' }} title={st.plan.trial_ends_at ? `Trial ends ${st.plan.trial_ends_at.slice(0, 10)}` : undefined}>Trial{st.plan.days_left != null ? `: ${st.plan.days_left} day${st.plan.days_left === 1 ? '' : 's'} left` : ''}</span>}
+            {st.plan && (st.plan.posts.per_month != null) && <Meter label="Posts this month" used={st.plan.posts.month} max={st.plan.posts.per_month} />}
+            <Meter label="Credits this month" used={st.credits.allowance != null && left != null ? st.credits.allowance - left : null} max={st.credits.allowance} noLimit={left == null} />
+            <span className="muted">Story {st.costs.brand_story} credit · Image {st.costs.creative_post} credits · Video {st.costs.video_second} per second</span>
+          </div>
+        </nav>
+        <div className="cs-main">
       {tab === 'review' && <Suspense fallback={<Loading rows={3} />}><CreativeReview onGoReels={() => setTab('reels')} brandName={brandName} /></Suspense>}
       {tab === 'brand' && <Brand st={st} onSaved={() => { checkBrand(); refresh(); }} />}
       {tab === 'story' && <Story st={st} refresh={() => { refresh(); setVersion((v) => v + 1); }} brandSaved={brandSaved} />}
       {tab === 'posts' && <Posts st={st} refresh={refresh} brandSaved={brandSaved} onSaved={() => setVersion((v) => v + 1)} />}
       {tab === 'listing' && <Suspense fallback={<Loading rows={3} />}><CreativeListing onSaved={() => setVersion((v) => v + 1)} /></Suspense>}
       {tab === 'reels' && <Reels st={st} refresh={refresh} brandSaved={brandSaved} />}
+      {tab === 'week' && <Suspense fallback={<Loading rows={3} />}><CreativeWeek onGoReview={() => setTab('review')} /></Suspense>}
       {tab === 'results' && <Suspense fallback={<Loading rows={3} />}><CreativeResults onGoReview={() => setTab('review')} /></Suspense>}
       {tab === 'mine' && <Mine version={version} />}
+        </div>
+      </div>
     </div>
   );
 }

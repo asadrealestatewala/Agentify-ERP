@@ -88,6 +88,7 @@ function migrate() {
   // content calendar with approval and Zernio posting (v1.70): additive columns; old posts get a stage from their old status
   for (const [c, d] of [['stage', 'TEXT'], ['submitted_by', 'INTEGER'], ['submitted_at', 'TEXT'], ['approved_by', 'INTEGER'], ['approved_at', 'TEXT'], ['reject_note', 'TEXT'], ['account_ids', "TEXT NOT NULL DEFAULT '[]'"],
     ['source_kind', 'TEXT'], ['source_id', 'INTEGER'], ['results', "TEXT NOT NULL DEFAULT '{}'"], ['fail_reason', 'TEXT'], ['attempts', 'INTEGER NOT NULL DEFAULT 0'], ['blocked_reason', 'TEXT'], ['zernio_post_id', 'TEXT'], ['last_attempt_at', 'TEXT']]) addCol('content_posts', c, d);
+  for (const [c, d] of [['caption_versions', 'TEXT'], ['caption_lang', 'TEXT']]) addCol('content_posts', c, d); // other-language versions of a caption (additive)
   if (cols('content_posts').some((c) => c.name === 'stage')) db.exec("UPDATE content_posts SET stage = CASE status WHEN 'posted' THEN 'posted' WHEN 'ready' THEN 'approved' ELSE 'draft' END WHERE stage IS NULL");
   db.exec(`CREATE TABLE IF NOT EXISTS zernio_accounts(
     id INTEGER PRIMARY KEY, account_id TEXT UNIQUE NOT NULL, platform TEXT NOT NULL, name TEXT, username TEXT, status TEXT NOT NULL DEFAULT 'connected', connected_at TEXT, updated_at TEXT)`);
