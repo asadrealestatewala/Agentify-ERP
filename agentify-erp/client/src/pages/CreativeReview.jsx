@@ -36,6 +36,7 @@ export default function CreativeReview({ onGoReels, brandName }) {
   const [tab, setTab] = useState('waiting'); const [plat, setPlat] = useState('all'); const [sel, setSel] = useState(null);
   const [edit, setEdit] = useState(null); const [ask, setAsk] = useState(null); const [busy, setBusy] = useState(false); const [bulk, setBulk] = useState(null);
   const canApprove = can('content', 'approve'), canEdit = can('content', 'edit');
+  const [tr, setTr] = useState('');
   const [plan, setPlan] = useState(null); const [planning, setPlanning] = useState(false);
   const runPlan = async () => {
     setPlanning(true);
@@ -53,6 +54,7 @@ export default function CreativeReview({ onGoReels, brandName }) {
   const cur = list.find((p) => p.id === sel) || list[0] || null;
   useEffect(() => { setEdit(null); setAsk(null); }, [cur?.id]);
 
+  const rewrite = async (language) => { if (!cur) return; setTr(language); try { const r = await api.post('/api/creative/translate', { text: edit ?? cur.caption ?? '', language }); setEdit(r.text); toast(`Rewritten in ${language}. Check it, then save.`); } catch (e) { toast(e.message, 'err'); } finally { setTr(''); } };
   const act = useCallback(async (fn, ok) => { setBusy(true); try { await fn(); toast(ok); await load(); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } }, [load, toast]);
   const approve = (p) => act(() => api.post(`/api/content/posts/${p.id}/approve`, {}), 'Approved');
   const sendBack = (p, note) => act(() => api.post(`/api/content/posts/${p.id}/reject`, { note }), note ? 'Changes requested' : 'Sent back');
@@ -148,6 +150,7 @@ export default function CreativeReview({ onGoReels, brandName }) {
             {cur.stage !== 'posted' && (
               <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                 <button className="btn" disabled={!canEdit} onClick={() => setEdit(cur.caption || '')}>Edit caption</button>
+                {canEdit && cur.stage !== 'posted' && <span className="row" style={{ gap: 4, flexWrap: 'wrap' }}><span className="muted" style={{ fontSize: 12 }}>Rewrite in</span>{['English', 'Roman Urdu', 'Urdu'].map((l) => <button key={l} className="btn sm" disabled={!!tr} onClick={() => rewrite(l)}>{tr === l ? 'Writing…' : l}</button>)}</span>}
                 <button className="btn" disabled={!canApprove} onClick={() => setAsk('')}>Ask for changes</button>
               </div>)}
             {edit !== null && <div style={{ marginTop: 8 }}><textarea className="input" rows={5} value={edit} onChange={(e) => setEdit(e.target.value)} dir={rtl(edit) ? 'rtl' : 'ltr'} aria-label="Caption" /><div className="row" style={{ gap: 6, marginTop: 6 }}><button className="btn sm primary" disabled={busy} onClick={() => act(async () => { await api.put(`/api/content/posts/${cur.id}`, { caption: edit }); setEdit(null); }, 'Caption saved')}>Save caption</button><button className="btn sm" onClick={() => setEdit(null)}>Cancel</button></div></div>}
