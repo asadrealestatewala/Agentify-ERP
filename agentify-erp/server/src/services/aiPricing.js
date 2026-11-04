@@ -13,6 +13,7 @@ export const FEATURES = {
   video_voice_en: { label: 'Video voice (English)', unit: 'character', per: '1,000 characters', usd: 0.016, scale: 1000 },
   video_voice_ur: { label: 'Video voice (Urdu)', unit: 'character', per: '1,000 characters', usd: 0.016, scale: 1000 },
   brand_story: { label: 'Brand stories', unit: 'call', per: 'one brand story', usd: 0.01 },
+  website_analysis: { label: 'Website analysis', unit: 'call', per: 'one website analysis', usd: 0.01 },
   translation: { label: 'Translation', unit: 'call', per: 'one translation', usd: 0.003 },
   content_draft: { label: 'Agentify post drafts', unit: 'call', per: 'one draft', usd: 0.003 },
 };

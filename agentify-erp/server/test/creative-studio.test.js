@@ -23,12 +23,16 @@ before(() => new Promise((res) => {
   globalThis.fetch = async (url, opts = {}) => {
     const u = String(url);
     if (u.includes('127.0.0.1')) return realFetch(url, opts);
+    if (u === 'https://8.8.8.8/') return new Response('<html><head><title>Acme Homes</title><meta name="description" content="Family homes in Lahore"><meta name="theme-color" content="#123456"></head><body><p>' + 'We build and sell family homes in Lahore with honest pricing and friendly service. '.repeat(6) + '</p></body></html>', { status: 200, headers: { 'content-type': 'text/html' } });
+    if (u === 'https://8.8.4.4/') return new Response('', { status: 302, headers: { location: 'https://10.0.0.5/admin' } });
     if (u.includes('open.er-api.com')) return new Response(JSON.stringify({ rates: { PKR: 280 } }), { status: 200 });
     if (u.includes('gemini-2.5-flash-image')) {
       imageCalls += 1;
       if (blockImages) return new Response(JSON.stringify({ promptFeedback: { blockReason: 'SAFETY' } }), { status: 200 });
       return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: PNG } }] } }] }), { status: 200 });
     }
+    if (u.includes(':generateContent') && String(opts.body || '').includes('Number of posts')) { textCalls += 1; return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ posts: [{ title: 'Tip one', caption: 'Check the plot file before you pay. #realestate', theme: 'tip' }, { title: 'Why trust us', caption: 'Honest advice, every time. #lahore', theme: 'trust' }, { title: 'Open house', caption: 'Visit us this week. #homes', theme: 'story' }] }) }] } }] }), { status: 200 }); }
+    if (u.includes(':generateContent') && String(opts.body || '').includes('Caption:')) { textCalls += 1; return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"text":"Plot ki file khareedne se pehle check karein. #realestate"}' }] } }] }), { status: 200 }); }
     if (u.includes(':generateContent')) { textCalls += 1; return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"title":"Our story","story":"We help families find homes.","captions":["Find home","Trusted by you"]}' }] } }], usageMetadata: { promptTokenCount: 200, candidatesTokenCount: 300 } }), { status: 200 }); }
     throw new Error(`unexpected fetch ${u}`);
   };
@@ -118,6 +122,38 @@ test('Creative Studio end to end', async () => {
   assert.equal((await as(owner, 'PUT', `/ai/reports/${ov.reported[0].id}`, { handled: true })).status, 200);
   assert.equal((await as(owner, 'GET', '/ai/reports')).data.length, 0);
   assert.equal((await as(owner, 'GET', '/ai/reports?handled=1')).data.length, 1);
+
+  // Analyze my website: free, public sites only, nothing saved until the user saves, summary feeds later stories
+  const before = (await a('GET', '/api/creative/status')).data.credits.left; const tc = textCalls;
+  const priv = await a('POST', '/api/creative/brand/analyze', { website: 'https://127.0.0.1/' }); assert.equal(priv.status, 400); assert.match(priv.data.error, /Internal network/);
+  assert.equal((await a('POST', '/api/creative/brand/analyze', { website: '8.8.4.4' })).status, 400, 'redirect to a private address is refused');
+  assert.equal((await a('POST', '/api/creative/brand/analyze', { website: '' })).status, 400);
+  const scan = await a('POST', '/api/creative/brand/analyze', { website: '8.8.8.8' }); assert.equal(scan.status, 200, JSON.stringify(scan.data));
+  assert.equal(scan.data.credits_used, 0); assert.equal(scan.data.suggestions.primary_color, '#123456'); assert.equal(textCalls, tc + 1);
+  assert.equal((await a('GET', '/api/creative/status')).data.credits.left, before, 'free');
+  assert.equal((await a('GET', '/api/creative/brand')).data.site_summary, null, 'nothing saved by analyzing');
+  assert.equal((await a('PUT', '/api/creative/brand', { brand_name: 'Acme Homes', site_summary: 'Builds family homes in Lahore.' })).data.site_summary, 'Builds family homes in Lahore.');
+  assert.equal((await a('PUT', '/api/creative/brand', { brand_name: 'Acme Homes' })).data.site_summary, 'Builds family homes in Lahore.', 'kept when not sent');
+  for (let i = 0; i < 4; i++) assert.equal((await a('POST', '/api/creative/brand/analyze', { website: '8.8.8.8' })).status, 200);
+  assert.equal((await a('POST', '/api/creative/brand/analyze', { website: '8.8.8.8' })).status, 400, 'daily limit');
+
+  // Listing to post: real inventory facts and photos for the browser to draw (no AI, no credits)
+  const ls = await a('GET', '/api/creative/listings?q=nothing-matches-this'); assert.equal(ls.status, 200); assert.deepEqual(ls.data, []);
+  assert.equal(Array.isArray((await a('GET', '/api/creative/listings')).data), true);
+
+  // Week plan: one text request fills draft posts in the calendar, 1 credit, nothing published
+  const lb = (await a('GET', '/api/creative/status')).data.credits.left;
+  const wp = await a('POST', '/api/creative/week-plan', { count: 3, language: 'Roman Urdu', week_start: '2030-01-09' }); assert.equal(wp.status, 201, JSON.stringify(wp.data));
+  assert.equal(wp.data.week, '2030-01-07'); assert.deepEqual(wp.data.posts.map((x) => x.post_date), ['2030-01-07', '2030-01-09', '2030-01-11']); assert.equal(wp.data.credits_used, 1);
+  assert.equal((await a('GET', '/api/creative/status')).data.credits.left, lb - 1);
+  const cal = (await a('GET', '/api/content/posts?from=2030-01-07&to=2030-01-13')).data; assert.equal(cal.length, 3); assert.equal(cal[0].stage, 'draft');
+
+  // language switch on a caption: free, reviewed before saving
+  const l0 = (await a('GET', '/api/creative/status')).data.credits.left;
+  const tr = await a('POST', '/api/creative/translate', { text: 'Check the plot file before you pay. #realestate', language: 'Roman Urdu' }); assert.equal(tr.status, 200, JSON.stringify(tr.data)); assert.match(tr.data.text, /khareedne/); assert.equal(tr.data.credits_used, 0);
+  assert.equal((await a('GET', '/api/creative/status')).data.credits.left, l0, 'free');
+  assert.equal((await a('POST', '/api/creative/translate', { text: 'Hello', language: 'French' })).status, 400);
+  assert.equal((await a('POST', '/api/creative/translate', { text: '', language: 'Urdu' })).status, 400);
 
   // the workspace switch and master switch stop it
   await as(owner, 'PUT', `/ai/workspaces/${tid}`, { ai_enabled: false });

@@ -36,6 +36,13 @@ export default function CreativeReview({ onGoReels, brandName }) {
   const [tab, setTab] = useState('waiting'); const [plat, setPlat] = useState('all'); const [sel, setSel] = useState(null);
   const [edit, setEdit] = useState(null); const [ask, setAsk] = useState(null); const [busy, setBusy] = useState(false); const [bulk, setBulk] = useState(null);
   const canApprove = can('content', 'approve'), canEdit = can('content', 'edit');
+  const [tr, setTr] = useState('');
+  const [plan, setPlan] = useState(null); const [planning, setPlanning] = useState(false);
+  const runPlan = async () => {
+    setPlanning(true);
+    try { const r = await api.post('/api/creative/week-plan', { week_start: plan.next ? addDays(mondayOf(new Date()), 7) : mondayOf(new Date()), count: plan.count, language: plan.language }); toast(`${r.posts.length} posts added. Review and approve them below.`); setPlan(null); setTab('waiting'); setPlat('all'); setWeek(r.week); setPosts(null); await load(); }
+    catch (e) { toast(e.message, 'err'); } finally { setPlanning(false); }
+  };
 
   const load = useCallback(() => api.get(`/api/content/posts?from=${week}&to=${addDays(week, 6)}`).then((r) => { setPosts(r); setErr(''); }).catch((e) => setErr(e.message)), [week]);
   useEffect(() => { setPosts(null); load(); }, [load]);
@@ -47,6 +54,7 @@ export default function CreativeReview({ onGoReels, brandName }) {
   const cur = list.find((p) => p.id === sel) || list[0] || null;
   useEffect(() => { setEdit(null); setAsk(null); }, [cur?.id]);
 
+  const rewrite = async (language) => { if (!cur) return; setTr(language); try { const r = await api.post('/api/creative/translate', { text: edit ?? cur.caption ?? '', language }); setEdit(r.text); toast(`Rewritten in ${language}. Check it, then save.`); } catch (e) { toast(e.message, 'err'); } finally { setTr(''); } };
   const act = useCallback(async (fn, ok) => { setBusy(true); try { await fn(); toast(ok); await load(); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } }, [load, toast]);
   const approve = (p) => act(() => api.post(`/api/content/posts/${p.id}/approve`, {}), 'Approved');
   const sendBack = (p, note) => act(() => api.post(`/api/content/posts/${p.id}/reject`, { note }), note ? 'Changes requested' : 'Sent back');
@@ -70,6 +78,18 @@ export default function CreativeReview({ onGoReels, brandName }) {
   return (
     <div>
       <style>{css}</style>
+      {can('content', 'create') && (!plan
+        ? <div style={{ textAlign: 'end', marginBottom: 8 }}><button className="btn primary" onClick={() => setPlan({ count: 3, language: 'English', next: true })}>Plan my week</button></div>
+        : <div className="card" style={{ padding: 14, marginBottom: 12 }}>
+            <strong>Plan my week</strong>
+            <p className="muted" style={{ margin: '4px 0 10px', fontSize: 13 }}>Writes a week of posts from your brand profile and website facts, using your real listings. Posts appear below as drafts. Nothing is published until you approve. Costs 1 credit.</p>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+              {[[false, 'This week'], [true, 'Next week']].map(([v, l]) => <button key={l} type="button" className={`rv-pill${plan.next === v ? ' on' : ''}`} onClick={() => setPlan({ ...plan, next: v })}>{l}</button>)}
+              {[3, 5].map((n) => <button key={n} type="button" className={`rv-pill${plan.count === n ? ' on' : ''}`} onClick={() => setPlan({ ...plan, count: n })}>{n} posts</button>)}
+              {['English', 'Roman Urdu', 'Urdu'].map((l) => <button key={l} type="button" className={`rv-pill${plan.language === l ? ' on' : ''}`} onClick={() => setPlan({ ...plan, language: l })}>{l}</button>)}
+            </div>
+            <div className="row" style={{ gap: 8 }}><button className="btn primary" disabled={planning} onClick={runPlan}>{planning ? 'Writing your week…' : 'Create the plan'}</button><button className="btn" disabled={planning} onClick={() => setPlan(null)}>Cancel</button></div>
+          </div>)}
       <div className={`rv${posts && !list.length ? ' rv-empty' : ''}`}>
         <div className="rv-col">
           <div className="row" style={{ gap: 8, justifyContent: 'space-between', marginBottom: 8 }}>
@@ -130,6 +150,7 @@ export default function CreativeReview({ onGoReels, brandName }) {
             {cur.stage !== 'posted' && (
               <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
                 <button className="btn" disabled={!canEdit} onClick={() => setEdit(cur.caption || '')}>Edit caption</button>
+                {canEdit && cur.stage !== 'posted' && <span className="row" style={{ gap: 4, flexWrap: 'wrap' }}><span className="muted" style={{ fontSize: 12 }}>Rewrite in</span>{['English', 'Roman Urdu', 'Urdu'].map((l) => <button key={l} className="btn sm" disabled={!!tr} onClick={() => rewrite(l)}>{tr === l ? 'Writing…' : l}</button>)}</span>}
                 <button className="btn" disabled={!canApprove} onClick={() => setAsk('')}>Ask for changes</button>
               </div>)}
             {edit !== null && <div style={{ marginTop: 8 }}><textarea className="input" rows={5} value={edit} onChange={(e) => setEdit(e.target.value)} dir={rtl(edit) ? 'rtl' : 'ltr'} aria-label="Caption" /><div className="row" style={{ gap: 6, marginTop: 6 }}><button className="btn sm primary" disabled={busy} onClick={() => act(async () => { await api.put(`/api/content/posts/${cur.id}`, { caption: edit }); setEdit(null); }, 'Caption saved')}>Save caption</button><button className="btn sm" onClick={() => setEdit(null)}>Cancel</button></div></div>}

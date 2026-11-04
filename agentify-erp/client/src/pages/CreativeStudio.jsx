@@ -8,6 +8,7 @@ import { useAuth, useToast } from '../context.jsx';
 import { dateTime } from '../format.js';
 
 const CreativeReview = lazy(() => import('./CreativeReview.jsx'));
+const CreativeListing = lazy(() => import('./CreativeListing.jsx'));
 const pageCss = `.cs-page .card-b{padding:20px 22px}.cs-page .field{gap:6px;margin-bottom:18px}.cs-page .field>label{font-size:14px;font-weight:600;color:var(--text)}
 .cs-page .field .hint{font-size:12.5px;color:var(--muted);font-weight:400;line-height:1.4}.cs-page textarea.input{line-height:1.5;padding:10px 12px}
 .cs-sec{border-top:1px solid var(--border);padding-top:18px;margin-top:6px}.cs-sec:first-of-type{border-top:0;padding-top:0;margin-top:0}
@@ -48,6 +49,7 @@ const STEPS = ['Your business', 'Where you post', 'Your look'];
 function Brand({ st, onSaved }) {
   const toast = useToast(); const { can } = useAuth();
   const [b, setB] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [step, setStep] = useState(null);
+  const [scan, setScan] = useState(null); const [scanning, setScanning] = useState(false);
   useEffect(() => { api.get('/api/creative/brand').then((x) => { setB(x); if (!x.saved) setStep(0); }).catch((e) => setErr(e.message)); }, []);
   if (err && !b) return <ErrorBox error={err} />;
   if (!b) return <Loading rows={2} />;
@@ -56,15 +58,34 @@ function Brand({ st, onSaved }) {
   const opts = st.brand_options || { platforms: [], languages: [], tones: [], posts_per_week: [] };
   const save = async () => { setBusy(true); setErr(''); try { setB(await api.put('/api/creative/brand', b)); toast('Brand profile saved'); setStep(null); onSaved(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   const edit = can('content', 'edit');
+  const analyze = async () => { setScanning(true); setErr(''); setScan(null); try { setScan(await api.post('/api/creative/brand/analyze', { website: b.website })); } catch (e) { setErr(e.message); } finally { setScanning(false); } };
+  const SCAN_FIELDS = [['brand_name', 'Brand name'], ['business_type', 'Business type'], ['about', 'About'], ['audience', 'Customers'], ['city', 'City or country'], ['tone_tags', 'Tone words'], ['languages', 'Languages'], ['primary_color', 'Main color']];
+  const shown = (v) => (Array.isArray(v) ? v.join(', ') : v);
+  const has = (v) => (Array.isArray(v) ? v.length > 0 : !!String(v ?? '').trim());
+  const useScan = (keys) => { const sg = scan.suggestions; const next = { ...b, website: scan.website, site_summary: sg.summary || b.site_summary }; for (const k of keys) if (has(sg[k])) next[k] = sg[k]; setB(next); };
+  const fillEmpty = () => useScan(SCAN_FIELDS.map(([k]) => k).filter((k) => !has(b[k])));
+  const scanPanel = scan && (<div className="card" style={{ background: 'var(--bg-soft, #f5faf9)', marginBottom: 12 }}>
+    <strong>What we found on your website</strong>
+    <p className="muted" style={{ margin: '4px 0 8px', fontSize: 13 }}>Read {scan.pages_read} page{scan.pages_read === 1 ? '' : 's'}. This was free. Nothing is saved until you press Save. Your own entries are never replaced unless you press Use.</p>
+    {SCAN_FIELDS.filter(([k]) => has(scan.suggestions[k])).map(([k, label]) => (<div key={k} className="row" style={{ gap: 8, alignItems: 'flex-start', marginBottom: 6 }}>
+      <div style={{ flex: 1, minWidth: 0 }}><div className="muted" style={{ fontSize: 12 }}>{label}</div><div style={{ overflowWrap: 'anywhere' }}>{shown(scan.suggestions[k])}</div></div>
+      {JSON.stringify(b[k]) === JSON.stringify(scan.suggestions[k]) ? <span className="muted" style={{ fontSize: 12 }}>Used</span> : <button className="btn" onClick={() => useScan([k])}>Use</button>}
+    </div>))}
+    {scan.suggestions.services.length > 0 && <div style={{ marginBottom: 6 }}><div className="muted" style={{ fontSize: 12 }}>Services named on the site</div><div>{scan.suggestions.services.join(', ')}</div></div>}
+    <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}><button className="btn primary" onClick={fillEmpty}>Fill empty fields</button><button className="btn" onClick={() => setScan(null)}>Close</button></div>
+    <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>A short summary of your site is kept with your brand so posts use your real facts. Remove it any time below.</p>
+  </div>);
   const business = (<>
     <Field label="Brand name" required><input className="input" value={b.brand_name || ''} onChange={set('brand_name')} maxLength={80} disabled={!edit} /></Field>
     <Field label="Business type" hint="For example real estate agency"><input className="input" value={b.business_type || ''} onChange={set('business_type')} maxLength={80} disabled={!edit} /></Field>
     <Field label="About your business" hint="What you do or sell. Real facts only. The AI never invents numbers, awards or customers."><textarea className="input" rows={3} value={b.about || ''} onChange={set('about')} maxLength={600} disabled={!edit} /></Field>
     <Field label="Who are your customers? (optional)"><input className="input" value={b.audience || ''} onChange={set('audience')} maxLength={200} disabled={!edit} /></Field>
     <div style={grid}>
-      <Field label="Website (optional)"><input className="input" value={b.website || ''} onChange={set('website')} maxLength={200} disabled={!edit} /></Field>
+      <Field label="Website (optional)" hint="Press Analyze to fill your brand details from your site. Free."><span className="row" style={{ gap: 8 }}><input className="input" value={b.website || ''} onChange={set('website')} maxLength={200} disabled={!edit} placeholder="yourcompany.com" /><button type="button" className="btn" disabled={!edit || scanning || !(b.website || '').trim() || !st.available} onClick={analyze}>{scanning ? 'Reading…' : 'Analyze my website'}</button></span></Field>
       <Field label="City or country"><input className="input" value={b.city || ''} onChange={set('city')} maxLength={80} disabled={!edit} /></Field>
-    </div></>);
+    </div>
+    {scanPanel}
+    {b.site_summary && <Field label="Facts from your website" hint="Used so posts stick to your real details."><div className="muted" style={{ fontSize: 13, overflowWrap: 'anywhere' }}>{b.site_summary}</div>{edit && <button type="button" className="btn" onClick={() => setB({ ...b, site_summary: '' })}>Remove website facts</button>}</Field>}</>);
   const channels = (<>
     <Field label="Where you post"><Chips label="Platforms" options={opts.platforms} value={b.platforms || []} onChange={setV('platforms')} disabled={!edit} /></Field>
     <Field label="Languages" hint="Posts are written for the languages you pick."><Chips label="Languages" options={opts.languages} value={b.languages || []} onChange={setV('languages')} disabled={!edit} /></Field>
@@ -275,7 +296,7 @@ function Mine({ version }) {
 }
 
 export default function CreativeStudio() {
-  const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'reels', 'review', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'brand'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false); const [brandName, setBrandName] = useState('');
+  const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'listing', 'reels', 'review', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'brand'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false); const [brandName, setBrandName] = useState('');
   const refresh = useCallback(() => api.get('/api/creative/status').then((x) => { setSt(x); setErr(''); }).catch((e) => setErr(e.message)), []);
   const checkBrand = useCallback(() => api.get('/api/creative/brand').then((b) => { setBrandSaved(!!b.saved); setBrandName(b.brand_name || ''); }).catch(() => {}), []);
   useEffect(() => { refresh(); checkBrand(); }, [refresh, checkBrand]);
@@ -292,11 +313,12 @@ export default function CreativeStudio() {
         <span className="muted">Story {st.costs.brand_story} credit · Image {st.costs.creative_post} credits · Video {st.costs.video_second} per second</span>
       </div>
       {st.reason && <Card><p style={{ margin: 0 }}>{st.reason}</p></Card>}
-      <div data-tour="creative-tabs"><Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'reels', label: 'Video reels' }, { key: 'review', label: 'Review posts' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} /></div>
+      <div data-tour="creative-tabs"><Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'listing', label: 'Listing to post' }, { key: 'reels', label: 'Video reels' }, { key: 'review', label: 'Review posts' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} /></div>
       {tab === 'review' && <Suspense fallback={<Loading rows={3} />}><CreativeReview onGoReels={() => setTab('reels')} brandName={brandName} /></Suspense>}
       {tab === 'brand' && <Brand st={st} onSaved={() => { checkBrand(); refresh(); }} />}
       {tab === 'story' && <Story st={st} refresh={() => { refresh(); setVersion((v) => v + 1); }} brandSaved={brandSaved} />}
       {tab === 'posts' && <Posts st={st} refresh={refresh} brandSaved={brandSaved} onSaved={() => setVersion((v) => v + 1)} />}
+      {tab === 'listing' && <Suspense fallback={<Loading rows={3} />}><CreativeListing onSaved={() => setVersion((v) => v + 1)} /></Suspense>}
       {tab === 'reels' && <Reels st={st} refresh={refresh} brandSaved={brandSaved} />}
       {tab === 'mine' && <Mine version={version} />}
     </div>

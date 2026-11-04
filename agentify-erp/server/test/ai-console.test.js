@@ -44,7 +44,7 @@ test('AI console: overview, controls, prices, rate, credits and Azure key (never
   const tid = platformDb().prepare("SELECT id FROM tenants WHERE slug='acme'").get().id;
 
   let o = (await as(owner, 'GET', '/ai/overview')).data;
-  assert.equal(o.features.length, 8); assert.equal(o.limits.platform_daily_limit_effective, 300);
+  assert.equal(o.features.length, 9); assert.equal(o.limits.platform_daily_limit_effective, 300);
   assert.equal(o.technical.gemini.added, false); assert.equal(o.technical.azure.key_added, false);
   assert.ok(o.prices.every((p) => p.usd > 0));
 
