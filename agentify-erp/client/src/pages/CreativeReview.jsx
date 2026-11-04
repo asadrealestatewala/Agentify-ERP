@@ -23,6 +23,10 @@ const css = `.rv{display:grid;grid-template-columns:minmax(260px,330px) minmax(2
 .rv-ph{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--card,#fff)}.rv-ph img,.rv-ph video{width:100%;display:block;max-height:460px;object-fit:cover}
 kbd{border:1px solid var(--border);border-radius:5px;padding:0 6px;font-size:12px}
 .rv-empty{grid-template-columns:1fr;max-width:640px}.rv-empty .rv-prev{display:none}.rv-empty .rv-side{display:none}.rv-col{margin-bottom:8px}
+.rv-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px}.rv-day{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;border-radius:10px;border:1px solid var(--border);background:none;color:inherit;cursor:pointer;font-size:12px}.rv-day.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.rv-day .dot{width:6px;height:6px;border-radius:50%;background:var(--primary)}.rv-day.on .dot{background:#fff}.rv-day .dot.off{background:transparent}
+.rv-lang{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}.rv-cap{display:flex;justify-content:space-between;font-size:12px;margin:4px 0 8px}.rv-cap .over{color:#b91c1c;font-weight:600}
+.rv-approve{width:100%;padding:14px 16px;font-size:16px;font-weight:700;justify-content:center}
 @media(max-width:1000px){.rv{grid-template-columns:1fr}}`;
 
 function Thumb({ p }) {
@@ -36,25 +40,18 @@ export default function CreativeReview({ onGoReels, brandName }) {
   const [tab, setTab] = useState('waiting'); const [plat, setPlat] = useState('all'); const [sel, setSel] = useState(null);
   const [edit, setEdit] = useState(null); const [ask, setAsk] = useState(null); const [busy, setBusy] = useState(false); const [bulk, setBulk] = useState(null);
   const canApprove = can('content', 'approve'), canEdit = can('content', 'edit');
-  const [tr, setTr] = useState('');
-  const [plan, setPlan] = useState(null); const [planning, setPlanning] = useState(false);
-  const runPlan = async () => {
-    setPlanning(true);
-    try { const r = await api.post('/api/creative/week-plan', { week_start: plan.next ? addDays(mondayOf(new Date()), 7) : mondayOf(new Date()), count: plan.count, language: plan.language }); toast(`${r.posts.length} posts added. Review and approve them below.`); setPlan(null); setTab('waiting'); setPlat('all'); setWeek(r.week); setPosts(null); await load(); }
-    catch (e) { toast(e.message, 'err'); } finally { setPlanning(false); }
-  };
-
+  const [tr, setTr] = useState(''); const [day, setDay] = useState(null);
   const load = useCallback(() => api.get(`/api/content/posts?from=${week}&to=${addDays(week, 6)}`).then((r) => { setPosts(r); setErr(''); }).catch((e) => setErr(e.message)), [week]);
-  useEffect(() => { setPosts(null); load(); }, [load]);
+  useEffect(() => { setPosts(null); setDay(null); load(); }, [load]);
 
   const counts = useMemo(() => { const c = { waiting: 0, approved: 0, posted: 0 }; (posts || []).forEach((p) => { if (hasStage('waiting', p)) c.waiting++; else if (hasStage('approved', p)) c.approved++; else if (p.stage === 'posted') c.posted++; }); return c; }, [posts]);
   const inTab = useMemo(() => (posts || []).filter((p) => hasStage(tab, p)), [posts, tab]);
   const platforms = useMemo(() => [...new Set(inTab.flatMap((p) => p.platforms || []))], [inTab]);
-  const list = useMemo(() => inTab.filter((p) => plat === 'all' || (p.platforms || []).includes(plat)), [inTab, plat]);
+  const list = useMemo(() => inTab.filter((p) => (plat === 'all' || (p.platforms || []).includes(plat)) && (!day || p.post_date === day)), [inTab, plat, day]);
   const cur = list.find((p) => p.id === sel) || list[0] || null;
   useEffect(() => { setEdit(null); setAsk(null); }, [cur?.id]);
 
-  const rewrite = async (language) => { if (!cur) return; setTr(language); try { const r = await api.post('/api/creative/translate', { text: edit ?? cur.caption ?? '', language }); setEdit(r.text); toast(`Rewritten in ${language}. Check it, then save.`); } catch (e) { toast(e.message, 'err'); } finally { setTr(''); } };
+  const switchLang = async (language) => { if (!cur || tr) return; setTr(language); try { const r = await api.post(`/api/creative/posts/${cur.id}/language`, { language }); setEdit(null); toast(r.rewritten ? `Written in ${language}. Check it, then approve.` : `Switched to ${language}`); await load(); } catch (e) { toast(e.message, 'err'); } finally { setTr(''); } };
   const act = useCallback(async (fn, ok) => { setBusy(true); try { await fn(); toast(ok); await load(); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } }, [load, toast]);
   const approve = (p) => act(() => api.post(`/api/content/posts/${p.id}/approve`, {}), 'Approved');
   const sendBack = (p, note) => act(() => api.post(`/api/content/posts/${p.id}/reject`, { note }), note ? 'Changes requested' : 'Sent back');
@@ -74,22 +71,13 @@ export default function CreativeReview({ onGoReels, brandName }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(week, i));
   const approveSeveral = async () => { const ids = Object.keys(bulk || {}).filter((k) => bulk[k]); if (!ids.length) { setBulk(null); return; } setBusy(true); let ok = 0; for (const id of ids) { try { await api.post(`/api/content/posts/${id}/approve`, {}); ok++; } catch { /* reported below */ } } setBusy(false); setBulk(null); toast(`${ok} of ${ids.length} approved`, ok === ids.length ? undefined : 'err'); load(); };
 
+  const LIMITS = { instagram: 2200, linkedin: 3000, facebook: 63206 };
+  const limit = Math.min(...((cur?.platforms || []).map((p) => LIMITS[p]).filter(Boolean)), 2200);
+  const len = (edit ?? cur?.caption ?? '').length;
   if (err && !posts) return <ErrorBox error={err} />;
   return (
     <div>
       <style>{css}</style>
-      {can('content', 'create') && (!plan
-        ? <div style={{ textAlign: 'end', marginBottom: 8 }}><button className="btn primary" onClick={() => setPlan({ count: 3, language: 'English', next: true })}>Plan my week</button></div>
-        : <div className="card" style={{ padding: 14, marginBottom: 12 }}>
-            <strong>Plan my week</strong>
-            <p className="muted" style={{ margin: '4px 0 10px', fontSize: 13 }}>Writes a week of posts from your brand profile and website facts, using your real listings. Posts appear below as drafts. Nothing is published until you approve. Costs 1 credit.</p>
-            <div className="row" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-              {[[false, 'This week'], [true, 'Next week']].map(([v, l]) => <button key={l} type="button" className={`rv-pill${plan.next === v ? ' on' : ''}`} onClick={() => setPlan({ ...plan, next: v })}>{l}</button>)}
-              {[3, 5].map((n) => <button key={n} type="button" className={`rv-pill${plan.count === n ? ' on' : ''}`} onClick={() => setPlan({ ...plan, count: n })}>{n} posts</button>)}
-              {['English', 'Roman Urdu', 'Urdu'].map((l) => <button key={l} type="button" className={`rv-pill${plan.language === l ? ' on' : ''}`} onClick={() => setPlan({ ...plan, language: l })}>{l}</button>)}
-            </div>
-            <div className="row" style={{ gap: 8 }}><button className="btn primary" disabled={planning} onClick={runPlan}>{planning ? 'Writing your week…' : 'Create the plan'}</button><button className="btn" disabled={planning} onClick={() => setPlan(null)}>Cancel</button></div>
-          </div>)}
       <div className={`rv${posts && !list.length ? ' rv-empty' : ''}`}>
         <div className="rv-col">
           <div className="row" style={{ gap: 8, justifyContent: 'space-between', marginBottom: 8 }}>
@@ -119,8 +107,8 @@ export default function CreativeReview({ onGoReels, brandName }) {
                   </button>
                 </div>))}
             </div>))}
-          <div className="row" style={{ gap: 4, justifyContent: 'space-between', marginTop: 8 }}>
-            {days.map((d) => <button key={d} className="btn sm" style={{ padding: '4px 6px', fontSize: 12 }} onClick={() => { const f = list.find((p) => p.post_date === d); if (f) setSel(f.id); }} title={short(d)}>{dayName(d).slice(0, 1)}<br />{Number(d.slice(8))}{(posts || []).some((p) => p.post_date === d) ? ' •' : ''}</button>)}
+          <div className="rv-days" role="group" aria-label="Filter by day">
+            {days.map((d) => { const n = (posts || []).filter((p) => p.post_date === d).length; return <button key={d} type="button" className={`rv-day${day === d ? ' on' : ''}`} aria-pressed={day === d} onClick={() => setDay(day === d ? null : d)} title={`${short(d)}${n ? `: ${n} post${n === 1 ? '' : 's'}` : ''}`}><span>{dayName(d).slice(0, 3)}</span><b>{Number(d.slice(8))}</b><i className={n ? 'dot' : 'dot off'} /></button>; })}
           </div>
         </div>
 
@@ -141,19 +129,21 @@ export default function CreativeReview({ onGoReels, brandName }) {
             <h3 style={{ margin: '6px 0 10px' }} dir={rtl(cur.title) ? 'rtl' : 'ltr'}>{cur.title}</h3>
             {cur.reject_note && <p className="muted" style={{ marginTop: 0 }}>Changes asked for: {cur.reject_note}</p>}
             {cur.fail_reason && <p style={{ color: 'var(--danger,#b91c1c)' }}>{cur.fail_reason}</p>}
-            {cur.stage !== 'posted' && (
-              <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
-                {hasStage('waiting', cur) && <button className="btn primary" style={{ flex: 1 }} disabled={busy || !canApprove} onClick={() => approve(cur)}>✓ Approve</button>}
-                <button className="btn" disabled={busy || !canApprove} onClick={() => sendBack(cur, '')}>Reject</button>
-              </div>)}
-            {!canApprove && <p className="muted" style={{ fontSize: 12 }}>Only people with approval rights can approve or reject.</p>}
-            {cur.stage !== 'posted' && (
+            {cur.stage !== 'posted' && (<>
+              <div className="rv-lang" role="group" aria-label="Caption language">
+                {['English', 'Urdu', 'Roman Urdu'].map((l) => <button key={l} type="button" className={`rv-pill${cur.caption_language === l ? ' on' : ''}`} aria-pressed={cur.caption_language === l} disabled={!canEdit || !!tr} onClick={() => switchLang(l)} title={(cur.versions || []).includes(l) ? 'Already written' : 'Writes this version with AI'}>{tr === l ? 'Writing…' : l}</button>)}
+              </div>
+              <label className="muted" htmlFor="rv-caption" style={{ fontSize: 13 }}>Your caption</label>
+              <textarea id="rv-caption" className="input" rows={6} value={edit ?? cur.caption ?? ''} disabled={!canEdit} onChange={(e) => setEdit(e.target.value)} dir={rtl(edit ?? cur.caption) ? 'rtl' : 'ltr'} />
+              <div className="rv-cap"><span className="muted">{edit !== null && edit !== (cur.caption || '') ? 'Unsaved changes' : ''}</span><span className={len > limit ? 'over' : 'muted'}>{len.toLocaleString()} / {limit.toLocaleString()}</span></div>
+              {edit !== null && edit !== (cur.caption || '') && <div className="row" style={{ gap: 6, marginBottom: 8 }}><button className="btn sm primary" disabled={busy || len > limit} onClick={() => act(async () => { await api.put(`/api/content/posts/${cur.id}`, { caption: edit }); setEdit(null); }, 'Caption saved')}>Save caption</button><button className="btn sm" onClick={() => setEdit(null)}>Undo</button></div>}
+              {hasStage('waiting', cur) && <button className="btn primary rv-approve" disabled={busy || !canApprove || (edit !== null && edit !== (cur.caption || ''))} onClick={() => approve(cur)} title={edit !== null && edit !== (cur.caption || '') ? 'Save your caption first' : undefined}>✓ Approve</button>}
               <div className="row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                <button className="btn" disabled={!canEdit} onClick={() => setEdit(cur.caption || '')}>Edit caption</button>
-                {canEdit && cur.stage !== 'posted' && <span className="row" style={{ gap: 4, flexWrap: 'wrap' }}><span className="muted" style={{ fontSize: 12 }}>Rewrite in</span>{['English', 'Roman Urdu', 'Urdu'].map((l) => <button key={l} className="btn sm" disabled={!!tr} onClick={() => rewrite(l)}>{tr === l ? 'Writing…' : l}</button>)}</span>}
-                <button className="btn" disabled={!canApprove} onClick={() => setAsk('')}>Ask for changes</button>
-              </div>)}
-            {edit !== null && <div style={{ marginTop: 8 }}><textarea className="input" rows={5} value={edit} onChange={(e) => setEdit(e.target.value)} dir={rtl(edit) ? 'rtl' : 'ltr'} aria-label="Caption" /><div className="row" style={{ gap: 6, marginTop: 6 }}><button className="btn sm primary" disabled={busy} onClick={() => act(async () => { await api.put(`/api/content/posts/${cur.id}`, { caption: edit }); setEdit(null); }, 'Caption saved')}>Save caption</button><button className="btn sm" onClick={() => setEdit(null)}>Cancel</button></div></div>}
+                <button className="btn" style={{ flex: 1 }} disabled={busy || !canApprove} onClick={() => sendBack(cur, '')}>Reject</button>
+                <button className="btn" style={{ flex: 1 }} disabled={!canApprove} onClick={() => setAsk('')}>Ask for changes</button>
+              </div>
+              {!canApprove && <p className="muted" style={{ fontSize: 12 }}>Only people with approval rights can approve or reject.</p>}
+            </>)}
             {ask !== null && <div style={{ marginTop: 8 }}><textarea className="input" rows={3} value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="What should change?" aria-label="What should change" /><div className="row" style={{ gap: 6, marginTop: 6 }}><button className="btn sm primary" disabled={busy || !ask.trim()} onClick={() => sendBack(cur, ask.trim()).then(() => setAsk(null))}>Send back with note</button><button className="btn sm" onClick={() => setAsk(null)}>Cancel</button></div></div>}
             <div className="card" style={{ padding: 10, marginTop: 12 }}><div className="row" style={{ justifyContent: 'space-between', gap: 8 }}><span><b>Reel</b><br /><span className="muted" style={{ fontSize: 12 }}>Make a short video for this brand.</span></span><button className="btn sm" onClick={onGoReels}>Make a reel</button></div></div>
             <p className="muted" style={{ fontSize: 12, marginTop: 12 }}><kbd>A</kbd> approve · <kbd>R</kbd> reject · <kbd>↑</kbd><kbd>↓</kbd> previous / next</p>

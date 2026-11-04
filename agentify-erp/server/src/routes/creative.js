@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Router } from 'express';
-import { can, requireStaff } from '../rbac.js';
+import { can, requireStaff, hasPerm } from '../rbac.js';
 import { audit } from '../audit.js';
-import { asyncH, bad } from '../util.js';
-import { uploadDir } from '../db.js';
+import { asyncH, bad, forbidden } from '../util.js';
+import { get, uploadDir } from '../db.js';
 import { currentTenant } from '../context.js';
 import { sendStored, isStoredRef, removeRef } from '../services/storage.js';
 import * as cs from '../services/creativeStudio.js';
@@ -24,6 +24,11 @@ r.post('/brand/analyze', can('content', 'edit'), asyncH(async (req, res) => { co
 r.get('/listings', can('content', 'view'), can('properties', 'view'), (req, res) => res.json(cs.listings(req.query, req.user)));
 r.post('/week-plan', can('content', 'create'), asyncH(async (req, res) => { const out = await cs.planWeek(req.body || {}, req.user); audit(req, 'Week plan created', 'creative', null, `${out.posts.length} posts for ${out.week}`); res.status(201).json(out); }));
 r.post('/translate', can('content', 'edit'), asyncH(async (req, res) => { const out = await cs.translateCaption(req.body || {}, req.user); res.json(out); }));
+r.post('/posts/:id(\\d+)/language', can('content', 'edit'), asyncH(async (req, res) => {
+  const p = get('SELECT created_by, assigned_to FROM content_posts WHERE id=?', req.params.id);
+  if (p && !hasPerm(req.user, 'content', 'approve') && p.created_by !== req.user.id && p.assigned_to !== req.user.id) throw forbidden('You can only edit your own content');
+  const out = await cs.switchPostLanguage({ id: req.params.id, language: (req.body || {}).language }, req.user); audit(req, 'Post language switched', 'content', out.id, out.language); res.json(out);
+}));
 r.post('/story', can('content', 'create'), asyncH(async (req, res) => { const out = await cs.writeStory(req.body || {}, req.user); audit(req, 'Brand story written', 'creative', out.id, out.title); res.status(201).json(out); }));
 r.post('/posts', can('content', 'create'), asyncH(async (req, res) => { const out = await cs.makePosts(req.body || {}, req.user); audit(req, 'Post images created', 'creative', null, `${out.options.length} images`); res.json(out); }));
 r.post('/items', can('content', 'create'), asyncH(async (req, res) => { const out = await cs.saveImage(req.body || {}, req.user); audit(req, 'Creative image saved', 'creative', out.id, null); res.status(201).json(out); }));

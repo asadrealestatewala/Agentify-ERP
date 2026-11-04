@@ -29,7 +29,8 @@ const present = (p) => {
   const posted = jparse(p.posted, {});
   const platforms = jparse(p.platforms, []);
   const results = jparse(p.results, {});
-  return { ...p, stage: p.stage || 'draft', stage_label: cal.STAGE_LABEL[p.stage || 'draft'], account_ids: jparse(p.account_ids, []), results, can_retry: p.stage === 'failed', platforms, posted, day: DAYS[new Date(`${p.post_date}T00:00:00Z`).getUTCDay()], has_creative: !!p.creative_path, creative_path: undefined,
+  const versions = jparse(p.caption_versions, {});
+  return { ...p, caption_versions: undefined, versions: Object.keys(versions), caption_language: p.caption_lang || (/[؀-ۿ]/.test(p.caption || '') ? 'Urdu' : 'English'), stage: p.stage || 'draft', stage_label: cal.STAGE_LABEL[p.stage || 'draft'], account_ids: jparse(p.account_ids, []), results, can_retry: p.stage === 'failed', platforms, posted, day: DAYS[new Date(`${p.post_date}T00:00:00Z`).getUTCDay()], has_creative: !!p.creative_path, creative_path: undefined,
     creative_kind: (p.creative_mime || '').startsWith('video') ? 'video' : p.creative_path ? 'image' : null, done: platforms.length > 0 && platforms.every((x) => posted[x]) };
 };
 const SELECT = 'SELECT c.*, u.name assignee, b.name author, ap.name approver FROM content_posts c LEFT JOIN users u ON u.id=c.assigned_to LEFT JOIN users b ON b.id=c.created_by LEFT JOIN users ap ON ap.id=c.approved_by';
@@ -91,6 +92,7 @@ r.put('/posts/:id(\\d+)', can('content', 'edit'), asyncH((req, res) => {
   if (p.zernio_post_id && ['scheduled', 'posted'].includes(p.stage) && ['title', 'caption', 'account_ids', 'post_date', 'post_time'].some((k) => req.body[k] !== undefined)) throw bad('This post has already been sent for publishing and cannot be changed.');
   const d = clean(req.body);
   if (d.status !== undefined) { d.stage = d.status === 'posted' ? 'posted' : (p.stage === 'draft' || !p.stage ? 'draft' : p.stage); if (d.status === 'ready' && p.stage === 'draft') d.stage = 'draft'; }
+  if (d.caption !== undefined && d.caption !== p.caption) { d.caption_versions = null; d.caption_lang = null; } // a hand edit makes the other-language versions out of date
   d.updated_at = now();
   const keys = Object.keys(d);
   run(`UPDATE content_posts SET ${keys.map((k) => `${k}=?`).join(',')} WHERE id=?`, ...keys.map((k) => d[k]), p.id);

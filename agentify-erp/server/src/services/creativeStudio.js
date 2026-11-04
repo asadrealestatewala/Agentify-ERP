@@ -14,7 +14,7 @@ import { creditsAllowance, creditsLeft, assertPlatformAllowed, switchKey } from 
 import { config, flag, featuresOff, ensureTable, AI_FEATURES } from './aiUsage.js';
 import { putFile, storageEnabled } from './storage.js';
 import { assertStorageAvailable, billingState } from './plans.js';
-import { postsUsage } from './socialCalendar.js';
+import { postsUsage, afterEdit } from './socialCalendar.js';
 
 /** Credits one use costs a workspace. */
 export const CREDIT_COST = { brand_story: 1, creative_post: 3 };
@@ -135,6 +135,24 @@ export async function translateCaption({ text, language }, user) {
   return { text: res, language, credits_used: 0 };
 }
 
+/** Show a post in another language. The other versions are kept, so switching back and forth is instant and free after the first rewrite. */
+export async function switchPostLanguage({ id, language }, user) {
+  if (!LANGUAGES.includes(language)) throw bad('Choose English, Roman Urdu or Urdu.');
+  const p = get('SELECT * FROM content_posts WHERE id=?', Number(id));
+  if (!p) throw notFound('Post not found');
+  if (p.stage === 'posted' || (p.zernio_post_id && p.stage === 'scheduled')) throw bad('This post has already been sent for publishing and cannot be changed.');
+  const cur = p.caption_lang || (/[؀-ۿ]/.test(p.caption || '') ? 'Urdu' : 'English');
+  if (cur === language) return { id: p.id, language, caption: p.caption || '', versions: Object.keys(JSON.parse(p.caption_versions || '{}')), rewritten: false };
+  let versions = {}; try { versions = JSON.parse(p.caption_versions || '{}') || {}; } catch { versions = {}; }
+  versions[cur] = p.caption || '';
+  let rewritten = false;
+  if (!versions[language]) { versions[language] = (await translateCaption({ text: p.caption, language }, user)).text; rewritten = true; }
+  const text = versions[language];
+  run('UPDATE content_posts SET caption=?, caption_lang=?, caption_versions=?, updated_at=? WHERE id=?', text, language, JSON.stringify(versions), now(), p.id);
+  afterEdit(p, get('SELECT * FROM content_posts WHERE id=?', p.id), ['caption']);
+  return { id: p.id, language, caption: text, versions: Object.keys(versions), rewritten };
+}
+
 const PLAN_SYSTEM = 'You plan a week of social media posts for a small business. Use ONLY the facts in the brand profile and the listed properties. Never invent statistics, awards, customer names, testimonials, prices, discounts or promises. Mix useful tips for the business\'s customers, trust and behind-the-scenes posts, and (when listings are given) one post per listing using its real details. Write each caption in the requested language ("Roman Urdu" means Urdu in Latin letters as people text it in Pakistan, never Arabic script), ready to post, 1 to 4 short sentences, with 2 to 4 relevant hashtags at the end. Reply with JSON only: {"posts": [{"title": "short title (max 60 chars)", "caption": "the caption", "theme": "tip | trust | listing | story"}]}';
 const PLAN_CHANNEL = { 'Instagram': 'instagram', 'Facebook Page': 'facebook', 'LinkedIn company page': 'linkedin', 'LinkedIn profile': 'linkedin' };
 const PLAN_DAYS = { 3: [0, 2, 4], 5: [0, 1, 2, 3, 4] };
@@ -164,6 +182,7 @@ export async function planWeek({ week_start, count, language }, user) {
     const day = new Date(startD); day.setUTCDate(day.getUTCDate() + days[Math.min(i, days.length - 1)]);
     const id = Number(run(`INSERT INTO content_posts(title,post_type,caption,platforms,post_date,post_time,status,stage,account_ids,assigned_to,created_by,notes,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       clean(x.title, 120) || `${brand().brand_name} post ${i + 1}`, 'static', String(x.caption).trim().slice(0, 2000), platforms, isoDay(day), '11:00', 'planned', 'draft', '[]', user?.id || null, user?.id || null, 'Made by Week plan', now(), now()).lastInsertRowid);
+    run('UPDATE content_posts SET caption_lang=? WHERE id=?', lang, id);
     return { id, title: clean(x.title, 120), post_date: isoDay(day) };
   });
   return { week: isoDay(startD), language: lang, posts: created, credits_used: CREDIT_COST.brand_story, credits_left: creditsLeft(tenantId()) };

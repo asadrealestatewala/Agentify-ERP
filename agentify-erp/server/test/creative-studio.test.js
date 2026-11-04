@@ -165,6 +165,18 @@ test('Creative Studio end to end', async () => {
   assert.ok(rs.data.credits_by_feature.some((x) => x.credits > 0), 'credits by feature'); assert.equal(rs.data.days, 90);
   assert.equal((await b('GET', '/api/creative/results')).data.total, 0, 'another workspace sees none of it');
 
+  // per-post language switch: first rewrite costs nothing, switching back is instant, a hand edit makes other versions stale
+  const pid = wp.data.posts[0].id;
+  const t1 = textCalls;
+  const sw = await a('POST', `/api/creative/posts/${pid}/language`, { language: 'Urdu' }); assert.equal(sw.status, 200, JSON.stringify(sw.data)); assert.equal(sw.data.rewritten, true); assert.match(sw.data.caption, /khareedne/);
+  assert.equal(textCalls, t1 + 1);
+  const again = await a('POST', `/api/creative/posts/${pid}/language`, { language: 'Urdu' }); assert.equal(again.data.rewritten, false, 'already in that language');
+  const orig = await a('POST', `/api/creative/posts/${pid}/language`, { language: 'Roman Urdu' }); assert.equal(orig.data.rewritten, false); assert.match(orig.data.caption, /Check the plot file/); assert.equal(textCalls, t1 + 1, 'switching back needs no new request');
+  const shown = (await a('GET', '/api/content/posts?from=2030-01-07&to=2030-01-13')).data.find((x) => x.id === pid); assert.equal(shown.caption_language, 'Roman Urdu'); assert.ok(shown.versions.includes('Urdu')); assert.equal(shown.caption_versions, undefined);
+  assert.equal((await a('PUT', `/api/content/posts/${pid}`, { caption: 'Edited by hand' })).status, 200);
+  assert.deepEqual((await a('GET', '/api/content/posts?from=2030-01-07&to=2030-01-13')).data.find((x) => x.id === pid).versions, [], 'hand edit clears other versions');
+  assert.equal((await a('POST', `/api/creative/posts/${pid}/language`, { language: 'French' })).status, 400);
+
   // the workspace switch and master switch stop it
   await as(owner, 'PUT', `/ai/workspaces/${tid}`, { ai_enabled: false });
   assert.equal((await a('GET', '/api/creative/status')).data.available, false);
