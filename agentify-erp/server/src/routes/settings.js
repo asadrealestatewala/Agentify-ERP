@@ -126,7 +126,7 @@ r.get('/users', can('settings', 'view'), (req, res) => {
 r.get('/employees-available', can('settings', 'create'), (req, res) => {
   const q = `%${String(req.query.q || '').trim()}%`;
   res.json(all(`SELECT id, emp_code, name, email, phone, designation, department FROM employees
-    WHERE user_id IS NULL AND status<>'inactive' AND (name LIKE ? OR emp_code LIKE ? OR phone LIKE ? OR email LIKE ?) ORDER BY name LIMIT 8`, q, q, q, q));
+    WHERE user_id IS NULL AND status NOT IN ('inactive','terminated') AND (name LIKE ? OR emp_code LIKE ? OR phone LIKE ? OR email LIKE ?) ORDER BY name LIMIT 8`, q, q, q, q));
 });
 r.post('/users', can('settings', 'create'), asyncH(async (req, res) => {
   // choosing an employee fills in whatever was left blank from their record and links the new login to them

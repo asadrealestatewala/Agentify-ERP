@@ -69,7 +69,7 @@ export function PageHead({ title, sub, crumbs, children }) {
 const TONES = {
   green: 'green', paid: 'green', approved: 'green', available: 'green', active: 'green', published: 'green', valid: 'green', confirmed: 'green', done: 'green', approve: 'green', completed: 'green',
   pending: 'amber', partial: 'amber', partially_paid: 'amber', reserved: 'amber', review: 'amber', submitted: 'amber', draft: 'grey', created: 'grey', on_hold: 'amber', open: 'blue',
-  overdue: 'red', void: 'red', cancelled: 'red', rejected: 'red', sold: 'purple', featured: 'blue', hidden: 'grey', inactive: 'grey', late: 'amber', absent: 'red', present: 'green', leave: 'blue',
+  overdue: 'red', void: 'red', cancelled: 'red', rejected: 'red', sold: 'purple', featured: 'blue', hidden: 'grey', inactive: 'grey', terminated: 'red', late: 'amber', absent: 'red', present: 'green', leave: 'blue',
 };
 export function StatusBadge({ status, label, tone }) {
   const t = tone || TONES[String(status).toLowerCase()] || 'grey';

@@ -61,3 +61,48 @@ test('add user from an employee: search, auto-fill, link, and two-way sync', asy
   const after = get('SELECT name,email FROM users WHERE id=?', user.id);
   assert.equal(after.name, 'Zainab Khan'); assert.equal(after.email, 'zainab.new@example.com');
 });
+
+test('terminate employee: disables login, keeps history, hides from active lists, audited', async () => {
+  const a = await sa();
+  const e = await a.post('/api/hrm/employees', { name: 'Hamza Terminate', email: 'hamza.t@example.com', department: 'Sales' });
+  const role = get("SELECT id FROM roles WHERE portal=0 AND name<>'Super Admin' LIMIT 1");
+  const u = await a.post('/api/settings/users', { employee_id: e.data.id, role_id: role.id, password: 'Strong@12345' });
+  assert.equal(u.status, 201);
+  const staff = await client('hamza.t@example.com', 'Strong@12345');
+  run('INSERT INTO payroll(employee_id,period,basic,net,status,created_at) VALUES(?,?,?,?,?,?)', e.data.id, '2026-10', 1000, 1000, 'paid', '2026-10-31');
+  for (const action of ['approve', 'activate']) assert.equal((await a.post(`/api/hrm/employees/${e.data.id}/workflow`, { action })).status, 200);
+
+  assert.equal((await a.post(`/api/hrm/employees/${e.data.id}/terminate`, { date: '2026-11-04' })).status, 400, 'reason required');
+  assert.equal((await a.post(`/api/hrm/employees/${e.data.id}/terminate`, { date: 'nope', reason: 'x' })).status, 400, 'valid date required');
+  const t = await a.post(`/api/hrm/employees/${e.data.id}/terminate`, { date: '2026-11-04', reason: 'Resigned' });
+  assert.equal(t.status, 200, JSON.stringify(t.data));
+  assert.equal(t.data.login_disabled, true);
+
+  const row = get('SELECT * FROM employees WHERE id=?', e.data.id);
+  assert.equal(row.status, 'terminated'); assert.equal(row.terminated_date, '2026-11-04'); assert.equal(row.termination_reason, 'Resigned');
+  assert.equal(get('SELECT active FROM users WHERE id=?', u.data.id).active, 0);
+  assert.equal((await staff.get('/api/auth/me')).status, 401, 'existing session is signed out');
+  const relog = await fetch(base + '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'ERP' }, body: JSON.stringify({ identifier: 'hamza.t@example.com', password: 'Strong@12345' }) });
+  assert.notEqual(relog.status, 200, 'cannot sign in again');
+  assert.equal(get('SELECT COUNT(*) n FROM payroll WHERE employee_id=?', e.data.id).n, 1, 'payroll history kept');
+
+  const ids = (r) => r.data.rows.map((x) => x.id);
+  assert.ok(!ids(await a.get('/api/hrm/employees?limit=1000')).includes(e.data.id), 'hidden from default list');
+  assert.ok(ids(await a.get('/api/hrm/employees?status=terminated&limit=1000')).includes(e.data.id), 'shown when filtered');
+  assert.ok(ids(await a.get('/api/hrm/employees?include_terminated=1&limit=1000')).includes(e.data.id));
+  assert.equal((await a.get(`/api/hrm/employees/${e.data.id}/profile`)).data.employee.status, 'terminated');
+  assert.equal((await a.post('/api/hrm/payroll/generate', { period: '2026-12' })).status === 200 && get("SELECT COUNT(*) n FROM payroll WHERE employee_id=? AND period='2026-12'", e.data.id).n, 0, 'no new payroll');
+  assert.equal((await a.post(`/api/hrm/employees/${e.data.id}/workflow`, { action: 'reactivate' })).status, 400);
+  assert.equal((await a.post(`/api/hrm/employees/${e.data.id}/terminate`, { reason: 'again' })).status, 400, 'already terminated');
+  assert.ok(get("SELECT 1 FROM audit_log WHERE action='Employee terminated' AND entity_id=?", String(e.data.id)), 'audit entry written');
+});
+
+test('terminate: cannot terminate yourself', async () => {
+  const a = await sa();
+  const me = get('SELECT id,name FROM users WHERE email=?', 'admin@expertdevelopers.pk');
+  const id = run('INSERT INTO employees(name,user_id,status,created_at) VALUES(?,?,?,?)', me.name, me.id, 'active', '2026-11-04').lastInsertRowid;
+  const e = { data: { id } };
+  const t = await a.post(`/api/hrm/employees/${e.data.id}/terminate`, { reason: 'test' });
+  assert.equal(t.status, 400);
+  assert.equal(get('SELECT active FROM users WHERE id=?', me.id).active, 1);
+});
