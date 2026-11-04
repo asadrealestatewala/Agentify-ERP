@@ -166,3 +166,53 @@ test('developer portal: own files only, allow-listed fields, no CNIC or phone an
   assert.equal((await w.get('/api/developer/files')).status, 403);
   assert.equal((await call(w.host, 'GET', '/api/developer/files')).status, 401);
 });
+
+test('link existing plots to a developer in bulk and set per-plot rebates', async () => {
+  const w = await workspace('devlink');
+  const d = ok(await w.post('/api/developers', { name: 'Link Dev' }), 201);
+  const d2 = ok(await w.post('/api/developers', { name: 'Other Dev' }), 201);
+  const ag = ok(await w.post(`/api/developers/${d.id}/agreements`, { title: 'A1', rebate_down_pct: 5 }), 201);
+  const mk = async (title, price) => ok(await w.post('/api/properties', { title, property_type: 'Plot', area_size: 5, unit: 'Marla', total_price: price }), 201);
+  const [p1, p2, p3] = [await mk('P1', 1_000_000), await mk('P2', 2_000_000), await mk('P3', 3_000_000)];
+
+  const linkable = ok(await w.get(`/api/developers/${d.id}/linkable-plots`));
+  assert.equal(linkable.length, 3);
+  assert.equal(ok(await w.get(`/api/developers/${d.id}/linkable-plots?q=P2`)).length, 1);
+
+  // bulk link with one rebate (5%) for both
+  const out = ok(await w.post(`/api/developers/${d.id}/link-plots`, { property_ids: [p1.id, p2.id], agreement_id: ag.id, rebate_type: 'percent', rebate_value: 5 }));
+  assert.deepEqual(out.linked.sort(), [p1.id, p2.id].sort());
+  let plots = ok(await w.get(`/api/developers/${d.id}/plots`));
+  assert.equal(plots.length, 2);
+  assert.equal(plots.find((p) => p.id === p2.id).rebate_amount, 100_000);
+  assert.equal(ok(await w.get(`/api/developers/${d.id}`)).rebate_expected, 150_000);
+  assert.equal(ok(await w.get(`/api/developers/${d.id}/linkable-plots`)).length, 1);
+
+  // another developer cannot take a linked plot; bad agreement / empty list refused
+  const ag2 = ok(await w.post(`/api/developers/${d2.id}/agreements`, { title: 'B1' }), 201);
+  assert.equal(ok(await w.post(`/api/developers/${d2.id}/link-plots`, { property_ids: [p1.id], agreement_id: ag2.id })).skipped.length, 1);
+  assert.equal((await w.post(`/api/developers/${d.id}/link-plots`, { property_ids: [p3.id], agreement_id: ag2.id })).status, 400);
+  assert.equal((await w.post(`/api/developers/${d.id}/link-plots`, { property_ids: [], agreement_id: ag.id })).status, 400);
+
+  // bulk rebate: fixed on one plot, then percent on all; validation
+  ok(await w.post(`/api/developers/${d.id}/plot-rebates`, { property_ids: [p1.id], rebate_type: 'fixed', rebate_value: 40_000 }));
+  assert.equal(ok(await w.get(`/api/developers/${d.id}/plots`)).find((p) => p.id === p1.id).rebate_amount, 40_000);
+  assert.equal((await w.post(`/api/developers/${d.id}/plot-rebates`, { rebate_type: 'percent', rebate_value: 150 })).status, 400);
+  ok(await w.post(`/api/developers/${d.id}/plot-rebates`, { rebate_type: 'percent', rebate_value: 2 }));
+  assert.equal(ok(await w.get(`/api/developers/${d.id}`)).rebate_expected, 20_000 + 40_000);
+  ok(await w.post(`/api/developers/${d.id}/plot-rebates`, { rebate_type: '' }));
+  assert.equal(ok(await w.get(`/api/developers/${d.id}`)).rebate_expected, 0);
+
+  // per-plot edit through the property form, and a rebate on an own plot is refused
+  ok(await w.put(`/api/properties/${p2.id}`, { rebate_type: 'fixed', rebate_value: 25_000 }));
+  assert.equal(ok(await w.get(`/api/developers/${d.id}`)).rebate_expected, 25_000);
+  assert.equal((await w.put(`/api/properties/${p3.id}`, { rebate_type: 'percent', rebate_value: 3 })).status, 400);
+
+  // a booked plot cannot be unlinked; a free one can
+  ok(await w.post(`/api/properties/${p1.id}/publish`));
+  const cust = ok(await w.post('/api/contacts', { full_name: 'Zara', phone: '+92 300 5550001' }), 201);
+  ok(await w.post('/api/sales', { contact_id: cust.id, property_id: p1.id, sale_price: 1_000_000, discount: 0, booking_amount: 100_000, num_installments: 5, first_due: month() }), 201);
+  const un = ok(await w.post(`/api/developers/${d.id}/unlink-plots`, { property_ids: [p1.id, p2.id] }));
+  assert.deepEqual(un.unlinked, [p2.id]); assert.equal(un.skipped.length, 1);
+  assert.equal(ok(await w.get(`/api/properties/${p2.id}`)).inventory_source, 'own');
+});

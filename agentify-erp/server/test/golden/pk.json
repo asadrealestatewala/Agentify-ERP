@@ -71,8 +71,8 @@
  },
  "/api/properties?limit=200": {
   "status": 200,
-  "sha": "19344e85d49deca9",
-  "bytes": 24974
+  "sha": "1affe61aeedc1238",
+  "bytes": 25676
  },
  "/api/projects": {
   "status": 200,
