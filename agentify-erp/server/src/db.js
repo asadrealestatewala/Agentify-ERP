@@ -136,7 +136,7 @@ function migrate() {
   addCol('site_posts', 'seo_title', 'TEXT'); addCol('site_posts', 'seo_desc', 'TEXT'); addCol('site_posts', 'focus_keyword', 'TEXT');
   addCol('users', 'email_verified', 'INTEGER NOT NULL DEFAULT 1'); addCol('users', 'totp_secret', 'TEXT'); addCol('users', 'totp_enabled', 'INTEGER NOT NULL DEFAULT 0'); addCol('users', 'recovery_codes', 'TEXT'); addCol('users', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0'); addCol('users', 'tour_seen', "TEXT NOT NULL DEFAULT '{}'");
   // developer partner portal (docs/DEVELOPER_PARTNER_PORTAL.md): own plots stay inventory_source='own' and are untouched
-  addCol('properties', 'inventory_source', "TEXT NOT NULL DEFAULT 'own'"); addCol('properties', 'developer_id', 'INTEGER'); addCol('properties', 'agreement_id', 'INTEGER');
+  addCol('properties', 'inventory_source', "TEXT NOT NULL DEFAULT 'own'"); addCol('properties', 'developer_id', 'INTEGER'); addCol('properties', 'agreement_id', 'INTEGER'); addCol('properties', 'rebate_type', 'TEXT'); addCol('properties', 'rebate_value', 'REAL');
   for (const [c, t] of [['developer_id', 'INTEGER'], ['agreement_id', 'INTEGER'], ['booking_id', 'TEXT'], ['file_state', 'TEXT'], ['holder', "TEXT NOT NULL DEFAULT 'customer'"],
     ['cancel_window_until', 'TEXT'], ['cancel_tiers', 'TEXT']]) addCol('sales', c, t);
   addCol('users', 'developer_id', 'INTEGER');

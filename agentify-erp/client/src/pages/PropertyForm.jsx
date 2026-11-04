@@ -201,6 +201,14 @@ export default function PropertyForm() {
             {pk && f.inventory_source === 'developer' && (
               <Field label="Agreement" required><Select value={f.agreement_id} onChange={(v) => set('agreement_id', v ? Number(v) : null)} placeholder={f.developer_id ? 'Choose agreement' : 'Choose a developer first'} disabled={locked || !f.developer_id}
                 options={(devOne.data?.agreements || []).filter((a) => a.status === 'active').map((a) => ({ value: a.id, label: a.title }))} /></Field>)}
+            {pk && f.inventory_source === 'developer' && (
+              <Field label="Rebate on this plot" hint="What the developer pays the company for this plot. Leave empty to follow the agreement's rates.">
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Select value={f.rebate_type ?? ''} onChange={(v) => setF((x) => ({ ...x, rebate_type: v || null, rebate_value: v ? x.rebate_value : null }))} placeholder="Agreement rates" disabled={locked}
+                    options={[{ value: 'percent', label: 'Percent of price' }, { value: 'fixed', label: 'Fixed amount' }]} />
+                  {f.rebate_type && <input className="input" type="number" min="0" step="any" value={f.rebate_value ?? ''} onChange={(e) => set('rebate_value', e.target.value)} placeholder={f.rebate_type === 'percent' ? '%' : 'Amount'} disabled={locked} />}
+                </div>
+              </Field>)}
             {pk && <Field label="File status" hint="Is the file against this plot still running?"><Select value={f.file_status ?? ''} onChange={(v) => set('file_status', v)} placeholder="Not set" options={['Active', 'Inactive', 'Paused', 'Defaulted', 'Suspended']} /></Field>}
             {pk && <Field label="File notes"><input className="input" value={f.file_notes ?? ''} onChange={(e) => set('file_notes', e.target.value)} placeholder="e.g. Suspended by the authority until NOC" /></Field>}
             <Field label="City"><input className="input" value={f.city ?? ''} onChange={(e) => set('city', e.target.value)} /></Field>

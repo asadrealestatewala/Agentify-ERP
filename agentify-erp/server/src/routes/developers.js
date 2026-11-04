@@ -6,7 +6,7 @@ import { all, get, run, insert, update } from '../db.js';
 import { can, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { asyncH, bad, notFound, now } from '../util.js';
-import { AGREEMENT_FIELDS, checkAgreement, createDeveloperPortalUser, developerSummary, listDevelopers, toSqft } from '../services/developers.js';
+import { AGREEMENT_FIELDS, checkAgreement, createDeveloperPortalUser, developerSummary, linkPlots, listDevelopers, plotRebateAmount, setPlotRebates, toSqft, unlinkPlots } from '../services/developers.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -79,11 +79,45 @@ r.put('/:id/agreements/:aid', can('developers', 'edit'), asyncH((req, res) => {
 // ---------------------------------------------------------------- the developer's plots and files
 r.get('/:id/plots', can('developers', 'view'), asyncH((req, res) => {
   const d = dev(req.params.id);
-  const rows = all(`SELECT p.id, p.code, p.title, p.plot_no, p.block, p.property_type, p.area_size, p.unit, p.net_price, p.status, p.registration_no, p.agreement_id,
+  const rows = all(`SELECT p.id, p.code, p.title, p.plot_no, p.block, p.property_type, p.area_size, p.unit, p.net_price, p.status, p.registration_no, p.agreement_id, p.rebate_type, p.rebate_value,
     s.id sale_id, s.booking_id, s.file_state, c.full_name customer_name FROM properties p
     LEFT JOIN sales s ON s.property_id=p.id AND s.status='confirmed' LEFT JOIN contacts c ON c.id=s.contact_id
     WHERE p.developer_id=? ORDER BY p.id DESC`, d.id);
-  res.json(rows.map((p) => ({ ...p, area_sqft: toSqft(p.area_size, p.unit) })));
+  res.json(rows.map((p) => ({ ...p, area_sqft: toSqft(p.area_size, p.unit), rebate_amount: plotRebateAmount(p) })));
+}));
+
+// Plots that can still be linked: the company's own stock plus this developer's, never sold or booked ones
+r.get('/:id/linkable-plots', can('developers', 'view'), asyncH((req, res) => {
+  const d = dev(req.params.id);
+  const q = String(req.query.q || '').trim();
+  const params = [d.id];
+  let sql = `SELECT p.id, p.code, p.title, p.plot_no, p.block, p.area_size, p.unit, p.net_price, p.status, pr.name project_name FROM properties p LEFT JOIN projects pr ON pr.id=p.project_id
+    WHERE (p.developer_id IS NULL OR p.developer_id<>?) AND IFNULL(p.inventory_source,'own')='own' AND p.status NOT IN ('sold','cancelled')
+    AND NOT EXISTS (SELECT 1 FROM sales s WHERE s.property_id=p.id AND s.status='confirmed')`;
+  if (q) { sql += ' AND (p.title LIKE ? OR p.plot_no LIKE ? OR p.code LIKE ? OR pr.name LIKE ?)'; params.push(...Array(4).fill(`%${q}%`)); }
+  res.json(all(`${sql} ORDER BY p.id DESC LIMIT 300`, ...params));
+}));
+
+r.post('/:id/link-plots', can('developers', 'edit'), asyncH((req, res) => {
+  const d = dev(req.params.id), b = req.body || {};
+  const out = linkPlots(d.id, b.agreement_id, b.property_ids, b.rebate_type ? { rebate_type: b.rebate_type, rebate_value: b.rebate_value } : null);
+  audit(req, 'Linked plots to developer', 'developer', d.id, `${d.name}: ${out.linked.length} linked, ${out.skipped.length} skipped`);
+  res.json(out);
+}));
+
+r.post('/:id/unlink-plots', can('developers', 'edit'), asyncH((req, res) => {
+  const d = dev(req.params.id);
+  const out = unlinkPlots(d.id, (req.body || {}).property_ids);
+  audit(req, 'Unlinked plots from developer', 'developer', d.id, `${d.name}: ${out.unlinked.length} returned to own stock`);
+  res.json(out);
+}));
+
+// one rebate for many plots (property_ids omitted = all of this developer's plots); rebate_type '' clears it
+r.post('/:id/plot-rebates', can('developers', 'edit'), asyncH((req, res) => {
+  const d = dev(req.params.id), b = req.body || {};
+  const out = setPlotRebates(d.id, b.property_ids && b.property_ids.length ? b.property_ids : null, { rebate_type: b.rebate_type, rebate_value: b.rebate_value });
+  audit(req, 'Set plot rebates', 'developer', d.id, `${d.name}: ${out.updated.length} plots`);
+  res.json(out);
 }));
 
 export default r;
