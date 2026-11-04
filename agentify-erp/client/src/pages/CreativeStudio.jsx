@@ -322,6 +322,7 @@ const NAV = [
 ];
 
 export default function CreativeStudio() {
+  const nav = useNavigate();
   const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'listing', 'reels', 'review', 'week', 'results', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'review'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false); const [brandName, setBrandName] = useState('');
   const refresh = useCallback(() => api.get('/api/creative/status').then((x) => { setSt(x); setErr(''); }).catch((e) => setErr(e.message)), []);
   const checkBrand = useCallback(() => api.get('/api/creative/brand').then((b) => { setBrandSaved(!!b.saved); setBrandName(b.brand_name || ''); return b; }).catch(() => null), []);
@@ -329,11 +330,14 @@ export default function CreativeStudio() {
   if (err && !st) return <ErrorBox error={err} />;
   if (!st) return <Loading />;
   const left = st.credits.left;
+  const locked = !!st.credits_locked; // free trial: AI credits come with the paid plans
+  const stUi = locked ? { ...st, features: { ...st.features, brand_story: false, creative_post: false, creative_video: false } } : st;
   return (
     <div className="cs-page">
       <style>{pageCss}</style>
       <PageHead title="Creative Studio" sub="Write your brand story, create post images and short video reels that match your brand. Each use spends credits." />
       {st.reason && <Card><p style={{ margin: 0 }}>{st.reason}</p></Card>}
+      {locked && <div className="card" style={{ marginBottom: 14, borderColor: 'var(--primary)' }} role="note"><div className="card-b"><b>AI credits come with a paid plan</b><p className="muted" style={{ margin: '4px 0 10px' }}>Your free trial lets you set up your brand, analyze your website, turn listings into posts and review the calendar. Writing stories, creating images, planning your week with AI and making reels use AI credits, which are included in the paid plans.</p><button className="btn primary" onClick={() => nav('/settings/billing')}>See plans and upgrade</button></div></div>}
       <div className="cs-layout">
         <nav className="cs-nav" aria-label="Creative Studio" data-tour="creative-tabs">
           {NAV.map(([grp, items]) => (<div key={grp} style={{ display: 'contents' }}>
@@ -344,17 +348,17 @@ export default function CreativeStudio() {
             <span className={`pill ${st.available ? 'green' : 'red'}`} style={{ alignSelf: 'flex-start' }}>{st.available ? 'Ready' : 'Not available'}</span>
             {st.plan?.trial && <span className="pill amber" style={{ alignSelf: 'flex-start' }} title={st.plan.trial_ends_at ? `Trial ends ${st.plan.trial_ends_at.slice(0, 10)}` : undefined}>Trial{st.plan.days_left != null ? `: ${st.plan.days_left} day${st.plan.days_left === 1 ? '' : 's'} left` : ''}</span>}
             {st.plan && (st.plan.posts.per_month != null) && <Meter label="Posts this month" used={st.plan.posts.month} max={st.plan.posts.per_month} />}
-            <Meter label="Credits this month" used={st.credits.allowance != null && left != null ? st.credits.allowance - left : null} max={st.credits.allowance} noLimit={left == null} />
-            <span className="muted">Story {st.costs.brand_story} credit · Image {st.costs.creative_post} credits · Video {st.costs.video_second} per second</span>
+            {!locked && <Meter label="Credits this month" used={st.credits.allowance != null && left != null ? st.credits.allowance - left : null} max={st.credits.allowance} noLimit={left == null} />}
+            {!locked && <span className="muted">Story {st.costs.brand_story} credit · Image {st.costs.creative_post} credits · Video {st.costs.video_second} per second</span>}
           </div>
         </nav>
         <div className="cs-main">
       {tab === 'review' && <Suspense fallback={<Loading rows={3} />}><CreativeReview onGoReels={() => setTab('reels')} brandName={brandName} /></Suspense>}
       {tab === 'brand' && <Brand st={st} onSaved={() => { checkBrand(); refresh(); }} />}
-      {tab === 'story' && <Story st={st} refresh={() => { refresh(); setVersion((v) => v + 1); }} brandSaved={brandSaved} />}
-      {tab === 'posts' && <Posts st={st} refresh={refresh} brandSaved={brandSaved} onSaved={() => setVersion((v) => v + 1)} />}
+      {tab === 'story' && <Story st={stUi} refresh={() => { refresh(); setVersion((v) => v + 1); }} brandSaved={brandSaved} />}
+      {tab === 'posts' && <Posts st={stUi} refresh={refresh} brandSaved={brandSaved} onSaved={() => setVersion((v) => v + 1)} />}
       {tab === 'listing' && <Suspense fallback={<Loading rows={3} />}><CreativeListing onSaved={() => setVersion((v) => v + 1)} /></Suspense>}
-      {tab === 'reels' && <Reels st={st} refresh={refresh} brandSaved={brandSaved} />}
+      {tab === 'reels' && <Reels st={stUi} refresh={refresh} brandSaved={brandSaved} />}
       {tab === 'week' && <Suspense fallback={<Loading rows={3} />}><CreativeWeek onGoReview={() => setTab('review')} /></Suspense>}
       {tab === 'results' && <Suspense fallback={<Loading rows={3} />}><CreativeResults onGoReview={() => setTab('review')} /></Suspense>}
       {tab === 'mine' && <Mine version={version} />}

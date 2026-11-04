@@ -39,10 +39,17 @@ export function planCredits(tenantId) {
     return t ? billingState(t).limits.credits ?? null : null;
   } catch { return null; }
 }
-/** Credits a workspace may spend this month (allowance + any top-up made this month), or null for no limit. */
+/** True while a workspace is on its free trial. AI credits belong to the paid plans, so a trial gets none unless the console sets some by hand. */
+export function onTrial(tenantId) {
+  try {
+    const t = db().prepare('SELECT * FROM tenants WHERE id=?').get(tenantId);
+    return !!t && !t.is_legacy && billingState(t).status === 'trialing';
+  } catch { return false; }
+}
+/** Credits a workspace may spend this month (allowance + any top-up made this month), or null for no limit. Trials: 0 unless the console set a number for that workspace. */
 export function creditsAllowance(tenantId, now = new Date()) {
   const r = db().prepare('SELECT monthly_credits, topup_credits, topup_month FROM ai_tenant_credits WHERE tenant_id=?').get(tenantId);
-  const base = r?.monthly_credits ?? planCredits(tenantId) ?? defaultMonthlyCredits();
+  const base = r?.monthly_credits ?? (onTrial(tenantId) ? 0 : (planCredits(tenantId) ?? defaultMonthlyCredits()));
   if (base == null) return null;
   return base + (r && r.topup_month === now.toISOString().slice(0, 7) ? r.topup_credits : 0);
 }
@@ -88,6 +95,7 @@ export function assertPlatformAllowed({ feature, tenantId = null, credits = 0, n
   }
   if (tenantId && credits > 0) {
     const left = creditsLeft(tenantId, now);
+    if (left != null && left < credits && onTrial(tenantId) && (creditsAllowance(tenantId, now) || 0) === 0) throw refuse('trial_no_credits', 'AI credits are included in the paid plans. Upgrade your plan to write stories, create images and plan your week with AI.', { needed: credits, left });
     if (left != null && left < credits) throw refuse('no_credits', `This needs ${credits} credits but your workspace has ${left} left this month. Ask Agentify support to top up.`, { needed: credits, left });
   }
 }

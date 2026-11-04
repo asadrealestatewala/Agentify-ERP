@@ -10,7 +10,7 @@ import { bad, notFound, now } from '../util.js';
 import { geminiGenerate, geminiImage, ASPECTS, imageModel, REEL_SECONDS } from './aiGateway.js';
 import { azureStatus } from './aiReport.js';
 import { assertSafeRequest } from './aiSafety.js';
-import { creditsAllowance, creditsLeft, assertPlatformAllowed, switchKey } from './aiGate.js';
+import { creditsAllowance, creditsLeft, assertPlatformAllowed, switchKey, onTrial } from './aiGate.js';
 import { config, flag, featuresOff, ensureTable, AI_FEATURES } from './aiUsage.js';
 import { putFile, storageEnabled } from './storage.js';
 import { assertStorageAvailable, billingState } from './plans.js';
@@ -97,8 +97,9 @@ export function status() {
   const off = flag('ai_kill_switch') || (ws && !ws.ai_enabled);
   const left = id ? creditsLeft(id) : null;
   const featuresOn = Object.fromEntries(Object.keys(CREDIT_COST).map((f) => [f, !featuresOff().includes(switchKey(f))]));
-  const reason = off ? 'AI is switched off for your workspace.' : !config().key ? 'Creative Studio is not available yet.' : left === 0 ? 'You have used all your credits for this month. Ask support to top up.' : null;
-  return { available: !reason, reason, plan: planMeter(), credits: { allowance: id ? creditsAllowance(id) : null, left }, costs: { ...CREDIT_COST, video_second: REEL_CREDITS.per_second, voice_per_100: REEL_CREDITS.voice_per_100_chars }, reel_seconds: REEL_SECONDS, voice_ready: voiceReady(), features: { ...featuresOn, creative_video: !featuresOff().includes('creative_video') }, sizes: SIZES, languages: LANGUAGES, brand_options: { platforms: BRAND_PLATFORMS, languages: BRAND_LANGUAGES, tones: BRAND_TONES, posts_per_week: POSTS_PER_WEEK }, storage: storageEnabled() ? 'cloud' : 'local', image_model: imageModel() };
+  const trialLocked = !!id && left === 0 && onTrial(id) && (creditsAllowance(id) || 0) === 0;
+  const reason = off ? 'AI is switched off for your workspace.' : !config().key ? 'Creative Studio is not available yet.' : left === 0 && !trialLocked ? 'You have used all your credits for this month. Ask support to top up.' : null;
+  return { available: !reason, reason, plan: planMeter(), credits: { allowance: id ? creditsAllowance(id) : null, left }, credits_locked: trialLocked, costs: { ...CREDIT_COST, video_second: REEL_CREDITS.per_second, voice_per_100: REEL_CREDITS.voice_per_100_chars }, reel_seconds: REEL_SECONDS, voice_ready: voiceReady(), features: { ...featuresOn, creative_video: !featuresOff().includes('creative_video') }, sizes: SIZES, languages: LANGUAGES, brand_options: { platforms: BRAND_PLATFORMS, languages: BRAND_LANGUAGES, tones: BRAND_TONES, posts_per_week: POSTS_PER_WEEK }, storage: storageEnabled() ? 'cloud' : 'local', image_model: imageModel() };
 }
 
 function parseJson(text) { try { return JSON.parse(String(text).match(/\{[\s\S]*\}/)?.[0] || ''); } catch { return null; } }

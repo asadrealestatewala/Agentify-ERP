@@ -101,3 +101,20 @@ test('a suspended or cancelled workspace is refused by the gate', () => {
   db.prepare("UPDATE tenants SET status='active' WHERE id=?").run(T);
   assert.equal(ok(), null);
 });
+
+test('trial workspaces get no AI credits unless the console sets some', () => {
+  const db = platformDb();
+  reset();
+  db.prepare("INSERT INTO tenants(slug, name, plan, db_file, upload_dir, subscription_status, owner_email) VALUES('trialco','Trial','growth','y.db','y','trialing','o@trial.test')").run();
+  const TR = db.prepare("SELECT id FROM tenants WHERE slug='trialco'").get().id;
+  setSetting('ai_default_monthly_credits', '100');
+  assert.equal(gate.onTrial(TR), true);
+  assert.equal(gate.creditsAllowance(TR), 0, 'the platform default does not reach a trial');
+  assert.equal(code(() => gate.assertPlatformAllowed({ feature: 'creative_post', tenantId: TR, credits: 5 })), 'trial_no_credits');
+  assert.equal(code(() => gate.assertPlatformAllowed({ feature: 'website_analysis', tenantId: TR, credits: 0 })), null, 'free features still work');
+  gate.setCredits(TR, { monthly_credits: 20 }, 't');
+  assert.equal(gate.creditsAllowance(TR), 20, 'a number set by hand in the console wins');
+  assert.equal(code(() => gate.assertPlatformAllowed({ feature: 'creative_post', tenantId: TR, credits: 5 })), null);
+  assert.equal(gate.onTrial(T), false); assert.equal(gate.creditsAllowance(T), 100, 'paid workspaces still get the default');
+  reset();
+});
