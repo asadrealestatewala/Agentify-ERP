@@ -295,6 +295,16 @@ function Mine({ version }) {
   );
 }
 
+/** A small usage bar: how much of a monthly allowance is spent. Turns amber at 80% and red when used up. */
+function Meter({ label, used, max, noLimit }) {
+  if (noLimit || max == null || used == null) return <span>{label}: <b>No limit</b></span>;
+  const pct = Math.min(100, Math.round((used / Math.max(1, max)) * 100)); const color = pct >= 100 ? '#dc2626' : pct >= 80 ? '#d97706' : 'var(--primary, #0e7c6b)';
+  return (<span style={{ display: 'inline-flex', flexDirection: 'column', gap: 3, minWidth: 150 }}>
+    <span style={{ fontSize: 13 }}>{label}: <b>{max - used < 0 ? 0 : max - used}</b> left of {max}</span>
+    <span role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={used} style={{ height: 6, borderRadius: 3, background: 'var(--border, #e2e8f0)', overflow: 'hidden' }}><span style={{ display: 'block', height: '100%', width: `${pct}%`, background: color }} /></span>
+  </span>);
+}
+
 export default function CreativeStudio() {
   const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'listing', 'reels', 'review', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'brand'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false); const [brandName, setBrandName] = useState('');
   const refresh = useCallback(() => api.get('/api/creative/status').then((x) => { setSt(x); setErr(''); }).catch((e) => setErr(e.message)), []);
@@ -309,7 +319,9 @@ export default function CreativeStudio() {
       <PageHead title="Creative Studio" sub="Write your brand story, create post images and short video reels that match your brand. Each use spends credits." />
       <div className="row" style={{ gap: 12, marginBottom: 12, flexWrap: 'wrap' }} data-tour="creative-credits">
         <span className={`pill ${st.available ? 'green' : 'red'}`}>{st.available ? 'Ready' : 'Not available'}</span>
-        <span>Credits left this month: <b>{left == null ? 'No limit' : left}</b>{st.credits.allowance != null ? ` of ${st.credits.allowance}` : ''}</span>
+        <Meter label="Credits this month" used={st.credits.allowance != null && left != null ? st.credits.allowance - left : null} max={st.credits.allowance} noLimit={left == null} />
+        {st.plan && (st.plan.posts.per_month != null) && <Meter label="Posts this month" used={st.plan.posts.month} max={st.plan.posts.per_month} />}
+        {st.plan?.trial && <span className="pill amber" title={st.plan.trial_ends_at ? `Trial ends ${st.plan.trial_ends_at.slice(0, 10)}` : undefined}>Trial{st.plan.days_left != null ? `: ${st.plan.days_left} day${st.plan.days_left === 1 ? '' : 's'} left` : ''}</span>}
         <span className="muted">Story {st.costs.brand_story} credit · Image {st.costs.creative_post} credits · Video {st.costs.video_second} per second</span>
       </div>
       {st.reason && <Card><p style={{ margin: 0 }}>{st.reason}</p></Card>}

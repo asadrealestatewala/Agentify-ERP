@@ -13,7 +13,8 @@ import { assertSafeRequest } from './aiSafety.js';
 import { creditsAllowance, creditsLeft, assertPlatformAllowed, switchKey } from './aiGate.js';
 import { config, flag, featuresOff, ensureTable } from './aiUsage.js';
 import { putFile, storageEnabled } from './storage.js';
-import { assertStorageAvailable } from './plans.js';
+import { assertStorageAvailable, billingState } from './plans.js';
+import { postsUsage } from './socialCalendar.js';
 
 /** Credits one use costs a workspace. */
 export const CREDIT_COST = { brand_story: 1, creative_post: 3 };
@@ -57,6 +58,15 @@ export function saveBrand(b, userId) {
 }
 const brandLines = (b) => [`Brand name: ${b.brand_name}`, b.business_type && `Business: ${b.business_type}`, b.about && `About: ${b.about}`, b.tone && `Tone of voice: ${b.tone}`, b.tone_tags?.length && `Tone words: ${b.tone_tags.join(', ')}`, b.audience && `Customers: ${b.audience}`, b.site_summary && `Facts from the business website (use only these, do not add others): ${b.site_summary}`, b.city && `Location: ${b.city}`, b.languages?.length && `Audience languages: ${b.languages.join(', ')}`, b.primary_color && `Brand colors: ${[b.primary_color, b.secondary_color].filter(Boolean).join(', ')}`].filter(Boolean).join('\n');
 
+/** Plan, trial days and posting limits for the usage meter in the page header. Null when the workspace has no plan (older workspaces). */
+function planMeter() {
+  try {
+    const t = currentTenant(); if (!t || t.is_legacy) return null;
+    const b = billingState(t); const u = postsUsage();
+    return { name: b.limits?.name || null, status: b.status, trial: b.status === 'trialing', days_left: b.days_left ?? null, trial_ends_at: b.trial_ends_at || null, posts: { today: u.today, month: u.month, per_day: u.per_day, per_month: u.per_month } };
+  } catch { return null; }
+}
+
 /** What the page needs to decide whether to show the module: AI on for this workspace, a key added, credits left. */
 export function status() {
   ensureTable();
@@ -66,7 +76,7 @@ export function status() {
   const left = id ? creditsLeft(id) : null;
   const featuresOn = Object.fromEntries(Object.keys(CREDIT_COST).map((f) => [f, !featuresOff().includes(switchKey(f))]));
   const reason = off ? 'AI is switched off for your workspace.' : !config().key ? 'Creative Studio is not available yet.' : left === 0 ? 'You have used all your credits for this month. Ask support to top up.' : null;
-  return { available: !reason, reason, credits: { allowance: id ? creditsAllowance(id) : null, left }, costs: { ...CREDIT_COST, video_second: REEL_CREDITS.per_second, voice_per_100: REEL_CREDITS.voice_per_100_chars }, reel_seconds: REEL_SECONDS, voice_ready: voiceReady(), features: { ...featuresOn, creative_video: !featuresOff().includes('creative_video') }, sizes: SIZES, languages: LANGUAGES, brand_options: { platforms: BRAND_PLATFORMS, languages: BRAND_LANGUAGES, tones: BRAND_TONES, posts_per_week: POSTS_PER_WEEK }, storage: storageEnabled() ? 'cloud' : 'local', image_model: imageModel() };
+  return { available: !reason, reason, plan: planMeter(), credits: { allowance: id ? creditsAllowance(id) : null, left }, costs: { ...CREDIT_COST, video_second: REEL_CREDITS.per_second, voice_per_100: REEL_CREDITS.voice_per_100_chars }, reel_seconds: REEL_SECONDS, voice_ready: voiceReady(), features: { ...featuresOn, creative_video: !featuresOff().includes('creative_video') }, sizes: SIZES, languages: LANGUAGES, brand_options: { platforms: BRAND_PLATFORMS, languages: BRAND_LANGUAGES, tones: BRAND_TONES, posts_per_week: POSTS_PER_WEEK }, storage: storageEnabled() ? 'cloud' : 'local', image_model: imageModel() };
 }
 
 function parseJson(text) { try { return JSON.parse(String(text).match(/\{[\s\S]*\}/)?.[0] || ''); } catch { return null; } }
