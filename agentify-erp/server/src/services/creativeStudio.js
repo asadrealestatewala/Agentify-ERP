@@ -39,22 +39,23 @@ export function brand() {
 export function saveBrand(b, userId) {
   const d = { brand_name: clean(b.brand_name, 80), tone: clean(b.tone, 120), business_type: clean(b.business_type, 80), about: clean(b.about, 600), primary_color: clean(b.primary_color, 7), secondary_color: clean(b.secondary_color, 7), language: LANGUAGES.includes(b.language) ? b.language : 'English' };
   // wizard fields: only overwritten when sent, so older clients never wipe them
-  const prevW = get('SELECT audience, website, city, platforms, languages, posts_per_week, tone_tags FROM creative_brand WHERE id=1') || {};
+  const prevW = get('SELECT audience, website, city, platforms, languages, posts_per_week, tone_tags, site_summary, site_analyzed_at FROM creative_brand WHERE id=1') || {};
   const w = {
     audience: 'audience' in b ? clean(b.audience, 200) : prevW.audience || null, website: 'website' in b ? clean(b.website, 200) : prevW.website || null, city: 'city' in b ? clean(b.city, 80) : prevW.city || null,
     platforms: 'platforms' in b ? JSON.stringify(pick(b.platforms, BRAND_PLATFORMS)) : prevW.platforms || '[]', languages: 'languages' in b ? JSON.stringify(pick(b.languages, BRAND_LANGUAGES)) : prevW.languages || '[]',
     posts_per_week: 'posts_per_week' in b ? (POSTS_PER_WEEK.includes(Number(b.posts_per_week)) ? Number(b.posts_per_week) : null) : prevW.posts_per_week ?? null,
+    site_summary: 'site_summary' in b ? clean(b.site_summary, 1200) : prevW.site_summary || null, site_analyzed_at: 'site_summary' in b ? (clean(b.site_summary, 1200) ? prevW.site_analyzed_at || now() : null) : prevW.site_analyzed_at || null,
     tone_tags: 'tone_tags' in b ? JSON.stringify(pick(b.tone_tags, BRAND_TONES, 4)) : prevW.tone_tags || '[]' };
   if (!d.brand_name) throw bad('Enter your brand name');
   for (const k of ['primary_color', 'secondary_color']) if (d[k] && !COLOR.test(d[k])) throw bad('Colors look like #0e7c6b');
   const prev = get('SELECT logo FROM creative_brand WHERE id=1');
   const logo = 'logo' in b ? clean(b.logo, 300) : (prev ? prev.logo : getSetting('brand_logo', '') || null);
-  run(`INSERT INTO creative_brand(id, brand_name, logo, primary_color, secondary_color, tone, business_type, about, language, audience, website, city, platforms, languages, posts_per_week, tone_tags, updated_by, updated_at) VALUES(1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(id) DO UPDATE SET brand_name=excluded.brand_name, logo=excluded.logo, primary_color=excluded.primary_color, secondary_color=excluded.secondary_color, tone=excluded.tone, business_type=excluded.business_type, about=excluded.about, language=excluded.language, audience=excluded.audience, website=excluded.website, city=excluded.city, platforms=excluded.platforms, languages=excluded.languages, posts_per_week=excluded.posts_per_week, tone_tags=excluded.tone_tags, updated_by=excluded.updated_by, updated_at=excluded.updated_at`,
-  d.brand_name, logo, d.primary_color, d.secondary_color, d.tone, d.business_type, d.about, d.language, w.audience, w.website, w.city, w.platforms, w.languages, w.posts_per_week, w.tone_tags, userId || null, now());
+  run(`INSERT INTO creative_brand(id, brand_name, logo, primary_color, secondary_color, tone, business_type, about, language, audience, website, city, platforms, languages, posts_per_week, tone_tags, site_summary, site_analyzed_at, updated_by, updated_at) VALUES(1,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET brand_name=excluded.brand_name, logo=excluded.logo, primary_color=excluded.primary_color, secondary_color=excluded.secondary_color, tone=excluded.tone, business_type=excluded.business_type, about=excluded.about, language=excluded.language, audience=excluded.audience, website=excluded.website, city=excluded.city, platforms=excluded.platforms, languages=excluded.languages, posts_per_week=excluded.posts_per_week, tone_tags=excluded.tone_tags, site_summary=excluded.site_summary, site_analyzed_at=excluded.site_analyzed_at, updated_by=excluded.updated_by, updated_at=excluded.updated_at`,
+  d.brand_name, logo, d.primary_color, d.secondary_color, d.tone, d.business_type, d.about, d.language, w.audience, w.website, w.city, w.platforms, w.languages, w.posts_per_week, w.tone_tags, w.site_summary, w.site_analyzed_at, userId || null, now());
   return { ...brand(), saved: true };
 }
-const brandLines = (b) => [`Brand name: ${b.brand_name}`, b.business_type && `Business: ${b.business_type}`, b.about && `About: ${b.about}`, b.tone && `Tone of voice: ${b.tone}`, b.tone_tags?.length && `Tone words: ${b.tone_tags.join(', ')}`, b.audience && `Customers: ${b.audience}`, b.city && `Location: ${b.city}`, b.languages?.length && `Audience languages: ${b.languages.join(', ')}`, b.primary_color && `Brand colors: ${[b.primary_color, b.secondary_color].filter(Boolean).join(', ')}`].filter(Boolean).join('\n');
+const brandLines = (b) => [`Brand name: ${b.brand_name}`, b.business_type && `Business: ${b.business_type}`, b.about && `About: ${b.about}`, b.tone && `Tone of voice: ${b.tone}`, b.tone_tags?.length && `Tone words: ${b.tone_tags.join(', ')}`, b.audience && `Customers: ${b.audience}`, b.site_summary && `Facts from the business website (use only these, do not add others): ${b.site_summary}`, b.city && `Location: ${b.city}`, b.languages?.length && `Audience languages: ${b.languages.join(', ')}`, b.primary_color && `Brand colors: ${[b.primary_color, b.secondary_color].filter(Boolean).join(', ')}`].filter(Boolean).join('\n');
 
 /** What the page needs to decide whether to show the module: AI on for this workspace, a key added, credits left. */
 export function status() {

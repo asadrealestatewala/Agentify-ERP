@@ -48,6 +48,7 @@ const STEPS = ['Your business', 'Where you post', 'Your look'];
 function Brand({ st, onSaved }) {
   const toast = useToast(); const { can } = useAuth();
   const [b, setB] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [step, setStep] = useState(null);
+  const [scan, setScan] = useState(null); const [scanning, setScanning] = useState(false);
   useEffect(() => { api.get('/api/creative/brand').then((x) => { setB(x); if (!x.saved) setStep(0); }).catch((e) => setErr(e.message)); }, []);
   if (err && !b) return <ErrorBox error={err} />;
   if (!b) return <Loading rows={2} />;
@@ -56,15 +57,34 @@ function Brand({ st, onSaved }) {
   const opts = st.brand_options || { platforms: [], languages: [], tones: [], posts_per_week: [] };
   const save = async () => { setBusy(true); setErr(''); try { setB(await api.put('/api/creative/brand', b)); toast('Brand profile saved'); setStep(null); onSaved(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   const edit = can('content', 'edit');
+  const analyze = async () => { setScanning(true); setErr(''); setScan(null); try { setScan(await api.post('/api/creative/brand/analyze', { website: b.website })); } catch (e) { setErr(e.message); } finally { setScanning(false); } };
+  const SCAN_FIELDS = [['brand_name', 'Brand name'], ['business_type', 'Business type'], ['about', 'About'], ['audience', 'Customers'], ['city', 'City or country'], ['tone_tags', 'Tone words'], ['languages', 'Languages'], ['primary_color', 'Main color']];
+  const shown = (v) => (Array.isArray(v) ? v.join(', ') : v);
+  const has = (v) => (Array.isArray(v) ? v.length > 0 : !!String(v ?? '').trim());
+  const useScan = (keys) => { const sg = scan.suggestions; const next = { ...b, website: scan.website, site_summary: sg.summary || b.site_summary }; for (const k of keys) if (has(sg[k])) next[k] = sg[k]; setB(next); };
+  const fillEmpty = () => useScan(SCAN_FIELDS.map(([k]) => k).filter((k) => !has(b[k])));
+  const scanPanel = scan && (<div className="card" style={{ background: 'var(--bg-soft, #f5faf9)', marginBottom: 12 }}>
+    <strong>What we found on your website</strong>
+    <p className="muted" style={{ margin: '4px 0 8px', fontSize: 13 }}>Read {scan.pages_read} page{scan.pages_read === 1 ? '' : 's'}. This was free. Nothing is saved until you press Save. Your own entries are never replaced unless you press Use.</p>
+    {SCAN_FIELDS.filter(([k]) => has(scan.suggestions[k])).map(([k, label]) => (<div key={k} className="row" style={{ gap: 8, alignItems: 'flex-start', marginBottom: 6 }}>
+      <div style={{ flex: 1, minWidth: 0 }}><div className="muted" style={{ fontSize: 12 }}>{label}</div><div style={{ overflowWrap: 'anywhere' }}>{shown(scan.suggestions[k])}</div></div>
+      {JSON.stringify(b[k]) === JSON.stringify(scan.suggestions[k]) ? <span className="muted" style={{ fontSize: 12 }}>Used</span> : <button className="btn" onClick={() => useScan([k])}>Use</button>}
+    </div>))}
+    {scan.suggestions.services.length > 0 && <div style={{ marginBottom: 6 }}><div className="muted" style={{ fontSize: 12 }}>Services named on the site</div><div>{scan.suggestions.services.join(', ')}</div></div>}
+    <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}><button className="btn primary" onClick={fillEmpty}>Fill empty fields</button><button className="btn" onClick={() => setScan(null)}>Close</button></div>
+    <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>A short summary of your site is kept with your brand so posts use your real facts. Remove it any time below.</p>
+  </div>);
   const business = (<>
     <Field label="Brand name" required><input className="input" value={b.brand_name || ''} onChange={set('brand_name')} maxLength={80} disabled={!edit} /></Field>
     <Field label="Business type" hint="For example real estate agency"><input className="input" value={b.business_type || ''} onChange={set('business_type')} maxLength={80} disabled={!edit} /></Field>
     <Field label="About your business" hint="What you do or sell. Real facts only. The AI never invents numbers, awards or customers."><textarea className="input" rows={3} value={b.about || ''} onChange={set('about')} maxLength={600} disabled={!edit} /></Field>
     <Field label="Who are your customers? (optional)"><input className="input" value={b.audience || ''} onChange={set('audience')} maxLength={200} disabled={!edit} /></Field>
     <div style={grid}>
-      <Field label="Website (optional)"><input className="input" value={b.website || ''} onChange={set('website')} maxLength={200} disabled={!edit} /></Field>
+      <Field label="Website (optional)" hint="Press Analyze to fill your brand details from your site. Free."><span className="row" style={{ gap: 8 }}><input className="input" value={b.website || ''} onChange={set('website')} maxLength={200} disabled={!edit} placeholder="yourcompany.com" /><button type="button" className="btn" disabled={!edit || scanning || !(b.website || '').trim() || !st.available} onClick={analyze}>{scanning ? 'Reading…' : 'Analyze my website'}</button></span></Field>
       <Field label="City or country"><input className="input" value={b.city || ''} onChange={set('city')} maxLength={80} disabled={!edit} /></Field>
-    </div></>);
+    </div>
+    {scanPanel}
+    {b.site_summary && <Field label="Facts from your website" hint="Used so posts stick to your real details."><div className="muted" style={{ fontSize: 13, overflowWrap: 'anywhere' }}>{b.site_summary}</div>{edit && <button type="button" className="btn" onClick={() => setB({ ...b, site_summary: '' })}>Remove website facts</button>}</Field>}</>);
   const channels = (<>
     <Field label="Where you post"><Chips label="Platforms" options={opts.platforms} value={b.platforms || []} onChange={setV('platforms')} disabled={!edit} /></Field>
     <Field label="Languages" hint="Posts are written for the languages you pick."><Chips label="Languages" options={opts.languages} value={b.languages || []} onChange={setV('languages')} disabled={!edit} /></Field>

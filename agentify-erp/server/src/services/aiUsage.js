@@ -144,7 +144,7 @@ export async function draftPost({ channel, topic, tone, language }, admin) {
 // "A call" is one model request recorded in the ledger above. Limits are checked before a feature starts, so a request that has begun is never cut off half way.
 export const AI_FEATURES = {
   // features that use Agentify's own key (metered in services/aiGateway.js, checked in services/aiGate.js)
-  ask_assistant: 'Ask assistant (Gemini)', creative_post: 'Creative posts', creative_video: 'Creative videos', video_voice: 'Video voices', brand_story: 'Brand stories', translation: 'Translation', content_draft: 'Agentify post drafts',
+  ask_assistant: 'Ask assistant (Gemini)', creative_post: 'Creative posts', creative_video: 'Creative videos', video_voice: 'Video voices', brand_story: 'Brand stories', website_analysis: 'Website analysis', translation: 'Translation', content_draft: 'Agentify post drafts',
   workspace_assistant: 'Workspace data assistant', property_writer: 'Property writer', website_builder: 'Website builder AI', promo_video: 'Promo video scripts', workspace_ai: 'Other workspace AI',
 };
 export const num2 = num;
