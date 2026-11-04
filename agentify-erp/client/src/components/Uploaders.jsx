@@ -63,9 +63,9 @@ export function ImageUploader({ base, media, onChange, kinds = ['gallery'], defa
     <div>
       {!readOnly && (
         <>
-          <div className="row" style={{ marginBottom: 8 }}>
+          <div className="upload-opts" style={{ marginBottom: 8 }}>
             <span className="muted">Upload as</span>
-            <select className="select" style={{ width: 190 }} value={kind} onChange={(e) => setKind(e.target.value)}>
+            <select className="select upload-cat" value={kind} onChange={(e) => setKind(e.target.value)}>
               {kinds.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </select>
           </div>
@@ -117,11 +117,13 @@ export function DocumentsPanel({ entityType, entityId, canEdit = true, categorie
   return (
     <div className="stack">
       {canEdit && (
-        <div className="row wrap">
-          <span className="muted">Category</span>
-          <div style={{ width: 200 }}><Select value={category} onChange={setCategory} options={cats} allowEmpty={false} /></div>
-          {portalToggle && <label className="row" style={{ gap: 6, cursor: 'pointer' }}><input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />{portalLabel}</label>}
-          <div className="grow"><FileUploader onFiles={upload} busy={busy} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" hint="PDF, JPG, PNG, DOC/DOCX, XLS/XLSX — up to 25 MB" /></div>
+        <div className="upload-panel">
+          <div className="upload-opts">
+            <span className="muted">Category</span>
+            <div className="upload-cat"><Select value={category} onChange={setCategory} options={cats} allowEmpty={false} /></div>
+            {portalToggle && <label className="row upload-share"><input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} /><span>{portalLabel}</span></label>}
+          </div>
+          <FileUploader onFiles={upload} busy={busy} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" hint="PDF, JPG, PNG, DOC/DOCX, XLS/XLSX — up to 25 MB" />
         </div>
       )}
       {loading ? <Loading /> : !data?.filter((d) => !hidden.has(d.id)).length ? <Empty icon="file" title="No documents yet" hint="Attach the CNIC, agreements, invoices or any file that belongs here." /> : (
