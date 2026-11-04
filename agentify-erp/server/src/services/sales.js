@@ -120,8 +120,8 @@ function createSaleTx(inp, req) {
   // a plot owned by a developer: the money is the developer's, so the sale is a pass-through contract, not company revenue
   const dev = kind === 'property' ? developerSaleFields(prop, body.sale_date) : null;
   if (dev) {
-    run(`UPDATE sales SET developer_id=?, agreement_id=?, booking_id=?, file_state=?, holder=?, cancel_window_until=?, cancel_tiers=? WHERE id=?`,
-      dev.developer_id, dev.agreement_id, dev.booking_id, dev.file_state, dev.holder, dev.cancel_window_until, dev.cancel_tiers, id);
+    run(`UPDATE sales SET developer_id=?, agreement_id=?, booking_id=?, file_state=?, holder=?, cancel_window_until=?, cancel_tiers=?, rebate_terms=? WHERE id=?`,
+      dev.developer_id, dev.agreement_id, dev.booking_id, dev.file_state, dev.holder, dev.cancel_window_until, dev.cancel_tiers, dev.rebate_terms, id);
     logFileEvent(id, 'booked', { to: 'active', user, amount: plan.net, note: dev.booking_id });
   }
   for (const row of plan.rows) run('INSERT INTO installments(sale_id,seq,kind,due_date,amount) VALUES(?,?,?,?,?)', id, row.seq, row.kind, row.due_date, row.amount);

@@ -18,4 +18,14 @@ CREATE TABLE IF NOT EXISTS file_events(
   id INTEGER PRIMARY KEY, sale_id INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE, event TEXT NOT NULL, from_state TEXT, to_state TEXT,
   actor_user INTEGER, actor_role TEXT, amount INTEGER, note TEXT, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_fileev_sale ON file_events(sale_id);
+-- what the developer owes the company on each approved customer payment, one row per receipt and stage (docs/DEVELOPER_PARTNER_PORTAL.md section 7)
+CREATE TABLE IF NOT EXISTS developer_rebates(
+  id INTEGER PRIMARY KEY, developer_id INTEGER NOT NULL REFERENCES developers(id), sale_id INTEGER NOT NULL REFERENCES sales(id), receipt_id INTEGER NOT NULL REFERENCES receipts(id),
+  stage TEXT NOT NULL CHECK(stage IN ('down','installment','balloon')), source TEXT NOT NULL CHECK(source IN ('plot','agreement')),
+  base_amount INTEGER NOT NULL, rate REAL, amount INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'due' CHECK(status IN ('due','received','reversed')),
+  recognised_journal_id INTEGER, received_journal_id INTEGER, received_on TEXT, received_method TEXT, reference_no TEXT, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_devreb_dev ON developer_rebates(developer_id, status);
+CREATE INDEX IF NOT EXISTS idx_devreb_sale ON developer_rebates(sale_id);
+CREATE INDEX IF NOT EXISTS idx_devreb_receipt ON developer_rebates(receipt_id);
 `;
