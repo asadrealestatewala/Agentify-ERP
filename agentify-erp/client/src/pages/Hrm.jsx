@@ -53,6 +53,7 @@ export function EmployeeProfile() {
       <PageHead title={e.name} sub={`${e.emp_code} · ${e.designation || ''} · ${e.department || ''}`}>
         <StatusBadge status={e.status} />
         {can('hrm', 'edit') && <button className="btn" onClick={() => photoRef.current?.click()}><Icon name="image" size={14} />{e.photo ? 'Change photo' : 'Upload photo'}</button>}
+        {can('hrm', 'edit') && e.photo && <button className="btn" onClick={async () => { try { await api.del(`/api/hrm/employees/${e.id}/photo`); toast('Photo removed', 'ok'); reload(); } catch (er) { toast(er.message, 'err'); } }}><Icon name="trash" size={14} />Remove photo</button>}
         <input ref={photoRef} type="file" accept="image/*" hidden onChange={async (ev) => { const file = ev.target.files?.[0]; if (!file) return; try { const fd = new FormData(); fd.append('photo', file); await api.upload(`/api/hrm/employees/${e.id}/photo`, fd); toast('Photo saved', 'ok'); reload(); } catch (er) { toast(er.message, 'err'); } }} />
         {can('hrm', 'edit') && <button className="btn" onClick={() => setEditing(true)}><Icon name="edit" size={14} />Edit</button>}
         {can('hrm', 'approve') && e.status === 'draft' && <button className="btn primary" onClick={() => wf('approve', 'Approved')}>Approve</button>}
