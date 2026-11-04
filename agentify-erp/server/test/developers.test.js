@@ -271,6 +271,10 @@ test('developer portal: approve / reject customer payments, rebate statement, re
   assert.equal(st.rows.length, 1); assert.equal(st.total_received, dues[0].remaining);
   assert.equal(st.total_rebate, Math.round(dues[0].remaining * (dues[0].kind === 'installment' ? 5 : 10) / 100));
   assert.equal(ok(await two.get('/api/developer/rebates')).rows.length, 0);
+  // the same rebate is posted to the books as company income, owed by the developer
+  const tbRebate = ok(await w.get('/api/accounting/trial-balance'));
+  assert.equal(tbAmount(tbRebate, '1350'), st.total_rebate); assert.equal(tbAmount(tbRebate, '4500'), st.total_rebate);
+  assert.equal(tbRebate.total_debit, tbRebate.total_credit);
 
   // reports download as csv, are scoped, validated and audited
   const csv = await one.get('/api/developer/reports/rebate-statement?format=csv');

@@ -6,6 +6,7 @@ import { all, get, run, insert, update } from '../db.js';
 import { can, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { asyncH, bad, notFound, now } from '../util.js';
+import { rebateLedger, receiveRebates, recordDeveloperPayment } from '../services/developerRebates.js';
 import { AGREEMENT_FIELDS, checkAgreement, createDeveloperPortalUser, developerSummary, linkPlots, listDevelopers, plotRebateAmount, setPlotRebates, toSqft, unlinkPlots } from '../services/developers.js';
 
 const r = Router();
@@ -117,6 +118,25 @@ r.post('/:id/plot-rebates', can('developers', 'edit'), asyncH((req, res) => {
   const d = dev(req.params.id), b = req.body || {};
   const out = setPlotRebates(d.id, b.property_ids && b.property_ids.length ? b.property_ids : null, { rebate_type: b.rebate_type, rebate_value: b.rebate_value });
   audit(req, 'Set plot rebates', 'developer', d.id, `${d.name}: ${out.updated.length} plots`);
+  res.json(out);
+}));
+
+// ---------------------------------------------------------------- developer-approved payments and the rebate they earn
+// The developer receives the customer's money and approves it; staff with developers.approve record that approval here.
+// The payment settles the customer's installments, passes through Developer Clearing, and books the rebate the developer owes.
+r.post('/:id/files/:saleId/payments', can('developers', 'approve'), asyncH((req, res) => {
+  const d = dev(req.params.id);
+  const sale = get('SELECT id FROM sales WHERE id=? AND developer_id=?', req.params.saleId, d.id);
+  if (!sale) throw notFound('File not found');
+  res.status(201).json(recordDeveloperPayment({ ...(req.body || {}), sale_id: sale.id }, req));
+}));
+
+r.get('/:id/rebates', can('developers', 'view'), asyncH((req, res) => res.json(rebateLedger(dev(req.params.id).id, { status: req.query.status || undefined }))));
+
+// the developer paid some or all of the rebate it owes: rebate_ids omitted = everything due
+r.post('/:id/rebates/receive', can('developers', 'approve'), asyncH((req, res) => {
+  const d = dev(req.params.id);
+  const out = receiveRebates(d.id, req.body || {}, req);
   res.json(out);
 }));
 

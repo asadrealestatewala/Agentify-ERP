@@ -139,7 +139,7 @@ function migrate() {
   addCol('properties', 'inventory_source', "TEXT NOT NULL DEFAULT 'own'"); addCol('properties', 'developer_id', 'INTEGER'); addCol('properties', 'agreement_id', 'INTEGER'); addCol('properties', 'rebate_type', 'TEXT'); addCol('properties', 'rebate_value', 'REAL');
   for (const [c, t] of [['developer_id', 'INTEGER'], ['agreement_id', 'INTEGER'], ['booking_id', 'TEXT'], ['file_state', 'TEXT'], ['holder', "TEXT NOT NULL DEFAULT 'customer'"],
     ['cancel_window_until', 'TEXT'], ['cancel_tiers', 'TEXT']]) addCol('sales', c, t);
-  addCol('users', 'developer_id', 'INTEGER');
+  addCol('users', 'developer_id', 'INTEGER'); addCol('sales', 'rebate_terms', 'TEXT');
   addCol('users', 'vendor_id', 'INTEGER'); addCol('vendors', 'vendor_code', 'TEXT');
   addCol('assets', 'vendor_id', 'INTEGER'); addCol('assets', 'project_id', 'INTEGER'); addCol('assets', 'warranty_until', 'TEXT'); addCol('assets', 'source', 'TEXT');
   // property visits on appointments (all nullable, so older apps and rows keep working)

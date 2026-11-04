@@ -6,7 +6,8 @@ import { bad, notFound, now, int, jparse, moneyText } from '../util.js';
 import { audit, notify, notifyPerm } from '../audit.js';
 import { receivePayment } from './payments.js';
 import { claimRef, OPEN } from './claims.js';
-import { logFileEvent, plotRebateAmount } from './developers.js';
+import { logFileEvent } from './developers.js';
+import { postPaymentRebate, rebateLedger } from './developerRebates.js';
 
 const pkr = (n) => moneyText(Math.round(Number(n || 0)));
 
@@ -50,6 +51,7 @@ export function approvePayment(req, id, body = {}) {
     const rid = receivePayment({ contact_id: c.contact_id, sale_id: c.sale_id, amount, method: c.method, txn_id: c.txn_id, bank: c.bank, cheque_no: c.cheque_no, date: c.paid_date,
       payment_type: type, developerApproval: true,
       notes: `Approved by the developer (${claimRef(id)}) ${req.user.name}.${note ? ` ${note}` : ''}` }, req);
+    postPaymentRebate(rid, req);
     run("UPDATE payment_claims SET status='approved', receipt_id=?, decided_by=?, decided_at=?, received_amount=?, verified_channel='Developer approval', verified_note=?, verified_by=?, verified_at=? WHERE id=?",
       rid, req.user.id, now(), amount, note || null, req.user.id, now(), id);
     logFileEvent(c.sale_id, 'payment_approved', { user: req.user, amount, note: claimRef(id) });
@@ -76,30 +78,19 @@ export function rejectPayment(req, id, reason) {
 }
 
 /**
- * Rebate on one received amount: the plot's own rebate (spread across the contract in proportion to what was paid) when set,
- * otherwise the agreement's per-stage rate for the installment kinds the payment settled.
+ * What the developer owes the company, one row per approved payment, read from the rebates already posted to the books
+ * (so it always matches the accounts). `rebate` is the amount earned; `rebate_status` says whether the developer has paid it.
  */
-export function rebateOnPayment(sale, prop, agreement, allocations) {
-  const paid = allocations.reduce((a, x) => a + x.amount, 0);
-  if (prop?.rebate_type) return sale.net_price > 0 ? Math.round(plotRebateAmount({ ...prop, net_price: prop.net_price ?? sale.net_price }) * paid / sale.net_price) : 0;
-  if (!agreement) return 0;
-  const rate = { booking: agreement.rebate_down_pct, advance: agreement.rebate_down_pct, installment: agreement.rebate_installment_pct, balloon: agreement.rebate_balloon_pct };
-  return Math.round(allocations.reduce((a, x) => a + x.amount * (Number(rate[x.kind]) || 0) / 100, 0));
-}
-
-/** What the developer owes the company, per approved payment. Informational: it does not record that the developer has paid it. */
 export function rebateStatement(developerId, { from, to } = {}) {
-  const rows = [];
-  for (const sale of all("SELECT * FROM sales WHERE developer_id=? AND status IN ('confirmed','cancelled') ORDER BY id", developerId)) {
-    const prop = get('SELECT * FROM properties WHERE id=?', sale.property_id);
-    const ag = sale.agreement_id ? get('SELECT * FROM developer_agreements WHERE id=?', sale.agreement_id) : null;
-    for (const r of all("SELECT r.id, r.date, r.method FROM receipts r JOIN receipt_sales rs ON rs.receipt_id=r.id WHERE rs.sale_id=? AND r.status='valid' ORDER BY r.date, r.id", sale.id)) {
-      if ((from && r.date < from) || (to && r.date > to)) continue;
-      const allocs = all('SELECT i.kind, ra.amount FROM receipt_allocations ra JOIN installments i ON i.id=ra.installment_id WHERE ra.receipt_id=? AND i.sale_id=?', r.id, sale.id);
-      const amount = get('SELECT amount FROM receipt_sales WHERE receipt_id=? AND sale_id=?', r.id, sale.id)?.amount || 0;
-      rows.push({ date: r.date, booking_id: sale.booking_id, plot: prop?.title || sale.title || '', customer_name: sale.holder === 'company' ? 'Company' : get('SELECT full_name FROM contacts WHERE id=?', sale.contact_id)?.full_name || '',
-        method: r.method, amount, rebate: rebateOnPayment(sale, prop, ag, allocs) });
-    }
+  const byReceipt = new Map();
+  for (const x of rebateLedger(developerId).rows) {
+    if (x.status === 'reversed' || (from && x.payment_date < from) || (to && x.payment_date > to)) continue;
+    const row = byReceipt.get(x.receipt_no) || { date: x.payment_date, booking_id: x.booking_id, plot: x.plot_title || '', customer_name: x.customer_name || '', receipt_no: x.receipt_no,
+      method: get('SELECT method FROM receipts WHERE receipt_no=?', x.receipt_no)?.method, amount: 0, rebate: 0, paid: 0 };
+    row.amount += x.base_amount; row.rebate += x.amount; if (x.status === 'received') row.paid += x.amount;
+    byReceipt.set(x.receipt_no, row);
   }
-  return { rows, total_received: rows.reduce((a, r) => a + r.amount, 0), total_rebate: rows.reduce((a, r) => a + r.rebate, 0) };
+  const rows = [...byReceipt.values()].map((r) => ({ ...r, rebate_status: r.paid >= r.rebate ? 'received' : r.paid ? 'part paid' : 'due' })).sort((a, b) => b.date.localeCompare(a.date));
+  const total_rebate = rows.reduce((a, r) => a + r.rebate, 0), rebate_received = rows.reduce((a, r) => a + r.paid, 0);
+  return { rows, total_received: rows.reduce((a, r) => a + r.amount, 0), total_rebate, rebate_received, rebate_due: total_rebate - rebate_received };
 }
