@@ -135,6 +135,10 @@ test('Creative Studio end to end', async () => {
   for (let i = 0; i < 4; i++) assert.equal((await a('POST', '/api/creative/brand/analyze', { website: '8.8.8.8' })).status, 200);
   assert.equal((await a('POST', '/api/creative/brand/analyze', { website: '8.8.8.8' })).status, 400, 'daily limit');
 
+  // Listing to post: real inventory facts and photos for the browser to draw (no AI, no credits)
+  const ls = await a('GET', '/api/creative/listings?q=nothing-matches-this'); assert.equal(ls.status, 200); assert.deepEqual(ls.data, []);
+  assert.equal(Array.isArray((await a('GET', '/api/creative/listings')).data), true);
+
   // the workspace switch and master switch stop it
   await as(owner, 'PUT', `/ai/workspaces/${tid}`, { ai_enabled: false });
   assert.equal((await a('GET', '/api/creative/status')).data.available, false);
