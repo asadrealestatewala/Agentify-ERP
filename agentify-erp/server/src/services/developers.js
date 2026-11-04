@@ -69,6 +69,12 @@ export function propertyDeveloperFields(d, existing) {
   return { inventory_source: 'developer', developer_id: dev.id, agreement_id: ag.id };
 }
 
+/** The rebate rules a file is booked under: the plot's own rebate when it has one, else the agreement's per-stage rates. */
+export function rebateTermsOf(prop, ag) {
+  if (prop?.rebate_type) return { mode: 'plot', type: prop.rebate_type, value: Number(prop.rebate_value) || 0 };
+  return { mode: 'agreement', down: Number(ag?.rebate_down_pct) || 0, installment: Number(ag?.rebate_installment_pct) || 0, balloon: Number(ag?.rebate_balloon_pct) || 0 };
+}
+
 /** Columns that mark a new sale as a developer file (snapshotting the agreement so later edits never rewrite history). */
 export function developerSaleFields(prop, saleDate) {
   if (!prop || prop.inventory_source !== 'developer') return null;
@@ -77,6 +83,7 @@ export function developerSaleFields(prop, saleDate) {
   return {
     developer_id: prop.developer_id, agreement_id: ag.id, booking_id: nextNo('BK', 'BK'), file_state: 'active', holder: 'customer',
     cancel_window_until: ag.cancel_window_days > 0 ? addDays(saleDate, ag.cancel_window_days) : null, cancel_tiers: ag.cancel_tiers || '[]',
+    rebate_terms: JSON.stringify(rebateTermsOf(prop, ag)),
   };
 }
 

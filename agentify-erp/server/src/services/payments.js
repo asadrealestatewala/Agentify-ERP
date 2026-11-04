@@ -19,7 +19,7 @@ function preferredKinds(type) {
 }
 
 /** Pick the installments a payment should settle: preferred kind first, then oldest due. */
-function allocate(saleId, amount, type) {
+export function allocate(saleId, amount, type) {
   const open = all(`SELECT * FROM installments WHERE sale_id=? AND paid<amount ORDER BY due_date, seq`, saleId);
   const pref = preferredKinds(type);
   const ordered = [...open.filter((i) => pref.includes(i.kind)), ...open.filter((i) => !pref.includes(i.kind))];
@@ -34,7 +34,7 @@ function allocate(saleId, amount, type) {
   return { allocations: out, unallocated: left };
 }
 
-function applyAllocation(installmentId, delta, date) {
+export function applyAllocation(installmentId, delta, date) {
   const i = get('SELECT * FROM installments WHERE id=?', installmentId);
   const paid = i.paid + delta;
   if (paid < 0 || paid > i.amount) throw bad('Allocation would corrupt the installment ledger');
@@ -72,10 +72,11 @@ export function receivePayment(inp, req) {
       if (!sale) throw bad('Sale not found');
       if (sale.contact_id !== contact.id) throw bad('Sale does not belong to this customer');
       if (sale.status !== 'confirmed') throw bad('Payments can only be recorded against confirmed sales');
-      if (sale.developer_id && sale.holder === 'customer') throw bad(`${sale.sale_no} is a developer file: the customer pays the developer, and the payment is recorded once the developer approves it. Direct receipts are not available for it yet.`);
+      if (sale.developer_id && sale.holder === 'customer' && !inp.developerApproval) throw bad(`${sale.sale_no} is a developer file: the customer pays the developer, and the payment is recorded once the developer approves it. Staff record it with Record developer-approved payment on the developer’s page.`);
       return { sale, amount: w.amount, allocations: [], settled: 0, advance: 0 };
     });
-    const acc = assertTreasury(inp.account_id);
+    // a developer-approved payment never touches the company's cash: it clears the developer clearing account (2610)
+    const acc = inp.developerApproval ? (get("SELECT * FROM accounts WHERE code='2610'") || (() => { throw bad('The developer clearing account (2610) is missing'); })()) : assertTreasury(inp.account_id);
     if (inp.txn_id && get("SELECT id FROM receipts WHERE txn_id=? AND status='valid'", inp.txn_id)) throw bad('This transaction ID has already been recorded');
 
     if (isRefund) {
@@ -160,6 +161,11 @@ export function voidReceipt(id, reason, req) {
     if (!r) throw bad('Receipt not found');
     if (r.status === 'void') throw bad('Receipt already void');
     if (!reason) throw bad('A reason is required to void a receipt');
+    // a developer file's receipt also booked the rebate the developer owes: take it back, unless the developer already paid it
+    const rebates = all("SELECT * FROM developer_rebates WHERE receipt_id=? AND status<>'reversed'", id);
+    if (rebates.some((b) => b.status === 'received')) throw bad('The developer has already paid the rebate on this payment. Reverse that rebate payment first.');
+    for (const jid of new Set(rebates.map((b) => b.recognised_journal_id).filter(Boolean))) reverseJournal(jid, `Void of ${r.receipt_no}: rebate withdrawn`, req.user.id);
+    if (rebates.length) run("UPDATE developer_rebates SET status='reversed' WHERE receipt_id=? AND status='due'", id);
     for (const a of all('SELECT * FROM receipt_allocations WHERE receipt_id=?', id)) applyAllocation(a.installment_id, -a.amount, r.date);
     for (const rs of all('SELECT * FROM receipt_sales WHERE receipt_id=?', id)) {
       run('UPDATE sales SET paid_amount=paid_amount-?, advance_credit=advance_credit-? WHERE id=?', rs.amount, rs.advance, rs.sale_id);
