@@ -72,10 +72,11 @@ export function receivePayment(inp, req) {
       if (!sale) throw bad('Sale not found');
       if (sale.contact_id !== contact.id) throw bad('Sale does not belong to this customer');
       if (sale.status !== 'confirmed') throw bad('Payments can only be recorded against confirmed sales');
-      if (sale.developer_id && sale.holder === 'customer') throw bad(`${sale.sale_no} is a developer file: the customer pays the developer, and the payment is recorded once the developer approves it. Direct receipts are not available for it yet.`);
+      if (sale.developer_id && sale.holder === 'customer' && !inp.developerApproval) throw bad(`${sale.sale_no} is a developer file: the customer pays the developer, and the payment is recorded once the developer approves it. Direct receipts are not available for it yet.`);
       return { sale, amount: w.amount, allocations: [], settled: 0, advance: 0 };
     });
-    const acc = assertTreasury(inp.account_id);
+    // a developer-approved payment never touches the company's cash: it clears the developer clearing account (2610)
+    const acc = inp.developerApproval ? (get("SELECT * FROM accounts WHERE code='2610'") || (() => { throw bad('The developer clearing account (2610) is missing'); })()) : assertTreasury(inp.account_id);
     if (inp.txn_id && get("SELECT id FROM receipts WHERE txn_id=? AND status='valid'", inp.txn_id)) throw bad('This transaction ID has already been recorded');
 
     if (isRefund) {
