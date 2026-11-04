@@ -69,7 +69,7 @@ export default function Dialer() {
         <Stat label="Recorded" value={stats ? stats.recordings : '…'} icon="file" to="/recordings" />
       </div>
 
-      <div className="dialer-cols" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(280px,360px)', gap: 16, alignItems: 'start' }}>
+      <div className="dialer-cols" data-stack="md" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(280px,360px)', gap: 16, alignItems: 'start' }}>
         <div>
           {active && (
             <Card title={`Call with ${active.name}`}>

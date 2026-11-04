@@ -57,3 +57,13 @@
 /* when the shell hands the bars to the page (console > Mobile app > Safe areas = page) */
 html[data-insets="web"] body { padding: var(--safe-top, 0px) var(--safe-right, 0px) var(--safe-bottom, 0px) var(--safe-left, 0px); }
 @media (max-width: 800px) { html[data-insets="web"] .mtabs { bottom: calc(10px + var(--safe-bottom, 0px)); } }
+
+/* detail pages on phones: columns never squeeze, cards and tab bars stay inside the screen */
+@media (max-width: 800px) {
+  .grid > *, .stack > *, .card, .card-b { min-width: 0; }
+  .card { max-width: 100%; }
+  .tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap; }
+  .tab { flex: 0 0 auto; white-space: nowrap; }
+  .card-b, .kv, .kv > * { overflow-wrap: anywhere; }
+  .card-b .btn { max-width: 100%; }
+}
