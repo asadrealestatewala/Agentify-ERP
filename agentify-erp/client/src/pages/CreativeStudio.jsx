@@ -8,6 +8,7 @@ import { useAuth, useToast } from '../context.jsx';
 import { dateTime } from '../format.js';
 
 const CreativeReview = lazy(() => import('./CreativeReview.jsx'));
+const CreativeResults = lazy(() => import('./CreativeResults.jsx'));
 const CreativeListing = lazy(() => import('./CreativeListing.jsx'));
 const pageCss = `.cs-page .card-b{padding:20px 22px}.cs-page .field{gap:6px;margin-bottom:18px}.cs-page .field>label{font-size:14px;font-weight:600;color:var(--text)}
 .cs-page .field .hint{font-size:12.5px;color:var(--muted);font-weight:400;line-height:1.4}.cs-page textarea.input{line-height:1.5;padding:10px 12px}
@@ -306,7 +307,7 @@ function Meter({ label, used, max, noLimit }) {
 }
 
 export default function CreativeStudio() {
-  const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'listing', 'reels', 'review', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'brand'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false); const [brandName, setBrandName] = useState('');
+  const [st, setSt] = useState(null); const [err, setErr] = useState(''); const [params] = useSearchParams(); const [tab, setTab] = useState(['brand', 'story', 'posts', 'listing', 'reels', 'review', 'results', 'mine'].includes(params.get('tab')) ? params.get('tab') : 'brand'); const [version, setVersion] = useState(0); const [brandSaved, setBrandSaved] = useState(false); const [brandName, setBrandName] = useState('');
   const refresh = useCallback(() => api.get('/api/creative/status').then((x) => { setSt(x); setErr(''); }).catch((e) => setErr(e.message)), []);
   const checkBrand = useCallback(() => api.get('/api/creative/brand').then((b) => { setBrandSaved(!!b.saved); setBrandName(b.brand_name || ''); }).catch(() => {}), []);
   useEffect(() => { refresh(); checkBrand(); }, [refresh, checkBrand]);
@@ -325,13 +326,14 @@ export default function CreativeStudio() {
         <span className="muted">Story {st.costs.brand_story} credit · Image {st.costs.creative_post} credits · Video {st.costs.video_second} per second</span>
       </div>
       {st.reason && <Card><p style={{ margin: 0 }}>{st.reason}</p></Card>}
-      <div data-tour="creative-tabs"><Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'listing', label: 'Listing to post' }, { key: 'reels', label: 'Video reels' }, { key: 'review', label: 'Review posts' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} /></div>
+      <div data-tour="creative-tabs"><Tabs tabs={[{ key: 'brand', label: 'Brand profile' }, { key: 'story', label: 'Brand story' }, { key: 'posts', label: 'Post images' }, { key: 'listing', label: 'Listing to post' }, { key: 'reels', label: 'Video reels' }, { key: 'review', label: 'Review posts' }, { key: 'results', label: 'Results' }, { key: 'mine', label: 'My creations' }]} value={tab} onChange={setTab} /></div>
       {tab === 'review' && <Suspense fallback={<Loading rows={3} />}><CreativeReview onGoReels={() => setTab('reels')} brandName={brandName} /></Suspense>}
       {tab === 'brand' && <Brand st={st} onSaved={() => { checkBrand(); refresh(); }} />}
       {tab === 'story' && <Story st={st} refresh={() => { refresh(); setVersion((v) => v + 1); }} brandSaved={brandSaved} />}
       {tab === 'posts' && <Posts st={st} refresh={refresh} brandSaved={brandSaved} onSaved={() => setVersion((v) => v + 1)} />}
       {tab === 'listing' && <Suspense fallback={<Loading rows={3} />}><CreativeListing onSaved={() => setVersion((v) => v + 1)} /></Suspense>}
       {tab === 'reels' && <Reels st={st} refresh={refresh} brandSaved={brandSaved} />}
+      {tab === 'results' && <Suspense fallback={<Loading rows={3} />}><CreativeResults onGoReview={() => setTab('review')} /></Suspense>}
       {tab === 'mine' && <Mine version={version} />}
     </div>
   );

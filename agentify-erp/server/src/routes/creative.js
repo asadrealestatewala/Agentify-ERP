@@ -17,6 +17,7 @@ const r = Router();
 r.use(requireStaff);
 
 r.get('/status', can('content', 'view'), (_req, res) => res.json({ ...cs.status(), reels: jobs.options() }));
+r.get('/results', can('content', 'view'), (req, res) => res.json(cs.results(req.query)));
 r.get('/brand', can('content', 'view'), (_req, res) => res.json(cs.brand()));
 r.put('/brand', can('content', 'edit'), asyncH((req, res) => { const b = cs.saveBrand(req.body || {}, req.user.id); audit(req, 'Creative brand profile saved', 'creative', 1, b.brand_name); res.json(b); }));
 r.post('/brand/analyze', can('content', 'edit'), asyncH(async (req, res) => { const out = await analyzeWebsite(req.body || {}, req.user); audit(req, 'Website analyzed', 'creative', 1, out.website); res.json(out); }));

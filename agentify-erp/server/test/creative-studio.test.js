@@ -158,6 +158,13 @@ test('Creative Studio end to end', async () => {
   assert.equal((await a('POST', '/api/creative/translate', { text: 'Hello', language: 'French' })).status, 400);
   assert.equal((await a('POST', '/api/creative/translate', { text: '', language: 'Urdu' })).status, 400);
 
+  // Results: own calendar and credits, no invented engagement
+  assert.equal((await a('POST', '/api/content/posts', { title: 'Results check', post_type: 'static', post_date: new Date().toISOString().slice(0, 10), platforms: ['instagram'] })).status, 201);
+  const rs = await a('GET', '/api/creative/results?days=90'); assert.equal(rs.status, 200); assert.equal(rs.data.engagement_connected, false);
+  assert.ok(rs.data.total >= 1 && rs.data.stages.draft >= 1, 'calendar posts counted');
+  assert.ok(rs.data.credits_by_feature.some((x) => x.credits > 0), 'credits by feature'); assert.equal(rs.data.days, 90);
+  assert.equal((await b('GET', '/api/creative/results')).data.total, 0, 'another workspace sees none of it');
+
   // the workspace switch and master switch stop it
   await as(owner, 'PUT', `/ai/workspaces/${tid}`, { ai_enabled: false });
   assert.equal((await a('GET', '/api/creative/status')).data.available, false);
