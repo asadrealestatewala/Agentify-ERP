@@ -5,6 +5,7 @@ import Icon from './Icon.jsx';
 import { Card, CurrencyInput, ConfirmDialog, Field, Modal, PageHead, Select, TagInput, Toggle } from './ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useLookups, useMeta, useToast, useUndoDelete } from '../context.jsx';
+import EmployeePicker from './EmployeePicker.jsx';
 import { checkField } from '../validate.js';
 
 /** Renders one form control from a field spec. */
@@ -15,6 +16,7 @@ export function FieldInput({ f, value, onChange, form }) {
   switch (f.type) {
     case 'textarea': return <textarea className="textarea" value={value ?? ''} onChange={(e) => set(e.target.value)} rows={f.rows || 3} />;
     case 'select': return <Select value={value} onChange={(v) => set(f.number && v !== '' ? Number(v) : v)} options={options || []} placeholder={f.placeholder} allowEmpty={f.allowEmpty !== false} />;
+    case 'employee': return <EmployeePicker value={value} onChange={(id, e) => { set(id); if (e) f.onPick?.(e, onChange); }} />;
     case 'money': return <CurrencyInput value={value} onChange={set} />;
     case 'bool': return <Toggle value={!!value} onChange={set} label={f.toggleLabel} />;
     case 'tags': return <TagInput value={value || []} onChange={set} />;
