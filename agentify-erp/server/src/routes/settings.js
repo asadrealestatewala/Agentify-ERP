@@ -17,6 +17,7 @@ import { cleanStaffPath } from '../services/staffLogin.js';
 import { checkBrandColor } from '../../../shared/brandColor.js';
 import { currentTenant } from '../context.js';
 import { lockMessage, brandOfTenant } from '../services/brands.js';
+import { defaultRole } from '../seed.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -221,11 +222,37 @@ r.put('/users/:id', can('settings', 'edit'), asyncH((req, res) => {
 
 // ---- Roles & permissions
 r.get('/roles', can('settings', 'view'), (req, res) => {
-  res.json(all('SELECT * FROM roles WHERE portal=0 ORDER BY id').map((role) => ({
-    ...role, perms: all('SELECT module,action FROM role_permissions WHERE role_id=?', role.id).map((p) => `${p.module}:${p.action}`),
-    user_count: get('SELECT COUNT(*) n FROM users WHERE role_id=?', role.id).n,
-  })));
+  res.json(all('SELECT * FROM roles WHERE portal=0 ORDER BY id').map((role) => {
+    const perms = all('SELECT module,action FROM role_permissions WHERE role_id=?', role.id).map((p) => `${p.module}:${p.action}`);
+    const out = { ...role, perms, user_count: get('SELECT COUNT(*) n FROM users WHERE role_id=?', role.id).n };
+    const def = role.is_system && role.name !== 'Super Admin' ? defaultRole(role.name) : null;
+    if (def) {
+      const have = new Set(perms), want = new Set(def.perms);
+      out.has_defaults = true;
+      out.missing_from_default = def.perms.filter((p) => !have.has(p));
+      out.extra_over_default = perms.filter((p) => !want.has(p));
+      out.differs_from_default = !!(out.missing_from_default.length || out.extra_over_default.length || (role.own_scope ? 1 : 0) !== def.own_scope);
+    }
+    return out;
+  }));
 });
+r.post('/roles/:id/restore-defaults', can('settings', 'edit'), asyncH((req, res) => {
+  const role = get('SELECT * FROM roles WHERE id=?', req.params.id);
+  if (!role) throw notFound();
+  if (role.name === 'Super Admin') throw bad('The Super Admin role always has full access');
+  const def = role.is_system && !role.portal ? defaultRole(role.name) : null;
+  if (!def) throw bad('Only built-in roles have defaults to restore');
+  const before = new Set(all('SELECT module,action FROM role_permissions WHERE role_id=?', role.id).map((p) => `${p.module}:${p.action}`));
+  const added = def.perms.filter((p) => !before.has(p)).length, removed = [...before].filter((p) => !def.perms.includes(p)).length;
+  tx(() => {
+    run('UPDATE roles SET description=?, own_scope=? WHERE id=?', def.description, def.own_scope, role.id);
+    run('DELETE FROM role_permissions WHERE role_id=?', role.id);
+    for (const p of def.perms) { const [m, a] = p.split(':'); run('INSERT INTO role_permissions(role_id,module,action) VALUES(?,?,?)', role.id, m, a); }
+    run('UPDATE users SET token_version=token_version+1 WHERE role_id=?', role.id);
+  });
+  audit(req, 'Restored role defaults', 'role', role.id, `${role.name}: ${added} permission(s) restored, ${removed} removed, now ${def.perms.length}`);
+  res.json({ ok: true, added, removed, total: def.perms.length });
+}));
 function saveRole(id, body, req) {
   const perms = (body.perms || []).filter((p) => { const [m, a] = p.split(':'); return MODULES.includes(m) && ACTIONS.includes(a); });
   tx(() => {

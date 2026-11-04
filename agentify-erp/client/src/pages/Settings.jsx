@@ -67,6 +67,7 @@ export function Roles() {
   const [perms, setPerms] = useState(new Set());
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [restoring, setRestoring] = useState(null);
   const [moveTo, setMoveTo] = useState('');
   const role = (data || []).find((r) => r.id === sel);
   useEffect(() => { if (data && !sel) setSel(data[0]?.id); }, [data, sel]);
@@ -82,7 +83,8 @@ export function Roles() {
       <div className="grid" style={{ gridTemplateColumns: '240px minmax(0,1fr)', alignItems: 'start' }}>
         <Card flush><div style={{ padding: 6 }}>{data.map((r) => <button key={r.id} className={`role-item ${r.id === sel ? 'active' : ''}`} onClick={() => setSel(r.id)}>{r.name}{r.own_scope ? <span className="tag" style={{ marginLeft: 'auto' }}>own records</span> : null}{!r.is_system && !r.own_scope ? <span className="tag" style={{ marginLeft: 'auto' }}>custom</span> : null}</button>)}</div></Card>
         {role && (
-          <Card title={role.name} actions={<>{can('settings', 'delete') && !role.is_system && <button className="btn danger sm" onClick={() => { setMoveTo(''); setDeleting(role); }}><Icon name="trash" size={13} />Delete role</button>}{can('settings', 'edit') && !isSuper && <button className="btn primary sm" onClick={async () => { try { await api.put(`/api/settings/roles/${role.id}`, { perms: [...perms], own_scope: role.own_scope }); toast('Permissions saved — signed-in users of this role will re-authenticate', 'ok'); reload(); } catch (e) { toast(e.message, 'err'); } }}>Save permissions</button>}</>} flush>
+          <Card title={role.name} actions={<>{can('settings', 'edit') && role.has_defaults && <button className="btn sm" onClick={() => setRestoring(role)}>Restore defaults</button>}{can('settings', 'delete') && !role.is_system && <button className="btn danger sm" onClick={() => { setMoveTo(''); setDeleting(role); }}><Icon name="trash" size={13} />Delete role</button>}{can('settings', 'edit') && !isSuper && <button className="btn primary sm" onClick={async () => { try { await api.put(`/api/settings/roles/${role.id}`, { perms: [...perms], own_scope: role.own_scope }); toast('Permissions saved — signed-in users of this role will re-authenticate', 'ok'); reload(); } catch (e) { toast(e.message, 'err'); } }}>Save permissions</button>}</>} flush>
+            {role.differs_from_default && <div className="alert warn" style={{ margin: '10px 16px 0' }}>This built-in role differs from its defaults{role.missing_from_default.length ? `: ${role.missing_from_default.length} default permission${role.missing_from_default.length === 1 ? ' is' : 's are'} missing` : ''}{role.missing_from_default.length && role.extra_over_default.length ? ' and ' : role.extra_over_default.length ? ': ' : ''}{role.extra_over_default.length ? `${role.extra_over_default.length} extra permission${role.extra_over_default.length === 1 ? ' is' : 's are'} added` : ''}. {role.missing_from_default.length ? `Missing: ${role.missing_from_default.slice(0, 8).join(', ')}${role.missing_from_default.length > 8 ? '…' : ''}. ` : ''}Use “Restore defaults” to reset it.</div>}
             <div style={{ padding: '10px 16px' }} className="muted">{role.description}{role.own_scope ? ' · Row access is limited to the user’s own leads, customers, sales and commission.' : ''}{isSuper ? ' · Super Admin always has full access.' : ''}</div>
             <div className="table-wrap"><table className="t"><thead><tr><th>Module</th>{acts.map((a) => <th key={a} className="center" style={{ textTransform: 'capitalize' }}>{a}</th>)}<th /></tr></thead>
               <tbody>{mods.map((m) => <tr key={m}><td className="cell-main" style={{ textTransform: 'capitalize' }}>{m}</td>{acts.map((a) => <td key={a} className="center"><input type="checkbox" aria-label={`${m} ${a}`} checked={isSuper || perms.has(`${m}:${a}`)} disabled={isSuper || !can('settings', 'edit')} onChange={() => toggle(m, a)} /></td>)}
@@ -90,6 +92,15 @@ export function Roles() {
           </Card>
         )}
       </div>
+      {restoring && (
+        <Modal title={`Restore defaults for “${restoring.name}”`} size="sm" onClose={() => setRestoring(null)}
+          footer={<><button className="btn" onClick={() => setRestoring(null)}>Cancel</button><button className="btn primary"
+            onClick={async () => { try { const r = await api.post(`/api/settings/roles/${restoring.id}/restore-defaults`, {}); toast(`Defaults restored — ${r.added} added, ${r.removed} removed`, 'ok'); setRestoring(null); reload(); } catch (e) { toast(e.message, 'err'); } }}>Restore defaults</button></>}>
+          <div className="stack">
+            <div>This replaces every permission of <b>{restoring.name}</b> with the ones it shipped with. Any changes you made to this role will be lost.</div>
+            {restoring.user_count > 0 && <div className="alert warn"><b>{restoring.user_count} user{restoring.user_count === 1 ? '' : 's'}</b> with this role will be signed out and sign back in with the restored permissions.</div>}
+          </div>
+        </Modal>)}
       {deleting && (
         <Modal title={`Delete role “${deleting.name}”`} size="sm" onClose={() => setDeleting(null)}
           footer={<><button className="btn" onClick={() => setDeleting(null)}>Cancel</button><button className="btn danger" disabled={deleting.user_count > 0 && !moveTo}

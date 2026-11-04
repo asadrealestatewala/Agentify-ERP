@@ -1460,3 +1460,39 @@ test('my space never shows another employee: no link means account details only'
   assert.equal(get('SELECT user_id FROM employees WHERE id=?', victim.id).user_id, null);
   run('UPDATE employees SET email=? WHERE id=?', 'agent2@expertdevelopers.pk', victim.id);
 });
+
+test('roles: restore defaults resets a built-in role, flags drift, audits, and refuses custom roles', async () => {
+  const { defaultRole } = await import('../src/seed.js');
+  const s = await sa();
+  const rid = (name) => val('SELECT id FROM roles WHERE name=?', name);
+  const permsOf = (id) => all('SELECT module,action FROM role_permissions WHERE role_id=?', id).map((p) => `${p.module}:${p.action}`).sort();
+  // a fresh database matches the shipped definition for every built-in staff role
+  for (const r of all("SELECT id,name FROM roles WHERE is_system=1 AND portal=0 AND name<>'Super Admin'")) {
+    assert.deepEqual(permsOf(r.id), [...defaultRole(r.name).perms].sort(), `${r.name} matches defaults`);
+  }
+  let list = (await s.get('/api/settings/roles')).data;
+  assert.equal(list.find((r) => r.name === 'Sales Agent').differs_from_default, false);
+  // the reported mistake: Sales Agent saved with only View on Properties
+  const agent = rid('Sales Agent');
+  const trimmed = permsOf(agent).filter((p) => p !== 'properties:create' && p !== 'properties:edit');
+  assert.equal((await s.put(`/api/settings/roles/${agent}`, { perms: trimmed, own_scope: true })).status, 200);
+  list = (await s.get('/api/settings/roles')).data;
+  const row = list.find((r) => r.name === 'Sales Agent');
+  assert.equal(row.differs_from_default, true);
+  assert.deepEqual(row.missing_from_default.sort(), ['properties:create', 'properties:edit']);
+  const tv = val('SELECT token_version FROM users WHERE role_id=? LIMIT 1', agent);
+  const res = await s.post(`/api/settings/roles/${agent}/restore-defaults`);
+  assert.equal(res.status, 200);
+  assert.equal(res.data.added, 2);
+  assert.deepEqual(permsOf(agent), [...defaultRole('Sales Agent').perms].sort());
+  assert.equal(get('SELECT own_scope FROM roles WHERE id=?', agent).own_scope, 1);
+  assert.ok(val('SELECT token_version FROM users WHERE role_id=? LIMIT 1', agent) > tv, 'users re-authenticate');
+  assert.ok(all("SELECT * FROM audit_log WHERE action='Restored role defaults'").length >= 1, 'audited');
+  assert.equal((await s.get('/api/settings/roles')).data.find((r) => r.name === 'Sales Agent').differs_from_default, false);
+  // not allowed: custom roles, Super Admin, and users without settings:edit
+  const custom = await s.post('/api/settings/roles', { name: 'Temp Role', perms: [] });
+  assert.equal((await s.post(`/api/settings/roles/${custom.data.id}/restore-defaults`)).status, 400);
+  assert.equal((await s.post(`/api/settings/roles/${rid('Super Admin')}/restore-defaults`)).status, 400);
+  const agentSess = await client('agent1@expertdevelopers.pk');
+  assert.equal((await agentSess.post(`/api/settings/roles/${agent}/restore-defaults`)).status, 403);
+});
