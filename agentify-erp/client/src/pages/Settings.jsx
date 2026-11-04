@@ -50,9 +50,9 @@ export function Users() {
         </Modal>
       )}
       {edit && <FormModal title={edit.id ? 'Edit user' : 'Add user'} size="sm" initial={edit}
-        fields={[{ name: 'name', label: 'Full name', required: true, person: true }, { name: 'email', label: 'Email (login)', type: 'email', required: true }, { name: 'phone', label: 'Phone' }, { name: 'role_id', label: 'Role', type: 'select', number: true, required: true, options: roleOpts, allowEmpty: false },
+        fields={[...(edit.id ? [] : [{ name: 'employee_id', label: 'Existing employee (optional)', type: 'employee', full: true, hint: 'Search by name, code, phone or email to fill in their details and link this login to their employee record.', onPick: (e, set) => { set('name', e.name || ''); set('email', e.email || ''); set('phone', e.phone || ''); } }]), { name: 'name', label: 'Full name', required: true, person: true }, { name: 'email', label: 'Email (login)', type: 'email', required: true }, { name: 'phone', label: 'Phone' }, { name: 'role_id', label: 'Role', type: 'select', number: true, required: true, options: roleOpts, allowEmpty: false },
           { name: 'password', label: edit.id ? 'New password (leave blank to keep)' : 'Password', type: 'password', required: !edit.id, hint: 'Minimum 8 characters' }, ...(edit.id && edit.id !== user.id ? [{ name: 'active', label: 'Account active', type: 'bool' }] : [])]}
-        onClose={() => setEdit(null)} onSave={async (f) => { const body = { ...f, active: f.active === undefined ? undefined : !!f.active }; if (!body.password) delete body.password; if (edit.id) await api.put(`/api/settings/users/${edit.id}`, body); else await api.post('/api/settings/users', body); setEdit(null); reload(); toast('Saved', 'ok'); }} />}
+        onClose={() => setEdit(null)} onSave={async (f) => { const body = { ...f, employee_id: f.employee_id || undefined, active: f.active === undefined ? undefined : !!f.active }; if (!body.password) delete body.password; if (edit.id) await api.put(`/api/settings/users/${edit.id}`, body); else await api.post('/api/settings/users', body); setEdit(null); reload(); toast('Saved', 'ok'); }} />}
     </div>
   );
 }

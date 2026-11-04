@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { assertUserEmailFree } from '../services/uniqueEmail.js';
+import { assertUserEmailFree, assertRecordEmailFree } from '../services/uniqueEmail.js';
 import path from 'node:path';
 import { Router } from 'express';
 import { snapshotCurrent } from '../services/backup.js';
@@ -122,9 +122,21 @@ r.get('/users', can('settings', 'view'), (req, res) => {
   res.json(all(`SELECT u.id,u.name,u.email,u.phone,u.active,u.role_id,r.name role,u.last_login,u.is_demo,u.created_at,u.totp_enabled,u.email_verified
     FROM users u JOIN roles r ON r.id=u.role_id WHERE r.portal=0 ORDER BY u.id`));
 });
+/** Employees that do not have a login yet, for the "Add user" picker. Searches name, code, phone and email. */
+r.get('/employees-available', can('settings', 'create'), (req, res) => {
+  const q = `%${String(req.query.q || '').trim()}%`;
+  res.json(all(`SELECT id, emp_code, name, email, phone, designation, department FROM employees
+    WHERE user_id IS NULL AND status<>'inactive' AND (name LIKE ? OR emp_code LIKE ? OR phone LIKE ? OR email LIKE ?) ORDER BY name LIMIT 8`, q, q, q, q));
+});
 r.post('/users', can('settings', 'create'), asyncH(async (req, res) => {
-  const { name, phone, password, role_id } = req.body;
-  const email = String(req.body.email || '').trim();
+  // choosing an employee fills in whatever was left blank from their record and links the new login to them
+  const emp = req.body.employee_id ? get('SELECT * FROM employees WHERE id=?', req.body.employee_id) : null;
+  if (req.body.employee_id && !emp) throw bad('Employee not found');
+  if (emp?.user_id) throw bad('That employee already has a login');
+  const { password, role_id } = req.body;
+  const name = req.body.name || emp?.name;
+  const phone = req.body.phone || emp?.phone;
+  const email = String(req.body.email || emp?.email || '').trim();
   if (!name || !email || !role_id) throw bad('Name, email and role are required');
   await assertEmailAllowed(email);
   if (!password || String(password).length < 8) throw bad('Password must be at least 8 characters');
@@ -133,9 +145,17 @@ r.post('/users', can('settings', 'create'), asyncH(async (req, res) => {
   if (!role) throw bad('Role not found');
   assertSeatAvailable(req.tenant);
   if (role.name === 'Super Admin' && !req.user.isSuper) throw bad('Only a Super Admin can create Super Admins');
-  const rr = run('INSERT INTO users(name,email,phone,password_hash,role_id,created_at) VALUES(?,?,?,?,?,?)', name, email, phone ?? null, bcrypt.hashSync(String(password), 10), role_id, now());
-  audit(req, 'Created user', 'user', rr.lastInsertRowid, `${email} as ${role.name}`);
-  res.status(201).json({ id: Number(rr.lastInsertRowid) });
+  const id = tx(() => {
+    const rr = run('INSERT INTO users(name,email,phone,password_hash,role_id,created_at) VALUES(?,?,?,?,?,?)', name, email, phone ?? null, bcrypt.hashSync(String(password), 10), role_id, now());
+    const uid = Number(rr.lastInsertRowid);
+    if (emp) {
+      run('UPDATE employees SET user_id=?, email=COALESCE(NULLIF(email,\'\'),?), phone=COALESCE(NULLIF(phone,\'\'),?) WHERE id=?', uid, email, phone ?? null, emp.id);
+      audit(req, 'Linked login to employee', 'employee', emp.id, `${emp.emp_code} ${emp.name} → ${email}`);
+    }
+    audit(req, 'Created user', 'user', uid, `${email} as ${role.name}`);
+    return uid;
+  });
+  res.status(201).json({ id });
 }));
 // ---- Invitations (an emailed one-time link replaces choosing someone else's password)
 r.get('/invites', can('settings', 'view'), (_req, res) => res.json(pendingInvites()));
@@ -185,6 +205,12 @@ r.put('/users/:id', can('settings', 'edit'), asyncH((req, res) => {
     if (password) {
       if (String(password).length < 8) throw bad('Password must be at least 8 characters');
       run('UPDATE users SET password_hash=? WHERE id=?', bcrypt.hashSync(String(password), 10), u.id);
+    }
+    // keep the linked employee record in step with the login's name, email and phone
+    const linked = get('SELECT * FROM employees WHERE user_id=?', u.id);
+    if (linked && (name !== undefined || email !== undefined || phone !== undefined)) {
+      if (email !== undefined) assertRecordEmailFree('employees', email, linked);
+      run('UPDATE employees SET name=COALESCE(?,name), email=COALESCE(?,email), phone=COALESCE(?,phone) WHERE id=?', name || null, email ?? null, phone || null, linked.id);
     }
     if (role_id || password || active === false) run('UPDATE users SET token_version=token_version+1 WHERE id=?', u.id);
     if (role_id && role_id !== u.role_id) audit(req, 'Changed user role', 'user', u.id, `${u.email}: ${u.role} → ${newRole.name}`);

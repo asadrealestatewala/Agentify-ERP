@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { assertRecordEmailFree } from '../services/uniqueEmail.js';
+import { assertRecordEmailFree, assertUserEmailFree } from '../services/uniqueEmail.js';
 import { all, get, run, tx, update, nextNo, getSetting } from '../db.js';
 import { can, hasPerm, requireStaff } from '../rbac.js';
 import { audit, notify, notifyPerm } from '../audit.js';
@@ -28,7 +28,18 @@ crud(emp, {
     if (d.manager_id === '') d.manager_id = null;
     if (d.user_id === '') d.user_id = null;
     if (d.email !== undefined && d.email !== null) { d.email = String(d.email).trim() || null; assertRecordEmailFree('employees', d.email, existing); }
+    const linkedId = d.user_id === undefined ? existing?.user_id : d.user_id;
+    if (existing && linkedId && d.email) assertUserEmailFree(String(d.email).trim(), Number(linkedId));
     if (d.user_id && get('SELECT 1 FROM employees WHERE user_id=? AND id<>?', d.user_id, existing?.id ?? 0)) throw bad('That login is already linked to another employee');
+  },
+  // keep the linked login's name, email and phone in step with the employee record
+  // (only for a login that was already linked, so linking an existing user never overwrites their details)
+  after: (id, _req, existing) => {
+    const e = get('SELECT * FROM employees WHERE id=?', id);
+    if (!e?.user_id || !existing || existing.user_id !== e.user_id) return;
+    const u = get('SELECT * FROM users WHERE id=?', e.user_id);
+    if (!u) return;
+    run('UPDATE users SET name=COALESCE(?,name), email=COALESCE(?,email), phone=COALESCE(?,phone) WHERE id=?', e.name || null, e.email?.trim() || null, e.phone || null, u.id);
   },
   canDelete: (e) => { if (e.status !== 'draft') throw bad('Only draft employees can be deleted — mark inactive instead'); if (get('SELECT 1 FROM payroll WHERE employee_id=?', e.id)) throw bad('Employee has payroll records'); },
 });
