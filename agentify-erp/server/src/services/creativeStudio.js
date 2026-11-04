@@ -135,6 +135,18 @@ export async function saveImage({ data, title, prompt, size }, user) {
   const id = Number(run('INSERT INTO creative_items(kind,title,prompt,size,file_ref,mime,size_bytes,credits,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)', 'post', clean(title, 140) || 'Post image', clean(prompt, 600), ASPECTS[size] ? size : null, ref, mime, buf.length, 0, user?.id || null, now()).lastInsertRowid);
   return { id };
 }
+/** Properties a workspace can turn into a post: real photos and facts straight from the inventory (nothing invented). */
+export function listings({ q, limit } = {}, user = null) {
+  const where = ["p.status NOT IN ('cancelled','sold')"], params = [];
+  if (q) { where.push('(p.title LIKE ? OR p.location LIKE ? OR p.city LIKE ? OR p.code LIKE ?)'); params.push(...Array(4).fill(`%${String(q).slice(0, 60)}%`)); }
+  if (user?.own_scope) { where.push("(p.status IN ('available','featured','reserved') OR p.created_by=? OR p.agent_id=?)"); params.push(user.id, user.id); }
+  const rows = all(`SELECT p.id, p.title, p.code, p.city, p.area_name, p.location, p.property_type, p.purpose, p.area_size, p.unit, p.total_price, p.net_price, p.features, p.status, pr.name project_name FROM properties p LEFT JOIN projects pr ON pr.id=p.project_id WHERE ${where.join(' AND ')} ORDER BY p.id DESC LIMIT ?`, ...params, Math.min(Number(limit) || 30, 60));
+  return rows.map((r) => {
+    let f = {}; try { f = JSON.parse(r.features || '{}') || {}; } catch { /* no features */ }
+    const photos = all("SELECT path FROM media WHERE entity_type='property' AND entity_id=? AND path NOT LIKE '%.pdf' AND path NOT LIKE '%.mp4' ORDER BY (kind='cover') DESC, sort_order, id LIMIT 8", r.id).map((m) => m.path);
+    return { ...r, features: undefined, price: r.net_price || r.total_price || null, bedrooms: Number(f.bedrooms) || null, bathrooms: Number(f.bathrooms) || null, photos };
+  });
+}
 export const listItems = () => all('SELECT id, kind, title, prompt, size, language, body, mime, size_bytes, credits, created_at, (file_ref IS NOT NULL) has_file FROM creative_items ORDER BY id DESC LIMIT 100');
 export const getItem = (id) => { const r = get('SELECT * FROM creative_items WHERE id=?', Number(id)); if (!r) throw notFound(); return r; };
 export function removeItem(id) { const r = getItem(id); run('DELETE FROM creative_items WHERE id=?', r.id); return r; }
