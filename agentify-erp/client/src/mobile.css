@@ -28,7 +28,11 @@
   .table-wrap, .tbl-wrap { overflow-x: visible; border-top: 0; }
   table.t.t-stack, table.t.t-stack tbody, table.t.t-stack tfoot, table.t.t-stack tr, table.t.t-stack td { display: block; width: 100%; }
   table.t.t-stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-  table.t.t-stack tr { margin: 0 0 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+  table.t.t-stack tr { margin: 0 0 18px; border: 1px solid var(--border-2); border-left: 4px solid var(--primary); border-radius: 14px; background: var(--surface); overflow: hidden; box-shadow: 0 2px 8px rgba(15,23,42,.10); }
+  /* the first cell is the card title (voucher no., name): bigger, on a tinted band, no label */
+  table.t.t-stack tbody tr > td:first-child { background: var(--primary-l); font-size: 15px; font-weight: 700; justify-content: flex-start; text-align: left !important; border-bottom: 1px solid var(--border-2); padding-top: 11px; padding-bottom: 11px; }
+  table.t.t-stack tbody tr > td:first-child::before { content: none; }
+  table.t.t-stack td[data-blank] { display: none; }
   table.t.t-stack tfoot tr { background: var(--surface-2); font-weight: 700; }
   table.t.t-stack td { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 8px 14px; border-bottom: 1px solid var(--border); text-align: right !important; min-width: 0; overflow-wrap: anywhere; }
   table.t.t-stack td:last-child { border-bottom: 0; }
