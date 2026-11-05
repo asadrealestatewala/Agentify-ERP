@@ -360,6 +360,16 @@ a { font-weight: 600; } .btn, .nav-item, .tab, .chip, .pagination a { font-weigh
 .print-doc .hdr { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
 .print-doc .hdr > .row { flex: 1 1 auto; min-width: 0; }
 .print-doc .hdr .right { flex: none; white-space: nowrap; text-align: right; }
+@media screen and (max-width: 640px) {
+  .print-doc { padding: 18px 14px; }
+  .print-doc .hdr { flex-direction: column; gap: 10px; }
+  .print-doc .hdr > .row { flex-wrap: wrap; gap: 10px !important; width: 100%; }
+  .print-doc .hdr > .row > div { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+  .print-doc .hdr .right { white-space: normal; text-align: left; width: 100%; padding-top: 8px; border-top: 1px solid var(--border, #e6e9ef); }
+  .print-opts .po-seg:first-of-type { flex-wrap: wrap; }
+  .po-seg { flex-wrap: wrap; max-width: 100%; }
+  .po-note { margin-left: 0; }
+}
 
 /* notification panel inside the dark portal header: it must not inherit the header's white text */
 .portal-top .notif-panel { color: var(--text, #1f2937); text-align: left; }
