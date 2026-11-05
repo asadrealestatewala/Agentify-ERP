@@ -38,7 +38,8 @@ export default function PropertyForm() {
   const editing = !!id;
   const nav = useNavigate();
   const toast = useToast();
-  const { can } = useAuth();
+  const { can, user } = useAuth();
+  const ownOnly = !!user?.own_scope; // Sales Agent style roles: the listing agent is always the person adding it
   const { list, projects, users, agents } = useLookups();
   const existing = useFetch(editing ? `/api/properties/${id}` : null);
   const [sp] = useSearchParams();
@@ -62,6 +63,8 @@ export default function PropertyForm() {
   }, [existing.data]);
   // unsaved changes: warn before the tab closes or the person leaves with Cancel
   useEffect(() => { if (!editing) setBaseline(JSON.stringify(f)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // managers and admins adding a property default to themselves as the listing agent
+  useEffect(() => { if (!editing && !ownOnly && user?.id) setF((x) => (x.agent_id ? x : { ...x, agent_id: user.id })); }, [editing, ownOnly, user?.id]);
   const dirty = baseline !== null && JSON.stringify(f) !== baseline;
   useEffect(() => {
     if (!dirty || busy) return undefined;
@@ -300,7 +303,9 @@ export default function PropertyForm() {
 
         <Section icon="phone" title="Contact information" hint="Shown on the website listing">
           <div className="form-grid">
-            <Field label="Property agent"><Select value={f.agent_id} onChange={(v) => set('agent_id', v ? Number(v) : null)} options={[...agents, ...users.filter((u) => u.role !== 'Sales Agent' && ['Sales Manager', 'Admin'].includes(u.role))].map((a) => ({ value: a.id, label: a.name }))} /></Field>
+            {ownOnly
+              ? <Field label="Property agent"><div className="input readonly" style={{ display: 'flex', alignItems: 'center' }}>{(existing.data?.agent_name) || user?.name} <small className="muted" style={{ marginLeft: 8 }}>{editing ? '' : '(you)'}</small></div><small className="muted">Listings you add are assigned to you. A manager can reassign them.</small></Field>
+              : <Field label="Property agent"><Select value={f.agent_id} onChange={(v) => set('agent_id', v ? Number(v) : null)} options={[...agents, ...users.filter((u) => u.role !== 'Sales Agent' && ['Sales Manager', 'Admin'].includes(u.role))].map((a) => ({ value: a.id, label: a.name }))} /></Field>}
             <Field label="Email"><input className="input" type="email" value={f.contact_email ?? ''} onChange={(e) => set('contact_email', e.target.value)} /></Field>
             <Field label="Phone"><input className="input" value={f.contact_phone ?? ''} onChange={(e) => set('contact_phone', e.target.value)} /></Field>
             <Field label="WhatsApp"><input className="input" value={f.contact_whatsapp ?? ''} onChange={(e) => set('contact_whatsapp', e.target.value)} /></Field>
