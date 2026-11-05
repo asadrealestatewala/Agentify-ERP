@@ -40,6 +40,12 @@
   table.t.t-stack td[data-label=""]::before, table.t.t-stack td[data-wide]::before { content: none; }
   table.t.t-stack td[data-wide], table.t.t-stack td[data-label=""] { justify-content: flex-start; text-align: left !important; }
   table.t.t-stack td:empty { display: none; }
+  /* multi-part cells (name + sub line, plan + dues, payment + proof): label above, content full width, wrapping at words */
+  table.t.t-stack td[data-multi]:not([data-wide]):not([data-label=""]) { display: block; text-align: left !important; overflow-wrap: break-word; word-break: normal; }
+  table.t.t-stack td[data-multi]:not([data-wide]):not([data-label=""])::before { display: block; max-width: none; margin-bottom: 3px; }
+  table.t.t-stack td[data-multi] > * { max-width: 100%; }
+  table.t.t-stack td[data-multi] .row { justify-content: flex-start !important; }
+  table.t.t-stack td { overflow-wrap: break-word; }
 }
 
 /* long drawers: tighter rows so more of the menu is visible at once */
