@@ -462,9 +462,11 @@ test('tenant routes: staff see their own allowance; console summary hides tenant
   assert.throws(() => E.adminRelease(999999, 'a'), /not found/);
 });
 
+// agent:false = a fresh connection per request. Node's default agent reuses keep-alive sockets, and a reused socket the
+// server has already closed makes the next POST fail with ECONNRESET (intermittent, never a server fault).
 const call = (host, method, url, body, headers = {}) => new Promise((resolve, reject) => {
   const data = body ? JSON.stringify(body) : null;
-  const rq = http.request({ host: '127.0.0.1', port, path: url, method, headers: { Host: host, 'Content-Type': 'application/json', 'X-Requested-With': 'ERP', ...headers, ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}) } }, (res) => {
+  const rq = http.request({ agent: false, host: '127.0.0.1', port, path: url, method, headers: { Host: host, 'Content-Type': 'application/json', 'X-Requested-With': 'ERP', ...headers, ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}) } }, (res) => {
     const ch = []; res.on('data', (c) => ch.push(c));
     res.on('end', () => { const t = Buffer.concat(ch).toString(); let d; try { d = JSON.parse(t); } catch { d = t; } resolve({ status: res.statusCode, data: d, cookie: (res.headers['set-cookie'] || [])[0]?.split(';')[0] }); });
   });
