@@ -11,6 +11,9 @@ function label(table) {
       if (td.colSpan > 1) { td.setAttribute('data-wide', ''); col += td.colSpan; return; }
       const h = heads[col] || '';
       if (td.getAttribute('data-label') !== h) td.setAttribute('data-label', h);
+      // a value that is only a dash carries no information: the card hides the row (never the first cell, which is the card title)
+      const blank = !td.children.length && /^[\s—–-]*$/.test(td.textContent) && col > 0;
+      if (blank !== td.hasAttribute('data-blank')) td.toggleAttribute('data-blank', blank);
       col += 1;
     });
   });
