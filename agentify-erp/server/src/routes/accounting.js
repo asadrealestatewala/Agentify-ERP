@@ -253,13 +253,36 @@ r.post('/vendors/:id(\\d+)/pay', can('accounting', 'create'), asyncH((req, res) 
 const EV = `SELECT e.*, pr.name project_name, v.name vendor_name, v.vendor_code vendor_code, v.phone vendor_phone, v.email vendor_email, a.name expense_account_name, a.code expense_account_code, pa.name paid_from_name,
   cu.name created_by_name, ap.name approved_by_name, sl.sale_no contract_no, sl.title contract_title, sc.full_name contract_customer FROM expense_vouchers e LEFT JOIN projects pr ON pr.id=e.project_id LEFT JOIN vendors v ON v.id=e.vendor_id
   JOIN accounts a ON a.id=e.expense_account_id LEFT JOIN accounts pa ON pa.id=e.paid_from_account_id LEFT JOIN users cu ON cu.id=e.created_by LEFT JOIN users ap ON ap.id=e.approved_by LEFT JOIN sales sl ON sl.id=e.sale_id LEFT JOIN contacts sc ON sc.id=sl.contact_id`;
-r.get('/expenses', can('accounting', 'view'), asyncH(async (req, res) => {
-  const q = req.query, where = ['1=1'], params = [];
+function expenseFilter(q0) {
+  const q = { ...q0 }, where = ['1=1'], params = [];
+  if (q.range && q.range !== 'all') { const d = dateRange(q.range, q.from, q.to); q.from = d.from; q.to = d.to; }
   if (q.q) { where.push('(e.voucher_no LIKE ? OR e.description LIKE ? OR v.name LIKE ?)'); params.push(...Array(3).fill(`%${q.q}%`)); }
   for (const [k, col] of [['project_id', 'e.project_id'], ['sale_id', 'e.sale_id'], ['vendor_id', 'e.vendor_id'], ['status', 'e.status'], ['expense_account_id', 'e.expense_account_id']]) if (q[k]) { where.push(`${col}=?`); params.push(q[k]); }
   if (q.from) { where.push('e.date>=?'); params.push(q.from); }
   if (q.to) { where.push('e.date<=?'); params.push(q.to); }
   if (q.credit === '1') where.push('e.is_credit=1');
+  return { where, params };
+}
+/** Dashboard numbers for the voucher list: same filters as the list, plus a date preset. Rejected vouchers are never counted as spend. */
+r.get('/expenses/summary', can('accounting', 'view'), asyncH((req, res) => {
+  const { where, params } = expenseFilter(req.query);
+  const base = `FROM (${EV} WHERE ${where.join(' AND ')}) x`;
+  const by = (col, label) => all(`SELECT ${col} label, COUNT(*) n, ROUND(SUM(amount),2) total ${base} WHERE status!='rejected' GROUP BY ${col} ORDER BY total DESC LIMIT 8`, ...params).map((r2) => ({ ...r2, label: r2.label || label }));
+  const sum = get(`SELECT COUNT(*) n,
+    COALESCE(SUM(CASE WHEN status!='rejected' THEN amount END),0) total,
+    COALESCE(SUM(CASE WHEN status IN ('approved','partial','paid') THEN amount END),0) approved,
+    COALESCE(SUM(CASE WHEN status IN ('created','submitted') THEN amount END),0) pending,
+    COALESCE(SUM(CASE WHEN status='paid' THEN amount END),0) paid,
+    SUM(CASE WHEN status IN ('created','submitted') THEN 1 ELSE 0 END) pending_n,
+    SUM(CASE WHEN status='rejected' THEN 1 ELSE 0 END) rejected_n ${base}`, ...params);
+  const m = dateRange('this_month');
+  const mf = expenseFilter({ ...req.query, range: undefined, from: m.from, to: m.to });
+  const month = get(`SELECT COALESCE(SUM(amount),0) total, COUNT(*) n FROM (${EV} WHERE ${mf.where.join(' AND ')}) x WHERE status!='rejected'`, ...mf.params);
+  res.json({ ...sum, pending_n: sum.pending_n || 0, rejected_n: sum.rejected_n || 0, this_month: month.total, this_month_n: month.n, by_category: by('expense_account_name', 'Other'), by_project: by('project_name', 'No project') });
+}));
+r.get('/expenses', can('accounting', 'view'), asyncH(async (req, res) => {
+  const q = req.query;
+  const { where, params } = expenseFilter(q);
   const limit = ['csv', 'xlsx', 'pdf'].includes(q.format) ? 100000 : Math.min(int(q.limit, 25), 500), page = Math.max(int(q.page, 1), 1);
   const total = get(`SELECT COUNT(*) n FROM (${EV} WHERE ${where.join(' AND ')})`, ...params).n;
   const rows = all(`${EV} WHERE ${where.join(' AND ')} ORDER BY e.date DESC, e.id DESC LIMIT ? OFFSET ?`, ...params, limit, (page - 1) * limit);
