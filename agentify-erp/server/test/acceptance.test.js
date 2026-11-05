@@ -107,6 +107,12 @@ test('Scenario 2 + 3 — sale, schedule, commission, payment cascade', async () 
   assert.equal(get('SELECT is_customer FROM contacts WHERE id=?', contact.id).is_customer, 1);
   const cm = get('SELECT * FROM commissions WHERE sale_id=?', sale.data.id);
   assert.equal(cm.amount, 108_000, '2% of 5,400,000');
+  // customer-wise installments view groups the schedule per customer
+  const byCust = await fin.get('/api/installments/by-customer?limit=500');
+  assert.equal(byCust.status, 200);
+  const hamza = byCust.data.rows.find((r) => r.contact_id === contact.id);
+  assert.ok(hamza && hamza.installments_count >= 10 && hamza.balance > 0, 'Hamza appears with his installments');
+  assert.equal(new Set(byCust.data.rows.map((r) => r.contact_id)).size, byCust.data.rows.length, 'one row per customer');
   // cannot sell again
   const again = await sm.post('/api/sales', { contact_id: contact.id, property_id: prop.id, sale_price: 1, booking_amount: 0, num_installments: 1, first_due: today() });
   assert.equal(again.status, 400); assert.match(again.data.error, /already sold/);

@@ -301,9 +301,44 @@ export function ReceiptDetail() {
 }
 
 // ---- Payments section pages
-export function InstallmentsPage({ preset, title }) {
+/** Installments grouped by customer: one row per customer; tapping opens their full Customer 360 (profile, sales, schedule, payments). */
+function InstallmentsByCustomer({ status, setSp }) {
   const nav = useNavigate();
+  const { can } = useAuth();
+  const { projects } = useLookups();
+  const t = useTable('/api/installments/by-customer', { limit: 50, filters: { status } });
+  useEffect(() => { t.setFilter({ status }); /* eslint-disable-next-line */ }, [status]);
+  const open = (r) => nav(can('customers', 'view') ? `/customers/${r.contact_id}/360` : `/contacts/${r.contact_id}`);
+  return (
+    <div>
+      <PageHead title="Installments" sub={`${t.total} customer(s) · ${money(t.raw?.balance_total)} balance`} />
+      <div className="top-tabs">{[['', 'All'], ['overdue', 'Overdue'], ['upcoming', 'Upcoming'], ['paid', 'Paid'], ['partial', 'Partially paid']].map(([k, l]) => <button key={k} className={`chip ${status === k ? 'active' : ''}`} onClick={() => setSp(k ? { status: k, view: 'customers' } : { view: 'customers' })}>{l}</button>)}<button className="chip" onClick={() => setSp(status ? { status } : {})}>Show all rows</button></div>
+      <Card flush>
+        <div className="toolbar"><SearchBar value={t.q} onChange={t.setQ} placeholder="Search customer, phone, sale…" /><div style={{ width: 170 }}><Select value={t.extra.project_id || ''} onChange={(v) => t.setFilter({ project_id: v })} placeholder="All projects" options={projects.map((p) => ({ value: p.id, label: p.name }))} /></div></div>
+        <DataTable {...t.tableProps} onRowClick={open}
+          columns={[
+            { key: 'customer_name', label: 'Customer', render: (r) => <><b>{r.customer_name}</b>{r.phone && <div className="cell-sub">{r.phone}</div>}</> },
+            { key: 'sales_count', label: 'Sales', num: true },
+            { key: 'installments_count', label: 'Installments', num: true },
+            { key: 'amount', label: 'Total', num: true, render: (r) => money(r.amount) },
+            { key: 'paid', label: 'Paid', num: true, render: (r) => money(r.paid) },
+            { key: 'balance', label: 'Balance', num: true, render: (r) => money(r.balance) },
+            { key: 'overdue_amount', label: 'Overdue', num: true, render: (r) => r.overdue_count ? <span className="neg bold">{money(r.overdue_amount)} ({r.overdue_count})</span> : '—' },
+            { key: 'next_due', label: 'Next due', render: (r) => r.next_due ? date(r.next_due) : '—' },
+            { key: 'phone', label: 'Phone', hidden: true }]} />
+      </Card>
+    </div>
+  );
+}
+
+export function InstallmentsPage({ preset, title }) {
   const [sp, setSp] = useSearchParams();
+  if (sp.get('view') === 'customers' && preset !== 'balloon') return <InstallmentsByCustomer status={sp.get('status') || ''} setSp={setSp} />;
+  return <InstallmentsRows preset={preset} title={title} sp={sp} setSp={setSp} />;
+}
+
+function InstallmentsRows({ preset, title, sp, setSp }) {
+  const nav = useNavigate();
   const kind = preset === 'balloon' ? 'balloon' : undefined;
   const status = sp.get('status') || '';
   const { projects } = useLookups();
@@ -314,7 +349,7 @@ export function InstallmentsPage({ preset, title }) {
   return (
     <div>
       <PageHead title={title || (preset === 'balloon' ? 'Balloon payments' : 'Installments')} sub={`${t.total} row(s) · ${money(t.raw?.balance_total)} balance`} />
-      <div className="top-tabs">{[['', 'All'], ['overdue', 'Overdue'], ['upcoming', 'Upcoming'], ['paid', 'Paid'], ['partial', 'Partially paid']].map(([k, l]) => <button key={k} className={`chip ${status === k ? 'active' : ''}`} onClick={() => setSp(k ? { status: k } : {})}>{l}</button>)}</div>
+      <div className="top-tabs">{[['', 'All'], ['overdue', 'Overdue'], ['upcoming', 'Upcoming'], ['paid', 'Paid'], ['partial', 'Partially paid']].map(([k, l]) => <button key={k} className={`chip ${status === k ? 'active' : ''}`} onClick={() => setSp(k ? { status: k } : {})}>{l}</button>)}{preset !== 'balloon' && <button className="chip" onClick={() => setSp(status ? { status, view: 'customers' } : { view: 'customers' })}>By customer</button>}</div>
       <Card flush>
         <div className="toolbar"><SearchBar value={t.q} onChange={t.setQ} placeholder="Search customer, sale, plot…" /><div style={{ width: 170 }}><Select value={t.extra.project_id || ''} onChange={(v) => t.setFilter({ project_id: v })} placeholder="All projects" options={projects.map((p) => ({ value: p.id, label: p.name }))} /></div></div>
         <ViewsBar t={t} />
