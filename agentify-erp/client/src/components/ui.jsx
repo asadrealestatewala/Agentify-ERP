@@ -131,14 +131,43 @@ export function ConfirmDialog({ title = 'Are you sure?', message, confirmLabel =
   );
 }
 
+/** Picks a tab icon from its label so every tab bar gets icons without editing each page; a tab can pass `icon` to override. */
+const TAB_ICONS = [
+  [/unit|info|detail|overview|profile|summary/i, 'building'], [/customer|sale|client|customers|agents|team|whole/i, 'users'],
+  [/ledger|voucher|payment|commission|salary|paid|receipt|expense|credit|bank/i, 'wallet'], [/image|video|photo|media|promo/i, 'image'],
+  [/doc|contract|file|knowledge|form/i, 'file'], [/visit|appointment|meeting|event|calendar|schedule|upcoming|past|leave/i, 'calendar'],
+  [/call|connect|phone/i, 'phone'], [/conversation|chat|ask|unanswered|try it|live|test/i, 'chat'], [/goal|leaderboard|health|target|report|usage/i, 'chart'],
+  [/pending|open|approved|posted|not yet|assigned|checklist|task|bid|attendance/i, 'task'], [/reject|declin|revoke/i, 'x'],
+  [/rout|duplicate|queue|learn/i, 'layers'], [/vendor|unit|asset|build/i, 'truck'],
+];
+const tabIcon = (t) => t.icon || (TAB_ICONS.find(([re]) => re.test(t.label))?.[1] ?? 'list');
+
 export function Tabs({ tabs, value, onChange }) {
+  const bar = useRef(null);
+  const [edge, setEdge] = useState({ l: false, r: false });
+  const measure = () => {
+    const el = bar.current; if (!el) return;
+    setEdge({ l: el.scrollLeft > 4, r: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
+  };
+  // keep the chosen tab in view (also on first load), then refresh the "more tabs" hints
+  useEffect(() => {
+    const el = bar.current?.querySelector('.tab.active');
+    if (el && bar.current) bar.current.scrollTo({ left: el.offsetLeft - (bar.current.clientWidth - el.offsetWidth) / 2, behavior: 'smooth' });
+    measure();
+  }, [value, tabs.length]);
+  useEffect(() => { window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure); }, []);
+  const nudge = (dir) => bar.current?.scrollBy({ left: dir * bar.current.clientWidth * 0.7, behavior: 'smooth' });
   return (
-    <div className="tabs" role="tablist">
-      {tabs.map((t) => (
-        <button key={t.key} role="tab" aria-selected={value === t.key} className={`tab ${value === t.key ? 'active' : ''}`} onClick={() => onChange(t.key)}>
-          {t.label}{t.count !== undefined && <span className="cnt">{t.count}</span>}
-        </button>
-      ))}
+    <div className={`tabs-wrap${edge.l ? ' fade-l' : ''}${edge.r ? ' fade-r' : ''}`}>
+      {edge.l && <button type="button" className="tabs-arrow l" aria-label="Scroll tabs left" onClick={() => nudge(-1)}><Icon name="chevL" size={16} /></button>}
+      <div className="tabs" role="tablist" ref={bar} onScroll={measure}>
+        {tabs.map((t) => (
+          <button key={t.key} role="tab" aria-selected={value === t.key} className={`tab ${value === t.key ? 'active' : ''}`} onClick={() => onChange(t.key)}>
+            <span className="tab-ic"><Icon name={tabIcon(t)} size={16} /></span>{t.label}{t.count !== undefined && <span className="cnt">{t.count}</span>}
+          </button>
+        ))}
+      </div>
+      {edge.r && <button type="button" className="tabs-arrow r" aria-label="Scroll tabs right" onClick={() => nudge(1)}><Icon name="chevR" size={16} /></button>}
     </div>
   );
 }
