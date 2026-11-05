@@ -5,7 +5,7 @@ import DataTable, { ExportMenu, SearchBar, useTable, ViewsBar } from '../compone
 import Icon from '../components/Icon.jsx';
 import ResourcePage, { FormModal } from '../components/ResourcePage.jsx';
 import { DocumentsPanel } from '../components/Uploaders.jsx';
-import { BackLink, Card, Check, ConfirmDialog, CurrencyInput, Empty, Field, KV, LedgerSummary, Loading, PageHead, Select, Stat, StatusBadge } from '../components/ui.jsx';
+import { BackLink, Card, Check, ConfirmDialog, CurrencyInput, DateRangeFilter, Empty, Field, KV, LedgerSummary, Loading, PageHead, Select, Stat, StatusBadge } from '../components/ui.jsx';
 import { api, download } from '../api.js';
 import { ExpensePreview } from '../components/VoucherPreview.jsx';
 import { useAuth, useFetch, useLookups, useMeta, useToast, useUndoDelete } from '../context.jsx';
@@ -129,6 +129,42 @@ export function CreditBook() {
 }
 
 // ---------------------------------------------------------------- Expense vouchers
+function BreakdownBars({ title, rows }) {
+  const max = Math.max(1, ...rows.map((r) => r.total));
+  return (
+    <Card title={title}>
+      {rows.length ? rows.map((r) => (
+        <div key={r.label} style={{ marginBottom: 10 }}>
+          <div className="row" style={{ justifyContent: 'space-between', gap: 8, fontSize: 13 }}><span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.label} <span className="muted">· {r.n}</span></span><b className="mono" style={{ whiteSpace: 'nowrap' }}>{money(r.total)}</b></div>
+          <div style={{ height: 8, borderRadius: 4, background: 'var(--hover)', marginTop: 4 }}><div style={{ height: '100%', width: `${Math.max(2, (r.total / max) * 100)}%`, borderRadius: 4, background: 'var(--brand, #0e7c6b)' }} /></div>
+        </div>
+      )) : <Empty>No spend in this view.</Empty>}
+    </Card>
+  );
+}
+
+/** Overview above the voucher list; follows the list's search, project, status and date filters. */
+function ExpenseSummary({ t }) {
+  const { q, extra } = t;
+  const params = { q, project_id: extra.project_id, status: extra.status, range: extra.range, from: extra.from, to: extra.to };
+  const { data: s } = useFetch('/api/accounting/expenses/summary', params);
+  if (!s) return null;
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div className="grid g4" style={{ marginBottom: 12 }}>
+        <Stat label="Total spend" value={money(s.total)} sub={`${s.n - s.rejected_n} voucher(s)`} icon="wallet" />
+        <Stat label="This month" value={money(s.this_month)} sub={`${s.this_month_n} voucher(s)`} icon="calendar" />
+        <Stat label="Approved" value={money(s.approved)} sub={`${money(s.paid)} paid`} tone="green" icon="check" />
+        <Stat label="Pending approval" value={money(s.pending)} sub={s.rejected_n ? `${s.pending_n} waiting · ${s.rejected_n} rejected` : `${s.pending_n} waiting`} icon="clock" />
+      </div>
+      <div className="grid g2">
+        <BreakdownBars title="By expense category" rows={s.by_category} />
+        <BreakdownBars title="By project" rows={s.by_project} />
+      </div>
+    </div>
+  );
+}
+
 export function ExpenseList({ vendorsOnly }) {
   const { can } = useAuth();
   const nav = useNavigate();
@@ -138,6 +174,8 @@ export function ExpenseList({ vendorsOnly }) {
   return (
     <div>
       <PageHead title={vendorsOnly ? 'Purchases' : 'Expense vouchers'} sub={`${t.total} voucher(s)`}>{can('accounting', 'create') && <Link className="btn primary" to="/expenses/new"><Icon name="plus" size={14} />New voucher</Link>}</PageHead>
+      {!vendorsOnly && <div style={{ marginBottom: 12 }}><DateRangeFilter value={{ range: t.extra.range || 'all', from: t.extra.from, to: t.extra.to }} onChange={(v) => t.setFilter({ range: v.range, from: v.from, to: v.to })} /></div>}
+      {!vendorsOnly && <ExpenseSummary t={t} />}
       <Card flush>
         <div className="toolbar"><SearchBar value={t.q} onChange={t.setQ} placeholder="Search voucher, vendor, description…" />
           <div style={{ width: 170 }}><Select value={t.extra.project_id || ''} onChange={(v) => t.setFilter({ project_id: v })} placeholder="All projects" options={projects.map((p) => ({ value: p.id, label: p.name }))} /></div>

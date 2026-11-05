@@ -405,3 +405,17 @@ test('page text typed on the canvas is cleaned on save: scripts and event handle
   assert.ok(!/<script|onerror|javascript:/i.test(all), all.slice(0, 400));
   assert.ok(all.includes('Hello'), 'the text itself is kept');
 });
+
+test('expense summary: totals, breakdowns, filters; rejected excluded from spend', async () => {
+  const fin = await client('finance@expertdevelopers.pk');
+  const all0 = await fin.get('/api/accounting/expenses/summary?range=all');
+  assert.equal(all0.status, 200);
+  const s = all0.data;
+  assert.ok(Math.abs(s.total - (s.approved + s.pending)) < 0.01, 'total = approved + pending');
+  assert.ok(Math.abs(s.by_category.reduce((a, r) => a + r.total, 0) - s.total) < 0.01 || s.by_category.length === 8);
+  const none = await fin.get('/api/accounting/expenses/summary?range=custom&from=1990-01-01&to=1990-01-02');
+  assert.equal(none.data.total, 0);
+  assert.equal(none.data.by_category.length, 0);
+  const list = await fin.get('/api/accounting/expenses?range=custom&from=1990-01-01&to=1990-01-02');
+  assert.equal(list.data.total, 0);
+});
