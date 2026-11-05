@@ -253,6 +253,10 @@ test('website editor: permissions, pages, sections, theme, blog and listing-agen
   // listing agent: add + publish own property, but not someone else's, and not feature
   const mine = await agent.post('/api/properties', { title: 'Agent Plot 12', property_type: 'Plots', project_id: 1, block: 'Q', plot_no: '12', area_size: 5, unit: 'Marla', total_price: 3_100_000, city: 'Faisalabad' });
   assert.equal(mine.status, 201); assert.equal(mine.data.agent_id, agent.me.id, 'the creator becomes the listing agent');
+  const spoof = await agent.post('/api/properties', { title: 'Agent Plot 99', property_type: 'Plots', project_id: 1, block: 'Q', plot_no: '99', area_size: 5, unit: 'Marla', total_price: 3_100_000, city: 'Faisalabad', agent_id: sm.me.id });
+  assert.equal(spoof.data.agent_id, agent.me.id, 'a Sales Agent cannot pick another listing agent on add');
+  await agent.put(`/api/properties/${spoof.data.id}`, { agent_id: sm.me.id });
+  assert.equal(get('SELECT agent_id FROM properties WHERE id=?', spoof.data.id).agent_id, agent.me.id, 'nor reassign it on edit');
   assert.equal((await agent.post(`/api/properties/${mine.data.id}/publish`)).status, 403, 'by default agents cannot publish: the Listing Manager approves their listings');
   await admin.put('/api/settings/system', { agents_can_publish: '1' }); // an admin may still allow direct publishing
   assert.equal((await agent.post(`/api/properties/${mine.data.id}/publish`)).status, 200);
