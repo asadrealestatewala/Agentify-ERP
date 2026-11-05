@@ -147,12 +147,13 @@ export function Tabs({ tabs, value, onChange }) {
   const [edge, setEdge] = useState({ l: false, r: false });
   const measure = () => {
     const el = bar.current; if (!el) return;
+    if (el.scrollTop) el.scrollTop = 0; // never let the strip drift vertically
     setEdge({ l: el.scrollLeft > 4, r: el.scrollLeft + el.clientWidth < el.scrollWidth - 4 });
   };
   // keep the chosen tab in view (also on first load), then refresh the "more tabs" hints
   useEffect(() => {
     const el = bar.current?.querySelector('.tab.active');
-    if (el && bar.current) bar.current.scrollTo({ left: el.offsetLeft - (bar.current.clientWidth - el.offsetWidth) / 2, behavior: 'smooth' });
+    if (el && bar.current) bar.current.scrollLeft = Math.max(0, el.offsetLeft - (bar.current.clientWidth - el.offsetWidth) / 2);
     measure();
   }, [value, tabs.length]);
   useEffect(() => { window.addEventListener('resize', measure); return () => window.removeEventListener('resize', measure); }, []);
