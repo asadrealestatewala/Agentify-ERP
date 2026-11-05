@@ -256,25 +256,43 @@ r.post('/receipts/:id(\\d+)/void', can('payments', 'approve'), asyncH((req, res)
 }));
 
 // ---------------- Installments views
+/** Shared status filter for the installment lists. `open` = anything not fully paid; `all` (or empty) = no filter. */
+function instStatusClause(status, t, days) {
+  if (status === 'open') return { sql: "i.status<>'paid'", params: [] };
+  if (status === 'overdue') return { sql: "i.status<>'paid' AND i.due_date<?", params: [t] };
+  if (status === 'upcoming') return { sql: "i.status<>'paid' AND i.due_date>=? AND i.due_date<=?", params: [t, days ? new Date(Date.now() + Number(days) * 86400000 + 5 * 3600000).toISOString().slice(0, 10) : '2999-12-31'] };
+  if (status && status !== 'all') return { sql: 'i.status=?', params: [status] };
+  return null;
+}
 r.get('/installments', can('payments', 'view'), asyncH((req, res) => {
   const q = req.query, where = ["s.status='confirmed'"], params = [];
   const t = today();
   if (q.kind) { where.push('i.kind=?'); params.push(q.kind); }
-  if (q.status === 'overdue') { where.push("i.status<>'paid' AND i.due_date<?"); params.push(t); }
-  else if (q.status === 'upcoming') { where.push("i.status<>'paid' AND i.due_date>=? AND i.due_date<=?"); params.push(t, q.days ? new Date(Date.now() + Number(q.days) * 86400000 + 5 * 3600000).toISOString().slice(0, 10) : '2999-12-31'); }
-  else if (q.status) { where.push('i.status=?'); params.push(q.status); }
   if (q.project_id) { where.push('s.project_id=?'); params.push(q.project_id); }
   if (q.agent_id) { where.push('s.agent_id=?'); params.push(q.agent_id); }
   if (q.contact_id) { where.push('s.contact_id=?'); params.push(q.contact_id); }
   if (q.sale_id) { where.push('s.id=?'); params.push(q.sale_id); }
   if (q.q) { where.push('(c.full_name LIKE ? OR s.sale_no LIKE ? OR p.title LIKE ?)'); params.push(...Array(3).fill(`%${q.q}%`)); }
   const limit = Math.min(int(q.limit, 50), 500), page = Math.max(int(q.page, 1), 1);
-  const base = `FROM installments i JOIN sales s ON s.id=i.sale_id JOIN contacts c ON c.id=s.contact_id LEFT JOIN properties p ON p.id=s.property_id LEFT JOIN projects pr ON pr.id=s.project_id WHERE ${where.join(' AND ')}`;
-  const total = get(`SELECT COUNT(*) n ${base}`, ...params).n;
+  const from = `FROM installments i JOIN sales s ON s.id=i.sale_id JOIN contacts c ON c.id=s.contact_id LEFT JOIN properties p ON p.id=s.property_id LEFT JOIN projects pr ON pr.id=s.project_id`;
+  const st = instStatusClause(q.status, t, q.days);
+  const base = `${from} WHERE ${[...where, ...(st ? [st.sql] : [])].join(' AND ')}`, baseParams = [...params, ...(st ? st.params : [])];
+  const total = get(`SELECT COUNT(*) n ${base}`, ...baseParams).n;
+  // open rows first (soonest due at the top, so overdue leads); a paid-only view lists the latest payment first
+  const order = q.status === 'paid' ? 'i.due_date DESC, i.id DESC' : "(i.status='paid'), i.due_date, i.id";
   const rows = all(`SELECT i.*, s.sale_no, s.contact_id, c.full_name customer_name, c.phone, COALESCE(s.title, p.title) property_title, s.kind sale_kind, pr.name project_name,
-    (i.amount-i.paid) balance, (i.status<>'paid' AND i.due_date<'${t}') overdue, CAST(julianday('${t}')-julianday(i.due_date) AS INTEGER) days_overdue ${base} ORDER BY i.due_date, i.id LIMIT ? OFFSET ?`, ...params, limit, (page - 1) * limit);
-  const sums = get(`SELECT COALESCE(SUM(i.amount-i.paid),0) balance ${base}`, ...params).balance;
-  res.json({ rows, total, page, limit, balance_total: sums });
+    (i.amount-i.paid) balance, (i.status<>'paid' AND i.due_date<'${t}') overdue, CAST(julianday('${t}')-julianday(i.due_date) AS INTEGER) days_overdue ${base} ORDER BY ${order} LIMIT ? OFFSET ?`, ...baseParams, limit, (page - 1) * limit);
+  const sums = get(`SELECT COALESCE(SUM(i.amount-i.paid),0) balance ${base}`, ...baseParams).balance;
+  // summary tiles: same search/project filters, but not the status chip, so the tiles stay put while you filter
+  const sbase = `${from} WHERE ${where.join(' AND ')}`;
+  const wk = new Date(Date.now() + 7 * 86400000 + 5 * 3600000).toISOString().slice(0, 10);
+  const stats = get(`SELECT
+    COALESCE(SUM(CASE WHEN i.status<>'paid' AND i.due_date<? THEN 1 ELSE 0 END),0) overdue_count,
+    COALESCE(SUM(CASE WHEN i.status<>'paid' AND i.due_date<? THEN i.amount-i.paid ELSE 0 END),0) overdue_amount,
+    COALESCE(SUM(CASE WHEN i.status<>'paid' AND i.due_date>=? AND i.due_date<=? THEN 1 ELSE 0 END),0) soon_count,
+    COALESCE(SUM(CASE WHEN i.status<>'paid' AND i.due_date>=? AND i.due_date<=? THEN i.amount-i.paid ELSE 0 END),0) soon_amount ${sbase}`, t, t, t, wk, t, wk, ...params);
+  stats.collected_month = get(`SELECT COALESCE(SUM(amount+advance_amount),0) v FROM receipts WHERE status='valid' AND date>=?${q.project_id ? ' AND project_id=?' : ''}`, `${t.slice(0, 7)}-01`, ...(q.project_id ? [q.project_id] : [])).v;
+  res.json({ rows, total, page, limit, balance_total: sums, stats });
 }));
 
 // One row per customer: totals across all their confirmed installments (same filters as /installments).
@@ -282,9 +300,7 @@ r.get('/installments/by-customer', can('payments', 'view'), asyncH((req, res) =>
   const q = req.query, where = ["s.status='confirmed'"], params = [];
   const t = today();
   if (q.kind) { where.push('i.kind=?'); params.push(q.kind); }
-  if (q.status === 'overdue') { where.push("i.status<>'paid' AND i.due_date<?"); params.push(t); }
-  else if (q.status === 'upcoming') { where.push("i.status<>'paid' AND i.due_date>=?"); params.push(t); }
-  else if (q.status) { where.push('i.status=?'); params.push(q.status); }
+  { const st = instStatusClause(q.status, t); if (st) { where.push(st.sql); params.push(...st.params); } }
   if (q.project_id) { where.push('s.project_id=?'); params.push(q.project_id); }
   if (q.q) { where.push('(c.full_name LIKE ? OR c.phone LIKE ? OR s.sale_no LIKE ? OR p.title LIKE ?)'); params.push(...Array(4).fill(`%${q.q}%`)); }
   const limit = Math.min(int(q.limit, 50), 500), page = Math.max(int(q.page, 1), 1);

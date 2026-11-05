@@ -105,3 +105,41 @@ html[data-insets="web"] body { padding: var(--safe-top, 0px) var(--safe-right, 0
   .tabs-arrow { display: flex; position: absolute; top: 9px; z-index: 2; width: 26px; height: 26px; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--border); background: var(--card, #fff); color: var(--primary); box-shadow: 0 1px 4px rgba(0,0,0,.15); padding: 0; }
   .tabs-arrow.l { left: 2px; } .tabs-arrow.r { right: 2px; }
 }
+
+/* ---------- Installments: summary tiles, sticky chips, compact expandable cards ---------- */
+.inst-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+.inst-tile { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border: 1px solid var(--border-2); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; min-width: 0; }
+.inst-tile.static { cursor: default; }
+.inst-tile .label { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.inst-tile b { font-size: 17px; overflow-wrap: anywhere; }
+.inst-tile .sub { font-size: 12px; color: var(--muted); }
+.inst-tile.od { border-left: 4px solid var(--red); }
+.inst-tile.on { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.inst-sticky { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 6px 0 2px; margin: 0 0 8px; }
+.inst-chips { margin-bottom: 6px; align-items: center; }
+.inst-sep { width: 1px; height: 18px; background: var(--border-2); margin: 0 2px; }
+.inst-chip-remind, .inst-remind { display: inline-flex; align-items: center; gap: 5px; }
+.inst-toggle { display: none; }
+.inst-list tr.inst-od > td:first-child { box-shadow: inset 3px 0 0 var(--red); }
+.inst-more-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; }
+@media (max-width: 700px) {
+  .inst-tiles { grid-template-columns: repeat(3, minmax(158px, 1fr)); overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+  .inst-tile b { font-size: 15px; white-space: nowrap; }
+  .inst-tile .sub { white-space: nowrap; }
+  .inst-chips { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .inst-chips .chip { flex: 0 0 auto; white-space: nowrap; }
+  .inst-list table.t.t-stack tr { margin-bottom: 10px; box-shadow: 0 1px 4px rgba(15,23,42,.08); }
+  .inst-list table.t.t-stack tr.inst-od { border-left-color: var(--red); }
+  .inst-list table.t.t-stack tbody tr > td:first-child { font-size: 14px; padding-top: 8px; padding-bottom: 8px; }
+  .inst-list table.t.t-stack td { padding: 5px 14px; }
+  /* compact card: customer, due, amount, balance, status and the action buttons; the rest sits behind Details */
+  .inst-list table.t.t-stack tr:not(.ex) td[data-label="Property"], .inst-list table.t.t-stack tr:not(.ex) td[data-label="Project"],
+  .inst-list table.t.t-stack tr:not(.ex) td[data-label="Sale"], .inst-list table.t.t-stack tr:not(.ex) td[data-label="Type"],
+  .inst-list table.t.t-stack tr:not(.ex) td[data-label="Paid"], .inst-list table.t.t-stack tr:not(.ex) td[data-label="Sales"],
+  .inst-list table.t.t-stack tr:not(.ex) td[data-label="Installments"], .inst-list table.t.t-stack tr:not(.ex) td[data-label="Total"] { display: none; }
+  .inst-list table.t.t-stack td[data-label=""]:last-child { padding: 8px 14px 10px; }
+  .inst-list td[data-label=""] .row-actions { opacity: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; }
+  .inst-list td[data-label=""] .qa { width: 38px; height: 38px; }
+  .inst-list td[data-label=""] .inst-receive { flex: 1 1 auto; min-height: 38px; justify-content: center; }
+  .inst-toggle { display: inline-flex; margin-left: auto; }
+}

@@ -5,7 +5,7 @@ import { WA, WhatsAppButton, useCompanyName, useSharePdf } from '../components/W
 import Icon from '../components/Icon.jsx';
 import { DocumentsPanel } from '../components/Uploaders.jsx';
 import { DocFooter, DocHeader } from '../components/DocBrand.jsx';
-import { BackLink, Card, ConfirmDialog, CurrencyInput, DateRangeFilter, Field, KV, Loading, PageHead, Select, StatusBadge } from '../components/ui.jsx';
+import { BackLink, Card, ConfirmDialog, CurrencyInput, DateRangeFilter, Field, KV, Loading, Modal, PageHead, Select, StatusBadge } from '../components/ui.jsx';
 import { api, download } from '../api.js';
 import { printPdf } from '../printPdf.js';
 import CustomerPicker from '../components/CustomerPicker.jsx';
@@ -301,68 +301,166 @@ export function ReceiptDetail() {
 }
 
 // ---- Payments section pages
+const onPhone = () => typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 700px)').matches;
+const STATUS_CHIPS = [['open', 'Open'], ['all', 'All'], ['overdue', 'Overdue'], ['upcoming', 'Upcoming'], ['partial', 'Partially paid'], ['paid', 'Paid']];
+/** The API treats an empty status as "no filter"; the page keeps `open` (anything unpaid) as its default. */
+const apiStatus = (s) => (s === 'all' ? '' : s);
+
+/** Overdue / due this week / collected this month. Overdue and due-soon are buttons that apply the filter. */
+function InstallmentTiles({ kind, projectId, go, status }) {
+  const { data } = useFetch('/api/installments', { limit: 1, status: 'all', kind, project_id: projectId || undefined });
+  const st = data?.stats;
+  if (!st) return null;
+  return (
+    <div className="inst-tiles">
+      <button className={`inst-tile od ${status === 'overdue' ? 'on' : ''}`} onClick={() => go({ status: 'overdue', days: '' })}><span className="label">Overdue</span><b className="neg">{money(st.overdue_amount)}</b><span className="sub">{st.overdue_count} installment(s)</span></button>
+      <button className={`inst-tile ${status === 'upcoming' ? 'on' : ''}`} onClick={() => go({ status: 'upcoming', days: '7' })}><span className="label">Due in 7 days</span><b>{money(st.soon_amount)}</b><span className="sub">{st.soon_count} installment(s)</span></button>
+      <div className="inst-tile static"><span className="label">Collected this month</span><b className="pos">{money(st.collected_month)}</b><span className="sub">valid receipts</span></div>
+    </div>
+  );
+}
+
+/** One row of chips: status filters, plus the Rows / By customer switch. Sticks to the top while the list scrolls. */
+function InstallmentChips({ status, view, go, balloon, onRemind }) {
+  return (
+    <div className="inst-sticky">
+      <div className="top-tabs inst-chips">
+        {STATUS_CHIPS.map(([k, l]) => <button key={k} className={`chip ${status === k ? 'active' : ''}`} onClick={() => go({ status: k, days: '' })}>{l}</button>)}
+        {!balloon && <><span className="inst-sep" aria-hidden="true" /><button className={`chip ${view === 'rows' ? 'active' : ''}`} onClick={() => go({ view: 'rows' })}>Rows</button>
+          <button className={`chip ${view === 'customers' ? 'active' : ''}`} onClick={() => go({ view: 'customers' })}>By customer</button></>}
+        {onRemind && <button className="chip inst-remind" onClick={onRemind}><Icon name="whatsapp" size={13} /> Remind overdue</button>}
+      </div>
+    </div>
+  );
+}
+
+/** Every customer with something overdue, each with a prefilled WhatsApp message; ticks off who was messaged (browsers allow one chat window per tap). */
+function RemindOverdue({ onClose }) {
+  const co = useCompanyName();
+  const { data } = useFetch('/api/installments/by-customer', { status: 'overdue', limit: 500 });
+  const [done, setDone] = useState({});
+  const rows = (data?.rows || []).filter((r) => r.phone);
+  const noPhone = (data?.rows || []).length - rows.length;
+  return (
+    <Modal title="Remind overdue customers" onClose={onClose} footer={<button className="btn" onClick={onClose}>Close</button>}>
+      {!data ? <Loading /> : !rows.length ? <div className="empty">No overdue customers with a phone number.</div> : (
+        <div className="stack">
+          <div className="muted">{rows.length} customer(s). Tap WhatsApp for each; the message is ready to send.</div>
+          {rows.map((r) => (
+            <div key={r.contact_id} className="row between" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 8, opacity: done[r.contact_id] ? 0.55 : 1 }}>
+              <div><b>{r.customer_name}</b><div className="cell-sub">{money(r.overdue_amount)} · {r.overdue_count} overdue</div></div>
+              <span onClickCapture={() => setDone((d) => ({ ...d, [r.contact_id]: true }))}><WhatsAppButton phone={r.phone} label={done[r.contact_id] ? ' Sent' : ' Remind'} className="btn sm" title="WhatsApp reminder" text={WA.overdueTotal({ name: (r.customer_name || '').split(' ')[0], amount: r.overdue_amount }, co)} /></span>
+            </div>))}
+          {noPhone > 0 && <div className="muted">{noPhone} overdue customer(s) have no phone number saved.</div>}
+        </div>)}
+    </Modal>
+  );
+}
+
 /** Installments grouped by customer: one row per customer; tapping opens their full Customer 360 (profile, sales, schedule, payments). */
-function InstallmentsByCustomer({ status, setSp }) {
+function InstallmentsByCustomer({ status, view, go }) {
   const nav = useNavigate();
   const { can } = useAuth();
+  const co = useCompanyName();
   const { projects } = useLookups();
-  const t = useTable('/api/installments/by-customer', { limit: 50, filters: { status } });
-  useEffect(() => { t.setFilter({ status }); /* eslint-disable-next-line */ }, [status]);
+  const [lim, setLim] = useState(50);
+  const [remind, setRemind] = useState(false);
+  const t = useTable('/api/installments/by-customer', { limit: lim, filters: { status: apiStatus(status) } });
+  useEffect(() => { t.setFilter({ status: apiStatus(status) }); /* eslint-disable-next-line */ }, [status]);
   const open = (r) => nav(can('customers', 'view') ? `/customers/${r.contact_id}/360` : `/contacts/${r.contact_id}`);
   return (
     <div>
       <PageHead title="Installments" sub={`${t.total} customer(s) · ${money(t.raw?.balance_total)} balance`} />
-      <div className="top-tabs">{[['', 'All'], ['overdue', 'Overdue'], ['upcoming', 'Upcoming'], ['paid', 'Paid'], ['partial', 'Partially paid']].map(([k, l]) => <button key={k} className={`chip ${status === k ? 'active' : ''}`} onClick={() => setSp(k ? { status: k, view: 'customers' } : { view: 'customers' })}>{l}</button>)}<button className="chip" onClick={() => setSp(status ? { status } : {})}>Show all rows</button></div>
+      <InstallmentTiles projectId={t.extra.project_id} go={go} status={status} />
+      <InstallmentChips status={status} view={view} go={go} onRemind={() => setRemind(true)} />
       <Card flush>
         <div className="toolbar"><SearchBar value={t.q} onChange={t.setQ} placeholder="Search customer, phone, sale…" /><div style={{ width: 170 }}><Select value={t.extra.project_id || ''} onChange={(v) => t.setFilter({ project_id: v })} placeholder="All projects" options={projects.map((p) => ({ value: p.id, label: p.name }))} /></div></div>
-        <DataTable {...t.tableProps} onRowClick={open}
-          columns={[
-            { key: 'customer_name', label: 'Customer', render: (r) => <><b>{r.customer_name}</b>{r.phone && <div className="cell-sub">{r.phone}</div>}</> },
-            { key: 'sales_count', label: 'Sales', num: true },
-            { key: 'installments_count', label: 'Installments', num: true },
-            { key: 'amount', label: 'Total', num: true, render: (r) => money(r.amount) },
-            { key: 'paid', label: 'Paid', num: true, render: (r) => money(r.paid) },
-            { key: 'balance', label: 'Balance', num: true, render: (r) => money(r.balance) },
-            { key: 'overdue_amount', label: 'Overdue', num: true, render: (r) => r.overdue_count ? <span className="neg bold">{money(r.overdue_amount)} ({r.overdue_count})</span> : '—' },
-            { key: 'next_due', label: 'Next due', render: (r) => r.next_due ? date(r.next_due) : '—' },
-            { key: 'phone', label: 'Phone', hidden: true }]} />
+        <div className="inst-list">
+          <DataTable {...t.tableProps} hidePager onRowClick={open} rowClass={(r) => (r.overdue_count ? 'inst-od' : '')}
+            quickActions={(r) => <>{r.phone && <a className="qa" href={`tel:${r.phone}`} title="Call" aria-label="Call"><Icon name="phone" size={13} /></a>}
+              {r.overdue_count > 0 && <WhatsAppButton phone={r.phone} size={13} title="WhatsApp reminder" text={WA.overdueTotal({ name: (r.customer_name || '').split(' ')[0], amount: r.overdue_amount }, co)} />}</>}
+            columns={[
+              { key: 'customer_name', label: 'Customer', render: (r) => <><b>{r.customer_name}</b>{r.phone && <div className="cell-sub">{r.phone}</div>}</> },
+              { key: 'sales_count', label: 'Sales', num: true },
+              { key: 'installments_count', label: 'Installments', num: true },
+              { key: 'amount', label: 'Total', num: true, render: (r) => money(r.amount) },
+              { key: 'paid', label: 'Paid', num: true, render: (r) => money(r.paid) },
+              { key: 'balance', label: 'Balance', num: true, render: (r) => money(r.balance) },
+              { key: 'overdue_amount', label: 'Overdue', num: true, render: (r) => r.overdue_count ? <span className="neg bold">{money(r.overdue_amount)} ({r.overdue_count})</span> : '—' },
+              { key: 'next_due', label: 'Next due', render: (r) => r.next_due ? date(r.next_due) : '—' },
+              { key: 'phone', label: 'Phone', hidden: true }]} />
+        </div>
+        <LoadMore shown={t.rows.length} total={t.total} loading={t.loading} onMore={() => setLim((n) => Math.min(n + 50, 500))} />
       </Card>
+      {remind && <RemindOverdue onClose={() => setRemind(false)} />}
+    </div>
+  );
+}
+
+/** "Showing 50 of 212" + a button that fetches 50 more (the server caps one request at 500). */
+function LoadMore({ shown, total, loading, onMore }) {
+  if (!total) return null;
+  return (
+    <div className="pager inst-more-bar">
+      <span>Showing {shown} of {total}</span>
+      {shown < total && shown < 500 && <button className="btn sm" disabled={loading} onClick={onMore}>{loading ? 'Loading…' : 'Load 50 more'}</button>}
+      {shown < total && shown >= 500 && <span className="muted">Narrow the filters to see the rest.</span>}
     </div>
   );
 }
 
 export function InstallmentsPage({ preset, title }) {
   const [sp, setSp] = useSearchParams();
-  if (sp.get('view') === 'customers' && preset !== 'balloon') return <InstallmentsByCustomer status={sp.get('status') || ''} setSp={setSp} />;
-  return <InstallmentsRows preset={preset} title={title} sp={sp} setSp={setSp} />;
+  const balloon = preset === 'balloon';
+  // phones start on the per-customer list (one row per customer, not one card per installment); anyone can switch with the chips
+  const view = balloon ? 'rows' : (sp.get('view') || (onPhone() ? 'customers' : 'rows'));
+  const status = sp.get('status') || 'open';
+  const days = sp.get('days') || '';
+  const go = (patch) => { const n = { status, view, days, ...patch }; setSp(Object.fromEntries(Object.entries(n).filter(([, v]) => v)), { replace: true }); };
+  if (view === 'customers') return <InstallmentsByCustomer status={status} view={view} go={go} />;
+  return <InstallmentsRows preset={preset} title={title} status={status} days={days} view={view} go={go} />;
 }
 
-function InstallmentsRows({ preset, title, sp, setSp }) {
+function InstallmentsRows({ preset, title, status, days, view, go }) {
   const nav = useNavigate();
   const kind = preset === 'balloon' ? 'balloon' : undefined;
-  const status = sp.get('status') || '';
   const { projects } = useLookups();
-  const t = useTable('/api/installments', { limit: 50, filters: { kind, status }, viewsKey: `installments-${kind || 'all'}` });
+  const [lim, setLim] = useState(50);
+  const [more, setMore] = useState(new Set());
+  const [remind, setRemind] = useState(false);
+  const t = useTable('/api/installments', { limit: lim, filters: { kind, status: apiStatus(status), days }, viewsKey: `installments-${kind || 'all'}` });
   const co = useCompanyName();
   const { can } = useAuth();
-  useEffect(() => { t.setFilter({ status }); /* eslint-disable-next-line */ }, [status]);
+  useEffect(() => { t.setFilter({ status: apiStatus(status), days }); setLim(50); /* eslint-disable-next-line */ }, [status, days]);
+  const toggle = (id) => setMore((m) => { const n = new Set(m); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   return (
     <div>
       <PageHead title={title || (preset === 'balloon' ? 'Balloon payments' : 'Installments')} sub={`${t.total} row(s) · ${money(t.raw?.balance_total)} balance`} />
-      <div className="top-tabs">{[['', 'All'], ['overdue', 'Overdue'], ['upcoming', 'Upcoming'], ['paid', 'Paid'], ['partial', 'Partially paid']].map(([k, l]) => <button key={k} className={`chip ${status === k ? 'active' : ''}`} onClick={() => setSp(k ? { status: k } : {})}>{l}</button>)}{preset !== 'balloon' && <button className="chip" onClick={() => setSp(status ? { status, view: 'customers' } : { view: 'customers' })}>By customer</button>}</div>
+      <InstallmentTiles kind={kind} projectId={t.extra.project_id} go={go} status={status} />
+      <InstallmentChips status={status} view={view} go={go} balloon={preset === 'balloon'} onRemind={can('payments', 'view') ? () => setRemind(true) : null} />
       <Card flush>
         <div className="toolbar"><SearchBar value={t.q} onChange={t.setQ} placeholder="Search customer, sale, plot…" /><div style={{ width: 170 }}><Select value={t.extra.project_id || ''} onChange={(v) => t.setFilter({ project_id: v })} placeholder="All projects" options={projects.map((p) => ({ value: p.id, label: p.name }))} /></div></div>
         <ViewsBar t={t} />
-        <DataTable {...t.tableProps} onRowClick={(r) => nav(`/sales/${r.sale_id}`)}
-          quickActions={(r) => r.status === 'paid' ? null : <>{r.phone && <a className="qa" href={`tel:${r.phone}`} title="Call" aria-label="Call"><Icon name="phone" size={13} /></a>}<WhatsAppButton phone={r.phone} size={13} title="WhatsApp reminder" text={(r.overdue ? WA.overdue : WA.due)({ name: (r.customer_name || '').split(' ')[0], amount: r.balance, due_date: r.due_date, days: r.days_overdue, sale_no: r.sale_no }, co)} />{can('payments', 'create') && <Link className="qa" to={`/receipts/new?contact=${r.contact_id}&sale=${r.sale_id}`} title="Receive payment" aria-label="Receive payment"><Icon name="receipt" size={13} /></Link>}</>}
-          columns={[
-          { key: 'due_date', label: 'Due', render: (r) => <span className={r.overdue ? 'neg bold' : ''}>{date(r.due_date)}{r.overdue ? ` (${r.days_overdue}d late)` : ''}</span> },
-          { key: 'customer_name', label: 'Customer', render: (r) => <Link to={`/contacts/${r.contact_id}`} onClick={(e) => e.stopPropagation()}>{r.customer_name}</Link> }, { key: 'property_title', label: 'Property' }, { key: 'project_name', label: 'Project' },
-          { key: 'sale_no', label: 'Sale' }, { key: 'kind', label: 'Type', render: (r) => <span style={{ textTransform: 'capitalize' }}>#{r.seq} {r.kind}</span> },
-          { key: 'amount', label: 'Amount', num: true, render: (r) => money(r.amount) }, { key: 'paid', label: 'Paid', num: true, render: (r) => money(r.paid) }, { key: 'balance', label: 'Balance', num: true, render: (r) => money(r.balance) },
-          { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.overdue ? 'overdue' : r.status} /> },
-          { key: 'phone', label: 'Phone', hidden: true }]} />
+        <div className="inst-list">
+          <DataTable {...t.tableProps} hidePager onRowClick={(r) => nav(`/sales/${r.sale_id}`)} rowClass={(r) => `${r.overdue ? 'inst-od' : ''} ${more.has(r.id) ? 'ex' : ''}`}
+            quickActions={(r) => r.status === 'paid' ? <button className="btn sm ghost inst-toggle" onClick={() => toggle(r.id)}>{more.has(r.id) ? 'Less' : 'Details'}</button> : <>
+              {can('payments', 'create') && <Link className="btn sm primary inst-receive" to={`/receipts/new?contact=${r.contact_id}&sale=${r.sale_id}`}>Receive</Link>}
+              <WhatsAppButton phone={r.phone} size={15} title="WhatsApp reminder" text={(r.overdue ? WA.overdue : WA.due)({ name: (r.customer_name || '').split(' ')[0], amount: r.balance, due_date: r.due_date, days: r.days_overdue, sale_no: r.sale_no }, co)} />
+              {r.phone && <a className="qa" href={`tel:${r.phone}`} title="Call" aria-label="Call"><Icon name="phone" size={15} /></a>}
+              <button className="btn sm ghost inst-toggle" onClick={() => toggle(r.id)}>{more.has(r.id) ? 'Less' : 'Details'}</button></>}
+            columns={[
+              { key: 'customer_name', label: 'Customer', render: (r) => <Link to={`/contacts/${r.contact_id}`} onClick={(e) => e.stopPropagation()}>{r.customer_name}</Link> },
+              { key: 'due_date', label: 'Due', render: (r) => <span className={r.overdue ? 'neg bold' : ''}>{date(r.due_date)}{r.overdue ? ` (${r.days_overdue}d late)` : ''}</span> },
+              { key: 'amount', label: 'Amount', num: true, render: (r) => money(r.amount) }, { key: 'balance', label: 'Balance', num: true, render: (r) => money(r.balance) },
+              { key: 'status', label: 'Status', render: (r) => <StatusBadge status={r.overdue ? 'overdue' : r.status} /> },
+              { key: 'property_title', label: 'Property' }, { key: 'project_name', label: 'Project' },
+              { key: 'sale_no', label: 'Sale' }, { key: 'kind', label: 'Type', render: (r) => <span style={{ textTransform: 'capitalize' }}>#{r.seq} {r.kind}</span> },
+              { key: 'paid', label: 'Paid', num: true, render: (r) => money(r.paid) },
+              { key: 'phone', label: 'Phone', hidden: true }]} />
+        </div>
+        <LoadMore shown={t.rows.length} total={t.total} loading={t.loading} onMore={() => setLim((n) => Math.min(n + 50, 500))} />
       </Card>
+      {remind && <RemindOverdue onClose={() => setRemind(false)} />}
     </div>
   );
 }
