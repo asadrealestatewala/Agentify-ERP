@@ -277,6 +277,29 @@ r.get('/installments', can('payments', 'view'), asyncH((req, res) => {
   res.json({ rows, total, page, limit, balance_total: sums });
 }));
 
+// One row per customer: totals across all their confirmed installments (same filters as /installments).
+r.get('/installments/by-customer', can('payments', 'view'), asyncH((req, res) => {
+  const q = req.query, where = ["s.status='confirmed'"], params = [];
+  const t = today();
+  if (q.kind) { where.push('i.kind=?'); params.push(q.kind); }
+  if (q.status === 'overdue') { where.push("i.status<>'paid' AND i.due_date<?"); params.push(t); }
+  else if (q.status === 'upcoming') { where.push("i.status<>'paid' AND i.due_date>=?"); params.push(t); }
+  else if (q.status) { where.push('i.status=?'); params.push(q.status); }
+  if (q.project_id) { where.push('s.project_id=?'); params.push(q.project_id); }
+  if (q.q) { where.push('(c.full_name LIKE ? OR c.phone LIKE ? OR s.sale_no LIKE ? OR p.title LIKE ?)'); params.push(...Array(4).fill(`%${q.q}%`)); }
+  const limit = Math.min(int(q.limit, 50), 500), page = Math.max(int(q.page, 1), 1);
+  const base = `FROM installments i JOIN sales s ON s.id=i.sale_id JOIN contacts c ON c.id=s.contact_id LEFT JOIN properties p ON p.id=s.property_id WHERE ${where.join(' AND ')}`;
+  const total = get(`SELECT COUNT(DISTINCT c.id) n ${base}`, ...params).n;
+  const rows = all(`SELECT c.id contact_id, c.full_name customer_name, c.phone, COUNT(DISTINCT s.id) sales_count, COUNT(*) installments_count,
+    COALESCE(SUM(i.amount),0) amount, COALESCE(SUM(i.paid),0) paid, COALESCE(SUM(i.amount-i.paid),0) balance,
+    SUM(CASE WHEN i.status<>'paid' AND i.due_date<'${t}' THEN 1 ELSE 0 END) overdue_count,
+    COALESCE(SUM(CASE WHEN i.status<>'paid' AND i.due_date<'${t}' THEN i.amount-i.paid ELSE 0 END),0) overdue_amount,
+    MIN(CASE WHEN i.status<>'paid' THEN i.due_date END) next_due ${base}
+    GROUP BY c.id ORDER BY overdue_amount DESC, balance DESC, c.full_name LIMIT ? OFFSET ?`, ...params, limit, (page - 1) * limit);
+  const sums = get(`SELECT COALESCE(SUM(i.amount-i.paid),0) balance ${base}`, ...params).balance;
+  res.json({ rows, total, page, limit, balance_total: sums });
+}));
+
 r.get('/receivables', can('payments', 'view'), asyncH((req, res) => {
   const t = today();
   const rows = all(`SELECT s.id sale_id, s.sale_no, c.id contact_id, c.full_name customer_name, c.phone, COALESCE(s.title, p.title) property_title, s.kind sale_kind, pr.name project_name, s.net_price, s.paid_amount,
