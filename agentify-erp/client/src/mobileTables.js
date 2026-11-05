@@ -14,6 +14,9 @@ function label(table) {
       // a value that is only a dash carries no information: the card hides the row (never the first cell, which is the card title)
       const blank = !td.children.length && /^[\s—–-]*$/.test(td.textContent) && col > 0;
       if (blank !== td.hasAttribute('data-blank')) td.toggleAttribute('data-blank', blank);
+      // a cell with several parts (name + sub line, badge + note) would become side-by-side flex items: mark it so the card stacks it under its label
+      const parts = [...td.childNodes].filter((n) => n.nodeType === 1 || (n.nodeType === 3 && n.textContent.trim())).length;
+      if ((parts > 1) !== td.hasAttribute('data-multi')) td.toggleAttribute('data-multi', parts > 1);
       col += 1;
     });
   });
