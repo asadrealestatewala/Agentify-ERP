@@ -113,8 +113,18 @@ test('Scenario 2 + 3 — sale, schedule, commission, payment cascade', async () 
   const hamza = byCust.data.rows.find((r) => r.contact_id === contact.id);
   assert.ok(hamza && hamza.installments_count >= 10 && hamza.balance > 0, 'Hamza appears with his installments');
   assert.equal(new Set(byCust.data.rows.map((r) => r.contact_id)).size, byCust.data.rows.length, 'one row per customer');
+  // installments list: open filter, open-first ordering, summary stats for the tiles
+  const openList = await fin.get('/api/installments?status=open&limit=500');
+  assert.equal(openList.status, 200);
+  assert.ok(openList.data.rows.length > 0 && openList.data.rows.every((i) => i.status !== 'paid'), 'open = nothing fully paid');
+  const allList = await fin.get('/api/installments?status=all&limit=500');
+  const firstPaid = allList.data.rows.findIndex((i) => i.status === 'paid');
+  assert.ok(firstPaid === -1 || allList.data.rows.slice(firstPaid).every((i) => i.status === 'paid'), 'paid rows sink to the bottom of All');
+  assert.ok(allList.data.stats && ['overdue_count', 'overdue_amount', 'soon_count', 'soon_amount', 'collected_month'].every((k) => typeof allList.data.stats[k] === 'number'), 'summary stats present');
+  const byCustOpen = await fin.get('/api/installments/by-customer?status=open&limit=500');
+  assert.equal(byCustOpen.status, 200);
   // cannot sell again
-  const again = await sm.post('/api/sales', { contact_id: contact.id, property_id: prop.id, sale_price: 1, booking_amount: 0, num_installments: 1, first_due: today() });
+  const again =await sm.post('/api/sales', { contact_id: contact.id, property_id: prop.id, sale_price: 1, booking_amount: 0, num_installments: 1, first_due: today() });
   assert.equal(again.status, 400); assert.match(again.data.error, /already sold/);
   // payment cascade
   const cashBefore = bal('1210');
