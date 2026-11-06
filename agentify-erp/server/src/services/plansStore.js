@@ -9,7 +9,8 @@
 //   prices / setup fee                               new purchases and renewals only
 //   on sale (active = 0)                             no new purchases; current subscribers can still renew
 //   product family                                   cannot be changed once a workspace is subscribed to the plan
-import { PLANS, DEFAULT_PLANS, DEFAULT_CONSTRUCTION_PLANS, DEFAULT_TIER_PLANS, PLAN_SETTINGS, MODULES, PRODUCT_CHOICES, setAddonLookup } from './plans.js';
+import { PLANS, DEFAULT_PLANS, DEFAULT_CONSTRUCTION_PLANS, DEFAULT_TIER_PLANS, PLAN_SETTINGS, MODULES, PRODUCT_CHOICES, INTERVAL_KEYS, FEATURE_GATES, setAddonLookup } from './plans.js';
+import { LADDER_PLANS, LADDER_ADDONS, ladderState, setLadder } from './planLadder.js';
 import { bad, HttpError } from '../util.js';
 import { cleanEmailLimits } from './emailLimits.js';
 import { cleanWhatsappLimits } from './whatsappLimits.js';
@@ -20,7 +21,7 @@ CREATE TABLE IF NOT EXISTS plans(
   modules TEXT, visible INTEGER NOT NULL DEFAULT 1, active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')), updated_at TEXT NOT NULL DEFAULT (datetime('now')), updated_by TEXT);
 CREATE TABLE IF NOT EXISTS plan_prices(
-  id INTEGER PRIMARY KEY, plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE, currency TEXT NOT NULL, interval TEXT NOT NULL CHECK(interval IN ('month','year')),
+  id INTEGER PRIMARY KEY, plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE, currency TEXT NOT NULL, interval TEXT NOT NULL CHECK(interval IN ('month','half','year')),
   amount INTEGER NOT NULL CHECK(amount >= 0), effective_from TEXT NOT NULL DEFAULT (datetime('now')), created_by TEXT);
 CREATE INDEX IF NOT EXISTS idx_plan_prices ON plan_prices(plan_id, currency, interval, effective_from);
 -- optional extras sold on top of a plan (extra users, storage, API access, ...); entitlements are added to the plan's limits
@@ -68,6 +69,14 @@ export function initPlans(pdb) {
   db.exec(PLANS_SCHEMA);
   const have = new Set(db.prepare('PRAGMA table_info(plans)').all().map((c) => c.name));
   for (const [c, def] of PLAN_COLUMNS) if (!have.has(c)) db.exec(`ALTER TABLE plans ADD COLUMN ${c} ${def}`);
+  // plan_prices began with monthly and yearly only; the 6-month period needs the wider CHECK, which SQLite can only change by rebuilding the table
+  if (!/'half'/.test(db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='plan_prices'").get()?.sql || '')) {
+    db.exec(`BEGIN; ALTER TABLE plan_prices RENAME TO plan_prices_old; DROP INDEX IF EXISTS idx_plan_prices;
+      CREATE TABLE plan_prices(id INTEGER PRIMARY KEY, plan_id TEXT NOT NULL REFERENCES plans(id) ON DELETE CASCADE, currency TEXT NOT NULL, interval TEXT NOT NULL CHECK(interval IN ('month','half','year')),
+        amount INTEGER NOT NULL CHECK(amount >= 0), effective_from TEXT NOT NULL DEFAULT (datetime('now')), created_by TEXT);
+      INSERT INTO plan_prices(id,plan_id,currency,interval,amount,effective_from,created_by) SELECT id,plan_id,currency,interval,amount,effective_from,created_by FROM plan_prices_old;
+      DROP TABLE plan_prices_old; CREATE INDEX IF NOT EXISTS idx_plan_prices ON plan_prices(plan_id, currency, interval, effective_from); COMMIT;`);
+  }
   const sub = new Set(db.prepare('PRAGMA table_info(payment_submissions)').all().map((c) => c.name));
   for (const [c, def] of [['coupon_code', 'TEXT'], ['discount_amount', 'INTEGER NOT NULL DEFAULT 0'], ['setup_fee', 'INTEGER NOT NULL DEFAULT 0'], ['addons', 'TEXT'], ['list_amount', 'INTEGER']]) if (!sub.has(c)) db.exec(`ALTER TABLE payment_submissions ADD COLUMN ${c} ${def}`);
   if (!db.prepare('SELECT 1 FROM plans LIMIT 1').get()) {
@@ -101,6 +110,14 @@ export function initPlans(pdb) {
     let i = (db.prepare('SELECT COALESCE(MAX(sort_order),0) n FROM plans').get().n || 0) + 1;
     for (const [id, p] of Object.entries(DEFAULT_TIER_PLANS)) insertPlan(id, p, i++);
     mark('seeded_content_tiers_v1');
+  }
+  // the 7-tier Pakistan ladder is added once as HIDDEN plans (and its add-ons); nothing is switched on, and old plans and subscribers are untouched.
+  // The owner reviews it in Console > Plans and uses "Switch to the 7-tier ladder" when ready.
+  if (!setting('seeded_ladder_v1')) {
+    let i = (db.prepare('SELECT COALESCE(MAX(sort_order),0) n FROM plans').get().n || 0) + 1;
+    for (const [id, p] of Object.entries(LADDER_PLANS)) { insertPlan(id, p, i++); db.prepare('UPDATE plans SET description=?, modules=NULL, trial_eligible=0 WHERE id=? AND description IS NULL').run(p.description || null, id); }
+    for (const a of LADDER_ADDONS) db.prepare('INSERT OR IGNORE INTO addons(id,name,description,product,price,entitlements,active,sort_order,updated_by) VALUES(?,?,?,?,?,?,1,?,?)').run(a.id, a.name, a.description, a.product || 'any', JSON.stringify(a.price), JSON.stringify(a.entitlements), a.sort_order, 'system');
+    mark('seeded_ladder_v1');
   }
   setAddonLookup((tenant) => {
     if (!tenant?.id) return [];
@@ -190,7 +207,7 @@ export function cleanAllowances(a) {
   const rs = wholeOrNull(a.reel_seconds, 'Longest reel');
   if (rs !== null && !REEL_SECONDS_CHOICES.includes(rs)) throw bad('The longest reel must be 8, 16 or 24 seconds');
   out.reel_seconds = rs;
-  for (const k of Object.keys(TIER_FLAGS)) if (a.flags?.[k] !== undefined) out.flags[k] = !!a.flags[k];
+  for (const k of [...Object.keys(TIER_FLAGS), ...Object.keys(FEATURE_GATES)]) if (a.flags?.[k] !== undefined) out.flags[k] = !!a.flags[k];
   return out;
 }
 export function cleanMoneyMap(m, label) {
@@ -241,11 +258,11 @@ export function savePlan(id, b, actor) {
     sort_order: b.sort_order === undefined ? exists?.sort_order ?? (db.prepare('SELECT COALESCE(MAX(sort_order),0)+1 n FROM plans').get().n) : Math.trunc(Number(b.sort_order)) || 0,
   };
   const newPrices = [];
-  for (const cur of CURRENCIES) for (const int of ['month', 'year']) {
+  for (const cur of CURRENCIES) for (const int of INTERVAL_KEYS) {
     const v = b.price?.[cur]?.[int];
     if (v === undefined || v === null || v === '') continue;
     const n = Number(v);
-    if (!Number.isFinite(n) || n < 0 || n > 1e9 || Math.trunc(n) !== n) throw bad(`${cur} ${int}ly price must be a whole amount`);
+    if (!Number.isFinite(n) || n < 0 || n > 1e9 || Math.trunc(n) !== n) throw bad(`${cur} ${int === 'half' ? '6-month' : int + 'ly'} price must be a whole amount`);
     if (PLANS[pid]?.price?.[cur]?.[int] !== n) newPrices.push([cur, int, n]);
   }
   if (!exists && !newPrices.some(([cur]) => cur === 'PKR')) throw bad('A new plan needs at least its PKR monthly and yearly prices');
@@ -289,3 +306,7 @@ export function savePlanSettings({ default_trial_days, trial_plan, trial_plan_co
   reloadPlans();
   return { ...PLAN_SETTINGS };
 }
+
+/** The 7-tier ladder: is it on sale, and switch it on (old public plans leave the sale page) or off (the previous sale page comes back). */
+export const ladderInfo = () => ladderState(db);
+export function switchLadder(on, actor) { setLadder(db, !!on, actor); reloadPlans(); return ladderState(db); }

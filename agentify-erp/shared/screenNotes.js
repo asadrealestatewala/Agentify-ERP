@@ -24,6 +24,7 @@ export const SCREEN_NOTES = {
   '/appointments': 'Meetings and site visits with clients on a calendar.',
   '/sequences': 'Automatic follow-up messages sent on a schedule after a lead arrives.',
   '/leads/conversion': 'Turn a qualified lead into a customer and booking, keeping the history.',
+  '/leads/scoring': 'Open leads ranked hot, warm or cold with the reasons, plus a follow-up queue of overdue, due-today and gone-quiet leads.',
   '/goals': 'Daily and monthly targets, points, leaderboard and rewards for sales agents.',
   '/agents': 'Your sales agents with their performance and targets.',
   '/commissions': 'Commission earned by agents on sales, and what has been paid.',

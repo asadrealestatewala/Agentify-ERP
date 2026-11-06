@@ -28,10 +28,10 @@ import { runBackup, listBackups, backupDir } from '../services/backup.js';
 import { dashboard, health, listNotifications, markRead, search, generateNotifications } from '../services/platformMetrics.js';
 import { overview, tenantSummaries, tenantDetail, createWorkspace, extendTrial, trialAction, extendGrace, remindOwner, setOwner, userAction, setupChecklist, listAdmins, addAdmin, removeAdmin,
   updateAdmin, changeStatus, updateProfile, setEntitlements, listNotes, addNote, recordManualPayment, resendOnboarding, transactions } from '../services/platformTenants.js';
-import { listPlans, savePlan, savePlanSettings } from '../services/plansStore.js';
+import { listPlans, savePlan, savePlanSettings, ladderInfo, switchLadder } from '../services/plansStore.js';
 import { getOffer, saveOffer, publicOffer, claimedSpots } from '../services/launchOffer.js';
 import { marginReport, saveMarginSettings } from '../services/planMargin.js';
-import { PLAN_SETTINGS, MODULES, PRODUCTS } from '../services/plans.js';
+import { PLAN_SETTINGS, MODULES, PRODUCTS, FEATURE_GATES, INTERVALS } from '../services/plans.js';
 import { setSubscription } from '../services/billing.js';
 import { caps as meetingCaps } from '../integrations/meetings.js';
 import { listRegions, setRegionStatus, setRegionFlag, saveRule, reviewRule, listRules, ruleAudit, saveFx, listFx } from '../regions/admin.js';
@@ -312,7 +312,13 @@ r.post('/workspaces/:id/onboarding-email', requireOperator, need('workspaces.sup
 }));
 
 // ---- Plans, subscriptions and money
-r.get('/plans', requireOperator, need('billing.view'), (_req, res) => res.json({ plans: listPlans(), settings: { ...PLAN_SETTINGS }, modules: MODULES, products: PRODUCTS }));
+r.get('/plans', requireOperator, need('billing.view'), (_req, res) => res.json({ plans: listPlans(), settings: { ...PLAN_SETTINGS }, modules: MODULES, products: PRODUCTS, intervals: INTERVALS, features: Object.fromEntries(Object.entries(FEATURE_GATES).map(([k, g]) => [k, { label: g.label, service: !!g.service }])), ladder: ladderInfo() }));
+// the 7-tier ladder: put it on sale (old public plans go off sale, subscribers keep them) or take it off and restore the previous sale page
+r.post('/plans-ladder', requireOperator, need('billing.configure'), asyncH((req, res) => {
+  const out = switchLadder(!!req.body?.on, req.operator.email);
+  audit(req.operator.email, req.body?.on ? 'ladder-on' : 'ladder-off', { plans: out.plans.length });
+  res.json({ ladder: out, plans: listPlans() });
+}));
 r.put('/plans/:id', requireOperator, need('billing.configure'), asyncH((req, res) => {
   const out = savePlan(req.params.id, req.body || {}, req.operator.email);
   audit(req.operator.email, out.changes.created ? 'plan-created' : 'plan-edited', { plan: out.plan.id, ...out.changes });

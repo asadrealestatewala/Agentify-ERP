@@ -10,7 +10,7 @@ import { platformDb } from '../platform.js';
 import { bad, HttpError } from '../util.js';
 import { PROVIDERS, toMinor, toMajor } from '../gateways/providers.js';
 import { getSetting, setSetting, mask, audit } from './platformConfig.js';
-import { PLANS, assertSellable } from './plans.js';
+import { PLANS, assertSellable, intervalLabel } from './plans.js';
 import { quote } from './commerce.js';
 import { approveSubmission } from './billing.js';
 
@@ -92,7 +92,7 @@ export async function startPlatformCheckout(req, { provider: pid, plan, interval
   const id = Number(db().prepare('INSERT INTO platform_checkouts(token,provider,tenant_id,plan,interval,quote,amount,currency,minor_amount,sandbox,created_by,return_origin) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(token, pid, tenant.id, plan, interval, JSON.stringify(q), q.total, currency, minor, cfg.mode === 'live' ? 0 : 1, req.user.email, origin).lastInsertRowid);
   try {
-    const r = await p.createCheckout(cfg, { token, minor, major: toMajor(minor, currency), currency, description: `${PLANS[plan].name} (${interval === 'year' ? 'yearly' : 'monthly'}) - ${tenant.name}`.slice(0, 200),
+    const r = await p.createCheckout(cfg, { token, minor, major: toMajor(minor, currency), currency, description: `${PLANS[plan].name} (${intervalLabel(interval)}) - ${tenant.name}`.slice(0, 200),
       successUrl: `${origin}/api/platform/pay/return/${pid}/${token}`, cancelUrl: `${origin}/settings/billing?cancelled=1`, webhookUrl: `${origin}/api/platform/pay/webhook/${pid}`, email: req.user.email, name: tenant.name });
     db().prepare("UPDATE platform_checkouts SET status='pending', external_id=?, updated_at=datetime('now') WHERE id=?").run(r.externalId, id);
     return { mode: 'redirect', url: r.url, test_mode: cfg.mode !== 'live' };

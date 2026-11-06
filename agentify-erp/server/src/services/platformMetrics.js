@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { platformDb, listTenants, BASE_DOMAIN, isMultiTenant } from '../platform.js';
 import { DATA_DIR } from '../db.js';
-import { PLANS } from './plans.js';
+import { PLANS, perMonth, intervalMonths } from './plans.js';
 import { expiryOf, tenantSummaries } from './platformTenants.js';
 import { stripeView } from './platformConfig.js';
 import { listBackups } from './backup.js';
@@ -68,13 +68,13 @@ const lastInvoiceCurrency = () => {
 /** Monthly value of one workspace's subscription, in the currency it pays in. Yearly plans count as price / 12. */
 function monthlyValue(t, invoiceCur) {
   // the price this workspace actually pays (kept when plan prices change), else the plan's current price
-  if (t.price_amount != null) return { currency: t.price_currency || 'PKR', amount: t.billing_interval === 'year' ? Math.round(t.price_amount / 12) : t.price_amount };
+  if (t.price_amount != null) return { currency: t.price_currency || 'PKR', amount: perMonth(t.price_amount, t.billing_interval) };
   const p = PLANS[t.plan];
   if (!p) return null;
   const cur = [invoiceCur, t.currency, 'PKR'].find((c) => c && p.price[c]);
   if (!cur) return null;
   const price = p.price[cur];
-  return { currency: cur, amount: t.billing_interval === 'year' ? Math.round(price.year / 12) : price.month };
+  return { currency: cur, amount: (t.billing_interval === 'year' || t.billing_interval === 'half') ? perMonth(price[t.billing_interval] ?? price.month * intervalMonths(t.billing_interval), t.billing_interval) : price.month };
 }
 const addTo = (map, cur, n) => { map[cur] = (map[cur] || 0) + n; return map; };
 

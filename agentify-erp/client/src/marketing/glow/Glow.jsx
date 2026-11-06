@@ -341,7 +341,7 @@ function Pricing({ info }) {
         <p className="gx-eyebrow gx-rv"><i>06</i> <T k="pricing.eyebrow" /></p>
         <h2 id="gx-pr-h" className="gx-h2 gx-rv"><T k="pricing.h2a" />{' '}<span className="gx-grad"><T k="pricing.h2b" /></span></h2>
         <p className="gx-lead gx-rv">Every eligible new workspace starts with a {info.trial_days}-day free trial, no card needed. Prices in {cur}{cur !== country.currency ? ` (${country.name} prices are not set yet)` : ''}.</p>
-        <div className="gx-toggle gx-rv" role="group" aria-label="Billing period">{[['month', 'Monthly'], ['year', 'Yearly']].map(([k, l]) => <button key={k} type="button" aria-pressed={int === k} className={int === k ? 'on' : ''} onClick={() => setInt(k)}>{l}</button>)}</div>
+        <div className="gx-toggle gx-rv" role="group" aria-label="Billing period">{[['month', 'Monthly'], ['half', '6 months'], ['year', 'Yearly']].filter(([k]) => k === 'month' || plans.some((p) => p.price?.[cur]?.[k] != null)).map(([k, l]) => <button key={k} type="button" aria-pressed={int === k} className={int === k ? 'on' : ''} onClick={() => setInt(k)}>{l}</button>)}</div>
         <ul className="gx-plans">{plans.map((p, k) => {
           const price = p.price?.[cur]?.[int];
           return (
@@ -349,7 +349,7 @@ function Pricing({ info }) {
               {p.highlight && <span className="gx-pop-tag">Recommended</span>}
               <span className="gx-plan-i"><Ico n={['star', 'bolt', 'building', 'key'][k % 4]} size={18} /></span>
               <h3>{p.name}</h3>
-              <p className="gx-price"><span key={`${p.id}${int}`}>{price != null ? fmt(price, cur) : 'Contact us'}</span>{price != null && <small> / {int === 'month' ? 'month' : 'year'}</small>}</p>
+              <p className="gx-price"><span key={`${p.id}${int}`}>{price != null ? fmt(price, cur) : 'Contact us'}</span>{price != null && <small> / {int === 'month' ? 'month' : int === 'half' ? '6 months' : 'year'}</small>}</p>
               {p.setup_fee?.[cur] ? <p className="gx-fine">+ {fmt(p.setup_fee[cur], cur)} one-time setup</p> : null}
               <ul className="gx-ticks col sm"><li>{lim(p.seats, 'team member', 'team members')}</li><li>{lim(p.properties, 'property', 'properties')}</li><li>{p.storage_mb == null ? 'Unlimited file storage' : `${Math.round((p.storage_mb / 1024) * 10) / 10} GB file storage`}</li>{p.api_access && <li>Website and partner API</li>}{(p.features || []).map((f) => <li key={f}>{f}</li>)}</ul>
               <Link to={`/signup?product=real_estate&plan=${p.id}`} className={`gx-btn ${p.highlight ? 'cream' : 'ring'}`} onClick={() => track('cta_start_trial', { where: `plan_${p.id}` })}>{p.trial_eligible ? 'Start free trial' : 'Get started'}</Link>

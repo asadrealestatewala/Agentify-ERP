@@ -18,6 +18,7 @@ import {
 } from '../services/sequences.js';
 import { sequenceTemplates, TEMPLATE_LANGUAGES } from '../../../shared/sequenceTemplates.js';
 import { conversionReport } from '../services/conversion.js';
+import { leadScores, followUpQueue, scheduleFollowUp } from '../services/leadScoring.js';
 import { inboundDomain } from '../services/emailInbound.js';
 import { listSenders } from '../services/emailSenders.js';
 import { setSetting } from '../db.js';
@@ -104,6 +105,11 @@ const enrollAct = (fn) => asyncH((req, res) => { const e = get('SELECT contact_i
 r.post('/enrollments/:id(\\d+)/pause', can('crm', 'edit'), enrollAct(pauseEnrollment));
 r.post('/enrollments/:id(\\d+)/resume', can('crm', 'edit'), enrollAct(resumeEnrollment));
 r.post('/enrollments/:id(\\d+)/cancel', can('crm', 'edit'), enrollAct(cancelEnrollment));
+
+// ---- lead scoring and the follow-up reminder queue (Agency Pro and above; the plan gate is in services/plans.js FEATURE_GATES)
+r.get('/scores', can('crm', 'view'), asyncH((req, res) => res.json(leadScores({ ownerId: ownerId(req), band: ['hot', 'warm', 'cold'].includes(req.query.band) ? req.query.band : null, limit: Number(req.query.limit) || 100 }))));
+r.get('/followups', can('crm', 'view'), asyncH((req, res) => res.json(followUpQueue({ ownerId: ownerId(req), limit: Number(req.query.limit) || 200 }))));
+r.post('/followups/:id(\\d+)/schedule', can('crm', 'edit'), asyncH((req, res) => { const c = contactOf(req); const out = scheduleFollowUp(c, req.body || {}, req.user); audit(req, 'Follow-up scheduled', 'contact', c.id, String(req.body?.due_date || '')); res.json(out); }));
 
 // ---- conversion report (own-scope agents see only their own leads)
 r.get('/conversion', can('crm', 'view'), asyncH((req, res) => {

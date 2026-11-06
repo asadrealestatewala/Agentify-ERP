@@ -11,6 +11,8 @@ const price = (p, currency, interval) => {
   const cur = p.price[currency] ? currency : p.price.PKR ? 'PKR' : 'USD';
   return p.price[cur]?.[interval] == null ? '—' : fmtMoney(p.price[cur][interval], cur);
 };
+const SUFFIX = { month: 'mo', half: '6 mo', year: 'yr' };
+const PERIOD_NAME = { month: 'Monthly', half: '6 months', year: 'Yearly' };
 const PRODUCT_LABEL = { real_estate: 'Real Estate Brokerage', construction: 'Construction Management', bundle: 'Real Estate + Construction', website: 'Free website' };
 /** A UTC instant shown in the viewer's own timezone. */
 const localWhen = (iso) => (iso ? new Date(String(iso).length > 10 ? iso : `${iso}T23:59:59Z`).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '');
@@ -127,7 +129,7 @@ function PayModal({ data, plan, interval, onClose, onDone }) {
         {m.kind === 'transfer' && !!data.addons?.length && (
           <Field label="Add-ons (optional)">
             <div className="stack">{data.addons.map((a) => (
-              <label key={a.id} className="row between" style={{ gap: 8 }}><span>{a.name}<span className="muted"> · {a.price.PKR ? fmtMoney(a.price.PKR[interval] || 0, 'PKR') : ''} / {interval === 'month' ? 'mo' : 'yr'}</span></span>
+              <label key={a.id} className="row between" style={{ gap: 8 }}><span>{a.name}<span className="muted"> · {a.price.PKR ? fmtMoney((a.entitlements?.topup_credits ? a.price.PKR.month : a.price.PKR[interval]) || 0, 'PKR') : ''} / {SUFFIX[interval]}{a.entitlements?.topup_credits ? ' once' : ''}</span></span>
                 <input className="input" type="number" min="0" max="50" style={{ width: 70 }} value={addons[a.id] || 0} onChange={(e) => setAddons({ ...addons, [a.id]: Math.max(0, Number(e.target.value) || 0) })} aria-label={`Quantity of ${a.name}`} /></label>
             ))}</div>
           </Field>
@@ -141,7 +143,7 @@ function PayModal({ data, plan, interval, onClose, onDone }) {
             <div className="muted" style={{ fontSize: 12 }}>Prices include any applicable taxes. The setup fee is charged once.</div>
           </div>
         )}
-        {m.kind !== 'transfer' ? <div className="muted">You will pay on a secure page run by our payment provider{m.kind === 'gateway' ? `${m.test_mode ? ' (test mode: no real money, your plan will not change)' : ''}. This pays for one ${interval === 'year' ? 'year' : 'month'}; pay again to renew` : ''}. We never see or store your card number.</div> : q && (
+        {m.kind !== 'transfer' ? <div className="muted">You will pay on a secure page run by our payment provider{m.kind === 'gateway' ? `${m.test_mode ? ' (test mode: no real money, your plan will not change)' : ''}. This pays for one ${interval === 'year' ? 'year' : interval === 'half' ? '6 months' : 'month'}; pay again to renew` : ''}. We never see or store your card number.</div> : q && (
           <>
             <div className="alert info">Send <b>{fmtMoney(q.total, 'PKR')}</b> by {m.label} to <b>{m.account}</b>{m.account_name ? ` (${m.account_name})` : ''}{m.note ? `. ${m.note}` : ''}. Then enter the transaction ID from your receipt. Your plan starts when we confirm the money arrived.</div>
             <Field label="Transaction ID / reference" required><input className="input" value={reference} onChange={(e) => setReference(e.target.value)} /></Field>
@@ -242,7 +244,8 @@ function BillingPage() {
   const label = statusLabel ? `${statusLabel}${data.plan && data.status !== 'trialing' ? ` · ${data.plans.find((p) => p.id === data.plan)?.name || data.plan}` : ''}` : lim.name;
   const bar = (used, max) => (max == null ? null : <ProgressBar value={Math.min(100, Math.round((used / max) * 100))} tone={used >= max ? 'red' : used / max > 0.8 ? 'amber' : 'green'} />);
   const usageRow = (name, used, max, unit = '') => <div><div className="row between"><span>{name}</span><span className="muted">{used}{unit}{max != null ? ` of ${max}${unit}` : ' · unlimited'}</span></div>{bar(used, max)}</div>;
-  const intervalSaving = data.plans.some((p) => p.price.PKR && p.price.PKR.year < p.price.PKR.month * 12);
+  const saves = (i) => data.plans.some((p) => p.price.PKR?.[i] && p.price.PKR[i] < p.price.PKR.month * ({ half: 6, year: 12 }[i]));
+  const offered = ['month', 'half', 'year'].filter((i) => i === 'month' || data.plans.some((p) => p.price[data.currency]?.[i] != null || p.price.PKR?.[i] != null));
   return (
     <div>
       <PageHead title="Plan & billing" sub={`${PRODUCT_LABEL[data.product] || ''} · your plan, usage and invoices`} />
@@ -281,7 +284,7 @@ function BillingPage() {
         </Card>
       </div>
       {data.plan !== 'legacy' && (
-        <div id="choose-plan"><Card title={`Choose a plan · ${PRODUCT_LABEL[data.product] || ''}`} actions={<div className="row" style={{ gap: 6 }}>{['month', 'year'].map((i) => <button key={i} className={`btn sm ${interval === i ? 'primary' : ''}`} onClick={() => setInterval(i)}>{i === 'month' ? 'Monthly' : `Yearly${intervalSaving ? ' (save)' : ''}`}</button>)}</div>}>
+        <div id="choose-plan"><Card title={`Choose a plan · ${PRODUCT_LABEL[data.product] || ''}`} actions={<div className="row" style={{ gap: 6 }}>{offered.map((i) => <button key={i} className={`btn sm ${interval === i ? 'primary' : ''}`} onClick={() => setInterval(i)}>{PERIOD_NAME[i]}{i !== 'month' && saves(i) ? ' (save)' : ''}</button>)}</div>}>
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
             {data.plans.map((p) => {
               const current = data.plan === p.id && data.status === 'active';
@@ -290,10 +293,10 @@ function BillingPage() {
                 <div key={p.id} className="card" style={{ padding: 16, border: current || p.highlight ? '2px solid var(--primary)' : undefined }}>
                   <div className="row between"><b style={{ fontSize: 16 }}>{p.name}</b>{p.highlight && <StatusBadge status="active" label="Recommended" />}</div>
                   {p.product === 'bundle' && <div className="muted">Both products</div>}
-                  <div style={{ fontSize: 26, fontWeight: 700, margin: '8px 0' }}>{price(p, data.currency, interval)}<small className="muted" style={{ fontSize: 13, fontWeight: 400 }}> / {interval === 'month' ? 'mo' : 'yr'}</small></div>
+                  <div style={{ fontSize: 26, fontWeight: 700, margin: '8px 0' }}>{price(p, data.currency, interval)}<small className="muted" style={{ fontSize: 13, fontWeight: 400 }}> / {SUFFIX[interval]}</small></div>
                   {fee ? <div className="muted" style={{ marginBottom: 6 }}>+ one-time setup fee {fmtMoney(fee, p.setup_fee?.[data.currency] ? data.currency : 'PKR')}</div> : null}
                   <ul className="muted" style={{ paddingLeft: 18, margin: '0 0 12px' }}>
-                    <li>{p.seats == null ? 'Unlimited' : `Up to ${p.seats}`} team members</li><li>{p.projects == null ? 'Unlimited' : `Up to ${p.projects}`} projects</li>
+                    <li>{p.seats == null ? 'Unlimited' : `Up to ${p.seats}`} team members</li>{p.allowances?.flags?.project_inventory !== false && <li>{p.projects == null ? 'Unlimited' : `Up to ${p.projects}`} projects</li>}
                     {p.product !== 'construction' && <li>{p.properties == null ? 'Unlimited' : `Up to ${p.properties.toLocaleString()}`} properties</li>}
                     <li>{p.storage_mb == null ? 'Unlimited' : `${Math.round(p.storage_mb / 1024 * 10) / 10} GB`} file storage</li>
                     {p.api_access && <li>Website / partner API</li>}

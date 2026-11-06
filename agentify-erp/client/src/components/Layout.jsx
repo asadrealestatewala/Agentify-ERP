@@ -32,7 +32,7 @@ const NAV = [
   { label: 'Content Calendar', icon: 'calendar', to: '/content', module: 'content' },
   { label: 'CRM', icon: 'users', module: 'crm', children: [
     ['Contacts', '/contacts'], ['Leads', '/leads'], ['Smart Lists', '/smart-lists'], ['Sales Pipeline', '/pipeline'], ['Tasks', '/tasks'], ['Notes', '/notes'],
-    ['Appointments', '/appointments'], ['Follow-up Sequences', '/sequences'], ['Lead Conversion', '/leads/conversion'], ['Goals & Rewards', '/goals'], ['Sales Agents', '/agents'], ['Commissions', '/commissions', 'commissions'] ] },
+    ['Appointments', '/appointments'], ['Follow-up Sequences', '/sequences'], ['Lead Conversion', '/leads/conversion'], ['Lead Scoring', '/leads/scoring'], ['Goals & Rewards', '/goals'], ['Sales Agents', '/agents'], ['Commissions', '/commissions', 'commissions'] ] },
   { label: 'Dialer', icon: 'phone', to: '/dialer', module: 'crm' },
   { label: 'WhatsApp', icon: 'chat', to: '/whatsapp', module: 'crm' },
   { label: 'Meetings', icon: 'calendar', to: '/meetings', module: 'crm' },
@@ -73,6 +73,10 @@ const NAV = [
     ['Payment Methods', '/settings/payment-methods'], ['Payment Gateways', '/settings/payment-gateways'], ['Email', '/settings/email'], ['WhatsApp', '/settings/whatsapp'], ['Lead Routing', '/settings/lead-routing', 'crm'], ['Lead Stages', '/settings/lead-stages'], ['Categories & Lists', '/settings/categories'], ['Commission Rules', '/settings/commission-rules'], ['Receipts & Branding', '/settings/branding'], ['Notifications', '/settings/notifications'], ['System Settings', '/settings/system'], ['Audit Log', '/settings/audit'] ] },
 ];
 
+/** Menu items the plan can switch off (plan.allowances.flags in services/plans.js FEATURE_GATES). Hidden here for tidiness; the server refuses them either way. */
+const GROUP_FEATURE = { Accounting: 'vouchers', Reports: 'reports', Website: 'website', Developers: 'developer_portal', Projects: 'project_inventory', WhatsApp: 'whatsapp', 'Creative Studio': 'ai', 'AI Studio': 'ai' };
+const PATH_FEATURE = { '/payments/installments': 'installments', '/receipts': 'receipts', '/settings/email': 'tenant_email', '/settings/whatsapp': 'whatsapp', '/leads/scoring': 'lead_scoring', '/my/location': 'field_location', '/field': 'field_location' };
+
 /** Pages that belong to the Real Estate product only (the server refuses them for other workspaces too). */
 const PRODUCT_PATHS = { '/listings/approvals': 'real_estate', '/projects/map': 'real_estate', '/properties/new': 'real_estate', '/properties/featured': 'real_estate' };
 
@@ -99,6 +103,8 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
   const fieldOk = (spec) => (spec === 'field:me' ? !!fieldMe && (fieldMe.settings.enabled || fieldMe.status.location) : spec === 'field:team' ? !!fieldMe?.can_view_team : true);
   const products = ent?.products || null; // null while loading: show everything rather than flicker
   const hasProduct = (pr) => !pr || !products || products.includes(pr);
+  const planFlags = ent?.limits?.flags || null; // null (older plans, trials) = nothing switched off
+  const featOk = (f) => !f || !planFlags || planFlags[f] !== false;
   useEffect(() => {
     const g = NAV.find((n) => n.children?.some((c) => loc.pathname === c[1] || loc.pathname.startsWith(c[1] + '/')));
     if (g && !open[g.label]) setOpen((o) => ({ ...o, [g.label]: true }));
@@ -113,10 +119,11 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
     if (siteOnly && !['Website', 'Settings'].includes(g.label)) return null;
     if (!g.always && !ok(null, g.module)) return null;
     if (!hasProduct(g.product)) return null;
+    if (!featOk(GROUP_FEATURE[g.label])) return null;
     if (g.creative && !creativeSt) return null; // status unreachable (no Content access): hide; otherwise always show, the page explains why it is unavailable
     if (g.flag && !getRegion().config.flags?.[g.flag]) return null;
     if (!g.children) return g;
-    const kids = (g.always ? g.children.filter((c) => fieldOk(c[2])) : g.children.filter((c) => ok(c[2], g.module))).filter((c) => hasProduct(PRODUCT_PATHS[c[1]])).filter((c) => !siteOnly || SITE_ONLY_PATHS.has(c[1]));
+    const kids = (g.always ? g.children.filter((c) => fieldOk(c[2])) : g.children.filter((c) => ok(c[2], g.module))).filter((c) => hasProduct(PRODUCT_PATHS[c[1]])).filter((c) => featOk(PATH_FEATURE[c[1]])).filter((c) => !siteOnly || SITE_ONLY_PATHS.has(c[1]));
     return kids.length ? { ...g, children: kids } : null;
   }).filter(Boolean);
   // upgrade path: the product a workspace does not have yet, for people who manage billing

@@ -6,6 +6,14 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.72', date: '2026-11-06', title: 'Lead scoring and a follow-up queue',
+    items: [
+      { text: 'Lead Scoring ranks your open leads hot, warm or cold with the reasons, and a follow-up queue lists overdue follow-ups, follow-ups due today and warm leads that have gone quiet. Call or schedule a reminder from the row.', where: 'CRM > Lead Scoring (where your plan allows it)', guide: 'lead-scoring' },
+      { text: 'Plan & billing can now show a 6-month billing period beside monthly and yearly, and extra users and AI credit top-up packs can be added when you pay.', where: 'Settings > Plan & billing' },
+      { text: 'Console: seven new hidden plans, Solo Agent to Enterprise, with 6-month and yearly prices, per-plan feature switches the server enforces, extra-user and AI top-up add-ons, and one switch to put the ladder on sale or take it off again.', where: 'Console > Plans', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.71', date: '2026-11-03', title: 'Plans with credits and posting limits, and a launch offer',
     items: [
       { text: 'Your plan page now shows your plan, AI credits left, posts left today and this month, emails left and the longest reel your plan allows, with an Upgrade button.', where: 'Settings > Plan & billing', guide: 'plan-credits-limits' },

@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import bcrypt from 'bcryptjs';
 import { platformDb, listTenants, getTenant, withTenant, logTenantEvent, BASE_DOMAIN, isMultiTenant, createTenant, assertOwnerEmailFree, setTenantStatus } from '../platform.js';
 import { all, get, run, val } from '../db.js';
-import { billingState, usage, PLANS, PLAN_SETTINGS, MODULES, PRODUCTS, tenantProducts } from './plans.js';
+import { billingState, usage, PLANS, PLAN_SETTINGS, MODULES, PRODUCTS, tenantProducts, perMonth, intervalMonths, isInterval } from './plans.js';
 import { refundsFor, tenantAddons, listAddons } from './commerce.js';
 import { retentionState, removeBlocker } from './retention.js';
 import { cleanModules } from './plansStore.js';
@@ -317,8 +317,8 @@ export function createWorkspace(b, req) {
 
 // ---------------------------------------------------------------- overview
 const monthly = (t) => {
-  if (t.price_amount != null && (t.price_currency || 'PKR') === 'PKR') return t.billing_interval === 'year' ? Math.round(t.price_amount / 12) : t.price_amount;
-  const p = PLANS[t.plan]; if (!p?.price?.PKR) return 0; const price = p.price.PKR; return t.billing_interval === 'year' ? Math.round(price.year / 12) : price.month;
+  if (t.price_amount != null && (t.price_currency || 'PKR') === 'PKR') return perMonth(t.price_amount, t.billing_interval);
+  const p = PLANS[t.plan]; if (!p?.price?.PKR) return 0; const price = p.price.PKR; return (t.billing_interval === 'year' || t.billing_interval === 'half') ? perMonth(price[t.billing_interval] ?? price.month * intervalMonths(t.billing_interval), t.billing_interval) : price.month;
 };
 
 export function overview(req, operator) {
@@ -523,7 +523,7 @@ export function addNote(id, body, actor, pinned = false) {
 export async function recordManualPayment(id, b, actor) {
   const t = mustTenant(id); mustBilled(t);
   if (!PLANS[b.plan]) throw bad('Unknown plan');
-  if (!['month', 'year'].includes(b.interval)) throw bad('Interval must be month or year');
+  if (!isInterval(b.interval)) throw bad('Interval must be month, 6 months or year');
   if (!LOCAL_METHODS[b.method]) throw bad(`Method must be one of: ${Object.keys(LOCAL_METHODS).join(', ')}`);
   const ref = String(b.reference || '').trim();
   if (ref.length < 4 || ref.length > 80) throw bad('Enter the bank or wallet transaction reference (4 to 80 characters)');

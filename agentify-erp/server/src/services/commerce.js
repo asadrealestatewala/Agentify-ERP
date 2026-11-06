@@ -4,7 +4,8 @@
 // workspace's first payment, plus add-ons, minus a coupon. Customers never send amounts; the server computes them.
 // Refunds are recorded against an invoice and reported separately from collections (gross - refunds = net).
 import { platformDb, getTenant, logTenantEvent } from '../platform.js';
-import { PLANS, PRODUCTS, assertSellable } from './plans.js';
+import { PLANS, PRODUCTS, assertSellable, isInterval, intervalLabel, intervalMonths } from './plans.js';
+import { setCredits } from './aiGate.js';
 import { CURRENCIES, cleanMoneyMap } from './plansStore.js';
 import { launchLine } from './launchOffer.js';
 import { bad, HttpError } from '../util.js';
@@ -33,8 +34,9 @@ export function saveAddon(id, b, actor) {
     const m = src?.[cur];
     if (!m) continue;
     const clean = cleanMoneyMap({ [cur]: m.month }, 'Monthly price');
+    const cleanH = cleanMoneyMap({ [cur]: m.half }, '6-month price');
     const cleanY = cleanMoneyMap({ [cur]: m.year }, 'Yearly price');
-    if (clean[cur] || cleanY[cur]) price[cur] = { month: clean[cur] || 0, year: cleanY[cur] || 0 };
+    if (clean[cur] || cleanH[cur] || cleanY[cur]) price[cur] = { month: clean[cur] || 0, half: cleanH[cur] || 0, year: cleanY[cur] || 0 };
   }
   if (!price.PKR) throw bad('An add-on needs at least a PKR price');
   const ent = b.entitlements ?? parse(exists?.entitlements, {});
@@ -45,6 +47,11 @@ export function saveAddon(id, b, actor) {
     entitlements[k] = n;
   }
   if (ent?.api_access) entitlements.api_access = true;
+  if (ent?.topup_credits !== undefined && ent.topup_credits !== '' && ent.topup_credits !== null) {
+    const n = Math.trunc(Number(ent.topup_credits));
+    if (!(n >= 1 && n <= 1_000_000)) throw bad('Top-up credits must be a whole number above zero');
+    entitlements.topup_credits = n;
+  }
   const row = { name, description: String(b.description ?? exists?.description ?? '').trim().slice(0, 300) || null, product, price: JSON.stringify(price), entitlements: JSON.stringify(entitlements),
     active: b.active === undefined ? exists?.active ?? 1 : (b.active ? 1 : 0), sort_order: Math.trunc(Number(b.sort_order ?? exists?.sort_order ?? 0)) || 0 };
   if (exists) pdb().prepare(`UPDATE addons SET ${Object.keys(row).map((k) => `${k}=?`).join(',')}, updated_at=datetime('now'), updated_by=? WHERE id=?`).run(...Object.values(row), actor, aid);
@@ -58,6 +65,14 @@ export function setTenantAddon(tenantId, { addon_id, quantity = 1, active = true
   if (!db.prepare('SELECT 1 FROM addons WHERE id=?').get(addon_id)) throw new HttpError(404, 'Unknown add-on');
   const q = Math.trunc(Number(quantity));
   if (!(q >= 1 && q <= 1000)) throw bad('Quantity must be between 1 and 1000');
+  // an AI top-up pack is one-time: it adds credits to this month and leaves no recurring add-on behind
+  const pack = parse(db.prepare('SELECT entitlements FROM addons WHERE id=?').get(addon_id)?.entitlements, {})?.topup_credits;
+  if (pack) {
+    if (!active) throw bad('A top-up pack is one-time and cannot be switched off');
+    setCredits(tenantId, { add_topup: pack * q }, actor || 'payment');
+    logTenantEvent(tenantId, 'ai-topup', { addon: addon_id, quantity: q, credits: pack * q, reason: reason || null, by: actor || null });
+    return tenantAddons(tenantId);
+  }
   const cur = db.prepare("SELECT * FROM tenant_addons WHERE tenant_id=? AND addon_id=? AND status='active'").get(tenantId, addon_id);
   if (!active) {
     if (!cur) throw bad('That add-on is not active for this workspace');
@@ -93,7 +108,7 @@ export function saveCoupon(code, b, actor) {
   const row = {
     description: String(b.description ?? exists?.description ?? '').trim().slice(0, 200) || null, percent_off: percent, amount_off: Object.keys(amount).length ? JSON.stringify(amount) : null,
     products: list(b.products, (x) => !!PRODUCTS[x], 'product') ?? exists?.products ?? null, plans: list(b.plans, (x) => !!PLANS[x], 'plan') ?? exists?.plans ?? null,
-    intervals: list(b.intervals, (x) => ['month', 'year'].includes(x), 'interval') ?? exists?.intervals ?? null,
+    intervals: list(b.intervals, (x) => isInterval(x), 'interval') ?? exists?.intervals ?? null,
     first_payment_only: b.first_payment_only === undefined ? exists?.first_payment_only ?? 1 : (b.first_payment_only ? 1 : 0),
     max_redemptions: b.max_redemptions === undefined ? exists?.max_redemptions ?? null : (b.max_redemptions === '' || b.max_redemptions === null ? null : Math.max(1, Math.trunc(Number(b.max_redemptions)) || 1)),
     valid_from: b.valid_from === undefined ? exists?.valid_from ?? null : dateOk(b.valid_from, 'Valid from'), valid_until: b.valid_until === undefined ? exists?.valid_until ?? null : dateOk(b.valid_until, 'Valid until'),
@@ -117,7 +132,7 @@ export function checkCoupon(code, tenant, { plan, interval }) {
   const products = parse(c.products, null), plans = parse(c.plans, null), intervals = parse(c.intervals, null);
   if (products && !products.includes(PLANS[plan]?.product) && PLANS[plan]?.product !== 'bundle') nope('does not apply to this product');
   if (plans && !plans.includes(plan)) nope('does not apply to this plan');
-  if (intervals && !intervals.includes(interval)) nope(`does not apply to ${interval}ly billing`);
+  if (intervals && !intervals.includes(interval)) nope(`does not apply to ${intervalLabel(interval)} billing`);
   if (c.max_redemptions && pdb().prepare('SELECT COUNT(*) n FROM coupon_redemptions WHERE code=?').get(c.code).n >= c.max_redemptions) nope('has been used up');
   if (c.first_payment_only && tenant && hasPaid(tenant.id)) nope('is for first payments only');
   if (tenant && pdb().prepare('SELECT 1 FROM coupon_redemptions WHERE code=? AND tenant_id=?').get(c.code, tenant.id)) nope('was already used by this workspace');
@@ -135,12 +150,12 @@ export function checkCoupon(code, tenant, { plan, interval }) {
  */
 export function quote(tenant, { plan, interval = 'month', currency = 'PKR', coupon = null, addons = [] } = {}) {
   assertSellable(plan, tenant);
-  if (!['month', 'year'].includes(interval)) throw bad('Interval must be month or year');
+  if (!isInterval(interval)) throw bad('Interval must be month, 6 months or year');
   const cur = String(currency || 'PKR').toUpperCase();
   const p = PLANS[plan];
   const base = p.price?.[cur]?.[interval];
-  if (base == null) throw bad(`${p.name} has no ${cur} ${interval}ly price`);
-  const lines = [{ kind: 'plan', label: `${p.name} (${interval === 'year' ? 'yearly' : 'monthly'})`, amount: base }];
+  if (base == null) throw bad(`${p.name} has no ${cur} ${intervalLabel(interval)} price`);
+  const lines = [{ kind: 'plan', label: `${p.name} (${intervalLabel(interval)})`, amount: base }];
   const launch = launchLine(tenant, p, cur, interval, base);
   if (launch) lines.push({ kind: 'launch_offer', label: `Launch offer: ${launch.percent}% off (month ${launch.month_no} of ${launch.months})`, amount: -launch.amount });
   const fee = p.setup_fee?.[cur] || 0;
@@ -153,12 +168,17 @@ export function quote(tenant, { plan, interval = 'month', currency = 'PKR', coup
     if (row.product !== 'any' && p.product !== 'bundle' && row.product !== p.product) throw bad(`${row.name} is not available with ${p.name}`);
     const q = Math.trunc(Number(a.quantity ?? 1));
     if (!(q >= 1 && q <= 1000)) throw bad('Add-on quantity must be between 1 and 1000');
-    const unit = parse(row.price, {})?.[cur]?.[interval];
+    const ent = parse(row.entitlements, {}) || {};
+    const prices = parse(row.price, {})?.[cur] || {};
+    // a one-time pack costs the same whichever period is chosen; a missing period price falls back to the monthly price x months (no discount)
+    const unit = ent.topup_credits ? prices.month : (prices[interval] ?? (prices.month != null ? prices.month * intervalMonths(interval) : null));
     if (unit == null) throw bad(`${row.name} has no ${cur} price`);
-    lines.push({ kind: 'addon', id: row.id, label: `${row.name}${q > 1 ? ` x ${q}` : ''}`, amount: unit * q, quantity: q });
+    lines.push({ kind: ent.topup_credits ? 'topup' : 'addon', id: row.id, label: `${row.name}${q > 1 ? ` x ${q}` : ''}`, amount: unit * q, quantity: q });
     chosen.push({ id: row.id, quantity: q });
   }
-  const recurring = lines.filter((l) => l.kind !== 'setup_fee').reduce((s, l) => s + l.amount, 0);
+  // one-time lines (setup fee, AI top-up packs) are charged once and are not part of the recurring price
+  const recurring = lines.filter((l) => !['setup_fee', 'topup'].includes(l.kind)).reduce((s, l) => s + l.amount, 0);
+  const oneTime = lines.filter((l) => l.kind === 'topup').reduce((s, l) => s + l.amount, 0) + (fee && firstPayment ? fee : 0);
   let discount = 0, couponRow = null;
   if (coupon) {
     couponRow = checkCoupon(coupon, tenant, { plan, interval });
@@ -167,7 +187,7 @@ export function quote(tenant, { plan, interval = 'month', currency = 'PKR', coup
     lines.push({ kind: 'discount', label: `Coupon ${couponRow.code}`, amount: -discount });
   }
   const total = Math.max(0, lines.reduce((s, l) => s + l.amount, 0));
-  return { plan, interval, currency: cur, lines, list_amount: recurring, setup_fee: fee && firstPayment ? fee : 0, discount, total, coupon: couponRow?.code || null, addons: chosen };
+  return { plan, interval, currency: cur, lines, list_amount: recurring, setup_fee: oneTime, discount, total, coupon: couponRow?.code || null, addons: chosen };
 }
 
 export function recordRedemption(code, tenantId, submissionId, amountOff, currency, db = pdb()) {

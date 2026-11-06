@@ -80,6 +80,8 @@ export function marginReport(m = getMarginSettings()) {
       rows.push({ ...base, kind: 'month', label: 'Monthly', price: mo, ...costOf({ plan, currency: cur, price: mo }, m, cc.blended) });
       const o = offer.countries[cur];
       if (plan.launch_offer && o?.percent > 0 && o.months > 0) { const lp = Math.round(mo * (1 - o.percent / 100)); rows.push({ ...base, kind: 'launch', label: `Launch (${o.percent}% off, ${o.months} mo)`, price: lp, ...costOf({ plan, currency: cur, price: lp }, m, cc.blended) }); }
+      const hf = plan.price?.[cur]?.half;
+      if (hf != null) { const per = Math.round(hf / 6); rows.push({ ...base, kind: 'half', label: '6 months (per month)', price: per, half_price: hf, ...costOf({ plan, currency: cur, price: per }, m, cc.blended) }); }
       if (yr != null) { const per = Math.round(yr / 12); rows.push({ ...base, kind: 'year', label: 'Yearly (per month)', price: per, yearly_price: yr, ...costOf({ plan, currency: cur, price: per }, m, cc.blended) }); }
     }
   }

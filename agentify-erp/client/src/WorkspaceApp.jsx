@@ -141,6 +141,7 @@ const Sequences = lazy(() => import('./pages/Sequences.jsx'));
 const WhatsApp = lazy(() => import('./pages/WhatsApp.jsx'));
 const WhatsAppSettings = lazy(() => import('./pages/WhatsAppSettings.jsx'));
 const Conversion = lazy(() => import('./pages/Conversion.jsx'));
+const LeadScoring = lazy(() => import('./pages/LeadScoring.jsx'));
 const Dialer = lazy(() => import('./pages/Dialer.jsx'));
 const Appointments = lazy(() => import('./pages/Appointments.jsx'));
 const AIStudio = lazy(() => import('./pages/AIStudio.jsx'));
@@ -312,6 +313,7 @@ export default function App() {
         <Route path="settings/lead-routing" element={G('crm', <LeadRouting />)} />
         <Route path="sequences" element={G('crm', <Sequences />)} />
         <Route path="leads/conversion" element={G('crm', <Conversion />)} />
+        <Route path="leads/scoring" element={G('crm', <LeadScoring />)} />
         <Route path="settings/website-integrations" element={G('website', <WebsiteIntegrations />)} />
         {/* Construction */}
         <Route path="construction" element={G('construction', <ConstructionOverview />)} />
