@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.74', date: '2026-11-06', title: 'Watch videos in the content calendar',
+    items: [
+      { text: 'Posts with a video now have a Watch video button that plays it right in the page (works on phones, vertical and wide videos). Posts with only an image have Preview image. Esc or the Back button closes it.', where: 'Super Admin console > Content calendar > Posts', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.73', date: '2026-11-06', title: 'Lead scoring and a follow-up queue',
     items: [
       { text: 'Lead Scoring ranks your open leads hot, warm or cold with the reasons, and a follow-up queue lists overdue follow-ups, follow-ups due today and warm leads that have gone quiet. Call or schedule a reminder from the row.', where: 'CRM > Lead Scoring (where your plan allows it)', guide: 'lead-scoring' },

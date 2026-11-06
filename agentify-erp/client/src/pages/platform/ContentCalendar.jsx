@@ -136,9 +136,27 @@ function Month({ posts, month, setMonth, onDay, onOpen }) {
   );
 }
 
+const isVideo = (u) => /\.(mp4|webm|mov)(\?|$)/i.test(u || '');
+
+function MediaViewer({ post, onClose }) {
+  const src = `${A}/content/posts/${post.id}/media?inline=1`;
+  const [ratio, setRatio] = useState(/9x16|reel|story/i.test(post.media_url + post.channel) ? 9 / 16 : 16 / 9);
+  const tall = ratio < 1;
+  return (
+    <Modal title={post.title} size={tall ? 'sm' : ''} onClose={onClose} closeOnOverlay footer={<><a className="btn" href={`${A}/content/posts/${post.id}/media`} download>Download</a><button className="btn primary" onClick={onClose}>Close</button></>}>
+      <div style={{ display: 'flex', justifyContent: 'center', background: '#000', borderRadius: 8, overflow: 'hidden' }}>
+        {isVideo(post.media_url)
+          ? <video src={src} controls autoPlay playsInline preload="metadata" style={{ width: '100%', maxHeight: '70vh', aspectRatio: String(ratio) }} onLoadedMetadata={(e) => { const v = e.currentTarget; if (v.videoWidth && v.videoHeight) setRatio(v.videoWidth / v.videoHeight); }} />
+          : <img src={src} alt={post.title} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }} />}
+      </div>
+    </Modal>
+  );
+}
+
 function PostList({ rows, empty, onEdit, onPosted, act }) {
+  const [viewing, setViewing] = useState(null);
   if (!rows.length) return <p className="muted">{empty}</p>;
-  return rows.map((p) => {
+  return <>{viewing && <MediaViewer post={viewing} onClose={() => setViewing(null)} />}{rows.map((p) => {
     const late = p.status === 'scheduled' && new Date(p.scheduled_at) < new Date();
     return (
       <div key={p.id} className="cc-row">
@@ -148,7 +166,8 @@ function PostList({ rows, empty, onEdit, onPosted, act }) {
           {p.body && <p className="muted" style={{ margin: '4px 0 0', fontSize: 13.5, whiteSpace: 'pre-wrap' }}>{p.body.length > 220 ? `${p.body.slice(0, 220)}…` : p.body}</p>}
         </div>
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
-          {p.media_url && <a className="btn sm" href={`${A}/content/posts/${p.id}/media`} download>Download {/\.(mp4|webm|mov)(\?|$)/i.test(p.media_url) ? 'video' : 'file'}</a>}
+          {p.media_url && <button className="btn sm primary" onClick={() => setViewing(p)}>{isVideo(p.media_url) ? 'Watch video' : 'Preview image'}</button>}
+          {p.media_url && <a className="btn sm" href={`${A}/content/posts/${p.id}/media`} download>Download {isVideo(p.media_url) ? 'video' : 'file'}</a>}
           {p.status !== 'posted' && p.status !== 'canceled' && <><button className="btn sm" onClick={() => onEdit(p)}>Edit</button><button className="btn sm primary" onClick={() => onPosted(p)}>Mark as posted</button></>}
           {p.status === 'scheduled' && <button className="btn sm" onClick={() => act(`${p.id}/unschedule`, 'Moved back to drafts')}>Unschedule</button>}
           {(p.status === 'draft' || p.status === 'scheduled') && <button className="btn sm" onClick={() => act(`${p.id}/cancel`, 'Canceled')}>Cancel</button>}
@@ -156,7 +175,7 @@ function PostList({ rows, empty, onEdit, onPosted, act }) {
         </div>
       </div>
     );
-  });
+  })}</>;
 }
 
 export default function ContentCalendarPage() {
