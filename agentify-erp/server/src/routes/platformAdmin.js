@@ -713,6 +713,10 @@ r.get('/content/posts/:id/media', requireOperator, need('content.calendar'), asy
   const p = cal.getPost(req.params.id);
   if (!p.media_url) throw bad('This post has no image or video');
   const f = promoFileOf(p);
+  if (req.query.inline) { // Watch / Preview: stream in the page (sendFile answers range requests, so seeking works on phones)
+    if (f) return res.sendFile(f, { headers: { 'Content-Disposition': 'inline', 'Cache-Control': 'private, max-age=300' } });
+    return res.redirect(p.media_url);
+  }
   audit(req.operator.email, 'content-media-downloaded', { id: p.id });
   if (f) return res.download(f, downloadName(p.title, f));
   res.redirect(p.media_url); // a file hosted elsewhere: open it from its own address
