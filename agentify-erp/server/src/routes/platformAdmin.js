@@ -47,7 +47,7 @@ import { cleanWhatsappLimits } from '../services/whatsappLimits.js';
 import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
 import * as cal from '../services/contentCalendar.js';
-import { addPromoDrafts } from '../services/promoDrafts.js';
+import { addPromoDrafts, promoFileOf, downloadName } from '../services/promoDrafts.js';
 import * as aiu from '../services/aiUsage.js';
 import * as aiRep from '../services/aiReport.js';
 import * as aiLab from '../services/aiVoiceLab.js';
@@ -709,6 +709,14 @@ r.post('/content/posts/:id/posted', requireOperator, need('content.calendar'), a
 }));
 r.post('/content/posts/:id/cancel', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.cancelPost(req.params.id); audit(req.operator.email, 'content-post-canceled', { id: p.id }); res.json(p); }));
 r.delete('/content/posts/:id', requireOperator, need('content.calendar'), asyncH((req, res) => { cal.deletePost(req.params.id); audit(req.operator.email, 'content-post-deleted', { id: Number(req.params.id) }); res.json({ ok: true }); }));
+r.get('/content/posts/:id/media', requireOperator, need('content.calendar'), asyncH((req, res) => {
+  const p = cal.getPost(req.params.id);
+  if (!p.media_url) throw bad('This post has no image or video');
+  const f = promoFileOf(p);
+  audit(req.operator.email, 'content-media-downloaded', { id: p.id });
+  if (f) return res.download(f, downloadName(p.title, f));
+  res.redirect(p.media_url); // a file hosted elsewhere: open it from its own address
+}));
 r.post('/content/promo-drafts', requireOperator, need('content.calendar'), asyncH((req, res) => {
   const out = addPromoDrafts(`${req.protocol}://${req.get('host')}`, req.operator.email);
   audit(req.operator.email, 'content-promo-drafts-added', { added: out.added.length, skipped: out.skipped.length }); res.status(201).json(out);

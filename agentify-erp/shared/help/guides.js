@@ -161,7 +161,7 @@ export const GUIDES = {
     internal: ['Assignment is written in one database transaction so simultaneous leads cannot read the same round-robin position.'],
   },
   'lead-scoring': {
-    title: 'Lead scoring and the follow-up queue', since: 'v1.72', module: 'CRM',
+    title: 'Lead scoring and the follow-up queue', since: 'v1.73', module: 'CRM',
     who: 'Sales agents and managers on plans that include it (from Agency Pro)',
     keywords: ['lead scoring', 'score', 'hot lead', 'warm lead', 'cold lead', 'follow-up queue', 'follow up queue', 'reminder', 'overdue follow-up', 'who to call first', 'gone quiet'],
     steps: [
