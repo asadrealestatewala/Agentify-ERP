@@ -13,7 +13,7 @@ import { bad } from '../util.js';
 
 export const DEFAULT_MARGIN = {
   vps_usd: 10, resend_usd: 20, resend_emails: 50000, storage_usd: 10, storage_gb: 350,
-  paying_tenants: 25, typical_use_pct: 40, commission_pct: 4.5, payment_fee_pct: 3, target_multiple: 2, yearly_discount_pct: 15,
+  paying_tenants: 25, typical_use_pct: 40, commission_pct: 4.5, sales_commission_pct: 20, payment_fee_pct: 3, target_multiple: 2, yearly_discount_pct: 15,
   fx: byCur(280, 1, 0.79, 1.37), tax_pct: byCur(16, 0, 20, 5),
   mix: { video: 60, voice: 10, image: 30 },
 };
@@ -26,7 +26,7 @@ const num = (v, label, min, max) => { const n = Number(v); if (!Number.isFinite(
 export function saveMarginSettings(b, by) {
   const cur = getMarginSettings(), next = { ...cur, fx: { ...cur.fx }, tax_pct: { ...cur.tax_pct }, mix: { ...cur.mix } };
   const flat = { vps_usd: [0, 100000], resend_usd: [0, 100000], resend_emails: [1, 1e9], storage_usd: [0, 100000], storage_gb: [1, 1e7], paying_tenants: [1, 100000],
-    typical_use_pct: [1, 100], commission_pct: [0, 50], payment_fee_pct: [0, 20], target_multiple: [1, 20], yearly_discount_pct: [0, 60] };
+    typical_use_pct: [1, 100], commission_pct: [0, 50], sales_commission_pct: [0, 100], payment_fee_pct: [0, 20], target_multiple: [1, 20], yearly_discount_pct: [0, 60] };
   for (const [k, [lo, hi]] of Object.entries(flat)) if (b[k] !== undefined) next[k] = num(b[k], k.replaceAll('_', ' '), lo, hi);
   for (const c of OFFER_CURRENCIES) {
     if (b.fx?.[c] !== undefined) next.fx[c] = num(b.fx[c], `Exchange rate ${c}`, 0.0001, 100000);
@@ -62,7 +62,9 @@ export function costOf({ plan, currency, price }, m = getMarginSettings(), cpc =
   const costTyp = ai * use + storage * use + fixed + fees + commission + tax;
   const flag = priceUsd < costFull ? 'red' : priceUsd / costFull < m.target_multiple ? 'orange' : 'ok';
   const r2 = (n) => Math.round(n * 100) / 100;
-  return { price_usd: r2(priceUsd), credits, ai_full: r2(ai), ai_typical: r2(ai * use), storage_full: r2(storage), storage_typical: r2(storage * use), fixed: r2(fixed), fees: r2(fees), commission: r2(commission), tax: r2(tax),
+  // Sales-team view in the plan's own currency, per month: what the sales team earns, what we keep, the usage cost we carry, and the net.
+  const sc = price * ((m.sales_commission_pct ?? 20) / 100), keptL = price - sc, usageL = (ai * use + storage * use) * m.fx[currency];
+  return { sales_commission_local: r2(sc), kept_local: r2(keptL), usage_cost_local: r2(usageL), net_local: r2(keptL - usageL), price_usd: r2(priceUsd), credits, ai_full: r2(ai), ai_typical: r2(ai * use), storage_full: r2(storage), storage_typical: r2(storage * use), fixed: r2(fixed), fees: r2(fees), commission: r2(commission), tax: r2(tax),
     cost_full: r2(costFull), cost_typical: r2(costTyp), profit_full: r2(priceUsd - costFull), profit_typical: r2(priceUsd - costTyp),
     margin_full_pct: Math.round(((priceUsd - costFull) / priceUsd) * 100), margin_typical_pct: Math.round(((priceUsd - costTyp) / priceUsd) * 100),
     multiple_full: r2(priceUsd / costFull), flag };
