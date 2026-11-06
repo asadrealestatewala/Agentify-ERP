@@ -20,7 +20,7 @@
 // Currencies are never added together: every money figure is a map { PKR: n, USD: n }.
 // Taxes: prices are tax-inclusive; no tax is split out until a tax rule exists. Discounts reduce the price paid.
 import { platformDb, listTenants } from '../platform.js';
-import { PLANS, PRODUCTS, billingState } from './plans.js';
+import { PLANS, PRODUCTS, billingState, perMonth, intervalMonths } from './plans.js';
 import { resolveRange, utcStart, addDays, localToday } from './platformMetrics.js';
 import { bad } from '../util.js';
 
@@ -31,11 +31,11 @@ const dms = (d) => Date.parse(`${String(d).slice(0, 10)}T00:00:00Z`);
 
 /** Monthly recurring value of one workspace, or null. */
 export function monthlyValue(t) {
-  if (t.price_amount != null) return { currency: t.price_currency || 'PKR', amount: t.billing_interval === 'year' ? Math.round(t.price_amount / 12) : t.price_amount };
+  if (t.price_amount != null) return { currency: t.price_currency || 'PKR', amount: perMonth(t.price_amount, t.billing_interval) };
   const p = PLANS[t.plan];
   const cur = p && [t.currency, 'PKR'].find((c) => p.price?.[c]);
   if (!cur) return null;
-  return { currency: cur, amount: t.billing_interval === 'year' ? Math.round(p.price[cur].year / 12) : p.price[cur].month };
+  return { currency: cur, amount: (t.billing_interval === 'year' || t.billing_interval === 'half') ? perMonth(p.price[cur][t.billing_interval] ?? p.price[cur].month * intervalMonths(t.billing_interval), t.billing_interval) : p.price[cur].month };
 }
 
 const FILTER_KEYS = ['product', 'plan', 'status', 'currency', 'tenant'];

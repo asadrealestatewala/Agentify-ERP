@@ -9,7 +9,7 @@
 //   BILLING_WEBHOOK_SECRET    HMAC secret the provider (or its adapter) signs webhooks with
 import { launchLine } from './launchOffer.js';
 import crypto from 'node:crypto';
-import { PLANS, graceDays, assertSellable } from './plans.js';
+import { PLANS, graceDays, assertSellable, isInterval, intervalMonths } from './plans.js';
 import { recordSubscriptionChange } from './subscriptions.js';
 import { bad, HttpError } from '../util.js';
 import { platformDb, getTenant, getTenantBySlug, logTenantEvent } from '../platform.js';
@@ -29,7 +29,7 @@ export const providerName = () => (process.env.BILLING_PROVIDER || 'manual').toL
 /** Where to send the customer to pay for `plan`. Returns { mode:'redirect', url } or { mode:'manual', instructions }. */
 export function startCheckout(tenant, { plan, interval = 'month', email }) {
   assertSellable(plan, tenant);
-  if (!['month', 'year'].includes(interval)) throw bad('Interval must be month or year');
+  if (!isInterval(interval)) throw bad('Interval must be month, 6 months or year');
   if (providerName() === 'generic') {
     const base = process.env[`BILLING_CHECKOUT_URL_${plan.toUpperCase()}_${interval.toUpperCase()}`];
     if (!base) throw new HttpError(503, 'Online checkout is not configured for this plan yet');
@@ -136,7 +136,7 @@ export function setSubscription(tenantId, { plan, status = 'active', period_end,
   if (tenant.is_legacy) throw bad('The original workspace is not billed');
   if (!PLANS[plan]) throw bad('Unknown plan');
   if (!SUB_STATUSES.includes(status)) throw bad('Unknown subscription status');
-  const int = interval === 'year' ? 'year' : 'month';
+  const int = isInterval(interval) ? interval : 'month';
   const cur = PLANS[plan].price[tenant.currency] ? tenant.currency : 'PKR';
   const amount = PLANS[plan].price[cur]?.[int] ?? null;
   const db = platformDb();
@@ -181,7 +181,7 @@ const origin = (req) => `${req.protocol}://${req.get('host')}`;
 /** Start paying for a plan by card. Stripe when configured, otherwise the generic hosted-link flow. */
 export async function startCardCheckout(req, { plan, interval = 'month' }) {
   assertSellable(plan, req.tenant);
-  if (!['month', 'year'].includes(interval)) throw bad('Interval must be month or year');
+  if (!isInterval(interval)) throw bad('Interval must be month, 6 months or year');
   // Stripe card checkout charges fixed Stripe prices, so it cannot give the launch price. Refuse rather than charge more than the page promised.
   if (stripe.stripeConfigured() && launchLine(req.tenant, PLANS[plan], String(req.tenant.currency || '').toUpperCase(), interval, PLANS[plan]?.price?.[String(req.tenant.currency || '').toUpperCase()]?.month)) throw bad('The launch price cannot be paid by card yet. Please pay by bank transfer, wallet or an online payment option, or choose yearly billing.');
   if (stripe.stripeConfigured()) return stripe.createCheckout(req.tenant, { plan, interval, email: req.user.email, origin: origin(req), firstPayment: !platformDb().prepare("SELECT 1 FROM invoices WHERE tenant_id=? AND status='paid'").get(req.tenant.id) });
@@ -199,7 +199,7 @@ const addMonths = (dateStr, n) => {
 /** A customer says "I paid PKR X by <method>, reference <ref>". Nothing activates until an operator confirms it arrived. */
 export async function submitLocalPayment(tenant, user, { plan, interval = 'month', method, reference, note, coupon = null, addons = [] }) {
   assertSellable(plan, tenant);
-  if (!['month', 'year'].includes(interval)) throw bad('Interval must be month or year');
+  if (!isInterval(interval)) throw bad('Interval must be month, 6 months or year');
   if (!localAccounts().some((a) => a.method === method)) throw bad('This payment method is not available');
   const ref = String(reference || '').trim();
   if (ref.length < 6) throw bad('Enter the transaction ID or reference from your payment receipt');
@@ -236,7 +236,7 @@ export async function approveSubmission(id, decisionNote, decidedBy = null) {
   const tenant = getTenant(s.tenant_id);
   const today = new Date().toISOString().slice(0, 10);
   const current = tenant.subscription_status === 'active' && tenant.current_period_end && tenant.current_period_end > today && tenant.plan === s.plan ? tenant.current_period_end : today;
-  const periodEnd = addMonths(current, s.interval === 'year' ? 12 : 1);
+  const periodEnd = addMonths(current, intervalMonths(s.interval));
   db.exec('BEGIN IMMEDIATE');
   try {
     db.prepare("UPDATE payment_submissions SET status='approved', decision_note=?, decided_at=datetime('now') WHERE id=?").run(decisionNote || null, id);

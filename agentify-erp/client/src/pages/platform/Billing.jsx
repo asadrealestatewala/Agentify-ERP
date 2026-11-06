@@ -9,7 +9,8 @@ import { fmtWhen } from './dates.js';
 
 const n0 = (v) => Number(v || 0).toLocaleString();
 const limitText = (v) => (v == null ? 'Unlimited' : n0(v));
-const priceText = (p, cur = 'PKR') => (p?.[cur] ? `${cur} ${n0(p[cur].month)}/mo · ${n0(p[cur].year)}/yr` : '—');
+const priceText = (p, cur = 'PKR') => (p?.[cur] ? `${cur} ${n0(p[cur].month)}/mo${p[cur].half ? ` · ${n0(p[cur].half)}/6 mo` : ''} · ${n0(p[cur].year)}/yr` : '—');
+const INTERVAL_NAME = { month: 'month', half: '6 months', year: 'year' };
 export function downloadCsv(name, header, rows) {
   const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const text = [header.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))].join('\n');
@@ -25,6 +26,29 @@ const CURS = ['PKR', 'USD', 'GBP', 'CAD'];
 const FLAG_LABELS = { content_calendar: 'Content calendar', bulk_generator: 'Bulk monthly generator', brand_kit: 'Brand kit', listing_to_post: 'Listing to post', priority_queue: 'Priority queue' };
 const allowForm = (a) => ({ set: !!a, credits: Object.fromEntries(CURS.map((c) => [c, a?.credits?.[c] ?? ''])), posts_per_day: a?.posts_per_day ?? '', posts_per_month: a?.posts_per_month ?? '', reel_seconds: a?.reel_seconds ?? '', flags: { ...Object.fromEntries(Object.keys(FLAG_LABELS).map((k) => [k, false])), ...(a?.flags || {}) } });
 const allowBody = (f) => (!f?.set ? null : { credits: Object.fromEntries(CURS.map((c) => [c, f.credits[c] === '' ? null : Number(f.credits[c])])), posts_per_day: f.posts_per_day === '' ? null : Number(f.posts_per_day), posts_per_month: f.posts_per_month === '' ? null : Number(f.posts_per_month), reel_seconds: f.reel_seconds === '' ? null : Number(f.reel_seconds), flags: f.flags });
+/** The 7-tier Pakistan ladder: it is seeded hidden; this is the one switch that puts it on sale (and takes the old public plans off sale). */
+function LadderCard({ info, onChanged }) {
+  const toast = useToast();
+  const [ask, setAsk] = useState(false);
+  if (!info?.present) return null;
+  const go = async (on) => {
+    try { await api.post(`${A}/plans-ladder`, { on }); toast(on ? 'The 7-tier ladder is on sale' : 'Ladder switched off; the previous plans are back on sale'); setAsk(false); onChanged(); } catch (e) { toast(e.message, 'err'); }
+  };
+  return (
+    <Card title="7-tier ladder (Solo Agent to Enterprise)" actions={info.on ? <button className="btn sm" onClick={() => go(false)}>Switch off and restore the old plans</button> : <button className="btn primary sm" onClick={() => setAsk(true)}>Switch to the 7-tier ladder</button>}>
+      <p className="muted" style={{ margin: 0 }}>{info.on
+        ? 'The ladder is on sale. Older public plans are off sale; their subscribers keep them and can renew.'
+        : 'The 7 ladder plans exist but are hidden, so nothing public has changed. Review prices and features in the table (they are under Real Estate and Both products), then switch.'}</p>
+      {ask && (
+        <Modal title="Put the 7-tier ladder on sale?" onClose={() => setAsk(false)} footer={<><button className="btn" onClick={() => setAsk(false)}>Cancel</button><button className="btn primary" onClick={() => go(true)}>Switch on</button></>}>
+          <p>The 7 ladder plans become visible and buyable on the pricing page and in Plan &amp; Billing. Every other public plan goes off sale: workspaces already on them keep them and can renew, nothing is deleted. You can switch back at any time.</p>
+          <p className="muted">Ladder prices are in PKR only. Customers paying in another currency will not see a price until you add one for each plan.</p>
+        </Modal>
+      )}
+    </Card>
+  );
+}
+
 export function PlansPage() {
   const toast = useToast();
   const [d, setD] = useState(null);
@@ -68,6 +92,7 @@ export function PlansPage() {
           <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
             {products.map((p) => <button key={p} className={`btn sm ${tab === p ? 'primary' : ''}`} onClick={() => setTab(p)}>{PRODUCT_LABEL[p]} ({d.plans.filter((x) => x.product === p).length})</button>)}
           </div>
+          <LadderCard info={d.ladder} onChanged={load} />
           <Card flush>
             {!shown.length ? <Empty title="No plans in this family yet" hint="Create one with New plan." /> : (
             <div className="table-wrap"><table className="t"><thead><tr><th>Plan</th><th>Price (PKR)</th><th>Price (USD)</th><th>Setup fee</th><th>Users</th><th>Projects</th><th>Properties</th><th>Storage</th><th>API</th><th>Email per month</th><th>Subscribers</th><th>Status</th><th /></tr></thead><tbody>
@@ -110,14 +135,14 @@ export function PlansPage() {
           <Field label="Features shown on the pricing page" hint="One per line. Describe only what the plan really includes."><textarea className="input" rows={4} value={edit.features} onChange={(e) => setEdit({ ...edit, features: e.target.value })} /></Field>
           <h4 style={{ margin: '12px 0 6px' }}>Prices</h4>
           <div className="pa-grid2" style={{ marginBottom: 0 }}>
-            {CURS.flatMap((cur) => ['month', 'year'].map((int) => (
-              <Field key={cur + int} label={`${cur} per ${int}`} hint={!edit.isNew && edit.price[cur]?.[int] != null ? `Now ${n0(d.plans.find((p) => p.id === edit.id)?.price?.[cur]?.[int])}` : cur === 'PKR' ? 'Required' : 'Optional (card payments in USD)'}>
+            {CURS.flatMap((cur) => ['month', 'half', 'year'].map((int) => (
+              <Field key={cur + int} label={`${cur} per ${INTERVAL_NAME[int]}`} hint={!edit.isNew && edit.price[cur]?.[int] != null ? `Now ${n0(d.plans.find((p) => p.id === edit.id)?.price?.[cur]?.[int])}` : cur === 'PKR' ? 'Required' : 'Optional (card payments in USD)'}>
                 <TextInput type="number" value={edit.price[cur]?.[int] ?? ''} onChange={(v) => setEdit({ ...edit, price: { ...edit.price, [cur]: { ...edit.price[cur], [int]: v === '' ? undefined : Number(v) } } })} />
               </Field>
             )))}
             {CURS.map((cur) => <Field key={`fee${cur}`} label={`One-time setup fee (${cur})`} hint="Charged with the first payment only. Empty = none."><TextInput type="number" value={edit.setup_fee?.[cur] ?? ''} onChange={(v) => setEdit({ ...edit, setup_fee: { ...edit.setup_fee, [cur]: v === '' ? undefined : Number(v) } })} /></Field>)}
           </div>
-          <p className="muted" style={{ marginTop: 0 }}>Annual discount: set the yearly price lower than 12 x monthly.</p>
+          <p className="muted" style={{ marginTop: 0 }}>Period discounts: set the 6-month price lower than 6 x monthly and the yearly price lower than 12 x monthly (the 7-tier ladder uses 10% and 20% off). Leave a period empty to not offer it.</p>
           <h4 style={{ margin: '12px 0 6px' }}>Limits</h4>
           <div className="pa-grid3" style={{ marginBottom: 0 }}>
             <Field label="Users" hint="Empty = unlimited"><TextInput type="number" value={edit.seats ?? ''} onChange={(v) => setEdit({ ...edit, seats: v })} /></Field>
@@ -140,6 +165,13 @@ export function PlansPage() {
             </div>
             <div className="pa-grid3" style={{ marginBottom: 0 }}>
               {Object.entries(FLAG_LABELS).map(([k, l]) => <Field key={k} label={l}><Toggle value={!!edit.allow.flags[k]} onChange={(v) => setEdit({ ...edit, allow: { ...edit.allow, flags: { ...edit.allow.flags, [k]: v } } })} label="Included" /></Field>)}
+            </div>
+          </>}
+          {edit.allow.set && d.features && <>
+            <h4 style={{ margin: '12px 0 6px' }}>Plan features (switched off = the server refuses that area for this plan)</h4>
+            <p className="muted" style={{ fontSize: 12.5, marginTop: 0 }}>A feature that is never set stays on, so older plans keep everything. Items marked as a service are delivered by Agentify staff and have no screen to switch off.</p>
+            <div className="pa-grid3" style={{ marginBottom: 0 }}>
+              {Object.entries(d.features).map(([k, f]) => <Field key={k} label={f.label} hint={f.service ? 'Service' : ''}><Toggle value={edit.allow.flags[k] !== false} onChange={(v) => setEdit({ ...edit, allow: { ...edit.allow, flags: { ...edit.allow.flags, [k]: v } } })} label="Included" /></Field>)}
             </div>
           </>}
           <Toggle value={!!edit.launch_offer} onChange={(v) => setEdit({ ...edit, launch_offer: v })} label="Part of the launch offer (discount on the first monthly payments, set on the Launch offer page)" />
@@ -197,7 +229,7 @@ function AddonsCard() {
       {!rows ? <Loading /> : !rows.length ? <Empty title="No add-ons yet" /> : (
         <div className="table-wrap"><table className="t"><thead><tr><th>Add-on</th><th>Product</th><th>Price</th><th>Adds</th><th>Status</th><th /></tr></thead><tbody>
           {rows.map((a) => <tr key={a.id}><td><b>{a.name}</b><div className="muted mono">{a.id}</div></td><td>{PRODUCT_LABEL[a.product]}</td><td className="nowrap">{priceText(a.price, 'PKR')}</td>
-            <td>{Object.entries(a.entitlements).map(([k, v]) => (k === 'api_access' ? 'API access' : `+${n0(v)} ${k.replace('_mb', ' MB')}`)).join(', ') || '—'}</td>
+            <td>{Object.entries(a.entitlements).map(([k, v]) => (k === 'api_access' ? 'API access' : k === 'topup_credits' ? `+${n0(v)} AI credits once` : `+${n0(v)} ${k.replace('_mb', ' MB')}`)).join(', ') || '—'}</td>
             <td><StatusBadge status={a.active ? 'active' : 'inactive'} label={a.active ? 'On sale' : 'Off'} /></td><td className="right"><button className="btn sm" onClick={() => setEdit({ ...a, isNew: false })}>Edit</button></td></tr>)}
         </tbody></table></div>
       )}
@@ -210,10 +242,10 @@ function AddonsCard() {
           <Field label="Description"><TextInput value={edit.description || ''} onChange={(v) => setEdit({ ...edit, description: v })} /></Field>
           <Field label="Available with"><select className="input" value={edit.product} onChange={(e) => setEdit({ ...edit, product: e.target.value })}>{['any', 'real_estate', 'construction'].map((p) => <option key={p} value={p}>{PRODUCT_LABEL[p]}</option>)}</select></Field>
           <div className="pa-grid2" style={{ marginBottom: 0 }}>
-            {['PKR', 'USD'].flatMap((cur) => ['month', 'year'].map((int) => <Field key={cur + int} label={`${cur} per ${int}`}><TextInput type="number" value={edit.price?.[cur]?.[int] ?? ''} onChange={(v) => setPrice(cur, int, v)} /></Field>))}
+            {['PKR', 'USD'].flatMap((cur) => ['month', 'half', 'year'].map((int) => <Field key={cur + int} label={`${cur} per ${INTERVAL_NAME[int]}`}><TextInput type="number" value={edit.price?.[cur]?.[int] ?? ''} onChange={(v) => setPrice(cur, int, v)} /></Field>))}
           </div>
           <div className="pa-grid2" style={{ marginBottom: 0 }}>
-            {[['seats', 'Extra users'], ['projects', 'Extra projects'], ['properties', 'Extra properties'], ['storage_mb', 'Extra storage (MB)']].map(([k, l]) => <Field key={k} label={l}><TextInput type="number" value={edit.entitlements?.[k] ?? ''} onChange={(v) => setEdit({ ...edit, entitlements: { ...edit.entitlements, [k]: v } })} /></Field>)}
+            {[['seats', 'Extra users'], ['projects', 'Extra projects'], ['properties', 'Extra properties'], ['storage_mb', 'Extra storage (MB)'], ['topup_credits', 'AI credits (one-time pack)']].map(([k, l]) => <Field key={k} label={l}><TextInput type="number" value={edit.entitlements?.[k] ?? ''} onChange={(v) => setEdit({ ...edit, entitlements: { ...edit.entitlements, [k]: v } })} /></Field>)}
           </div>
           <Toggle value={!!edit.entitlements?.api_access} onChange={(v) => setEdit({ ...edit, entitlements: { ...edit.entitlements, api_access: v } })} label="Adds website / partner API access" />
           <Toggle value={edit.active} onChange={(v) => setEdit({ ...edit, active: v })} label="On sale" />

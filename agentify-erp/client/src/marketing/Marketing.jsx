@@ -212,7 +212,7 @@ function OfferBar({ info }) {
 /** Price block of a plan card: with an offer the normal price is crossed out and the launch price is large. */
 function PriceBlock({ plan, cur, int, info }) {
   const l = int === 'month' ? launchOf(info.offer, plan, cur) : null;
-  if (!l) return <div className="lprice">{plan.price[cur]?.[int] != null ? fmt(plan.price[cur][int], cur) : '—'}<small> / {int === 'month' ? 'month' : 'year'}</small></div>;
+  if (!l) return <div className="lprice">{plan.price[cur]?.[int] != null ? fmt(plan.price[cur][int], cur) : '—'}<small> / {int === 'month' ? 'month' : int === 'half' ? '6 months' : 'year'}</small></div>;
   return (
     <>
       <div className="lcut" aria-label={`Normal price ${fmt(l.normal, cur)}`}><s>{fmt(l.normal, cur)}</s></div>
@@ -629,9 +629,10 @@ function Pricing({ info }) {
   const currencies = [...new Set(info.plans.flatMap((p) => Object.keys(p.price)))].sort((a, b) => (a === 'PKR' ? -1 : b === 'PKR' ? 1 : a.localeCompare(b)));
   const addons = info.addons.filter((a) => a.product === 'any' || a.product === prod || prod === 'bundle');
   const pay = [...(info.cards ? ['Cards'] : []), ...info.local_methods.map((k) => METHOD[k] || k)];
-  const saving = (p) => (p.price[cur]?.month && p.price[cur]?.year && p.price[cur].year < p.price[cur].month * 12 ? Math.round((1 - p.price[cur].year / (p.price[cur].month * 12)) * 100) : 0);
+  const saving = (p) => (p.price[cur]?.month && p.price[cur]?.[int] && int !== 'month' && p.price[cur][int] < p.price[cur].month * (int === 'half' ? 6 : 12) ? Math.round((1 - p.price[cur][int] / (p.price[cur].month * (int === 'half' ? 6 : 12))) * 100) : 0);
+  const periods = ['month', 'half', 'year'].filter((i) => i === 'month' || plans.some((p) => p.price[cur]?.[i] != null));
   const rows = [
-    ['Team members', (p) => (p.seats == null ? 'Unlimited' : p.seats)], ['Projects', (p) => (p.projects == null ? 'Unlimited' : p.projects)],
+    ['Team members', (p) => (p.seats == null ? 'Unlimited' : p.seats)], ['Projects', (p) => (p.allowances?.flags?.project_inventory === false ? '—' : p.projects == null ? 'Unlimited' : p.projects)],
     ...(prod !== 'construction' ? [['Properties', (p) => (p.properties == null ? 'Unlimited' : Number(p.properties).toLocaleString())]] : []),
     ['File storage', (p) => (p.storage_mb == null ? 'Unlimited' : `${Math.round((p.storage_mb / 1024) * 10) / 10} GB`)], ['Website / partner API', (p) => (p.api_access ? '✓' : '—')],
     ['One-time setup fee', (p) => (p.setup_fee?.[cur] ? fmt(p.setup_fee[cur], cur) : 'None')], ['Free trial', (p) => (p.trial_eligible ? `${info.trial_days} days` : '—')],
@@ -642,7 +643,7 @@ function Pricing({ info }) {
       <section style={{ paddingTop: 0 }}><div className="lwrap">
         <div className="ltog">
           <div role="tablist" aria-label="Product">{[['real_estate', 'Real Estate'], ['construction', 'Construction'], ...(hasBundle ? [['bundle', 'Both']] : [])].map(([k, l]) => <button key={k} role="tab" aria-selected={prod === k} className={prod === k ? 'on' : ''} onClick={() => setProd(k)}>{l}</button>)}</div>
-          <div role="tablist" aria-label="Billing">{['month', 'year'].map((i) => <button key={i} role="tab" aria-selected={int === i} className={int === i ? 'on' : ''} onClick={() => setInt(i)}>{i === 'month' ? 'Monthly' : 'Yearly'}</button>)}</div>
+          <div role="tablist" aria-label="Billing">{periods.map((i) => <button key={i} role="tab" aria-selected={int === i} className={int === i ? 'on' : ''} onClick={() => setInt(i)}>{i === 'month' ? 'Monthly' : i === 'half' ? '6 months' : 'Yearly'}</button>)}</div>
           {false && <div role="tablist" aria-label="Currency">{currencies.map((k) => <button key={k} role="tab" aria-selected={cur === k} className={cur === k ? 'on' : ''} onClick={() => setCur(k)}>{k}</button>)}</div>}
         </div>
         {!plans.length ? <p className="lfine" style={{ textAlign: 'center' }}>Plans for this product are being prepared. <Link to="/contact">Contact us</Link>.</p> : (
@@ -651,11 +652,11 @@ function Pricing({ info }) {
               {p.highlight && <span className="ltag">Recommended</span>}
               <h3>{p.name}</h3>
               <PriceBlock plan={p} cur={cur} int={int} info={info} />
-              {int === 'year' && saving(p) > 0 && <div className="lmini">Save {saving(p)}% compared with monthly</div>}
+              {saving(p) > 0 && <div className="lmini">Save {saving(p)}% compared with monthly</div>}
               {p.setup_fee?.[cur] ? <div className="lmini">+ {fmt(p.setup_fee[cur], cur)} one-time setup</div> : null}
               {p.description && <p>{p.description}</p>}
               <ul>
-                <li>{limitLine(p.seats, 'team member', 'team members')}</li><li>{limitLine(p.projects, 'project', 'projects')}</li>
+                <li>{limitLine(p.seats, 'team member', 'team members')}</li>{p.allowances?.flags?.project_inventory !== false && <li>{limitLine(p.projects, 'project', 'projects')}</li>}
                 {p.product !== 'construction' && <li>{limitLine(p.properties, 'property', 'properties')}</li>}
                 {p.api_access && <li>Website / partner API</li>}
                 {(p.features || []).map((f) => <li key={f}>{f}</li>)}
@@ -665,7 +666,7 @@ function Pricing({ info }) {
           ))}</div>
         )}
         {!!plans.length && <div className="lscroll" style={{ marginTop: 30 }}><table className="lcmp"><thead><tr><th>Compare</th>{plans.map((p) => <th key={p.id} className="c">{p.name}</th>)}</tr></thead><tbody>{rows.map(([l, f]) => <tr key={l}><td>{l}</td>{plans.map((p) => <td key={p.id} className="c">{f(p)}</td>)}</tr>)}</tbody></table></div>}
-        {!!addons.length && <><h3 style={{ margin: '34px 0 12px', textAlign: 'center' }}>Optional add-ons</h3><div className="lscroll"><table className="lcmp"><thead><tr><th>Add-on</th><th>Adds</th><th className="c">Price</th></tr></thead><tbody>{addons.map((a) => <tr key={a.id}><td><b>{a.name}</b>{a.description ? <div className="lmini">{a.description}</div> : null}</td><td>{Object.entries(a.entitlements).map(([k, v]) => (k === 'api_access' ? 'API access' : `+${v} ${k === 'storage_mb' ? 'MB storage' : k}`)).join(', ')}</td><td className="c">{a.price[cur]?.[int] != null ? `${fmt(a.price[cur][int], cur)} / ${int === 'month' ? 'mo' : 'yr'}` : '—'}</td></tr>)}</tbody></table></div></>}
+        {!!addons.length && <><h3 style={{ margin: '34px 0 12px', textAlign: 'center' }}>Optional add-ons</h3><div className="lscroll"><table className="lcmp"><thead><tr><th>Add-on</th><th>Adds</th><th className="c">Price</th></tr></thead><tbody>{addons.map((a) => <tr key={a.id}><td><b>{a.name}</b>{a.description ? <div className="lmini">{a.description}</div> : null}</td><td>{Object.entries(a.entitlements).map(([k, v]) => (k === 'api_access' ? 'API access' : k === 'topup_credits' ? `+${v} AI credits` : k === 'seats' ? `+${v} user` : `+${v} ${k === 'storage_mb' ? 'MB storage' : k}`)).join(', ')}</td><td className="c">{a.entitlements?.topup_credits ? (a.price[cur]?.month != null ? `${fmt(a.price[cur].month, cur)} once` : '—') : a.price[cur]?.[int] != null ? `${fmt(a.price[cur][int], cur)} / ${int === 'month' ? 'mo' : int === 'half' ? '6 mo' : 'yr'}` : '—'}</td></tr>)}</tbody></table></div></>}
         <div className="lgrid" style={{ marginTop: 34 }}>
           <div className="lcard"><h3>Trial terms</h3><p>{info.trial_days} days, no card needed. When it ends without a plan, the workspace becomes read-only: you can still sign in and export everything. Nothing is deleted.</p></div>
           <div className="lcard"><h3>Billing</h3><p>Monthly or yearly. Plans renew automatically by card, or by bank/wallet transfer with reminders before each renewal. Cancel any time; access continues to the end of the paid period.</p></div>

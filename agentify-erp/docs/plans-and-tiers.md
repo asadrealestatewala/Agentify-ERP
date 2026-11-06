@@ -31,3 +31,26 @@ Instagram stays at 25 posts per account per 24 hours.
 
 ## Zernio
 Default billing mode is now `workspace`: each workspace connects its own Zernio account and pays Zernio directly. Zernio is not in plan costs or the margin view and there are no per-tier account limits.
+
+## The 7-tier Pakistan ladder (v1.72)
+Seeded once as **hidden** plans (`seeded_ladder_v1`, `services/planLadder.js`). Nothing public changes until the owner uses **Console > Plans > Switch to the 7-tier ladder**, which puts the 7 plans on sale and takes every other public plan off sale (subscribers keep their plan and can renew; nothing is deleted). Switching off restores the previous sale page exactly.
+
+| Tier | Plan id | PKR / month | Users | Adds |
+|---|---|---|---|---|
+| 1 Solo Agent | `lad_solo_agent` | 1,500 | 1 | listings, leads, basic CRM, no AI, no website |
+| 2 Agent Plus | `lad_agent_plus` | 3,500 | 2 | installments, receipts, WhatsApp reminders |
+| 3 Agency Starter | `lad_agency_starter` | 7,500 | 5 | vouchers/accounting, reports, website-only site |
+| 4 Agency Growth | `lad_agency_growth` | 12,000 | 10 | visual website, custom domain, property visits, field-location sharing, tenant email, AI (150 credits/month) |
+| 5 Agency Pro | `lad_agency_pro` | 18,000 | 15 | AI 500 credits, Creative Studio reels to 16 s, Zernio social posting, **lead scoring + follow-up queue** |
+| 6 Developer | `lad_developer` | 35,000 | 40 | developer portal, plot rebates, projects/inventory, construction (bundle), 1,200 credits, assisted migration |
+| 7 Enterprise (from) | `lad_enterprise` | 85,000 | unlimited | branches, API + MLS/portal feeds, white-label, dedicated database, 2FA enforcement, priority support |
+
+**Billing periods.** `month`, `half` (6 months, 10% off) and `year` (20% off). `INTERVALS` in `plans.js` is the one list; `plan_prices` was rebuilt once to allow `half`. Stripe card checkout still sells month and year only; the 6-month period is for bank, wallet and online-gateway payments.
+
+**Add-ons.** `extra_user` (+1 seat, PKR 700/month; 3,780 per 6 months; 6,720 per year, quantity 1-1000). AI top-up packs `ai_topup_100/300/700` (PKR 3,000 / 8,000 / 16,000): one-time, added to the current month's credits when the payment is approved, never recurring and not counted in MRR (carried as the one-time amount of the payment).
+
+**Feature switches.** `FEATURE_GATES` in `plans.js` lists each switchable feature and the API paths it owns. A plan turns a feature off with `allowances.flags.<feature> = false`; `billingGuard` then answers 402 `feature_not_in_plan`. A feature a plan never mentions stays on, so every older plan and trial keeps everything. `project_inventory` blocks writes only, so project dropdowns elsewhere still read. Edit the switches in the plan editor (Plan features).
+
+**Not built, promise only (flag + wording, no code behind it):** branches, white-label, dedicated database, 2FA enforcement for all staff, priority support, assisted migration. They are marked `service` in `FEATURE_GATES`.
+
+**Prices are PKR only.** Other currencies have no ladder price, so switch the ladder on for Pakistan first. Credits and the margin view are proposals the owner tunes (Console > Plan margins includes the ladder).

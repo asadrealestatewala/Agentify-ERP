@@ -160,6 +160,20 @@ export const GUIDES = {
     faq: [{ q: 'Why did a lead not go to the agent I expected?', a: 'Rules run in order and an agent must be available, on the rule\'s team and under their open-lead limit.' }, { q: 'A conversion rate shows a dash.', a: 'There is nothing to measure yet, so no percentage is shown.' }],
     internal: ['Assignment is written in one database transaction so simultaneous leads cannot read the same round-robin position.'],
   },
+  'lead-scoring': {
+    title: 'Lead scoring and the follow-up queue', since: 'v1.73', module: 'CRM',
+    who: 'Sales agents and managers on plans that include it (from Agency Pro)',
+    keywords: ['lead scoring', 'score', 'hot lead', 'warm lead', 'cold lead', 'follow-up queue', 'follow up queue', 'reminder', 'overdue follow-up', 'who to call first', 'gone quiet'],
+    steps: [
+      'Open CRM > Lead Scoring. The Follow-up queue tab lists leads whose follow-up is overdue or due today, and warm or hot leads that have gone quiet with nothing scheduled.',
+      'Call straight from the row, or choose Remind tomorrow to put a follow-up task on the lead for the next day.',
+      'Open the Lead scores tab to see every open lead ranked from 0 to 100. Hot is 65 or more, warm 40 or more. Click Hot, Warm or Cold to filter.',
+      'Each score shows the reasons behind it, such as recent activity, the stage, a known budget or a specific property asked about.',
+    ],
+    limits: ['Scores are worked out when you open the page from what the CRM already holds; they are a guide for who to call first, not a prediction.', 'Lost and won leads, customers and demo contacts are not scored.', 'An agent who sees only their own leads sees only their own scores and queue.'],
+    faq: [{ q: 'Why is a lead cold?', a: 'Little recent activity, an early stage or missing details. Logging a call or note, setting a budget or moving the stage raises the score.' }, { q: 'I cannot see Lead Scoring.', a: 'It is part of Agency Pro and the plans above it. An administrator can upgrade under Settings > Plan & Billing.' }],
+    internal: ['Computed on demand in services/leadScoring.js; nothing is stored. The plan gate is the lead_scoring feature in services/plans.js FEATURE_GATES.'],
+  },
   'follow-up-sequences': {
     title: 'Follow-up sequences', since: 'v1.15', module: 'CRM',
     who: 'Sales teams that email or message leads automatically',

@@ -22,6 +22,7 @@ export const SCREENS = [
   { "section": "CRM", "label": "Appointments", "path": "/appointments" }, 
   { "section": "CRM", "label": "Follow-up Sequences", "path": "/sequences" }, 
   { "section": "CRM", "label": "Lead Conversion", "path": "/leads/conversion" }, 
+  { "section": "CRM", "label": "Lead Scoring", "path": "/leads/scoring" }, 
   { "section": "CRM", "label": "Goals & Rewards", "path": "/goals" }, 
   { "section": "CRM", "label": "Sales Agents", "path": "/agents" }, 
   { "section": "CRM", "label": "Commissions", "path": "/commissions" }, 

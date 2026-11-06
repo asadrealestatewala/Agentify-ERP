@@ -5,7 +5,7 @@
 import { platformDb } from '../platform.js';
 import { getSetting } from './platformConfig.js';
 import { setBillingIdentity, sendMail, layout, mailReady } from './mailer.js';
-import { PLANS } from './plans.js';
+import { PLANS, intervalLabel } from './plans.js';
 
 export const DEFAULT_BILLING_ADDRESS = 'billing@agentifyerp.co';
 /** The billing mailbox address (console can override it with the `billing_mail_address` setting or BILLING_MAIL_ADDRESS). */
@@ -31,7 +31,7 @@ function compose(r, tenantName) {
   const lines = [
     `We have received your payment of ${money(r.amount, r.currency)} for ${tenantName}. Thank you.`,
     `Amount: ${money(r.amount, r.currency)}`,
-    ...(planName ? [`Plan: ${planName}${r.interval ? ` (${r.interval === 'year' ? 'yearly' : 'monthly'})` : ''}`] : []),
+    ...(planName ? [`Plan: ${planName}${r.interval ? ` (${intervalLabel(r.interval)})` : ''}`] : []),
     `Paid on: ${r.paid_on}`,
     ...(r.method ? [`Payment method: ${r.method}`] : []),
     `Reference: ${r.reference}`,

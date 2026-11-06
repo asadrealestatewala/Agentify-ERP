@@ -24,6 +24,60 @@ export const PRODUCTS = {
 export const PRODUCT_CHOICES = [...Object.keys(PRODUCTS), 'bundle'];
 export const expandProduct = (p) => (p === 'bundle' ? Object.keys(PRODUCTS) : PRODUCTS[p] ? [p] : ['real_estate']);
 
+/** Billing periods. Prices are stored per interval, so a longer period carries its own discount (6-month = 10% off, yearly = 20% off on the Pakistan ladder). */
+export const INTERVALS = { month: { months: 1, label: 'monthly', unit: 'month' }, half: { months: 6, label: '6-monthly', unit: '6 months' }, year: { months: 12, label: 'yearly', unit: 'year' } };
+export const INTERVAL_KEYS = Object.keys(INTERVALS);
+export const isInterval = (i) => typeof i === 'string' && Object.hasOwn(INTERVALS, i);
+export const intervalMonths = (i) => INTERVALS[i]?.months ?? 1;
+export const intervalLabel = (i) => INTERVALS[i]?.label ?? 'monthly';
+/** What a payment for `interval` costs per month, for reports. */
+export const perMonth = (amount, interval) => Math.round(Number(amount || 0) / intervalMonths(interval));
+
+/**
+ * Plan features that are switched on or off per plan (plan.allowances.flags). A feature is refused only when the plan says `false` for it, so plans that
+ * never mention a flag (every plan before the 7-tier ladder) keep everything they had. `paths` are /api prefixes; `write` limits the block to changes so
+ * dropdowns elsewhere in the app can still read the data; `re` matches a path pattern. `service: true` marks a promise that is delivered by people or
+ * operations (no API area to switch off).
+ */
+export const FEATURE_GATES = {
+  installments: { label: 'Installment plans', paths: ['/installments'] },
+  receipts: { label: 'Receipts', paths: ['/receipts'] },
+  whatsapp: { label: 'WhatsApp reminders', paths: ['/whatsapp'] },
+  vouchers: { label: 'Vouchers and accounting', paths: ['/accounting'] },
+  reports: { label: 'Reports', paths: ['/reports'] },
+  website: { label: 'Website-only site', paths: ['/site-admin', '/seo'] },
+  visual_website: { label: 'Visual website studio', paths: ['/site-admin/themes', '/site-admin/releases', '/site-admin/draft', '/site-admin/preview-link', '/site-admin/preview-links'] },
+  custom_domain: { label: 'Custom domain', paths: ['/integrations/domain'] },
+  property_visits: { label: 'Property visits', paths: ['/appointments/visit-settings'], re: /^\/appointments\/\d+\/(check-in|check-out)$/ },
+  field_location: { label: 'Field-location sharing', paths: ['/field'] },
+  tenant_email: { label: 'Tenant email', paths: ['/email'] },
+  ai: { label: 'AI assistant and Creative Studio', paths: ['/assistant', '/creative', '/integrations/ai'] },
+  social_posting: { label: 'Social posting (Zernio)', paths: ['/content/posting', '/integrations/social'] },
+  lead_scoring: { label: 'Lead scoring and follow-up queue', paths: ['/leadflow/scores', '/leadflow/followups'] },
+  developer_portal: { label: 'Developer portal', paths: ['/developers', '/developer'] },
+  plot_rebate: { label: 'Plot rebates', re: /^\/developers\/\d+\/(plot-rebates|rebates)(\/|$)/ },
+  project_inventory: { label: 'Projects and inventory', paths: ['/projects', '/dev-items', '/dev-updates', '/project-tasks', '/updates'], write: true },
+  mls_feeds: { label: 'MLS and portal feeds', paths: ['/integrations/portals'] },
+  assisted_migration: { label: 'Assisted data migration', service: true },
+  branches: { label: 'Branches', service: true },
+  white_label: { label: 'White-label', service: true },
+  dedicated_database: { label: 'Dedicated database', service: true },
+  enforce_2fa: { label: '2FA enforcement for staff', service: true },
+  priority_support: { label: 'Priority support', service: true },
+};
+const pathHit = (g, p) => (g.paths || []).some((x) => p === x || p.startsWith(`${x}/`)) || !!g.re?.test(p);
+/** The plan feature (if any) that owns an /api path and the plan turns off. */
+export function blockedFeature(flags, p, method = 'GET') {
+  if (!flags) return null;
+  const write = !['GET', 'HEAD', 'OPTIONS'].includes(method);
+  for (const [key, g] of Object.entries(FEATURE_GATES)) {
+    if (g.service || flags[key] !== false) continue;
+    if (g.write && !write) continue;
+    if (pathHit(g, p)) return [key, g];
+  }
+  return null;
+}
+
 export const DEFAULT_PLANS = {
   starter:    { name: 'Starter',    product: 'real_estate', seats: 5,    projects: 3,    properties: 200,  storage_mb: 2048,  api_access: 0, price: { USD: { month: 29, year: 290 },   PKR: { month: 8000, year: 80000 } } },
   growth:     { name: 'Growth',     product: 'real_estate', seats: 25,   projects: 25,   properties: 2000, storage_mb: 10240, api_access: 1, price: { USD: { month: 79, year: 790 },   PKR: { month: 22000, year: 220000 } } },
@@ -319,6 +373,8 @@ export function billingGuard(req, res, next) {
   if (mod && mod[1].product && !st.products.includes(mod[1].product)) {
     return next(new HttpError(402, `${mod[1].label} is part of ${PRODUCTS[mod[1].product].label}, which your subscription does not include. Add it from Plan & Billing.`, { code: 'product_not_in_plan', product: mod[1].product, module: mod[0] }));
   }
+  const gate = blockedFeature(st.limits.flags, req.path, req.method);
+  if (gate) return next(new HttpError(402, `${gate[1].label} is not included in your plan. Upgrade to use it.`, { code: 'feature_not_in_plan', feature: gate[0] }));
   if (mod && Array.isArray(st.limits.modules) && !st.limits.modules.includes(mod[0])) return next(new HttpError(402, `${mod[1].label} is not included in your plan. Upgrade to use it.`, { code: 'module_not_in_plan', module: mod[0] }));
   try {
     if (req.method === 'POST' && req.path === '/projects') assertProjectAvailable(t);
