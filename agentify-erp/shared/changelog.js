@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.72', date: '2026-11-06', title: 'Download videos from the content calendar',
+    items: [
+      { text: 'Posts that have a video or image now have a Download button, so the social media manager can save the file and post it by hand. The file is named after the post and its shape, for example promo-video-instagram-reels-9x16.mp4.', where: 'Super Admin console > Content calendar > Posts', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.71', date: '2026-11-03', title: 'Plans with credits and posting limits, and a launch offer',
     items: [
       { text: 'Your plan page now shows your plan, AI credits left, posts left today and this month, emails left and the longest reel your plan allows, with an Upgrade button.', where: 'Settings > Plan & billing', guide: 'plan-credits-limits' },

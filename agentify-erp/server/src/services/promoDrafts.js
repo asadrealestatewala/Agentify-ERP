@@ -1,7 +1,12 @@
 // Ready-made draft posts for Agentify's character promo videos. The two MP4s ship with the app (server/assets/promo) and are
 // served publicly at /promo-media/<file>, so the content calendar can point at them like any other media address. Nothing is
 // posted: each entry is a draft the social media manager reviews, schedules and publishes on the channel themselves.
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { listPosts, createPost } from './contentCalendar.js';
+
+const PROMO_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'assets', 'promo');
 
 export const PROMO_FILES = {
   characters: { vertical: 'characters-promo-9x16.mp4', horizontal: 'characters-promo-16x9.mp4' },
@@ -61,4 +66,19 @@ export function addPromoDrafts(baseUrl, by) {
     }
   }
   return { added, skipped };
+}
+
+/** Download name from the post title and the file's aspect ratio, e.g. "promo-video-instagram-reels-9x16.mp4". */
+export function downloadName(title, file) {
+  const ext = path.extname(file) || '.mp4';
+  const slug = String(title || 'post').replace(/(\d+):(\d+)/g, '$1x$2').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'post';
+  return `${slug}${ext}`;
+}
+
+/** The shipped promo file behind a post's media address, or null when the address points somewhere else. */
+export function promoFileOf(post) {
+  const m = /\/promo-media\/([A-Za-z0-9._-]+)$/.exec(String(post?.media_url || '').split(/[?#]/)[0]);
+  if (!m || !PROMO_FILE_NAMES.includes(m[1])) return null;
+  const f = path.join(PROMO_DIR, m[1]);
+  return fs.existsSync(f) ? f : null;
 }

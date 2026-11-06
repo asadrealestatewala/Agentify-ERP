@@ -148,6 +148,7 @@ function PostList({ rows, empty, onEdit, onPosted, act }) {
           {p.body && <p className="muted" style={{ margin: '4px 0 0', fontSize: 13.5, whiteSpace: 'pre-wrap' }}>{p.body.length > 220 ? `${p.body.slice(0, 220)}…` : p.body}</p>}
         </div>
         <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+          {p.media_url && <a className="btn sm" href={`${A}/content/posts/${p.id}/media`} download>Download {/\.(mp4|webm|mov)(\?|$)/i.test(p.media_url) ? 'video' : 'file'}</a>}
           {p.status !== 'posted' && p.status !== 'canceled' && <><button className="btn sm" onClick={() => onEdit(p)}>Edit</button><button className="btn sm primary" onClick={() => onPosted(p)}>Mark as posted</button></>}
           {p.status === 'scheduled' && <button className="btn sm" onClick={() => act(`${p.id}/unschedule`, 'Moved back to drafts')}>Unschedule</button>}
           {(p.status === 'draft' || p.status === 'scheduled') && <button className="btn sm" onClick={() => act(`${p.id}/cancel`, 'Canceled')}>Cancel</button>}
