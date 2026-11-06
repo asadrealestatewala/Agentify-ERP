@@ -92,5 +92,10 @@ test('promo video drafts: one draft per channel, repeatable, and the videos are 
   const b = await as(owner, 'POST', '/content/promo-drafts');
   assert.equal(b.data.added.length, 0); assert.equal(b.data.skipped.length, 40);
   for (const f of ['characters-promo-9x16.mp4', 'kinetic-promo-16x9.mp4', 'receipt-promo-9x16.mp4', 'synq-promo-16x9.mp4', 'global-promo-9x16.mp4']) assert.equal((await call('GET', `/promo-media/${f}`)).status, 200);
+  const post = a.data.added.find((p) => p.media_url.includes('kinetic-promo-9x16'));
+  assert.equal((await call('GET', `${A}/content/posts/${post.id}/media`)).status, 401, 'download needs a console login');
+  const dl = await new Promise((resolve, reject) => http.get({ host: '127.0.0.1', port, path: `${A}/content/posts/${post.id}/media`, headers: { Host: 'erp.test', cookie: owner } }, (r) => { r.resume(); r.on('end', () => resolve(r)); }).on('error', reject));
+  assert.equal(dl.statusCode, 200);
+  assert.match(dl.headers['content-disposition'], /attachment; filename="promo-video-2-fast-[a-z0-9-]+-9x16\.mp4"/);
   const other = await call('GET', '/promo-media/other.mp4'); assert.ok(typeof other.data === 'string' && !other.data.startsWith('\u0000'), 'only the two promo files are served');
 });
