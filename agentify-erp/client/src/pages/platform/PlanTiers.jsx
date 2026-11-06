@@ -39,6 +39,7 @@ export function PlanMarginPage() {
           {input('paying_tenants', 'Paying workspaces sharing fixed costs', 'Fixed cost per workspace = (server + Resend) / this')}
           {input('typical_use_pct', 'Typical use (%)', 'Share of credits and storage a normal workspace uses')}
           {input('payment_fee_pct', 'Payment gateway fee (%)')}
+          {input('sales_commission_pct', 'Sales team commission (%)', 'Paid to the sales team on each subscription; used in the Sales commission table below')}
           {input('commission_pct', 'Sales commission estimate (%)', 'A cost estimate only; no commission is tracked or paid from here')}
           {input('target_multiple', 'Target: price at least this many times cost', 'Below it a row turns orange; below cost it turns red')}
           {input('yearly_discount_pct', 'Yearly discount (%)', 'Guide for setting yearly prices')}
@@ -48,6 +49,14 @@ export function PlanMarginPage() {
         </div>
         <button className="btn primary sm" onClick={save}>Save cost inputs</button>
         <p className="muted" style={{ fontSize: 12.5 }}>Live AI cost per credit (from the AI price list): video {money(cc.video)}, voice {money(cc.voice)}, image {money(cc.image)}; blended at your mix {money(cc.blended)}. One email costs about ${(d.per_email_usd).toFixed(5)}. Fixed cost per workspace: {Object.entries(d.fixed_per_tenant).map(([n, v]) => `${money(v)} at ${n} workspaces`).join(', ')}.</p>
+      </Card>
+      <Card title="Sales commission by plan" actions={<span>{CURS.map((c) => <button key={c} className={`btn sm ${curNow === c ? 'primary' : ''}`} onClick={() => setCur(c)}>{c}</button>)}</span>}>
+        {!rows.length ? <p className="muted">No content tier has a {curNow} price yet.</p> : (
+          <div className="table-wrap"><table className="t"><thead><tr><th>Plan</th><th>Billing</th><th className="right">Price</th><th className="right">Commission ({m.sales_commission_pct}%)</th><th className="right">We keep</th><th className="right">AI and usage cost</th><th className="right">Net</th></tr></thead>
+            <tbody>{rows.filter((r) => r.kind !== 'launch').map((r) => { const f = r.kind === 'half' ? 6 : r.kind === 'year' ? 12 : 1; const n = (x) => Math.round(x * f).toLocaleString(); return (
+              <tr key={r.plan + r.kind}><td><b>{r.name}</b></td><td>{f === 1 ? 'Monthly' : f === 6 ? '6 months' : 'Yearly'}</td><td className="right nowrap">{n(r.price)} {r.currency}</td><td className="right">{n(r.sales_commission_local)}</td><td className="right">{n(r.kept_local)}</td><td className="right">{n(r.usage_cost_local)}</td><td className="right"><b style={{ color: r.net_local < 0 ? '#b3261e' : 'var(--g2, #0e7c6b)' }}>{n(r.net_local)}</b></td></tr>); })}</tbody></table></div>
+        )}
+        <p className="muted" style={{ fontSize: 12.5 }}>Amounts are for the whole billing period in {curNow}. AI and usage cost is the typical-use estimate (AI credits plus storage) from the cost inputs above. Net = what we keep minus that cost, before server, gateway fees and tax.</p>
       </Card>
       <Card title="Margin by plan" actions={<span>{CURS.map((c) => <button key={c} className={`btn sm ${curNow === c ? 'primary' : ''}`} onClick={() => setCur(c)}>{c}</button>)}</span>}>
         {!rows.length ? <p className="muted">No content tier has a {curNow} price yet.</p> : (
