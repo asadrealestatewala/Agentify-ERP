@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.75', date: '2026-11-07', title: 'Speak to Ask and have answers read aloud',
+    items: [
+      { text: 'Ask now has a microphone button: tap it, speak your question and it is sent. Choose English, Urdu, Arabic, Hindi, French or Spanish. Every answer has a Listen button, and you can tick Read answers aloud. Works in Chrome and Edge; where a browser cannot listen, use your keyboard microphone.', where: 'Ask (the Ask button on every screen)' },
+    ],
+  },
+  {
     version: 'v1.74', date: '2026-11-06', title: 'Watch videos in the content calendar',
     items: [
       { text: 'Posts with a video now have a Watch video button that plays it right in the page (works on phones, vertical and wide videos). Posts with only an image have Preview image. Esc or the Back button closes it.', where: 'Super Admin console > Content calendar > Posts', audience: 'platform' },
