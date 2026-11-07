@@ -4,6 +4,7 @@ import { getSetting, setSetting, audit } from './platformConfig.js';
 import { bad } from '../util.js';
 import { listReports, openReportCount } from './aiReports.js';
 import { imageModel, videoModel, voiceFor, azureTest, azureSpeak, DEFAULT_VOICES, SAMPLE_TEXT } from './aiGateway.js';
+import { hordeStatus } from './hordeGateway.js';
 import { config, monthStartOf, ensureTable, featuresOff } from './aiUsage.js';
 import { FEATURES, priceList, textPrices } from './aiPricing.js';
 import { getRate, displayCurrency } from './fxRate.js';
@@ -54,6 +55,7 @@ export function overview(now = new Date()) {
     technical: {
       gemini: { added: !!c.key, key_hint: c.key ? `…${c.key.slice(-4)}` : null, text_model: c.model },
       azure: azureStatus(),
+      stablehorde: hordeStatus(),
       models: Object.entries(FEATURES).map(([key, f]) => ({ key, label: f.label, model: key.startsWith('video_voice') ? `Azure Speech (${voiceFor(key.endsWith('_ur') ? 'Urdu' : 'English')})` : key === 'creative_post' ? `Gemini image model (${imageModel()})` : key === 'creative_video' ? `Gemini Veo (${videoModel()})` : c.model })),
     },
     reported: listReports({ handled: false, limit: 50 }), reported_open: openReportCount(),

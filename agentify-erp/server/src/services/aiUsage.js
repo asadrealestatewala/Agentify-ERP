@@ -95,7 +95,7 @@ const cost = (inp, out, c) => (c.price_in == null || c.price_out == null ? null 
 const monthStart = (now) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 export function platformMonth(now = new Date()) {
   const c = config();
-  const r = db().prepare("SELECT COUNT(*) calls, COALESCE(SUM(input_tokens),0) i, COALESCE(SUM(output_tokens),0) o FROM ai_usage WHERE key_owner='platform' AND at>=?").get(monthStart(now));
+  const r = db().prepare("SELECT COUNT(*) calls, COALESCE(SUM(input_tokens),0) i, COALESCE(SUM(output_tokens),0) o FROM ai_usage WHERE key_owner='platform' AND provider!='stablehorde' AND at>=?").get(monthStart(now));
   const spent = cost(r.i, r.o, c);
   return { calls: r.calls, input_tokens: r.i, output_tokens: r.o, spent, budget: c.budget, left: c.budget != null && spent != null ? Math.max(0, c.budget - spent) : null, over: c.budget != null && spent != null && spent >= c.budget };
 }
