@@ -17,3 +17,10 @@ export function saveOrder(list, by) {
   setSetting('ask_provider_order', l.join(','), { by });
   return askOrder();
 }
+
+/** Console: the last reason each engine failed (cleared when it next answers), so "why was Groq skipped" has an answer. */
+export function noteEngine(provider, err) {
+  try { setSetting(`ask_last_error_${provider}`, err ? JSON.stringify({ at: new Date().toISOString(), message: String(err.message || err).slice(0, 200) }) : null, {}); } catch { /* cosmetic */ }
+}
+export const engineErrors = () => Object.fromEntries(['groq', 'horde', 'gemini'].map((p) => { let v = null; try { v = JSON.parse(getSetting(`ask_last_error_${p}`) || 'null'); } catch { /* ignore */ } return [p, v]; }));
+

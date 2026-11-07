@@ -34,3 +34,10 @@ The former "AI usage & credits" page, extended (same route and menu spot). New c
 * **Pictures**: `POST /api/assistant/ask` accepts `image` (JPEG/PNG/WebP data URL, under ~1 MB; the browser shrinks it). Only Groq can read it (no fallback; Ask says so). A picture cannot be scrubbed, so the panel warns not to attach client data. Skips the fast data rules.
 * **Voice**: `POST /api/assistant/transcribe` (`{audio base64, mime, lang}`) uses Groq Whisper; `GET /api/assistant/capabilities` tells the panel whether to use it (works in the Android app) or the browser's own recogniser. Listen (read aloud) still uses the browser's speech synthesis; Groq text-to-speech is not used.
 * **Ledger**: provider `groq`, feature `ask_assistant`, purposes `ask_assistant`, `ask_image`, `ask_voice`; cost recorded as 0 USD (free tier; enter nothing). Groq/Horde rows are excluded from the Gemini price average. Tests: `server/test/ask-groq.test.js`.
+
+## Ask languages and grounding (v1.77)
+
+- Questions in Roman Urdu, Urdu script or Hindi are searched by their English meaning (`shared/help/askTerms.js`, a word list with no AI call). If that finds nothing and Groq is on, Groq turns the question into English keywords once.
+- Only help text that covers at least a fifth of the question's meaningful words, and is close to the best match, reaches the engine. No match means no AI call and the normal "not found" reply.
+- The prompt names the reply language. If the answer is not in that language (Roman Urdu, Urdu, Arabic, Hindi) it is retried once on the same engine with a stricter instruction.
+- Console > AI: the Groq card shows the last failure reason per engine (cleared when the engine next answers) and why Groq is skipped.
