@@ -37,7 +37,7 @@ export function unitPrice(feature, now = new Date()) {
   const ov = overrides().get(feature);
   if (ov != null) return { usd: ov, source: 'override', sample: 0 };
   const since = new Date(now.getTime() - 92 * 86400_000).toISOString();
-  const r = db().prepare("SELECT COUNT(*) calls, COALESCE(SUM(usd),0) usd, COALESCE(SUM(units),0) units FROM ai_usage WHERE key_owner='platform' AND ok=1 AND feature=? AND usd IS NOT NULL AND at>=?").get(feature, since);
+  const r = db().prepare("SELECT COUNT(*) calls, COALESCE(SUM(usd),0) usd, COALESCE(SUM(units),0) units FROM ai_usage WHERE key_owner='platform' AND provider NOT IN ('stablehorde','groq') AND ok=1 AND feature=? AND usd IS NOT NULL AND at>=?").get(feature, since);
   if (r.calls >= MIN_SAMPLE) {
     const per = f.unit === 'call' ? r.usd / r.calls : r.units > 0 ? (r.usd / r.units) * (f.scale || 1) : null;
     if (per != null && per > 0) return { usd: per, source: 'average', sample: r.calls };

@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.76', date: '2026-11-07', title: 'Ask gets Groq: better answers, pictures and voice',
+    items: [
+      { text: 'Ask can now answer faster and better through Groq. Tap the picture button to attach a screenshot and ask about it, and the microphone now works in the Android app too.', where: 'Ask (the Ask button on every screen)' },
+      { text: 'Console: a Groq card on the AI page (key, on/off, models, test) and an Ask engine order: Groq, Stable Horde and Gemini can be ranked, and each can be off. If Groq is busy, Ask moves to the next engine.', where: 'Console > AI', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.75', date: '2026-11-07', title: 'Speak to Ask and have answers read aloud',
     items: [
       { text: 'Ask now has a microphone button: tap it, speak your question and it is sent. Choose English, Urdu, Arabic, Hindi, French or Spanish. Every answer has a Listen button, and you can tick Read answers aloud. Works in Chrome and Edge; where a browser cannot listen, use your keyboard microphone.', where: 'Ask (the Ask button on every screen)' },

@@ -139,23 +139,57 @@ function Voices({ o, can, voices, selected, setSelected, reload }) {
   );
 }
 
+const ENGINE_LABEL = { groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini' };
+/** Groq: fast chat, picture understanding and speech-to-text for Ask; plus the order Ask tries its engines in. */
+function Groq({ t, can, reload }) {
+  const toast = useToast();
+  const g = t.groq;
+  const [f, setF] = useState({ key: '', enabled: g.enabled, chat_model: g.chat_model === g.defaults.chat ? '' : g.chat_model, vision_model: g.vision_model === g.defaults.vision ? '' : g.vision_model, stt_model: g.stt_model === g.defaults.stt ? '' : g.stt_model });
+  const [order, setOrder] = useState(t.ask_order);
+  const [busy, setBusy] = useState(false);
+  const save = async () => { try { await api.put(`${A}/ai/groq`, { enabled: f.enabled, chat_model: f.chat_model, vision_model: f.vision_model, stt_model: f.stt_model, provider_order: order, ...(f.key ? { key: f.key } : {}) }); toast('Groq settings saved'); setF({ ...f, key: '' }); reload(); } catch (e) { toast(e.message, 'err'); } };
+  const test = async () => { setBusy(true); try { const r = await api.post(`${A}/ai/groq/test`, {}); toast(`Groq connected (${r.models} models available)`); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
+  const remove = async () => { if (!window.confirm('Remove the Groq key? Ask voice and picture questions stop until a key is added again.')) return; try { await api.del(`${A}/ai/groq/key`); toast('Groq key removed'); reload(); } catch (e) { toast(e.message, 'err'); } };
+  const move = (i, d) => { const o = [...order]; const j = i + d; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; setOrder(o); };
+  const on = { groq: g.key_added && g.enabled, horde: t.stablehorde.key_added, gemini: t.stablehorde.gemini_enabled && t.gemini.added };
+  return (
+    <Card title="Groq and Ask engines">
+      <p className="muted" style={{ marginTop: 0 }}>Groq key: {g.key_added ? <span className="pill green">Added {g.key_hint}</span> : <span className="pill grey">Not added</span>}. Groq runs Ask chat answers, questions about a picture people attach, and speech-to-text for the microphone (so voice works in the Android app too). Free Groq accounts have rate limits: when Groq says it is busy, Ask moves to the next engine. Questions are scrubbed of emails, numbers, keys and names before they are sent; a picture cannot be scrubbed, so tell people not to attach client data.</p>
+      {can && <div style={grid}>
+        <Field label={g.key_added ? 'Replace Groq key (optional)' : 'Groq API key'} hint="Starts with gsk_ . Stored encrypted."><TextInput type="password" value={f.key} onChange={(v) => setF({ ...f, key: v })} autoComplete="off" /></Field>
+        <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.checked })} /> Use Groq in Ask (chat, pictures, voice)</label>
+        <Field label="Chat model (optional)" hint={`Default ${g.defaults.chat}`}><TextInput value={f.chat_model} onChange={(v) => setF({ ...f, chat_model: v })} /></Field>
+        <Field label="Picture model (optional)" hint={`Default ${g.defaults.vision}`}><TextInput value={f.vision_model} onChange={(v) => setF({ ...f, vision_model: v })} /></Field>
+        <Field label="Speech model (optional)" hint={`Default ${g.defaults.stt}`}><TextInput value={f.stt_model} onChange={(v) => setF({ ...f, stt_model: v })} /></Field>
+      </div>}
+      <div style={{ marginTop: 12 }}>
+        <b>Ask engine order</b>
+        <p className="muted" style={{ margin: '2px 0 8px' }}>Ask tries the top engine first and moves down when one is off, has no key or fails.</p>
+        {order.map((e, i) => <div key={e} className="row" style={{ gap: 8, marginBottom: 4 }}>
+          <span style={{ width: 20 }}>{i + 1}.</span><span style={{ minWidth: 110 }}>{ENGINE_LABEL[e]}</span>{on[e] ? <span className="pill green">on</span> : <span className="pill grey">off</span>}
+          {can && <><button className="btn sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${ENGINE_LABEL[e]} up`}>Up</button><button className="btn sm" disabled={i === order.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${ENGINE_LABEL[e]} down`}>Down</button></>}
+        </div>)}
+      </div>
+      {can && <div className="row" style={{ gap: 8, marginTop: 12 }}><button className="btn primary" onClick={save}>Save Groq and order</button>{g.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled={!g.key_added || busy} onClick={test}>{busy ? 'Testing…' : 'Test the connection'}</button></div>}
+    </Card>
+  );
+}
+
 /** Stable Horde: community AI that Ask can use first or as a backup. Key stored encrypted, never shown again. */
 function Horde({ t, can, reload }) {
   const toast = useToast();
   const h = t.stablehorde;
-  const [f, setF] = useState({ key: '', models: h.models.join(', '), trusted_only: h.trusted_only, gemini_enabled: h.gemini_enabled, provider_order: h.provider_order });
+  const [f, setF] = useState({ key: '', models: h.models.join(', '), trusted_only: h.trusted_only, gemini_enabled: h.gemini_enabled });
   const [busy, setBusy] = useState(false);
-  const save = async () => { try { await api.put(`${A}/ai/horde`, { ...f, ...(f.key ? {} : { key: undefined }) }); toast('Stable Horde settings saved'); setF({ ...f, key: '' }); reload(); } catch (e) { toast(e.message, 'err'); } };
+  const save = async () => { try { await api.put(`${A}/ai/horde`, { models: f.models, trusted_only: f.trusted_only, gemini_enabled: f.gemini_enabled, ...(f.key ? { key: f.key } : {}) }); toast('Stable Horde settings saved'); setF({ ...f, key: '' }); reload(); } catch (e) { toast(e.message, 'err'); } };
   const test = async () => { setBusy(true); try { const r = await api.post(`${A}/ai/horde/test`, {}); toast(`Stable Horde connected${r.username ? ` as ${r.username}` : ''}${r.kudos != null ? ` · ${Math.round(r.kudos)} kudos` : ''}`); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
   const remove = async () => { if (!window.confirm('Remove the Stable Horde key? Ask falls back to Gemini only.')) return; try { await api.del(`${A}/ai/horde/key`); toast('Stable Horde key removed'); reload(); } catch (e) { toast(e.message, 'err'); } };
   return (
     <Card title="Stable Horde (community AI for Ask)">
-      <p className="muted" style={{ marginTop: 0 }}>Key: {h.key_added ? <span className="pill green">Added {h.key_hint}</span> : <span className="pill grey">Not added</span>}. Ask uses Stable Horde only until you tick "Allow Gemini for Ask" below. If Horde fails and Gemini is off, people see a short busy message. Ask answers from the Agentify guides in the language the person writes in. Stable Horde is run by volunteers: answers can be slow and uneven, and prompts may be seen by workers. Only guide text and the question are sent, with emails, phone numbers, long numbers, keys and the asker's name removed first. Never put client data in Ask.</p>
+      <p className="muted" style={{ marginTop: 0 }}>Key: {h.key_added ? <span className="pill green">Added {h.key_hint}</span> : <span className="pill grey">Not added</span>}. Stable Horde is one of Ask's engines (see Ask engines above for the order). Gemini is used only if you tick "Allow Gemini for Ask" below. If Horde fails and Gemini is off, people see a short busy message. Ask answers from the Agentify guides in the language the person writes in. Stable Horde is run by volunteers: answers can be slow and uneven, and prompts may be seen by workers. Only guide text and the question are sent, with emails, phone numbers, long numbers, keys and the asker's name removed first. Never put client data in Ask.</p>
       {can && <div style={grid}>
         <Field label={h.key_added ? 'Replace Stable Horde key (optional)' : 'Stable Horde API key'} hint="From aihorde.net. Stored encrypted."><TextInput type="password" value={f.key} onChange={(v) => setF({ ...f, key: v })} autoComplete="off" /></Field>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={f.gemini_enabled} onChange={(e) => setF({ ...f, gemini_enabled: e.target.checked })} /> Allow Gemini for Ask (off by default; while off, Gemini is never used by Ask)</label>
-        <Field label="Ask engine order"><select className="input" value={f.provider_order} onChange={(e) => setF({ ...f, provider_order: e.target.value })}>
-          <option value="gemini,horde">Gemini first, Stable Horde as backup</option><option value="horde,gemini">Stable Horde first, Gemini as backup</option><option value="gemini">Gemini only</option><option value="horde">Stable Horde only</option></select></Field>
         <Field label="Models (optional)" hint="Up to 5, comma separated. Empty lets the Horde choose."><TextInput value={f.models} onChange={(v) => setF({ ...f, models: v })} /></Field>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={f.trusted_only} onChange={(e) => setF({ ...f, trusted_only: e.target.checked })} /> Use trusted workers only (recommended)</label>
         <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={save}>Save Stable Horde</button>{h.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled={!h.key_added || busy} onClick={test}>{busy ? 'Testing…' : 'Test the connection'}</button></div>
@@ -183,6 +217,7 @@ function Technical({ o, can, reload, voices, onTested }) {
       </div>}
       <div className="table-wrap" style={{ marginTop: 12 }}><table className="t"><thead><tr><th>Feature</th><th>Model or service</th></tr></thead><tbody>{t.models.map((m) => <tr key={m.key}><td>{m.label}</td><td>{m.model}</td></tr>)}</tbody></table></div>
     </Card>
+    <Groq t={t} can={can} reload={reload} />
     <Horde t={t} can={can} reload={reload} />
     </>
   );

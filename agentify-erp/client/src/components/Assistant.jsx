@@ -30,10 +30,20 @@ function AnswerTable({ t }) {
 // Voice: the browser's own speech recognition (mic) and speech synthesis (read aloud). Nothing is sent to our servers for voice, so it is free;
 // the typed text goes through Ask as usual. Where the browser has no support (many Android WebViews), the buttons hide and typing works as before.
 const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+const CAN_REC = typeof window !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined';
 const TTS = typeof window !== 'undefined' && 'speechSynthesis' in window;
 const LANGS = [['en-US', 'English'], ['ur-PK', 'Urdu (اردو)'], ['ar-SA', 'Arabic (العربية)'], ['hi-IN', 'Hindi'], ['fr-FR', 'French'], ['es-ES', 'Spanish']];
 const plainText = (s) => String(s || '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim();
 const MicIcon = ({ on }) => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" fill={on ? 'currentColor' : 'none'} /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>;
+const ImageIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="1.5" /><path d="M21 16l-5-5-8 9" /></svg>;
+/** Shrink a picked picture to a JPEG of at most 1280px so it stays well under 1 MB. */
+const shrink = (file) => new Promise((resolve, reject) => {
+  const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = () => { const k = Math.min(1, 1280 / Math.max(img.width, img.height)); const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); let out = c.toDataURL('image/jpeg', 0.8); if (out.length > 1_300_000) out = c.toDataURL('image/jpeg', 0.5); resolve(out); };
+  img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('That file is not a picture.')); };
+  img.src = url;
+});
+const toBase64 = (blob) => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(String(r.result).split(',')[1] || ''); r.onerror = reject; r.readAsDataURL(blob); });
 const SpeakerIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4zM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /></svg>;
 
 /** Floating data assistant: answers from the live ERP database and exports any answer as a PDF report. */
@@ -51,8 +61,15 @@ export default function Assistant() {
   const [speaking, setSpeaking] = useState(null);
   const [autoRead, setAutoRead] = useState(() => { try { return localStorage.getItem('assistant-autoread') === '1'; } catch { return false; } });
   const rec = useRef(null);
+  const [caps, setCaps] = useState({ stt: false, image: false });
+  const [image, setImage] = useState(null);
+  const [transcribing, setTranscribing] = useState(false);
+  const recorder = useRef(null);
+  const fileRef = useRef(null);
+  useEffect(() => { if (open) api.get('/api/assistant/capabilities').then(setCaps).catch(() => {}); }, [open]);
+  const pickImage = async (e) => { const f = e.target.files?.[0]; e.target.value = ''; if (!f) return; try { setImage(await shrink(f)); } catch (err) { toast(err.message, 'err'); } };
   const saveLocal = (k, v) => { try { localStorage.setItem(k, v); } catch { /* ignore */ } };
-  const stopListening = () => { if (rec.current) { rec.current.onend = null; try { rec.current.stop(); } catch { /* ignore */ } rec.current = null; } setListening(false); };
+  const stopListening = () => { if (recorder.current) { try { recorder.current.stop(); } catch { /* ignore */ } recorder.current = null; } if (rec.current) { rec.current.onend = null; try { rec.current.stop(); } catch { /* ignore */ } rec.current = null; } setListening(false); };
   const stopSpeaking = () => { if (TTS) window.speechSynthesis.cancel(); setSpeaking(null); };
   const speak = (text, id) => {
     if (!TTS) return;
@@ -64,9 +81,27 @@ export default function Assistant() {
     u.onend = () => setSpeaking(null); u.onerror = () => setSpeaking(null);
     setSpeaking(id); window.speechSynthesis.speak(u);
   };
+  // Groq speech-to-text: record up to a minute, then send the clip. Works in every browser that can record, including the Android app.
+  const listenServer = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream), chunks = [];
+      mr.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop()); clearTimeout(mr.cut); setListening(false);
+        const blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' });
+        if (blob.size < 800) { toast('I could not hear anything. Please try again.', 'err'); return; }
+        setTranscribing(true);
+        try { const r = await api.post('/api/assistant/transcribe', { audio: await toBase64(blob), mime: blob.type, lang: lang.slice(0, 2) }); setQ(r.text); send(r.text); } catch (e) { toast(e.message, 'err'); } finally { setTranscribing(false); }
+      };
+      mr.start(); mr.cut = setTimeout(() => { try { mr.stop(); } catch { /* ignore */ } }, 60_000);
+      recorder.current = mr; setListening(true);
+    } catch { toast('Allow the microphone in your browser or phone settings to speak your question.', 'err'); }
+  };
   const listen = () => {
     if (listening) { stopListening(); return; }
     stopSpeaking();
+    if (caps.stt && CAN_REC) { listenServer(); return; }
     const r = new SR(); r.lang = lang; r.interimResults = true; r.continuous = false;
     r.onresult = (ev) => { const t = Array.from(ev.results).map((x) => x[0].transcript).join(' '); setQ(t); if (ev.results[ev.results.length - 1].isFinal) { setListening(false); rec.current = null; send(t); } };
     r.onerror = (ev) => { setListening(false); rec.current = null; toast(ev.error === 'not-allowed' ? 'Allow the microphone in your browser settings to speak your question.' : 'Could not hear you. Please try again or type your question.', 'err'); };
@@ -95,12 +130,12 @@ export default function Assistant() {
   const send = async (text) => {
     const question = (text ?? q).trim();
     if (!question || busy) return;
-    setQ(''); setBusy(true);
-    setLog((l) => [...l, { role: 'user', text: question }]);
+    const pic = image; setQ(''); setImage(null); setBusy(true);
+    setLog((l) => [...l, { role: 'user', text: question, picture: pic }]);
     try {
       // the last few answered turns let follow-ups such as "and last month?" or "how do I do that?" work
       const history = log.filter((m) => m.role === 'bot' && !m.error && m.question).slice(-3).map((m) => ({ q: m.question, a: String(m.answer || '').slice(0, 600) }));
-      const a = await api.post('/api/assistant/ask', { question, history });
+      const a = await api.post('/api/assistant/ask', { question, history, ...(pic ? { image: pic } : {}) });
       setLog((l) => [...l, { role: 'bot', question, ...a }]);
       if (autoRead && TTS && a.answer) speak(a.answer, `auto-${Date.now()}`);
       if (a.wants_pdf && a.tables?.length && a.intent !== 'denied') pdf(question);
@@ -125,7 +160,7 @@ export default function Assistant() {
               </div>
             )}
             {log.map((m, i) => (m.role === 'user'
-              ? <div key={i} className="bubble me">{m.text}</div>
+              ? <div key={i} className="bubble me">{m.picture && <img src={m.picture} alt="Attached" style={{ display: 'block', maxWidth: 160, maxHeight: 120, borderRadius: 6, marginBottom: 4 }} />}{m.text}</div>
               : (
                 <div key={i} className={`bubble bot ${m.error ? 'err' : ''}`}>
                   {m.ai && <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>AI-written answer from our help guides. Check important steps.</div>}
@@ -142,14 +177,16 @@ export default function Assistant() {
             {busy && <div className="bubble bot"><span className="spinner" /></div>}
             <div ref={end} />
           </div>
-          {(SR || TTS) && <div className="row wrap muted" style={{ gap: 8, padding: '6px 10px', fontSize: 12, borderTop: '1px solid var(--border)' }}>
+          {(SR || TTS || caps.stt) && <div className="row wrap muted" style={{ gap: 8, padding: '6px 10px', fontSize: 12, borderTop: '1px solid var(--border)' }}>
             <label className="row" style={{ gap: 4 }}>Voice language <select value={lang} onChange={(e) => { setLang(e.target.value); saveLocal('assistant-lang', e.target.value); }} style={{ fontSize: 12 }}>{LANGS.map(([c, n]) => <option key={c} value={c}>{n}</option>)}</select></label>
             {TTS && <label className="row" style={{ gap: 4 }}><input type="checkbox" checked={autoRead} onChange={(e) => { setAutoRead(e.target.checked); saveLocal('assistant-autoread', e.target.checked ? '1' : '0'); if (!e.target.checked) stopSpeaking(); }} /> Read answers aloud</label>}
-            {!SR && <span>Speaking questions is not supported in this browser. Use your keyboard's microphone key to dictate.</span>}
+            {!SR && !(caps.stt && CAN_REC) && <span>Speaking questions is not supported in this browser. Use your keyboard's microphone key to dictate.</span>}
           </div>}
+          {image && <div className="row" style={{ gap: 8, padding: '6px 10px', borderTop: '1px solid var(--border)' }}><img src={image} alt="Attached" style={{ height: 40, borderRadius: 4 }} /><span className="muted" style={{ fontSize: 12, flex: 1 }}>Picture attached. Don't include client data.</span><button type="button" className="btn sm" onClick={() => setImage(null)}>Remove</button></div>}
           <form className="assistant-input" onSubmit={(e) => { e.preventDefault(); send(); }}>
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={listening ? 'Listening…' : 'e.g. How many leads did we get this month?'} aria-label="Ask a question" autoFocus />
-            {SR && <button type="button" className={`btn${listening ? ' primary' : ''}`} onClick={listen} aria-label={listening ? 'Stop listening' : 'Speak your question'} aria-pressed={listening} title={listening ? 'Stop listening' : 'Speak your question'}><MicIcon on={listening} /></button>}
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={transcribing ? 'Writing down what you said…' : listening ? 'Listening… tap the microphone to stop' : 'e.g. How many leads did we get this month?'} aria-label="Ask a question" autoFocus />
+            {(SR || (caps.stt && CAN_REC)) && <button type="button" disabled={transcribing} className={`btn${listening ? ' primary' : ''}`} onClick={listen} aria-label={listening ? 'Stop listening' : 'Speak your question'} aria-pressed={listening} title={listening ? 'Stop listening' : 'Speak your question'}><MicIcon on={listening} /></button>}
+            {caps.image && <><input ref={fileRef} type="file" accept="image/*" hidden onChange={pickImage} /><button type="button" className="btn" onClick={() => fileRef.current?.click()} aria-label="Attach a picture" title="Attach a picture or screenshot"><ImageIcon /></button></>}
             <button className="btn primary" disabled={busy || !q.trim()} aria-label="Send">Send</button>
           </form>
         </div>

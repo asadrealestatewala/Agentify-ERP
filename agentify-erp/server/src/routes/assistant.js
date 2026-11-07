@@ -3,7 +3,8 @@ import { all, run } from '../db.js';
 import { can, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { ask } from '../services/assistant.js';
-import { askAi } from '../services/askAi.js';
+import { askAi, limited } from '../services/askAi.js';
+import { groqReady, groqTranscribe } from '../services/groqGateway.js';
 import { createReport } from '../services/aiReports.js';
 import { currentTenant } from '../context.js';
 import { sendPdf } from '../services/pdf.js';
@@ -17,15 +18,33 @@ const plain = (s) => String(s).replace(/\*\*/g, '');
 r.post('/ask', asyncH(async (req, res) => {
   const q = String(req.body.question || '').slice(0, 500);
   if (!q.trim()) throw bad('Ask a question');
-  let out = ask(q, req.user);
-  // the fast rules found nothing: let Gemini answer from the help guides (follow-ups use the last few turns the browser sends)
+  // an attached picture (screenshot) is read by a Groq vision model; small JPEG/PNG/WebP only
+  const image = req.body.image == null ? null : String(req.body.image);
+  if (image && (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(image) || image.length > 1_400_000)) throw bad('That picture is not usable. Use a JPEG, PNG or WebP under 1 MB.');
+  let out = image ? { intent: 'unknown', tables: [], suggestions: [], answer: 'I could not read that picture.' } : ask(q, req.user);
+  // the fast rules found nothing: let the AI answer from the help guides (follow-ups use the last few turns the browser sends)
   if (out.intent === 'unknown') {
-    const ai = await askAi(q, req.body.history, req.user);
+    const ai = await askAi(q, req.body.history, req.user, image);
     if (ai?.refused) out = { ...out, answer: `${out.answer}\n\n_${ai.refused}_` };
     else if (ai) out = { intent: ai.found ? 'ai' : 'unknown', ai: true, tables: [], suggestions: out.suggestions, answer: ai.answer, links: ai.links, sources: ai.sources };
   }
   run('INSERT INTO chat_log(user_id,question,intent,ok,created_at) VALUES(?,?,?,?,?)', req.user.id, q, out.intent, out.intent === 'unknown' ? 0 : 1, now());
   res.json(out);
+}));
+
+/** What voice and picture features this server offers (the microphone uses Groq speech-to-text when it is connected). */
+r.get('/capabilities', (_req, res) => res.json({ stt: groqReady(), image: groqReady() }));
+
+/** Speech to text for the microphone: { audio: base64, mime, lang } -> { text }. Needs Groq. */
+r.post('/transcribe', asyncH(async (req, res) => {
+  if (!groqReady()) throw bad('Voice input is not switched on yet.');
+  const b = req.body || {};
+  const data = String(b.audio || '');
+  if (!/^[A-Za-z0-9+/=]+$/.test(data) || data.length < 200 || data.length > 1_500_000) throw bad('The recording is empty or too long. Please speak for up to about a minute.');
+  if (limited(`stt-${req.user.id}`)) throw bad('You are asking quickly. Please wait a moment and try again.');
+  const mime = /^audio\/(webm|ogg|mp4|mpeg|wav|x-m4a|aac)/.test(String(b.mime)) ? String(b.mime) : 'audio/webm';
+  const text = await groqTranscribe({ audio: Buffer.from(data, 'base64'), mime, lang: String(b.lang || '').slice(0, 2).toLowerCase(), tenantId: currentTenant()?.id ?? null, userId: req.user.id });
+  res.json({ text: text.slice(0, 500) });
 }));
 
 /** Flag an AI-written answer as wrong or unsuitable; Agentify reviews these. */
