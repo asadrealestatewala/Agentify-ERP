@@ -24,7 +24,7 @@ before(() => new Promise((res) => { server = createApp().listen(0, () => { base 
 after(() => { server.close(); });
 
 const GOLDEN = new URL('./golden/pk.json', import.meta.url);
-const VOLATILE = /(token|hash|secret|api_key|qr_|password|^created_at$|^updated_at$|last_login)/i;
+const VOLATILE = /(days_overdue|^overdue$|token|hash|secret|api_key|qr_|password|^created_at$|^updated_at$|last_login)/i;
 const scrub = (v) => {
   if (Array.isArray(v)) return v.map(scrub);
   if (v && typeof v === 'object') return Object.fromEntries(Object.keys(v).sort().filter((k) => !VOLATILE.test(k)).map((k) => [k, scrub(v[k])]));

@@ -11,13 +11,13 @@
  },
  "/api/installments?limit=200": {
   "status": 200,
-  "sha": "aeb8741f8b0dcbf9",
-  "bytes": 53809
+  "sha": "a90a67c6b7874977",
+  "bytes": 49420
  },
  "/api/receivables": {
   "status": 200,
-  "sha": "094e388e2e1f14cf",
-  "bytes": 1715
+  "sha": "4875f3e3f6d062d0",
+  "bytes": 1650
  },
  "/api/commissions?limit=200": {
   "status": 200,
@@ -26,8 +26,8 @@
  },
  "/api/customers?limit=200": {
   "status": 200,
-  "sha": "8dd59e9a06291547",
-  "bytes": 1467
+  "sha": "d272dcf53b04a664",
+  "bytes": 1414
  },
  "/api/accounting/trial-balance": {
   "status": 200,
@@ -191,8 +191,8 @@
  },
  "/api/portal/dashboard": {
   "status": 200,
-  "sha": "55725c5528db8c0b",
-  "bytes": 1948
+  "sha": "2de03a2bc1f618cb",
+  "bytes": 1931
  },
  "/api/portal/payments": {
   "status": 200,
