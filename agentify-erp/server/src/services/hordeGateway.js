@@ -16,9 +16,9 @@ export const hordeKey = () => getSetting('stablehorde_api_key');
 export const hordeModels = () => String(getSetting('stablehorde_models') || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 5);
 export const hordeStatus = () => ({ key_added: !!hordeKey(), key_hint: hordeKey() ? `…${hordeKey().slice(-4)}` : null, models: hordeModels(), trusted_only: getSetting('stablehorde_trusted') !== '0', provider_order: askOrder() });
 
-/** Which engines Ask tries, in order. Default keeps today's behaviour (Gemini) and adds the Horde as the fallback when a key exists. */
+/** Which engines Ask tries, in order. Default: Stable Horde first, Gemini as backup (an engine without a key is skipped, so Gemini alone still works until a Horde key is added). */
 export const ORDERS = { 'gemini,horde': 'Gemini first, Stable Horde as backup', 'horde,gemini': 'Stable Horde first, Gemini as backup', gemini: 'Gemini only', horde: 'Stable Horde only' };
-export const askOrder = () => { const v = getSetting('ask_provider_order'); return ORDERS[v] ? v : 'gemini,horde'; };
+export const askOrder = () => { const v = getSetting('ask_provider_order'); return ORDERS[v] ? v : 'horde,gemini'; };
 
 const MODEL_RE = /^[A-Za-z0-9._\-\/: ]{2,80}$/;
 export function saveHorde(b, by) {
