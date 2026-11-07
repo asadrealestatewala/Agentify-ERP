@@ -163,7 +163,7 @@ export default function Assistant() {
               ? <div key={i} className="bubble me">{m.picture && <img src={m.picture} alt="Attached" style={{ display: 'block', maxWidth: 160, maxHeight: 120, borderRadius: 6, marginBottom: 4 }} />}{m.text}</div>
               : (
                 <div key={i} className={`bubble bot ${m.error ? 'err' : ''}`}>
-                  {m.ai && <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>AI-written answer from our help guides. Check important steps.</div>}
+                  {m.ai && <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>AI-written answer from our help guides{m.engine ? ` (${{ groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini' }[m.engine] || m.engine})` : ''}. Check important steps.</div>}
                   <div style={{ whiteSpace: 'pre-wrap' }}>{bold(m.answer)}</div>
                   {m.ai && m.sources?.length > 0 && <div className="muted" style={{ fontSize: 11, marginTop: 6 }}>From: {m.sources.join(' · ')}</div>}
                   {m.links?.length > 0 && <div className="row wrap" style={{ marginTop: 8 }}>{m.links.map((l) => <a key={l.url} className="btn sm" href={l.url} {...(l.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}>{l.label}</a>)}</div>}
