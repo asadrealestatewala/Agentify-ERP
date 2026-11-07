@@ -33,6 +33,14 @@ export function saveAzure(b, by) {
 }
 export const removeAzureKey = () => setSetting('azure_speech_key', null);
 
+/** Which engine has been answering Ask: the last 7 days per engine and purpose, and the most recent call. Read from the ledger. */
+export function askEngineActivity(now = new Date()) {
+  const since = new Date(now.getTime() - 7 * 86400_000).toISOString();
+  const rows = db().prepare("SELECT provider, purpose, SUM(ok) ok, SUM(1-ok) failed, MAX(at) last_at FROM ai_usage WHERE key_owner='platform' AND feature='ask_assistant' AND at>=? GROUP BY provider, purpose ORDER BY last_at DESC").all(since);
+  const last = db().prepare("SELECT provider, purpose, model, ok, at FROM ai_usage WHERE key_owner='platform' AND feature='ask_assistant' ORDER BY id DESC LIMIT 1").get() || null;
+  return { days: 7, last, by_engine: rows };
+}
+
 export function overview(now = new Date()) {
   const since = monthStartOf(now), rate = getRate(), c = config();
   const pkr = (usd) => (usd == null ? null : usd * rate.rate);
@@ -60,6 +68,7 @@ export function overview(now = new Date()) {
       stablehorde: hordeStatus(),
       groq: groqStatus(),
       ask_order: askOrder(),
+      ask_activity: askEngineActivity(now),
       models: Object.entries(FEATURES).map(([key, f]) => ({ key, label: f.label, model: key.startsWith('video_voice') ? `Azure Speech (${voiceFor(key.endsWith('_ur') ? 'Urdu' : 'English')})` : key === 'creative_post' ? `Gemini image model (${imageModel()})` : key === 'creative_video' ? `Gemini Veo (${videoModel()})` : c.model })),
     },
     reported: listReports({ handled: false, limit: 50 }), reported_open: openReportCount(),

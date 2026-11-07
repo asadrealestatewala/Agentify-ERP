@@ -91,11 +91,11 @@ export async function askAi(question, history, user, image = null) {
   if (image && !ready.groq) return { refused: 'Questions about a picture need Groq to be connected. Please type your question instead.' };
   const order = image ? ['groq'] : askOrder().filter((p) => ready[p]);
   if (!order.length) return { refused: geminiAskEnabled() || hordeKey() || groqReady() ? 'The AI helper could not answer right now.' : 'The AI helper is not switched on yet. Please ask your administrator or support.' };
-  let out = null, lastErr = null;
+  let out = null, lastErr = null, engine = null;
   for (const provider of order) {
     try {
       out = provider === 'groq' ? await viaGroq(q, ref, history, user, image) : provider === 'gemini' ? await viaGemini(q, ref, history, user) : await viaHorde(q, ref, history, user);
-      if (out?.answer) break;
+      if (out?.answer) { engine = provider; break; }
     } catch (e) { lastErr = e; if (e.extra?.code && !['provider_error'].includes(e.extra.code)) break; } // a switch, limit or budget refusal applies to every engine
   }
   const noBackup = order.length === 1;
@@ -103,5 +103,5 @@ export async function askAi(question, history, user, image = null) {
   const answer = String(out?.answer || '').trim().slice(0, 3000);
   if (!answer) return null;
   const found = out.found !== false;
-  return { answer, found, links: found ? videoLinks(user, `${q} ${mat[0]?.title || ''}`) : [], sources: found ? mat.slice(0, 3).map((m) => m.title) : [] };
+  return { answer, found, engine, links: found ? videoLinks(user, `${q} ${mat[0]?.title || ''}`) : [], sources: found ? mat.slice(0, 3).map((m) => m.title) : [] };
 }

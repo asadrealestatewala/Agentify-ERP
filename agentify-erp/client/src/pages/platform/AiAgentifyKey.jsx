@@ -170,6 +170,11 @@ function Groq({ t, can, reload }) {
           {can && <><button className="btn sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${ENGINE_LABEL[e]} up`}>Up</button><button className="btn sm" disabled={i === order.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${ENGINE_LABEL[e]} down`}>Down</button></>}
         </div>)}
       </div>
+      <div style={{ marginTop: 12 }}>
+        <b>Who has been answering Ask (last {t.ask_activity.days} days)</b>
+        {t.ask_activity.last ? <p className="muted" style={{ margin: '2px 0 6px' }}>Latest call: <b>{ENGINE_LABEL[{ stablehorde: 'horde' }[t.ask_activity.last.provider] || t.ask_activity.last.provider] || t.ask_activity.last.provider}</b>{t.ask_activity.last.model ? ` (${t.ask_activity.last.model})` : ''} · {t.ask_activity.last.ok ? 'answered' : 'failed'} · {new Date(t.ask_activity.last.at).toLocaleString()}</p> : <p className="muted" style={{ margin: '2px 0 6px' }}>No AI answers yet.</p>}
+        {t.ask_activity.by_engine.length > 0 && <div className="table-wrap"><table className="t"><thead><tr><th>Engine</th><th>Used for</th><th className="num">Answered</th><th className="num">Failed</th><th>Last</th></tr></thead><tbody>{t.ask_activity.by_engine.map((r) => <tr key={`${r.provider}${r.purpose}`}><td>{ENGINE_LABEL[{ stablehorde: 'horde' }[r.provider] || r.provider] || r.provider}</td><td>{{ ask_assistant: 'Chat', ask_image: 'Pictures', ask_voice: 'Voice' }[r.purpose] || r.purpose}</td><td className="num">{r.ok}</td><td className="num">{r.failed}</td><td>{new Date(r.last_at).toLocaleString()}</td></tr>)}</tbody></table></div>}
+      </div>
       {can && <div className="row" style={{ gap: 8, marginTop: 12 }}><button className="btn primary" onClick={save}>Save Groq and order</button>{g.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled={!g.key_added || busy} onClick={test}>{busy ? 'Testing…' : 'Test the connection'}</button></div>}
     </Card>
   );
