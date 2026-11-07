@@ -6,7 +6,7 @@ import { searchKnowledge, searchDocs } from '../../../shared/guides.js';
 import { systemDocs } from './systemKnowledge.js';
 import { videoLinks } from './assistant.js';
 import { geminiGenerate } from './aiGateway.js';
-import { hordeGenerate, hordeKey, askOrder, scrubForHorde } from './hordeGateway.js';
+import { hordeGenerate, hordeKey, askOrder, geminiAskEnabled, scrubForHorde } from './hordeGateway.js';
 import { config as geminiConfig } from './aiUsage.js';
 import { assertSafeRequest } from './aiSafety.js';
 import { currentTenant } from '../context.js';
@@ -74,8 +74,8 @@ export async function askAi(question, history, user) {
   if (!mat.length) return null;
   if (limited(user.id)) return { refused: 'You are asking quickly. Please wait a moment and try again.' };
   const ref = mat.map((m, i) => `[${i + 1}] ${m.title}: ${m.text}`).join('\n');
-  const order = askOrder().split(',').filter((p) => (p === 'gemini' ? !!geminiConfig().key : !!hordeKey()));
-  if (!order.length) return { refused: 'The AI helper could not answer right now.' };
+  const order = askOrder().split(',').filter((p) => (p === 'gemini' ? geminiAskEnabled() && !!geminiConfig().key : !!hordeKey()));
+  if (!order.length) return { refused: geminiAskEnabled() || hordeKey() ? 'The AI helper could not answer right now.' : 'The AI helper is not switched on yet. Please ask your administrator or support.' };
   let out = null, lastErr = null;
   for (const provider of order) {
     try {
@@ -83,7 +83,8 @@ export async function askAi(question, history, user) {
       if (out?.answer) break;
     } catch (e) { lastErr = e; if (e.extra?.code && !['provider_error'].includes(e.extra.code)) break; } // a switch, limit or budget refusal applies to every engine
   }
-  if (!out?.answer && lastErr) return { refused: lastErr.extra?.code ? lastErr.message : 'The AI helper could not answer right now.' };
+  const noBackup = !geminiAskEnabled() && order.length === 1;
+  if (!out?.answer && lastErr) return { refused: noBackup && (!lastErr.extra?.code || lastErr.extra.code === 'provider_error') ? 'The community AI is busy right now and no backup engine is switched on. Please try again in a moment.' : lastErr.extra?.code ? lastErr.message : 'The AI helper could not answer right now.' };
   const answer = String(out?.answer || '').trim().slice(0, 3000);
   if (!answer) return null;
   const found = out.found !== false;

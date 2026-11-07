@@ -143,16 +143,17 @@ function Voices({ o, can, voices, selected, setSelected, reload }) {
 function Horde({ t, can, reload }) {
   const toast = useToast();
   const h = t.stablehorde;
-  const [f, setF] = useState({ key: '', models: h.models.join(', '), trusted_only: h.trusted_only, provider_order: h.provider_order });
+  const [f, setF] = useState({ key: '', models: h.models.join(', '), trusted_only: h.trusted_only, gemini_enabled: h.gemini_enabled, provider_order: h.provider_order });
   const [busy, setBusy] = useState(false);
   const save = async () => { try { await api.put(`${A}/ai/horde`, { ...f, ...(f.key ? {} : { key: undefined }) }); toast('Stable Horde settings saved'); setF({ ...f, key: '' }); reload(); } catch (e) { toast(e.message, 'err'); } };
   const test = async () => { setBusy(true); try { const r = await api.post(`${A}/ai/horde/test`, {}); toast(`Stable Horde connected${r.username ? ` as ${r.username}` : ''}${r.kudos != null ? ` · ${Math.round(r.kudos)} kudos` : ''}`); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
   const remove = async () => { if (!window.confirm('Remove the Stable Horde key? Ask falls back to Gemini only.')) return; try { await api.del(`${A}/ai/horde/key`); toast('Stable Horde key removed'); reload(); } catch (e) { toast(e.message, 'err'); } };
   return (
     <Card title="Stable Horde (community AI for Ask)">
-      <p className="muted" style={{ marginTop: 0 }}>Key: {h.key_added ? <span className="pill green">Added {h.key_hint}</span> : <span className="pill grey">Not added</span>}. Ask answers from the Agentify guides in the language the person writes in. Stable Horde is run by volunteers: answers can be slow and uneven, and prompts may be seen by workers. Only guide text and the question are sent, with emails, phone numbers, long numbers, keys and the asker's name removed first. Never put client data in Ask.</p>
+      <p className="muted" style={{ marginTop: 0 }}>Key: {h.key_added ? <span className="pill green">Added {h.key_hint}</span> : <span className="pill grey">Not added</span>}. Ask uses Stable Horde only until you tick "Allow Gemini for Ask" below. If Horde fails and Gemini is off, people see a short busy message. Ask answers from the Agentify guides in the language the person writes in. Stable Horde is run by volunteers: answers can be slow and uneven, and prompts may be seen by workers. Only guide text and the question are sent, with emails, phone numbers, long numbers, keys and the asker's name removed first. Never put client data in Ask.</p>
       {can && <div style={grid}>
         <Field label={h.key_added ? 'Replace Stable Horde key (optional)' : 'Stable Horde API key'} hint="From aihorde.net. Stored encrypted."><TextInput type="password" value={f.key} onChange={(v) => setF({ ...f, key: v })} autoComplete="off" /></Field>
+        <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={f.gemini_enabled} onChange={(e) => setF({ ...f, gemini_enabled: e.target.checked })} /> Allow Gemini for Ask (off by default; while off, Gemini is never used by Ask)</label>
         <Field label="Ask engine order"><select className="input" value={f.provider_order} onChange={(e) => setF({ ...f, provider_order: e.target.value })}>
           <option value="gemini,horde">Gemini first, Stable Horde as backup</option><option value="horde,gemini">Stable Horde first, Gemini as backup</option><option value="gemini">Gemini only</option><option value="horde">Stable Horde only</option></select></Field>
         <Field label="Models (optional)" hint="Up to 5, comma separated. Empty lets the Horde choose."><TextInput value={f.models} onChange={(v) => setF({ ...f, models: v })} /></Field>
