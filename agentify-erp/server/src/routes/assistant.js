@@ -26,7 +26,7 @@ r.post('/ask', asyncH(async (req, res) => {
   if (out.intent === 'unknown') {
     const ai = await askAi(q, req.body.history, req.user, image);
     if (ai?.refused) out = { ...out, answer: `${out.answer}\n\n_${ai.refused}_` };
-    else if (ai) out = { intent: ai.found ? 'ai' : 'unknown', ai: true, tables: [], suggestions: out.suggestions, answer: ai.answer, engine: ai.engine, links: ai.links, sources: ai.sources };
+    else if (ai) out = { intent: ai.found ? 'ai' : 'unknown', ai: true, tables: [], suggestions: out.suggestions, answer: ai.answer, engine: ai.engine, notes: ai.notes || [], links: ai.links, sources: ai.sources };
   }
   run('INSERT INTO chat_log(user_id,question,intent,ok,created_at) VALUES(?,?,?,?,?)', req.user.id, q, out.intent, out.intent === 'unknown' ? 0 : 1, now());
   res.json(out);
