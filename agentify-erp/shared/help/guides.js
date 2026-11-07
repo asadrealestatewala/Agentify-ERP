@@ -204,7 +204,7 @@ export const GUIDES = {
 };
 
 const tidy = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().split(' ').map((w) => (w.length > 3 && /[^siu]s$/.test(w) ? w.slice(0, -1) : w)).join(' ');
-const STOPW = new Set(['how', 'do', 'does', 'did', 'can', 'the', 'and', 'for', 'what', 'where', 'which', 'with', 'from', 'this', 'that', 'is', 'are', 'was', 'to', 'in', 'on', 'of', 'my', 'me', 'i', 'a', 'an', 'it', 'new', 'tell', 'show', 'explain', 'about', 'use', 'work', 'works', 'doe', 'have', 'has', 'option', 'workspace', 'mean', 'when', 'why', 'which', 'there', 'get', 'can', 'will', 'would', 'should']);
+const STOPW = new Set(['how', 'do', 'does', 'did', 'can', 'the', 'and', 'for', 'what', 'where', 'which', 'with', 'from', 'this', 'that', 'is', 'are', 'was', 'to', 'in', 'on', 'of', 'my', 'me', 'i', 'a', 'an', 'it', 'new', 'tell', 'show', 'explain', 'about', 'use', 'work', 'works', 'doe', 'have', 'has', 'option', 'workspace', 'mean', 'when', 'why', 'which', 'there', 'get', 'can', 'will', 'would', 'should', 'add', 'create', 'edit', 'delete', 'view', 'open', 'send', 'make', 'change', 'save', 'do', 'need', 'want', 'please', 'help']);
 const sing = (w) => (w.length > 3 && /[^siu]s$/.test(w) ? w.slice(0, -1) : w);
 const toks = (s) => tidy(s).split(' ').filter((w) => w.length >= 2 && !STOPW.has(w) && !STOPW.has(sing(w)));
 

@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.77', date: '2026-11-07', title: 'Ask understands Roman Urdu and answers in your language',
+    items: [
+      { text: 'Ask now understands questions written in Roman Urdu, Urdu and Hindi, finds the right help page (for example Appointments) and replies in the same language. If the guides do not cover a question it now says so instead of guessing.', where: 'Ask (the Ask button on every screen)' },
+      { text: 'Console: the Groq card now shows the last reason an engine failed and why one is being skipped.', where: 'Console > AI', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.76', date: '2026-11-07', title: 'Ask gets Groq: better answers, pictures and voice',
     items: [
       { text: 'Ask can now answer faster and better through Groq. Tap the picture button to attach a screenshot and ask about it, and the microphone now works in the Android app too.', where: 'Ask (the Ask button on every screen)' },

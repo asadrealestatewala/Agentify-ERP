@@ -113,3 +113,32 @@ test('Groq: key, order, privacy, 429 fallback, pictures, voice and activity', as
   assert.match((await ask('what is this', { image: PNG })).data.answer, /need Groq/);
   assert.equal((await as(owner, 'DELETE', '/ai/groq/key')).data.key_added, false);
 });
+
+test('Ask understands Roman Urdu: finds the right screen, answers in that language, records why an engine failed', async () => {
+  const owner = (await call('erp.test', 'POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  const a = await login('groq', 'owner@groq.test');
+  assert.equal((await as(owner, 'PUT', '/ai/groq', { key: GKEY, enabled: true, provider_order: ['groq', 'horde', 'gemini'] })).status, 200);
+  resetRateLimit();
+  const question = 'me kese appointment add kar sakta hu';
+  groqText = '1. Open CRM > Appointments and press New.'; // English although the question was Roman Urdu: one stricter retry
+  const n = groqCalls.length;
+  const r = await a('POST', '/api/assistant/ask', { question });
+  assert.equal(r.data.engine, 'groq', JSON.stringify(r.data));
+  assert.equal(groqCalls.length, n + 2);
+  const sent = groqCalls[n].body.messages.at(-1).content;
+  assert.match(sent, /Appointments/); assert.match(sent, /REPLY LANGUAGE: write the whole answer in Roman Urdu/); assert.doesNotMatch(sent, /Add Property/);
+  assert.match(groqCalls[n + 1].body.messages.at(-1).content, /Do NOT answer in English/);
+  assert.ok(!(r.data.sources || []).some((s) => /Add Property/.test(s)), JSON.stringify(r.data.sources));
+  // an answer already in Roman Urdu is accepted at once
+  groqText = 'CRM > Appointments kholen aur New dabayen, phir mulaqat ki tafseel bhar kar save karen.';
+  const m = groqCalls.length; resetRateLimit();
+  assert.match((await a('POST', '/api/assistant/ask', { question })).data.answer, /mulaqat/); assert.equal(groqCalls.length, m + 1);
+  // a failing engine leaves its reason for the console
+  groqStatus = 429; resetRateLimit();
+  await a('POST', '/api/assistant/ask', { question });
+  groqStatus = 200;
+  const ov = (await as(owner, 'GET', '/ai/overview')).data;
+  assert.match(ov.technical.ask_activity.last_errors.groq.message, /busy|rate/i);
+  resetRateLimit(); await a('POST', '/api/assistant/ask', { question });
+  assert.equal((await as(owner, 'GET', '/ai/overview')).data.technical.ask_activity.last_errors.groq, null);
+});
