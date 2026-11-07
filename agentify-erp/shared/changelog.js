@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.78', date: '2026-11-07', title: 'Ask no longer shows AI "thinking" and says why an engine was skipped',
+    items: [
+      { text: 'If the AI prints its own notes instead of an answer, Ask now discards it, tries the next engine and, if none gives a clean answer, shows the menu path and steps straight from the help guide.', where: 'Ask (the Ask button on every screen)' },
+      { text: 'When an engine is skipped or fails (for example Groq has no key or is switched off), Ask says so in a small note under the answer.', where: 'Ask (the Ask button on every screen)' },
+    ],
+  },
+  {
     version: 'v1.77', date: '2026-11-07', title: 'Ask understands Roman Urdu and answers in your language',
     items: [
       { text: 'Ask now understands questions written in Roman Urdu, Urdu and Hindi, finds the right help page (for example Appointments) and replies in the same language. If the guides do not cover a question it now says so instead of guessing.', where: 'Ask (the Ask button on every screen)' },

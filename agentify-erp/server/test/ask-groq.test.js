@@ -82,7 +82,7 @@ test('Groq: key, order, privacy, 429 fallback, pictures, voice and activity', as
   assert.equal(act.last.provider, 'groq'); assert.ok(act.by_engine.some((e) => e.provider === 'groq' && e.ok >= 1));
 
   resetRateLimit(); groqStatus = 429;
-  const busy = await ask(`${q} one`); assert.match(busy.data.answer, /busy/);
+  const busy = await ask(`${q} one`); assert.equal(busy.data.engine, 'guide'); assert.match(busy.data.answer, /Steps from our help guide/); assert.ok(busy.data.notes.some((n) => /Groq failed/.test(n)));
   assert.equal((await as(owner, 'PUT', '/ai/horde', { key: 'HordeSecretKey_abcdef1234567890' })).status, 200);
   const fb = await ask(`${q} two`); assert.match(fb.data.answer, /horde/); assert.equal(fb.data.engine, 'horde'); assert.equal(hordeJobs.length, 1);
   groqStatus = 200;
@@ -141,4 +141,21 @@ test('Ask understands Roman Urdu: finds the right screen, answers in that langua
   assert.match(ov.technical.ask_activity.last_errors.groq.message, /busy|rate/i);
   resetRateLimit(); await a('POST', '/api/assistant/ask', { question });
   assert.equal((await as(owner, 'GET', '/ai/overview')).data.technical.ask_activity.last_errors.groq, null);
+});
+
+test('Ask never shows a model\'s reasoning: it tries the next engine, then answers from the guide', async () => {
+  const owner = (await call('erp.test', 'POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  const a = await login('groq', 'owner@groq.test');
+  await as(owner, 'PUT', '/ai/groq', { key: GKEY, enabled: true, provider_order: ['groq', 'horde', 'gemini'] });
+  const question = 'me kese appointment add kar sakta hu';
+  groqText = "We need answer user's question in Roman Urdu. Need use only reference material. But material doesn't say add."; // reasoning leak
+  resetRateLimit(); const h0 = hordeJobs.length;
+  const r = (await a('POST', '/api/assistant/ask', { question })).data;
+  assert.ok(!/We need answer/.test(r.answer), r.answer);
+  assert.equal(r.engine, 'horde'); assert.ok(r.notes.some((n) => /Groq gave an unusable reply/.test(n)), JSON.stringify(r.notes));
+  assert.equal(hordeJobs.length, h0 + 2); // the second job is the stricter language retry (the mock answers in English)
+  groqText = 'Open CRM > Appointments and press New.';
+  await as(owner, 'PUT', '/ai/groq', { enabled: false }); resetRateLimit();
+  const noGroq = (await a('POST', '/api/assistant/ask', { question })).data;
+  assert.ok(noGroq.notes.some((n) => /Groq was skipped: it is switched off/.test(n)), JSON.stringify(noGroq.notes));
 });

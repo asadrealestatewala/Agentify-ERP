@@ -41,3 +41,9 @@ The former "AI usage & credits" page, extended (same route and menu spot). New c
 - Only help text that covers at least a fifth of the question's meaningful words, and is close to the best match, reaches the engine. No match means no AI call and the normal "not found" reply.
 - The prompt names the reply language. If the answer is not in that language (Roman Urdu, Urdu, Arabic, Hindi) it is retried once on the same engine with a stricter instruction.
 - Console > AI: the Groq card shows the last failure reason per engine (cleared when the engine next answers) and why Groq is skipped.
+
+## Clean answers and fallbacks (v1.78)
+
+- Reasoning models can print their thinking. `cleanAnswer` (askAi.js) strips `<think>` blocks, keeps text after an `ANSWER:` line and rejects text that reads like notes. A rejected reply moves Ask to the next engine.
+- If no engine gives a clean answer (busy, failed or only reasoning) and the question matched a help page, Ask answers from that page: menu path and the guide's own steps, with a short wrapper in the asked language (`templatedAnswer`, engine "guide"). Switch, limit and budget refusals still show their own message.
+- The Ask response has `notes`: why an engine was skipped (no key, switched off) or failed. The panel shows them under the answer.

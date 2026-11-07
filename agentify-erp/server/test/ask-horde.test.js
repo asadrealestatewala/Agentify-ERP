@@ -95,7 +95,7 @@ test('Ask can use Stable Horde: key kept private, privacy guard, order and fallb
   resetRateLimit(); const g0 = calls.length;
   assert.match((await ask(q)).data.answer, /Creative Studio/); assert.equal(calls.length, g0, 'Gemini never called while off');
   hordeFails = true;
-  assert.match((await ask(`${q} busy`)).data.answer, /no backup engine is switched on/); assert.equal(calls.length, g0);
+  { const b = (await ask(`${q} busy`)).data; assert.equal(b.engine, 'guide'); assert.match(b.answer, /Steps from our help guide/); } assert.equal(calls.length, g0);
   hordeFails = false;
   // Gemini first, Horde as backup when Gemini fails (switched on in the console)
   assert.equal((await as(owner, 'PUT', '/ai/horde', { gemini_enabled: true })).data.gemini_enabled, true);
