@@ -17,7 +17,7 @@ const { setSetting } = await import('../src/services/platformConfig.js');
 const { resetRateLimit } = await import('../src/services/askAi.js');
 const dbm = await import('../src/db.js');
 
-let server, port, calls = [], hordeText = '1. Open Creative Studio.\n2. Choose Video reels.', geminiFails = false, hordeJobs = [];
+let server, port, calls = [], hordeText = '1. Open Creative Studio.\n2. Choose Video reels.', geminiFails = false, hordeFails = false, hordeJobs = [];
 const realFetch = globalThis.fetch;
 before(() => new Promise((res) => {
   globalThis.fetch = async (url, opts = {}) => {
@@ -25,6 +25,7 @@ before(() => new Promise((res) => {
     if (u.includes('127.0.0.1')) return realFetch(url, opts);
     if (u.includes('open.er-api.com')) return new Response(JSON.stringify({ rates: { PKR: 280 } }), { status: 200 });
     if (u.includes('aihorde.net/api/v2/generate/text/async')) { hordeJobs.push({ body: JSON.parse(opts.body), key: opts.headers.apikey }); return new Response(JSON.stringify({ id: 'job-1' }), { status: 202 }); }
+    if (u.includes('aihorde.net/api/v2/generate/text/status') && hordeFails) return new Response(JSON.stringify({ message: 'busy' }), { status: 503 });
     if (u.includes('aihorde.net/api/v2/generate/text/status')) return new Response(JSON.stringify({ done: true, generations: [{ text: hordeText, model: 'koboldcpp/test' }] }), { status: 200 });
     if (u.includes('aihorde.net/api/v2/find_user')) return new Response(JSON.stringify({ username: 'agentify#1', kudos: 120 }), { status: 200 });
     if (u.includes(':generateContent') && geminiFails) return new Response(JSON.stringify({ error: { message: 'overloaded' } }), { status: 503 });
@@ -87,8 +88,17 @@ test('Ask can use Stable Horde: key kept private, privacy guard, order and fallb
   const nf = await ask(`${q} again`); assert.equal(nf.data.intent, 'unknown'); assert.match(nf.data.answer, /could not find/);
   hordeText = '1. Open Creative Studio.';
 
-  // Gemini first, Horde as backup when Gemini fails
+  // Gemini is OFF by default: with a key present it is still never called, and a Horde failure gives a plain busy note
   setSetting('platform_gemini_key', 'AIza' + 'k'.repeat(35), { secret: true });
+  await as(owner, 'PUT', '/ai/horde', { provider_order: 'gemini,horde' });
+  assert.equal((await as(owner, 'GET', '/ai/overview')).data.technical.stablehorde.gemini_enabled, false);
+  resetRateLimit(); const g0 = calls.length;
+  assert.match((await ask(q)).data.answer, /Creative Studio/); assert.equal(calls.length, g0, 'Gemini never called while off');
+  hordeFails = true;
+  assert.match((await ask(`${q} busy`)).data.answer, /no backup engine is switched on/); assert.equal(calls.length, g0);
+  hordeFails = false;
+  // Gemini first, Horde as backup when Gemini fails (switched on in the console)
+  assert.equal((await as(owner, 'PUT', '/ai/horde', { gemini_enabled: true })).data.gemini_enabled, true);
   await as(owner, 'PUT', '/ai/fx', { live: false, manual_rate: 280 });
   await as(owner, 'PUT', '/ai/horde', { provider_order: 'gemini,horde' });
   resetRateLimit(); const before = hordeJobs.length;

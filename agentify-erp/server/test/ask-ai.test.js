@@ -47,7 +47,7 @@ test('Ask uses Gemini only as a fallback, from help material only', async () => 
   const owner = (await call('erp.test', 'POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
   assert.equal((await signup('ask', 'owner@ask.test')).status, 201);
   const a = await login('ask', 'owner@ask.test');
-  setSetting('platform_gemini_key', 'AIza' + 'k'.repeat(35), { secret: true });
+  setSetting('platform_gemini_key', 'AIza' + 'k'.repeat(35), { secret: true }); setSetting('ask_gemini_enabled', '1');
   await as(owner, 'PUT', '/ai/fx', { live: false, manual_rate: 280 });
   const ask = (question, history) => a('POST', '/api/assistant/ask', { question, history });
 
