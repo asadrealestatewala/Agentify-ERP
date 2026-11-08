@@ -209,7 +209,7 @@ export default function App() {
     return (
       <Routes>
         <Route path="/" element={<MainGate fallback={<Navigate to="/site" replace />} />} />
-        {['/real-estate', '/construction', '/preview', '/pricing', '/contact', '/delete-account', '/download-app', '/legal/:slug'].map((p) => <Route key={p} path={p} element={<MainGate fallback={<Navigate to="/login" replace />} />} />)}
+        {['/real-estate', '/construction', '/preview', '/pricing', '/contact', '/delete-account', '/download-app', '/legal/:slug', '/blog', '/blog/:slug'].map((p) => <Route key={p} path={p} element={<MainGate fallback={<Navigate to="/login" replace />} />} />)}
         <Route path="/portal/login" element={<Login portal />} />
         <Route path="/vendor/login" element={<Login portal vendor />} />
         <Route path="/developer/login" element={<Login portal developer />} />
