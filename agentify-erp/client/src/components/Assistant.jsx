@@ -163,6 +163,7 @@ export default function Assistant() {
               ? <div key={i} className="bubble me">{m.picture && <img src={m.picture} alt="Attached" style={{ display: 'block', maxWidth: 160, maxHeight: 120, borderRadius: 6, marginBottom: 4 }} />}{m.text}</div>
               : (
                 <div key={i} className={`bubble bot ${m.error ? 'err' : ''}`}>
+                  {!m.ai && m.tables?.length > 0 && m.intent !== 'denied' && <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>Live data report from your ERP (no AI used). For "how do I ..." questions, ask them with how / kaise.</div>}
                   {m.ai && <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>{m.engine === 'guide' ? 'From our help guides (the AI helper could not answer, so this is the guide text).' : `AI-written answer from our help guides${m.engine ? ` (${{ groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini' }[m.engine] || m.engine})` : ''}. Check important steps.`}</div>}
                   {m.ai && (m.notes || []).length > 0 && <div className="muted" style={{ fontSize: 11, marginBottom: 4, color: '#b45309' }}>{m.notes.join(' ')}</div>}
                   <div style={{ whiteSpace: 'pre-wrap' }}>{bold(m.answer)}</div>

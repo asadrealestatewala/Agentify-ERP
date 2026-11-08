@@ -6,6 +6,7 @@ import { projectFinancials } from './projectFinance.js';
 import { scheduleFor, progressSql } from './schedule.js';
 import { teamView, leaderboard, overview, salesAgents } from './goals.js';
 import { searchKnowledge, searchDocs } from '../../../shared/guides.js';
+import { isHowTo } from '../../../shared/help/askTerms.js';
 import { systemDocs } from './systemKnowledge.js';
 import { ensureLibrary, visible as visibleVideos } from '../routes/training.js';
 
@@ -82,7 +83,7 @@ export function videoLinks(user, topic, limit = 2) {
 function bestHelp(q) {
   const where = /^ ?(where|what is|what'?s|open|go to|find)\b/.test(q), process = /^ ?(how (does|do|are|is|can)|explain|tell me about|describe)\b/.test(q), roleQ = /\b(roles?|permissions?|access|allowed|who can|what can|can (see|do|view|edit|approve))\b/.test(q);
   const cands = [];
-  for (const h of searchKnowledge(q).slice(0, 6)) cands.push({ kind: h.type, rank: (h.coverage ?? 0.5) + (h.type === 'guide' ? 0.25 : 0) + (h.named && where ? 0.4 : 0) + (h.type === 'release' ? -0.1 : 0), h });
+  for (const h of searchKnowledge(q).slice(0, 6)) cands.push({ kind: h.type, rank: (h.coverage ?? 0.5) + (h.type === 'guide' ? (process && /\b(works?|working)\b|^ ?(explain|tell me about|describe)\b/.test(q) ? 0.05 : 0.25) : 0) + (h.named && where ? 0.4 : 0) + (h.type === 'release' ? -0.1 : 0), h });
   for (const x of searchDocs(q, systemDocs(), 4)) {
     const d = x.doc, roleDoc = d.source === 'Roles' || d.source === 'Permissions';
     cands.push({ kind: 'system', rank: x.coverage + (d.workflow && process ? 0.2 : 0) + (roleDoc ? (roleQ ? 0.35 : -0.6) : 0), h: x });
@@ -360,7 +361,10 @@ export function ask(question, user) {
   const q = ` ${String(question || '').toLowerCase().replace(/[?!.]+/g, ' ').replace(/\s+/g, ' ').trim()} `;
   if (q.trim().length < 2) return { intent: 'empty', answer: 'Ask me something about your leads, projects, budgets, sales, staff or accounts.', tables: [], suggestions: SUGGEST };
   const ctx = { user };
+  // "how do I add a lead" is a how-to question: only the help and how-to answers may take it, never the live-data reports (those fall through to the AI/guide answer)
+  const howTo = isHowTo(question);
   for (const it of INTENTS) {
+    if (howTo && !['help', 'howto'].includes(it.name)) continue;
     if (it.test(q)) {
       const out = it.run(q, ctx);
       return { intent: it.name, tables: [], suggestions: SUGGEST.slice(0, 4), ...out, wants_pdf: has(q, 'pdf', 'download', 'report', 'export', 'print') };
