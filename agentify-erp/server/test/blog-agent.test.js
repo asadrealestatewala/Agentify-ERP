@@ -90,6 +90,27 @@ test('quality checks reject thin, duplicate and boilerplate articles', () => {
   assert.ok(agent.similarity('real estate crm', 'real estate crm') === 1);
 });
 
+test('the writing engine can be Groq, and falls back to Gemini when Groq fails', async () => {
+  setSetting('groq_api_key', 'gsk_' + 'a'.repeat(40), { secret: true });
+  assert.throws(() => agent.saveSettings({ engine: 'openai' }), /Gemini or Groq/);
+  assert.equal(agent.saveSettings({ engine: 'groq' }).engine, 'groq');
+  assert.equal(agent.settings().engines.groq, true);
+  const prev = globalThis.fetch; let groqCalls = 0, geminiCalls = 0, groqOk = true;
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (u.includes('api.groq.com')) { groqCalls++; if (!groqOk) return new Response(JSON.stringify({ error: { message: 'rate limit' } }), { status: 429 }); const body = JSON.parse(opts.body); assert.equal(body.response_format.type, 'json_object'); return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ topics: [{ topic: 'Groq topic about plots', keyword: 'plots', query: 'plots' }] }) } }], usage: { prompt_tokens: 10, completion_tokens: 10 } }), { status: 200 }); }
+    if (u.includes(':generateContent')) geminiCalls++;
+    return prev(url, opts);
+  };
+  try {
+    const t = await agent.proposeTopics(1, 'focus');
+    assert.equal(t[0].topic, 'Groq topic about plots'); assert.equal(groqCalls, 1); assert.equal(geminiCalls, 0);
+    groqOk = false;
+    const t2 = await agent.proposeTopics(1, 'focus');
+    assert.ok(t2.length === 1 && geminiCalls === 1, 'fell back to Gemini');
+  } finally { globalThis.fetch = prev; agent.saveSettings({ engine: 'gemini' }); }
+});
+
 test('the sitemap lists published agent articles', async () => {
   const d = agent.listDrafts().find((x) => x.status === 'draft');
   agent.decide(d.id, 'publish', 'admin@test');

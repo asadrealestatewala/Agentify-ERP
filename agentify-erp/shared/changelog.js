@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.83', date: '2026-11-08', title: 'Console: choose Gemini or Groq for the blog agent',
+    items: [
+      { text: 'The Blog agent can now write with Groq as well as Gemini. Pick the writing engine in its settings; if the chosen engine fails, the other one is used when it is connected.', where: 'Console > Marketing > Blog agent', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.82', date: '2026-11-08', title: 'Console: Blog agent writes daily blog drafts for you to approve',
     items: [
       { text: 'A new Blog agent page researches topics on the web, writes original articles and saves them as drafts, up to a daily limit you set (5 to start, 10 at most). Each draft shows its quality checks and sources; you edit it, then Approve and publish, or Reject. Nothing reaches the blog without your approval unless you switch on auto-publish.', where: 'Console > Marketing > Blog agent', audience: 'platform' },
