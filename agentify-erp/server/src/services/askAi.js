@@ -9,9 +9,10 @@ import { geminiGenerate } from './aiGateway.js';
 import { hordeGenerate, hordeKey, geminiAskEnabled, scrubForHorde } from './hordeGateway.js';
 import { askOrder, noteEngine } from './askOrder.js';
 import { groqChat, groqReady, groqKey } from './groqGateway.js';
-import { config as geminiConfig } from './aiUsage.js';
+import { config as geminiConfig, ensureTable } from './aiUsage.js';
 import { assertSafeRequest } from './aiSafety.js';
 import { currentTenant } from '../context.js';
+import { bad } from '../util.js';
 import { detectLanguage, languageName, englishSearchText, answerMatchesLanguage } from '../../../shared/help/askTerms.js';
 
 const MAX_CHARS = 6500;
@@ -107,7 +108,7 @@ async function viaGemini(q, ref, history, user, image, lang, strict) {
 function finish(text, lang) {
   if (/^NOT_FOUND\b/i.test(String(text).trim())) return notFound(lang);
   const clean = cleanAnswer(text);
-  if (!clean) return { bad: true };
+  if (!clean) return { bad: true, raw: String(text).slice(0, 400) };
   if (/^NOT_FOUND\b/i.test(clean)) return notFound(lang);
   return { found: true, answer: clean };
 }
@@ -185,4 +186,33 @@ export async function askAi(question, history, user, image = null) {
   if (!answer) return null;
   const found = out.found !== false;
   return { answer, found, engine, notes, links: found ? videoLinks(user, `${q} ${mat[0]?.title || ''}`) : [], sources: found ? mat.slice(0, 3).map((m) => m.title) : [] };
+}
+
+const SAMPLE_Q = 'How do I add an appointment?';
+/**
+ * Console: send one sample question to ONE engine only (no fallback, no rate limit) and report what came back: the answer, the model the ledger
+ * recorded, how long it took and the error. Goes through the same gateways as real questions, so switches, ledger and scrubbing all apply.
+ */
+export async function testAskEngine(engine) {
+  if (!['groq', 'horde', 'gemini'].includes(engine)) throw bad('Choose Groq, Stable Horde or Gemini.');
+  const out = { engine, name: ENGINE_NAME[engine], question: SAMPLE_Q, ok: false, answer: null, model: null, ms: null, error: null, note: null };
+  const keyed = { groq: groqReady(), horde: !!hordeKey(), gemini: !!geminiConfig().key }[engine];
+  if (!keyed) { out.error = engine === 'groq' ? (groqKey() ? 'Groq is switched off ("Use Groq in Ask" is unticked).' : 'No Groq key is saved yet.') : engine === 'horde' ? 'No Stable Horde key is saved yet.' : 'No Gemini key is saved yet.'; return out; }
+  if (engine === 'gemini' && !geminiAskEnabled()) out.note = 'Gemini is switched off for Ask ("Allow Gemini for Ask"), so real questions never reach it. This test calls it anyway.';
+  const mat = material(SAMPLE_Q, 'en');
+  const ref = mat.map((m, i) => `[${i + 1}] ${m.title}: ${m.text}`).join('\n');
+  const user = { id: null, name: 'Console test' };
+  const provider = engine === 'horde' ? 'stablehorde' : engine;
+  const before = ensureTable().prepare('SELECT COALESCE(MAX(id),0) n FROM ai_usage').get().n;
+  const t0 = Date.now();
+  try {
+    const r = await (engine === 'groq' ? viaGroq : engine === 'gemini' ? viaGemini : viaHorde)(SAMPLE_Q, ref, [], user, null, 'en', false);
+    out.ms = Date.now() - t0;
+    if (r?.bad) out.error = `It printed its reasoning instead of an answer: "${r.raw}"`;
+    else if (r?.answer) { out.ok = true; out.answer = String(r.answer).slice(0, 1500); }
+    else out.error = 'It sent back no answer.';
+  } catch (e) { out.ms = Date.now() - t0; out.error = String(e.message || e).slice(0, 300); }
+  out.model = ensureTable().prepare("SELECT model FROM ai_usage WHERE key_owner='platform' AND provider=? AND id>? ORDER BY id DESC LIMIT 1").get(provider, before)?.model || null;
+  noteEngine(engine, out.ok ? null : new Error(out.error));
+  return out;
 }

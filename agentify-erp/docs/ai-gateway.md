@@ -51,3 +51,7 @@ The former "AI usage & credits" page, extended (same route and menu spot). New c
 ## Which model does what (v1.79)
 
 Console > AI > the Technical card has a "Which model does what" table (`modelMap` in aiReport.js): purpose, engine, model, on/off and the last ledger call. Ask answers show the ranked chain of engines that are ready now; pictures need Groq; voice uses Groq speech-to-text when on, else the browser microphone.
+
+## Test one Ask engine (v1.80)
+
+Console > AI > Groq card > Ask engine order: "Test this engine" (`POST /api/platform/admin/ai/ask-engine/test`, `testAskEngine` in askAi.js) sends the sample question "How do I add an appointment?" with the real guide text to that one engine only. No fallback is used. The result shows the answer, the model the ledger recorded, the time and any error, and a reasoning leak is reported as a failure. The call goes through the normal gateway, so switches, scrubbing and the ledger apply.

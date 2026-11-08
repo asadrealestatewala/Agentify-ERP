@@ -147,6 +147,9 @@ function Groq({ t, can, reload }) {
   const [f, setF] = useState({ key: '', enabled: g.enabled, chat_model: g.chat_model === g.defaults.chat ? '' : g.chat_model, vision_model: g.vision_model === g.defaults.vision ? '' : g.vision_model, stt_model: g.stt_model === g.defaults.stt ? '' : g.stt_model });
   const [order, setOrder] = useState(t.ask_order);
   const [busy, setBusy] = useState(false);
+  const [probe, setProbe] = useState(null); // result of a one-engine test
+  const [probing, setProbing] = useState('');
+  const tryEngine = async (e) => { setProbing(e); setProbe(null); try { setProbe(await api.post(`${A}/ai/ask-engine/test`, { engine: e })); reload(); } catch (err) { toast(err.message, 'err'); } finally { setProbing(''); } };
   const save = async () => { try { await api.put(`${A}/ai/groq`, { enabled: f.enabled, chat_model: f.chat_model, vision_model: f.vision_model, stt_model: f.stt_model, provider_order: order, ...(f.key ? { key: f.key } : {}) }); toast('Groq settings saved'); setF({ ...f, key: '' }); reload(); } catch (e) { toast(e.message, 'err'); } };
   const test = async () => { setBusy(true); try { const r = await api.post(`${A}/ai/groq/test`, {}); toast(`Groq connected (${r.models} models available)`); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
   const remove = async () => { if (!window.confirm('Remove the Groq key? Ask voice and picture questions stop until a key is added again.')) return; try { await api.del(`${A}/ai/groq/key`); toast('Groq key removed'); reload(); } catch (e) { toast(e.message, 'err'); } };
@@ -167,8 +170,15 @@ function Groq({ t, can, reload }) {
         <p className="muted" style={{ margin: '2px 0 8px' }}>Ask tries the top engine first and moves down when one is off, has no key or fails.</p>
         {order.map((e, i) => <div key={e} className="row" style={{ gap: 8, marginBottom: 4 }}>
           <span style={{ width: 20 }}>{i + 1}.</span><span style={{ minWidth: 110 }}>{ENGINE_LABEL[e]}</span>{on[e] ? <span className="pill green">on</span> : <span className="pill grey">off</span>}
-          {can && <><button className="btn sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${ENGINE_LABEL[e]} up`}>Up</button><button className="btn sm" disabled={i === order.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${ENGINE_LABEL[e]} down`}>Down</button></>}
+          {can && <><button className="btn sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${ENGINE_LABEL[e]} up`}>Up</button><button className="btn sm" disabled={i === order.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${ENGINE_LABEL[e]} down`}>Down</button><button className="btn sm" disabled={!!probing} onClick={() => tryEngine(e)} aria-label={`Test ${ENGINE_LABEL[e]} alone`}>{probing === e ? 'Testing…' : 'Test this engine'}</button></>}
         </div>)}
+        {probe && <div style={{ marginTop: 8, padding: 10, border: '1px solid #cbd5e1', borderRadius: 8 }}>
+          <b>{probe.name} alone</b> · {probe.ok ? <span className="pill green">worked</span> : <span className="pill grey">did not work</span>}{probe.ms != null ? ` · ${(probe.ms / 1000).toFixed(1)} s` : ''}{probe.model ? ` · model ${probe.model}` : ''}
+          <div className="muted" style={{ fontSize: 12 }}>Question sent: "{probe.question}". Only this engine was asked; nothing fell back to another one.</div>
+          {probe.note && <div style={{ color: '#b45309', fontSize: 12 }}>{probe.note}</div>}
+          {probe.error && <div style={{ color: '#b45309', marginTop: 4 }}>{probe.error}</div>}
+          {probe.answer && <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{probe.answer}</div>}
+        </div>}
       </div>
       <div style={{ marginTop: 12 }}>
         <b>Who has been answering Ask (last {t.ask_activity.days} days)</b>
