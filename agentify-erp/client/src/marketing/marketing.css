@@ -217,7 +217,7 @@ html[data-consent="open"] .lp .lsticky{display:none}
 .lp .lsave{display:inline-block;margin:4px 0;padding:2px 10px;border-radius:999px;background:var(--g2);color:#fff;font-size:13px;font-weight:600}
 @media (max-width:600px){.lp .loffer{padding-right:40px;font-size:13px}}
 /* blog images: reserve the 16:9 box so the page does not jump while they load */
-.lp img.lhero{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:14px;margin:16px 0 20px;background:#e6f4f1}
+.lp img.lpic{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:14px;margin:16px 0 20px;background:#e6f4f1}
 .lp .lprod .lcard.lblog{padding:0;overflow:hidden;gap:0}
 .lp .lprod .lcard.lblog picture,.lp .lprod .lcard.lblog img{display:block;width:100%;height:auto;aspect-ratio:16/9;background:#e6f4f1}
 .lp .lprod .lcard.lblog>:not(picture){margin:0 24px}
@@ -225,3 +225,10 @@ html[data-consent="open"] .lp .lsticky{display:none}
 .lp .lprod .lcard.lblog .lgo{margin-bottom:22px;margin-top:12px}
 .lp .lprod .lcard.lblog h3{margin-top:8px}
 .lp .lprod .lcard.lblog p,.lp .lprod .lcard.lblog .lmini{margin-top:8px}
+/* blog cards: equal-height rows, padded text, hero without letterbox */
+.lp .lprod .lcard.lblog{align-self:stretch;height:100%}
+.lp .lprod .lcard.lblog .lbdesc{margin:8px 24px 0;font-size:14.5px;line-height:1.5}
+.lp .lprod .lcard.lblog .lmini{display:block;margin-top:12px}
+.lp .lprod .lcard.lblog .lgo{margin-top:auto;padding-top:12px}
+.lp picture{display:block;line-height:0}
+.lp img.lpic{object-fit:cover}

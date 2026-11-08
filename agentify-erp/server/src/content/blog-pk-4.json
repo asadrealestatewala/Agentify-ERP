@@ -1,0 +1,426 @@
+[
+ {
+  "slug": "real-estate-commission-agreement-checklist-pakistan",
+  "title": "Commission agreements for property agents: a checklist for Pakistan",
+  "description": "A checklist for agreeing commission with property agents and partners in Pakistan: rates, timing, split rules and cancellations written down clearly.",
+  "keyword": "real estate commission agreement",
+  "tag": "Real estate",
+  "tags": [
+   "#CommissionAgreement",
+   "#PropertyAgent",
+   "#RealEstatePakistan",
+   "#AgentCommission"
+  ],
+  "faq": [
+   [
+    "What should a commission agreement cover?",
+    "Who earns commission, how it is calculated, when it is paid, how it is shared and what happens if the sale is cancelled."
+   ],
+   [
+    "Does the agreement need to be formal?",
+    "It should at least be written and signed by both sides. Check with a qualified adviser for legal requirements."
+   ]
+  ],
+  "related": [
+   "real-estate-agent-commission-tracking-pakistan",
+   "payment-receipts-property-pakistan",
+   "property-sale-documents-checklist-pakistan"
+  ],
+  "body": [
+   "Commission disputes often come from verbal promises. Writing the terms down before the deal protects everyone. This is general guidance, not legal advice.",
+   "# What to write down",
+   "* Names of the parties and the property or project.",
+   "* The commission rate or fixed amount.",
+   "* What it is calculated on, such as the sale price or the amount received.",
+   "* When it is paid: on booking, on down payment or as instalments arrive.",
+   "* How it is split between several agents.",
+   "* What happens if the buyer cancels or defaults.",
+   "# Keep a clear record",
+   "Record each commission as earned, approved and paid. Everyone should be able to see the status.",
+   "# Review regularly",
+   "Check your standard terms once a year. If you change them, apply the new terms only to new deals and tell people clearly."
+  ]
+ },
+ {
+  "slug": "construction-project-management-checklist-pakistan",
+  "title": "Construction project management checklist for Pakistani contractors",
+  "description": "A checklist for managing a construction project in Pakistan: scope, budget, schedule, purchases, labour, progress and billing from start to handover.",
+  "keyword": "construction project management checklist",
+  "tag": "Construction",
+  "tags": [
+   "#ConstructionManagement",
+   "#PakistanConstruction",
+   "#Contractor",
+   "#ProjectManagement"
+  ],
+  "faq": [
+   [
+    "What should a contractor track on every project?",
+    "Budget against actual cost, purchases, labour, subcontractor payments, progress and client billing."
+   ],
+   [
+    "How often should progress be reviewed?",
+    "Weekly at least, with a short daily site report."
+   ]
+  ],
+  "related": [
+   "construction-management-software-pakistan",
+   "construction-boq-and-budget-software",
+   "boq-excel-vs-software-pakistan"
+  ],
+  "body": [
+   "Most overruns come from small things that were not tracked: an extra purchase, an unpaid advance, a change that was never priced. A simple checklist keeps them visible.",
+   "# Before starting",
+   "* Written scope and the agreed price or BOQ.",
+   "* A budget by stage or cost head.",
+   "* A schedule with key dates.",
+   "* Names and contacts for suppliers and subcontractors.",
+   "# During the project",
+   "* Daily site report: work done, labour present, materials received.",
+   "* Purchase orders for every material order.",
+   "* Record advances and payments to subcontractors.",
+   "* Track variations and get them approved in writing.",
+   "# Billing and handover",
+   "Bill the client by measured progress and keep measurement records. At handover, keep a final account showing budget, actual cost and what was billed.",
+   "# Review every week",
+   "Compare spend with progress. If cost is rising faster than work done, find out why while it can still be fixed."
+  ]
+ },
+ {
+  "slug": "construction-daily-progress-report-site",
+  "title": "The daily site progress report: what to record and why",
+  "description": "What a daily construction progress report should contain in Pakistan: work done, labour, materials, equipment, delays and photos, and how to use it.",
+  "keyword": "daily site progress report",
+  "tag": "Construction",
+  "tags": [
+   "#SiteReport",
+   "#ConstructionProgress",
+   "#PakistanConstruction",
+   "#SiteManagement"
+  ],
+  "faq": [
+   [
+    "What is a daily site report?",
+    "A short record of what happened on site that day: work completed, workers present, materials received, issues and photos."
+   ],
+   [
+    "Who should write it?",
+    "The site engineer or supervisor, on the same day."
+   ]
+  ],
+  "related": [
+   "construction-project-management-checklist-pakistan",
+   "construction-client-billing-progress-pakistan",
+   "construction-management-software-pakistan"
+  ],
+  "body": [
+   "The daily report is the cheapest control tool on a project. It takes ten minutes and settles many later arguments about what was done and when.",
+   "# What to include",
+   "* Date, weather if it affected work, and the area worked on.",
+   "* Work completed and its approximate quantity.",
+   "* Number of workers by trade.",
+   "* Materials received and used.",
+   "* Equipment on site.",
+   "* Delays, problems and instructions received.",
+   "* A few dated photos.",
+   "# How it helps",
+   "* It supports your progress bill with evidence.",
+   "* It shows delays and their cause when the client disputes the schedule.",
+   "* It helps you compare labour on site with work completed.",
+   "# Keep it consistent",
+   "Use the same format every day and store reports in one place, so a report from three months ago can be found in a minute."
+  ]
+ },
+ {
+  "slug": "construction-labour-attendance-wages-pakistan",
+  "title": "Construction labour attendance and wages: keeping fair records",
+  "description": "How to keep labour attendance and wage records on a construction site in Pakistan: daily attendance, rates, advances, deductions and payment proof.",
+  "keyword": "construction labour attendance and wages",
+  "tag": "Construction",
+  "tags": [
+   "#LabourWages",
+   "#ConstructionPakistan",
+   "#SiteAttendance",
+   "#Contractor"
+  ],
+  "faq": [
+   [
+    "What should labour records include?",
+    "Name, trade, daily rate or piece rate, days worked, advances, deductions and payment date."
+   ],
+   [
+    "Why record advances carefully?",
+    "Advances are easy to forget and are a common cause of wage disputes."
+   ]
+  ],
+  "related": [
+   "labour-subcontractor-payments-pakistan",
+   "construction-daily-progress-report-site",
+   "construction-project-management-checklist-pakistan"
+  ],
+  "body": [
+   "Labour is a large part of site cost and a frequent source of disputes. Clear records protect both the contractor and the worker.",
+   "# Daily attendance",
+   "Mark attendance each day, by name and trade. Have the supervisor sign or confirm it so there is an agreed record.",
+   "# Rates and calculations",
+   "* Record the agreed daily or piece rate for each worker or gang.",
+   "* Calculate wages from the attendance record, not from memory.",
+   "* Show the calculation so the worker can check it.",
+   "# Advances and deductions",
+   "Write every advance with its date and reason, and deduct it according to the agreed plan. Show the balance on the pay slip.",
+   "# Pay and record",
+   "Record the date and mode of each payment and get an acknowledgement. At the end of the project you will have a complete labour cost per site."
+  ]
+ },
+ {
+  "slug": "construction-store-inventory-management-pakistan",
+  "title": "Construction site store management: stop material wastage and theft",
+  "description": "How to manage a construction site store in Pakistan: receiving, issuing, stock counts and reconciling purchases against use to cut wastage.",
+  "keyword": "construction store management",
+  "tag": "Construction",
+  "tags": [
+   "#SiteStore",
+   "#MaterialControl",
+   "#ConstructionPakistan",
+   "#InventoryManagement"
+  ],
+  "faq": [
+   [
+    "How do I reduce material loss on site?",
+    "Record every receipt and issue, count stock regularly and compare use against work done."
+   ],
+   [
+    "Who should control the store?",
+    "One responsible person, with a second person checking regularly."
+   ]
+  ],
+  "related": [
+   "construction-purchase-orders-material-control",
+   "construction-project-management-checklist-pakistan",
+   "grey-structure-cost-tracking-pakistan"
+  ],
+  "body": [
+   "Materials are often the biggest cost on a construction project, and a poorly controlled store leaks money quietly. A simple routine closes most gaps.",
+   "# Receive properly",
+   "* Check every delivery against the purchase order.",
+   "* Count or weigh the goods and note any shortage or damage.",
+   "* Record the receipt with date, supplier and quantity.",
+   "# Issue with a record",
+   "Record what leaves the store, who took it and for which work. Issue slips signed by the supervisor make use traceable.",
+   "# Count and reconcile",
+   "Count the main items weekly. Compare stock with the record; investigate differences quickly while memories are fresh.",
+   "# Compare use with progress",
+   "If cement or steel used is much higher than the work completed would suggest, look for wastage, theft or unrecorded changes."
+  ]
+ },
+ {
+  "slug": "construction-vendor-supplier-ledger-pakistan",
+  "title": "Supplier ledgers for contractors: pay on time and avoid disputes",
+  "description": "How contractors in Pakistan can keep supplier ledgers: purchases, deliveries, payments and balances so that accounts match at month end.",
+  "keyword": "supplier ledger for contractors",
+  "tag": "Construction",
+  "tags": [
+   "#SupplierLedger",
+   "#ContractorAccounts",
+   "#ConstructionPakistan",
+   "#Payables"
+  ],
+  "faq": [
+   [
+    "What is a supplier ledger?",
+    "A running account for each supplier showing purchases, payments and the balance owed."
+   ],
+   [
+    "How often should I reconcile with suppliers?",
+    "Monthly at least, and before any large payment."
+   ]
+  ],
+  "related": [
+   "construction-purchase-orders-material-control",
+   "real-estate-accounting-pakistan",
+   "construction-project-management-checklist-pakistan"
+  ],
+  "body": [
+   "Suppliers extend credit to contractors they trust. A clear ledger keeps that trust and avoids month-end arguments about what was ordered and delivered.",
+   "# What each ledger should show",
+   "* Date, purchase order and delivery note number.",
+   "* Amount of each purchase.",
+   "* Payments made, with date and mode.",
+   "* Running balance.",
+   "# Match three documents",
+   "Before paying, match the purchase order, the delivery record and the supplier invoice. If they do not agree, resolve it first.",
+   "# Reconcile monthly",
+   "Send each main supplier a statement and ask them to confirm. Differences are far easier to solve when they are a month old than when they are a year old.",
+   "# Plan payments",
+   "Use the ledger to see what is due this week and next, so you can plan cash instead of reacting to phone calls."
+  ]
+ },
+ {
+  "slug": "construction-project-cash-flow-pakistan",
+  "title": "Construction cash flow in Pakistan: why profitable projects still run short of money",
+  "description": "Why construction projects in Pakistan run short of cash even when profitable, and how to plan billing, payments and advances to keep work moving.",
+  "keyword": "construction cash flow",
+  "tag": "Construction",
+  "tags": [
+   "#CashFlow",
+   "#ConstructionFinance",
+   "#PakistanConstruction",
+   "#Contractor"
+  ],
+  "faq": [
+   [
+    "Why do profitable projects have cash problems?",
+    "Costs are paid up front while client payments arrive later, so timing, not profit, creates the gap."
+   ],
+   [
+    "How can I improve cash flow?",
+    "Bill promptly on measured progress, plan payments to suppliers and track what is owed by the client."
+   ]
+  ],
+  "related": [
+   "construction-client-billing-progress-pakistan",
+   "construction-vendor-supplier-ledger-pakistan",
+   "construction-boq-and-budget-software"
+  ],
+  "body": [
+   "A project can make a profit on paper and still leave you short of money every month. The reason is timing: you pay for labour and materials now and the client pays later.",
+   "# Know your cycle",
+   "Work out how many days pass between spending money and receiving it from the client. The longer the gap, the more cash you need to carry.",
+   "# Bill on time",
+   "* Measure progress regularly and submit the bill straight away.",
+   "* Keep measurement sheets ready to support the bill.",
+   "* Follow up unpaid bills with dates and names.",
+   "# Plan outgoing payments",
+   "List what is due to suppliers, labour and subcontractors for the next four weeks and compare with expected receipts.",
+   "# Watch retention and advances",
+   "Track retention amounts and advances separately so you know when money is due back to you."
+  ]
+ },
+ {
+  "slug": "construction-erp-roman-urdu",
+  "title": "Construction ERP kya hai? Contractors ke liye asan wazahat",
+  "description": "Construction ERP kya hota hai, contractors ko kyun chahiye aur kaun se kaam ek jagah ho sakte hain: BOQ, purchase, labour aur billing.",
+  "keyword": "construction ERP kya hai",
+  "tag": "Roman Urdu",
+  "tags": [
+   "#ConstructionERP",
+   "#RomanUrdu",
+   "#ContractorPakistan",
+   "#BOQ"
+  ],
+  "faq": [
+   [
+    "Construction ERP kya hota hai?",
+    "Ek software jo budget, purchase, labour, store, subcontractor aur client billing ek jagah rakhta hai."
+   ],
+   [
+    "Kya chhote contractor ke liye bhi faida hai?",
+    "Haan, agar aap ke paas kai sites ya bohat se suppliers hain to records ek jagah hone se hisab asan hota hai."
+   ]
+  ],
+  "related": [
+   "construction-management-software-pakistan",
+   "boq-excel-vs-software-pakistan",
+   "labour-subcontractor-payments-pakistan"
+  ],
+  "body": [
+   "ERP ka matlab hai ek aisa system jahan business ke alag alag kaam ek doosre se jude hote hain. Construction mein yeh budget, purchase, labour, store aur billing hote hain.",
+   "# Contractors ke aam masail",
+   "* Budget Excel mein hota hai aur kharcha kisi aur register mein.",
+   "* Supplier ka hisab mahine ke end par match nahi hota.",
+   "* Labour ki advance bhool jati hai.",
+   "* Client ko bill banane mein der hoti hai.",
+   "# ERP kya karta hai",
+   "* BOQ aur budget banata hai.",
+   "* Purchase order aur store ka record rakhta hai.",
+   "* Labour aur subcontractor ki payment ka hisab rakhta hai.",
+   "* Progress ke hisab se client bill banata hai.",
+   "# Shuru kaise karein",
+   "Pehle ek project ka BOQ aur budget daalein, phir purchases aur labour record karna shuru karein. Ek hi project se seekhna sab se asan hai."
+  ]
+ },
+ {
+  "slug": "multi-branch-property-office-management-pakistan",
+  "title": "Running several property offices: keeping branches, agents and accounts organised",
+  "description": "How a property business in Pakistan can run several offices: shared lead records, agent access, branch-wise accounts and consistent receipts.",
+  "keyword": "multi-branch property office management",
+  "tag": "Business",
+  "tags": [
+   "#MultiBranch",
+   "#PropertyBusiness",
+   "#PakistanRealEstate",
+   "#BusinessManagement"
+  ],
+  "faq": [
+   [
+    "What changes when you open a second office?",
+    "You can no longer see everything yourself, so you need shared records, clear roles and branch-wise reports."
+   ],
+   [
+    "Should every branch see all data?",
+    "No. Give staff access only to what their role needs."
+   ]
+  ],
+  "related": [
+   "best-real-estate-software-pakistan",
+   "real-estate-agent-commission-tracking-pakistan",
+   "real-estate-accounting-pakistan"
+  ],
+  "body": [
+   "Running one office, you can watch everything yourself. With two or three, problems hide in the gaps between them. Shared records and clear rules keep control.",
+   "# One system, not three notebooks",
+   "Keep leads, properties and payments in one system so the owner sees all branches. Duplicate records and double bookings become easier to catch.",
+   "# Branch-wise accounts",
+   "Record income and expenses by branch so you can see which office performs. Use the same receipt format everywhere.",
+   "# Roles and access",
+   "* Agents see their own leads and clients.",
+   "* Branch managers see their branch.",
+   "* Owners and accountants see all branches and reports.",
+   "# Common policies",
+   "Use the same commission rules, follow-up standards and document checklist in every office, and review them together regularly."
+  ]
+ },
+ {
+  "slug": "real-estate-reports-owners-should-check-pakistan",
+  "title": "Seven reports every property business owner in Pakistan should check",
+  "description": "Seven simple reports for property business owners in Pakistan: leads, visits, sales, collections, overdue instalments, commissions and cash position.",
+  "keyword": "real estate reports for owners",
+  "tag": "Business",
+  "tags": [
+   "#BusinessReports",
+   "#PropertyBusiness",
+   "#PakistanRealEstate",
+   "#KPI"
+  ],
+  "faq": [
+   [
+    "How often should owners check reports?",
+    "Weekly for leads, visits and collections, and monthly for profit and commissions."
+   ],
+   [
+    "Do reports need special software?",
+    "No, but software makes them faster and more reliable than building them by hand."
+   ]
+  ],
+  "related": [
+   "real-estate-accounting-pakistan",
+   "installment-defaulters-follow-up-pakistan",
+   "real-estate-agent-commission-tracking-pakistan"
+  ],
+  "body": [
+   "Owners do not need dozens of reports. A few, checked regularly, show whether the business is healthy.",
+   "# The seven reports",
+   "* New leads by source.",
+   "* Site visits booked and held.",
+   "* Sales closed and their value.",
+   "* Payments collected against what was due.",
+   "* Overdue instalments by buyer and age.",
+   "* Commissions earned and paid.",
+   "* Cash position: money in, money out and balance.",
+   "# How to use them",
+   "Review leads and visits weekly with the team. Review collections and overdue instalments weekly with accounts. Review commissions and cash monthly.",
+   "# Look for trends",
+   "One week's number tells little. A fall over several weeks tells you where to look."
+  ]
+ }
+]
