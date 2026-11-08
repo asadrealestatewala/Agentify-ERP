@@ -14,8 +14,10 @@ const HEADERS = (key) => ({ apikey: key, 'Content-Type': 'application/json', 'Cl
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export const hordeKey = () => getSetting('stablehorde_api_key');
+export const hordeEnabled = () => getSetting('stablehorde_enabled') !== '0'; // on once a key is added; the console can switch it off
+export const hordeReady = () => !!hordeKey() && hordeEnabled();
 export const hordeModels = () => String(getSetting('stablehorde_models') || '').split(',').map((s) => s.trim()).filter(Boolean).slice(0, 5);
-export const hordeStatus = () => ({ key_added: !!hordeKey(), key_hint: hordeKey() ? `…${hordeKey().slice(-4)}` : null, models: hordeModels(), trusted_only: getSetting('stablehorde_trusted') !== '0', provider_order: askOrder().join(','), gemini_enabled: geminiAskEnabled() });
+export const hordeStatus = () => ({ key_added: !!hordeKey(), enabled: hordeEnabled(), key_hint: hordeKey() ? `…${hordeKey().slice(-4)}` : null, models: hordeModels(), trusted_only: getSetting('stablehorde_trusted') !== '0', provider_order: askOrder().join(','), gemini_enabled: geminiAskEnabled() });
 
 /** Gemini as an Ask engine is OFF until the console switches it on (setting ask_gemini_enabled = '1'). While off it is never called, whatever the order says. */
 export const geminiAskEnabled = () => getSetting('ask_gemini_enabled') === '1';
@@ -75,6 +77,7 @@ export function scrubForHorde(input, names = []) {
 export async function hordeGenerate({ feature, purpose, prompt, tenantId = null, userId = null, maxLength = 500, timeout = 75_000 }) {
   const key = hordeKey();
   if (!key) throw bad('Connect Stable Horde first (AI > Technical details).');
+  if (!hordeEnabled()) throw bad('Stable Horde is switched off in the console.');
   assertPlatformAllowed({ feature, tenantId, credits: 0 });
   const models = hordeModels();
   const body = { prompt: String(prompt).slice(0, 12_000), params: { max_length: maxLength, max_context_length: 3072, temperature: 0.3, top_p: 0.85, rep_pen: 1.1, n: 1 }, trusted_workers: getSetting('stablehorde_trusted') !== '0', slow_workers: true, ...(models.length ? { models } : {}) };

@@ -194,3 +194,27 @@ test('console can test each engine alone: no fallback, shows answer, model, time
   assert.equal((await as(owner, 'POST', '/ai/ask-engine/test', { engine: 'bogus' })).status, 400);
   await as(owner, 'PUT', '/ai/groq', { provider_order: ['groq', 'horde', 'gemini'] });
 });
+
+test('console engine switches: an engine that is off is never called, even as a backup; "use only" keeps one on', async () => {
+  const owner = (await call('erp.test', 'POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  const a = await login('groq', 'owner@groq.test');
+  const ask = (question) => a('POST', '/api/assistant/ask', { question });
+  await as(owner, 'PUT', '/ai/groq', { key: GKEY, provider_order: ['groq', 'horde', 'gemini'] });
+  const r = await as(owner, 'PUT', '/ai/ask-engines', { only: 'groq' });
+  assert.equal(r.status, 200);
+  let t = (await as(owner, 'GET', '/ai/overview')).data.technical;
+  assert.equal(t.groq.enabled, true); assert.equal(t.stablehorde.enabled, false); assert.equal(t.stablehorde.gemini_enabled, false);
+  // Groq busy: Horde must NOT be used as a backup while switched off
+  groqStatus = 429; resetRateLimit(); const h0 = hordeJobs.length;
+  await ask('How do I add a lead to the pipeline now?');
+  assert.equal(hordeJobs.length, h0, 'Horde is off so it is never called');
+  const tested = (await as(owner, 'POST', '/ai/ask-engine/test', { engine: 'horde' })).data;
+  assert.equal(tested.ok, false); assert.equal(hordeJobs.length, h0);
+  // switch Horde back on alone: it works again
+  groqStatus = 200;
+  assert.equal((await as(owner, 'PUT', '/ai/ask-engines', { horde: true })).status, 200);
+  t = (await as(owner, 'GET', '/ai/overview')).data.technical;
+  assert.equal(t.stablehorde.enabled, true); assert.equal(t.groq.enabled, true);
+  assert.equal((await as(owner, 'PUT', '/ai/ask-engines', { only: 'bogus' })).status, 400);
+  await as(owner, 'PUT', '/ai/ask-engines', { groq: true, horde: true, gemini: false });
+});

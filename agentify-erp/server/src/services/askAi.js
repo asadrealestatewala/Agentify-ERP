@@ -6,7 +6,7 @@ import { searchKnowledge, searchDocs } from '../../../shared/guides.js';
 import { systemDocs } from './systemKnowledge.js';
 import { videoLinks } from './assistant.js';
 import { geminiGenerate } from './aiGateway.js';
-import { hordeGenerate, hordeKey, geminiAskEnabled, scrubForHorde } from './hordeGateway.js';
+import { hordeGenerate, hordeKey, hordeReady, hordeEnabled, geminiAskEnabled, scrubForHorde } from './hordeGateway.js';
 import { askOrder, noteEngine } from './askOrder.js';
 import { groqChat, groqReady, groqKey } from './groqGateway.js';
 import { config as geminiConfig, ensureTable } from './aiUsage.js';
@@ -156,14 +156,14 @@ export async function askAi(question, history, user, image = null) {
   if (!mat.length && !image) return null;
   if (limited(user.id)) return { refused: 'You are asking quickly. Please wait a moment and try again.' };
   const ref = mat.map((m, i) => `[${i + 1}] ${m.title}: ${m.text}`).join('\n');
-  const ready = { groq: groqReady(), horde: !!hordeKey(), gemini: geminiAskEnabled() && !!geminiConfig().key };
+  const ready = { groq: groqReady(), horde: hordeReady(), gemini: geminiAskEnabled() && !!geminiConfig().key };
   // a picture can only be read by a Groq vision model
   if (image && !ready.groq) return { refused: 'Questions about a picture need Groq to be connected. Please type your question instead.' };
   const order = image ? ['groq'] : askOrder().filter((p) => ready[p]);
-  if (!order.length) return { refused: geminiAskEnabled() || hordeKey() || groqReady() ? 'The AI helper could not answer right now.' : 'The AI helper is not switched on yet. Please ask your administrator or support.' };
+  if (!order.length) return { refused: geminiAskEnabled() || hordeReady() || groqReady() ? 'The AI helper could not answer right now.' : 'The AI helper is not switched on yet. Please ask your administrator or support.' };
   let out = null, lastErr = null, engine = null;
   const notes = []; // why an engine did not answer, shown under the answer
-  for (const p of askOrder()) if (!ready[p] && !(p === 'gemini')) notes.push(`${ENGINE_NAME[p]} was skipped: ${p === 'groq' ? (!!groqKey() ? 'it is switched off in the console' : 'no Groq key is saved in the console') : 'no Stable Horde key is saved in the console'}.`);
+  for (const p of askOrder()) if (!ready[p] && !(p === 'gemini')) notes.push(`${ENGINE_NAME[p]} was skipped: ${p === 'groq' ? (!!groqKey() ? 'it is switched off in the console' : 'no Groq key is saved in the console') : (hordeKey() ? 'it is switched off in the console' : 'no Stable Horde key is saved in the console')}.`);
   const run = (provider, strict) => (provider === 'groq' ? viaGroq : provider === 'gemini' ? viaGemini : viaHorde)(q, ref, history, user, image, lang, strict);
   for (const provider of order) {
     try {
@@ -196,8 +196,8 @@ const SAMPLE_Q = 'How do I add an appointment?';
 export async function testAskEngine(engine) {
   if (!['groq', 'horde', 'gemini'].includes(engine)) throw bad('Choose Groq, Stable Horde or Gemini.');
   const out = { engine, name: ENGINE_NAME[engine], question: SAMPLE_Q, ok: false, answer: null, model: null, ms: null, error: null, note: null };
-  const keyed = { groq: groqReady(), horde: !!hordeKey(), gemini: !!geminiConfig().key }[engine];
-  if (!keyed) { out.error = engine === 'groq' ? (groqKey() ? 'Groq is switched off ("Use Groq in Ask" is unticked).' : 'No Groq key is saved yet.') : engine === 'horde' ? 'No Stable Horde key is saved yet.' : 'No Gemini key is saved yet.'; return out; }
+  const keyed = { groq: groqReady(), horde: hordeReady(), gemini: !!geminiConfig().key }[engine];
+  if (!keyed) { out.error = engine === 'groq' ? (groqKey() ? 'Groq is switched off ("Use Groq in Ask" is unticked).' : 'No Groq key is saved yet.') : engine === 'horde' ? (hordeKey() && !hordeEnabled() ? 'Stable Horde is switched off.' : 'No Stable Horde key is saved yet.') : 'No Gemini key is saved yet.'; return out; }
   if (engine === 'gemini' && !geminiAskEnabled()) out.note = 'Gemini is switched off for Ask ("Allow Gemini for Ask"), so real questions never reach it. This test calls it anyway.';
   const mat = material(SAMPLE_Q, 'en');
   const ref = mat.map((m, i) => `[${i + 1}] ${m.title}: ${m.text}`).join('\n');

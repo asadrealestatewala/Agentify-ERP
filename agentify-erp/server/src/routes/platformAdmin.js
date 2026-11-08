@@ -55,6 +55,7 @@ import * as zAdmin from '../services/zernioAdmin.js';
 import * as horde from '../services/hordeGateway.js';
 import * as groq from '../services/groqGateway.js';
 import { testAskEngine } from '../services/askAi.js';
+import { saveEngineSwitches } from '../services/askOrder.js';
 import * as aiPrice from '../services/aiPricing.js';
 import * as aiFx from '../services/fxRate.js';
 import * as aiGate from '../services/aiGate.js';
@@ -749,6 +750,7 @@ r.put('/ai/horde', requireOperator, need('integrations.manage'), asyncH((req, re
 r.post('/ai/horde/test', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const v = await horde.hordeTest(); audit(req.operator.email, 'ai-horde-tested', {}); res.json(v); }));
 r.delete('/ai/horde/key', requireOperator, need('integrations.manage'), (req, res) => { horde.removeHordeKey(); audit(req.operator.email, 'ai-horde-key-removed', {}); res.json(horde.hordeStatus()); });
 r.put('/ai/groq', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = groq.saveGroq(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-groq-changed', { key_changed: !!req.body?.key && !/^•/.test(req.body.key), enabled: v.enabled }); res.json(v); }));
+r.put('/ai/ask-engines', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = saveEngineSwitches(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-ask-engines-switched', v); res.json(v); }));
 r.post('/ai/ask-engine/test', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const v = await testAskEngine(String(req.body?.engine || '')); audit(req.operator.email, 'ai-ask-engine-tested', { engine: v.engine, ok: v.ok }); res.json(v); }));
 r.post('/ai/groq/test', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const v = await groq.groqTest(); audit(req.operator.email, 'ai-groq-tested', {}); res.json(v); }));
 r.delete('/ai/groq/key', requireOperator, need('integrations.manage'), (req, res) => { groq.removeGroqKey(); audit(req.operator.email, 'ai-groq-key-removed', {}); res.json(groq.groqStatus()); });
