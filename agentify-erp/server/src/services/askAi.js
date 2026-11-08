@@ -4,6 +4,8 @@
 // (switches, daily limit, budget, metering).
 import { searchKnowledge, searchDocs } from '../../../shared/guides.js';
 import { getSetting } from '../db.js';
+import { SCREENS } from '../../../shared/screens.generated.js';
+import { SCREEN_NOTES } from '../../../shared/screenNotes.js';
 import { today } from '../util.js';
 import { systemDocs } from './systemKnowledge.js';
 import { videoLinks } from './assistant.js';
@@ -20,9 +22,40 @@ import { detectLanguage, languageName, englishSearchText, answerMatchesLanguage 
 const MAX_CHARS = 6500;
 const clip = (s, n) => String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
 
+/** Typo repair for the search: a word of 5+ letters that no screen or guide uses is replaced by the closest known word (one slip, or two in long words, e.g. "whastapp" -> "whatsapp"). */
+let VOCAB = null;
+const vocab = () => VOCAB ||= new Set([...SCREENS.map((s) => `${s.label} ${s.section}`), ...Object.values(SCREEN_NOTES)].join(' ').toLowerCase().replace(/[^a-z ]/g, ' ').split(/\s+/).filter((w) => w.length >= 5));
+function dist(a, b, max) { // optimal string alignment distance, stops early above max
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) {
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+  }
+  return d[a.length][b.length];
+}
+export function fixTypos(text) {
+  const V = vocab();
+  return String(text).replace(/[A-Za-z]{5,}/g, (w) => {
+    const lw = w.toLowerCase();
+    if (V.has(lw)) return w;
+    const max = lw.length >= 8 ? 2 : 1;
+    let best = null, bd = max + 1;
+    for (const v of V) { const x = dist(lw, v, max); if (x < bd && v[0] === lw[0]) { bd = x; best = v; } }
+    return best || w;
+  });
+}
+
+/** Every screen of the menu with a short note: given to the AI when no guide matches, so it can still point to the right menu instead of giving up. */
+export function menuMap() {
+  const seen = new Set();
+  return SCREENS.filter((s) => !seen.has(s.path) && seen.add(s.path)).map((s) => `${s.section} > ${s.label}${SCREEN_NOTES[s.path] ? ` (${clip(SCREEN_NOTES[s.path], 70)})` : ''}`).join('; ');
+}
+
 /** The most relevant help text for a question, as { title, text } blocks (about 6,000 characters in all). Roman Urdu / Urdu questions are searched by their English meaning. Only text that really covers the question is returned. */
 export function material(q, lang = detectLanguage(q)) {
-  const bare = String(q).replace(/\S+@\S+|https?:\/\/\S+|\+?\d[\d\s-]{5,}\d/g, ' '); // addresses and numbers say nothing about the topic
+  const bare = fixTypos(String(q).replace(/\S+@\S+|https?:\/\/\S+|\+?\d[\d\s-]{5,}\d/g, ' ')); // addresses and numbers say nothing about the topic
   const search = lang === 'en' ? bare : `${englishSearchText(bare).query} ${bare}`;
   let hits = searchKnowledge(search).slice(0, 8);
   // drop weak matches: a hit must cover at least a fifth of the meaningful words and be near the best hit's coverage
@@ -69,7 +102,7 @@ async function rewriteForSearch(q, user) {
   } catch { return ''; }
 }
 
-const SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL provided with the question (blocks titled "Company info" are facts the company itself wrote: you may use them to answer questions about the company, its policies and its contact details; WORKSPACE FACTS only help you address the person and know today's date). Never invent menus, buttons, settings, features, prices or steps. If the material does not answer the question, set found to false and say briefly that you could not find it in the guides and suggest asking an administrator or support. Explain step by step in plain language, short numbered steps where it helps, and mention the menu path. Reply in the same language the user wrote in, whatever it is (for example English, Urdu, Roman Urdu, Arabic, Hindi, French, Spanish); keep menu names and button names exactly as they appear in the material. Use earlier turns only to understand follow-up questions. Reply with JSON only: {"found": true or false, "answer": "your answer"}.`;
+const SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL provided with the question (blocks titled "Company info" are facts the company itself wrote: you may use them to answer questions about the company, its policies and its contact details; WORKSPACE FACTS only help you address the person and know today's date; a "Menu map" block lists every screen of the menu: when it is all you have, tell the person which screen or menu path fits their need and what that screen is for, using only the words in the map, and offer to explain more if they ask about that screen). Never invent menus, buttons, settings, features, prices or steps. If the material does not answer the question, set found to false and say briefly that you could not find it in the guides and suggest asking an administrator or support. Explain step by step in plain language, short numbered steps where it helps, and mention the menu path. Reply in the same language the user wrote in, whatever it is (for example English, Urdu, Roman Urdu, Arabic, Hindi, French, Spanish); keep menu names and button names exactly as they appear in the material. Use earlier turns only to understand follow-up questions. Reply with JSON only: {"found": true or false, "answer": "your answer"}.`;
 
 const VOICE = {
   friendly: `VOICE: Sound like a warm, capable colleague, not a manual. Use natural everyday words and short sentences. Start with the answer itself; add a brief friendly lead-in only when it fits (for example "Sure, here is how", "Good question"). Use the person's first name now and then, never in every reply. Never say "as an AI", "according to the reference material" or "the guide says"; just explain it as someone who knows the system well. Numbered steps only for how-to questions, with the menu path. If something is missing, say so honestly in one friendly line. Roman Urdu: write the way people in Pakistan text each other (for example "Ji zaroor", "Aap Leads menu mein jayen, phir..."), simple words, not stiff translated Urdu. Urdu script: natural and polite (aap). English: plain and conversational. Keep it under about 120 words unless the steps need more.`,
@@ -143,7 +176,7 @@ function finish(text, lang) {
   return { found: true, answer: clean };
 }
 
-const HORDE_SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL (blocks titled "Company info" are facts the company itself wrote and may be used to answer questions about the company; WORKSPACE FACTS only help you address the person and know today's date). Never invent menus, buttons, settings, features, prices or steps. If the material does not directly answer the question (for example it is about a different screen or feature), reply with exactly NOT_FOUND and nothing else. Use only menu paths and button names that appear in the material; never write generic filler such as "follow the instructions on the screen". Otherwise explain step by step in plain language, with short numbered steps and the menu path. Write the answer in the same language as the QUESTION, whatever language that is; keep menu and button names exactly as in the material. Do not repeat these instructions. Never show your reasoning or notes: write only the final answer for the user, on a line that starts with ANSWER:`;
+const HORDE_SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL (blocks titled "Company info" are facts the company itself wrote and may be used to answer questions about the company; WORKSPACE FACTS only help you address the person and know today's date; a "Menu map" block lists every screen of the menu: when it is all you have, tell the person which screen or menu path fits their need and what that screen is for, using only the words in the map, and offer to explain more if they ask about that screen). Never invent menus, buttons, settings, features, prices or steps. If the material does not directly answer the question (for example it is about a different screen or feature), reply with exactly NOT_FOUND and nothing else. Use only menu paths and button names that appear in the material; never write generic filler such as "follow the instructions on the screen". Otherwise explain step by step in plain language, with short numbered steps and the menu path. Write the answer in the same language as the QUESTION, whatever language that is; keep menu and button names exactly as in the material. Do not repeat these instructions. Never show your reasoning or notes: write only the final answer for the user, on a line that starts with ANSWER:`;
 
 /** Stable Horde is a community network: the question and earlier turns are scrubbed of emails, numbers, keys and the asker's name first. The help material is our own public guide text. */
 async function viaHorde(q, ref, history, user, image, lang, strict) {
@@ -210,6 +243,9 @@ export async function askAi(question, history, user, image = null) {
     const kw = await rewriteForSearch(q, user);
     if (kw) mat = material(kw, 'en');
   }
+  const readyAny = groqReady() || hordeReady() || (geminiAskEnabled() && !!geminiConfig().key);
+  // nothing matched but the question is about this system (or in Urdu / Roman Urdu): the AI gets the menu map so it can still point to the right menu, or say it is not covered. Gibberish costs nothing.
+  if (!mat.length && !image && readyAny && (lang !== 'en' || fixTypos(q).toLowerCase().split(/[^a-z]+/).some((w) => w.length >= 5 && vocab().has(w)))) mat = [{ title: 'Menu map (every screen in the menu)', text: menuMap(), map: true }];
   const co = !image ? companyMaterial(`${q} ${q.split(/\s+/).length < 6 ? prior : ''}`, lang) : [];
   if (!mat.length && !co.length && !image) return null;
   if (limited(user.id)) return { refused: 'You are asking quickly. Please wait a moment and try again.' };
@@ -249,7 +285,7 @@ export async function askAi(question, history, user, image = null) {
   const answer = String(out?.answer || '').trim().slice(0, 3000);
   if (!answer) return null;
   const found = out.found !== false;
-  return { answer, found, engine, notes, links: found ? videoLinks(user, `${q} ${mat[0]?.title || ''}`) : [], sources: found ? [...mat, ...co].slice(0, 3).map((m) => m.title) : [] };
+  return { answer, found, engine, notes, links: found ? videoLinks(user, `${q} ${mat[0]?.title || ''}`) : [], sources: found ? [...mat, ...co].filter((m) => !m.map).slice(0, 3).map((m) => m.title) : [] };
 }
 
 const SAMPLE_Q = 'How do I add an appointment?';

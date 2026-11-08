@@ -21,3 +21,11 @@ test('company info: contact details and admin notes become searchable, private b
   assert.match(refund[0].text, /14 days/);
   assert.deepEqual(companyMaterial('how do I add a lead', 'en'), []);
 });
+
+test('typos are repaired and the menu map covers a question no guide matches', async () => {
+  const { fixTypos, menuMap, material } = await import('../src/services/askAi.js');
+  assert.match(fixTypos('me whastapp kesy integrate kar sakta hu'), /whatsapp/);
+  assert.equal(fixTypos('zzqx blorp wibble'), 'zzqx blorp wibble');
+  assert.match(menuMap(), /WhatsApp/);
+  assert.ok(material('me whastapp kesy integrate kar sakta hu').length > 0, 'the misspelt word still finds the WhatsApp screen');
+});
