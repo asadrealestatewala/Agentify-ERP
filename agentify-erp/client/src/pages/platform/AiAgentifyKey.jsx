@@ -223,7 +223,9 @@ function Technical({ o, can, reload, voices, onTested }) {
         <Field label="Azure region" hint="For example uaenorth or eastus"><TextInput value={az.region} onChange={(v) => setAz({ ...az, region: v })} /></Field>
         <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={save}>Save Azure details</button>{t.azure.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled={!t.azure.key_added || !t.azure.region || testing} onClick={testAzure}>{testing ? 'Testing…' : 'Test the connection'}</button></div>
       </div>}
-      <div className="table-wrap" style={{ marginTop: 12 }}><table className="t"><thead><tr><th>Feature</th><th>Model or service</th></tr></thead><tbody>{t.models.map((m) => <tr key={m.key}><td>{m.label}</td><td>{m.model}</td></tr>)}</tbody></table></div>
+      <div style={{ marginTop: 12 }}><b>Which model does what</b>
+        <div className="table-wrap"><table className="t"><thead><tr><th>Purpose</th><th>Engine</th><th>Model</th><th>State</th><th>Last used</th></tr></thead><tbody>{t.model_map.map((m) => <tr key={m.key}><td>{m.purpose}{m.note ? <div className="muted" style={{ fontSize: 11 }}>{m.note}</div> : null}</td><td>{m.engine}</td><td>{m.model}</td><td><span className={`pill ${m.on ? 'green' : 'grey'}`}>{m.on ? 'On' : 'Off'}</span></td><td>{m.last ? <>{new Date(m.last.at).toLocaleString()}<div className="muted" style={{ fontSize: 11 }}>{m.last.ok ? 'worked' : 'failed'}{m.last.model ? ` · ${m.last.model}` : ''}</div></> : <span className="muted">not yet</span>}</td></tr>)}</tbody></table></div>
+      </div>
     </Card>
     <Groq t={t} can={can} reload={reload} />
     <Horde t={t} can={can} reload={reload} />

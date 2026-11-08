@@ -1,6 +1,6 @@
 {
   "name": "erp-server",
-  "version": "1.78.0",
+  "version": "1.79.0",
   "type": "module",
   "private": true,
   "scripts": {

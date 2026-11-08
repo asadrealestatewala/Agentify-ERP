@@ -4,8 +4,8 @@ import { getSetting, setSetting, audit } from './platformConfig.js';
 import { bad } from '../util.js';
 import { listReports, openReportCount } from './aiReports.js';
 import { imageModel, videoModel, voiceFor, azureTest, azureSpeak, DEFAULT_VOICES, SAMPLE_TEXT } from './aiGateway.js';
-import { hordeStatus } from './hordeGateway.js';
-import { groqStatus } from './groqGateway.js';
+import { hordeStatus, hordeKey, geminiAskEnabled } from './hordeGateway.js';
+import { groqStatus, groqReady } from './groqGateway.js';
 import { askOrder, engineErrors } from './askOrder.js';
 import { config, monthStartOf, ensureTable, featuresOff } from './aiUsage.js';
 import { FEATURES, priceList, textPrices } from './aiPricing.js';
@@ -41,6 +41,38 @@ export function askEngineActivity(now = new Date()) {
   return { days: 7, last, by_engine: rows };
 }
 
+
+/**
+ * "Which model does what": one row per purpose with the engine and model that serve it, whether it is on, and the last call recorded in the ledger.
+ * Ask chat shows the ranked chain of engines that are ready right now.
+ */
+export function modelMap() {
+  const c = config(), g = groqStatus(), h = hordeStatus(), off = new Set(featuresOff());
+  const ready = { groq: groqReady(), horde: !!hordeKey(), gemini: geminiAskEnabled() && !!c.key };
+  const name = { groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini' };
+  const modelOf = { groq: g.chat_model, horde: h.models.length ? h.models.join(', ') : 'chosen by the Horde', gemini: c.model };
+  const chain = askOrder().filter((p) => ready[p]);
+  const last = (feature, purpose = null) => db().prepare(`SELECT provider, model, ok, at FROM ai_usage WHERE key_owner='platform' AND feature=? ${purpose ? 'AND purpose=?' : ''} ORDER BY id DESC LIMIT 1`).get(...(purpose ? [feature, purpose] : [feature])) || null;
+  const row = (key, purpose, engine, model, on, lastRow, note = '') => ({ key, purpose, engine, model, on: !!on, note, last: lastRow ? { at: lastRow.at, ok: !!lastRow.ok, engine: lastRow.provider, model: lastRow.model } : null });
+  const askOff = off.has('ask_assistant');
+  const rows = [
+    row('ask_chat', 'Ask: answering questions', chain.map((p) => name[p]).join(' → ') || 'none connected', chain.length ? modelOf[chain[0]] : '—', chain.length && !askOff, last('ask_assistant', 'ask_assistant'), chain.length > 1 ? `Backups in order: ${chain.slice(1).map((p) => `${name[p]} (${modelOf[p]})`).join(', ')}` : ''),
+    row('ask_image', 'Ask: questions about a picture', 'Groq', g.vision_model, ready.groq && !askOff, last('ask_assistant', 'ask_image'), ready.groq ? '' : 'Needs Groq'),
+    row('ask_voice', 'Ask: speaking a question (speech to text)', ready.groq ? 'Groq' : 'Browser microphone', ready.groq ? g.stt_model : 'built into the browser', !askOff, last('ask_assistant', 'ask_voice')),
+    row('ask_listen', 'Ask: Listen (read aloud)', 'Browser voice', 'built into the browser', true, null, 'Not an AI model, no cost'),
+  ];
+  for (const [key, f] of Object.entries(FEATURES)) {
+    if (key === 'ask_assistant') continue;
+    const voice = key.startsWith('video_voice');
+    const azure = !!getSetting('azure_speech_key');
+    const engine = voice ? 'Azure Speech' : key === 'creative_post' ? 'Gemini (images)' : key === 'creative_video' ? 'Gemini (Veo video)' : 'Gemini';
+    const model = voice ? voiceFor(key.endsWith('_ur') ? 'Urdu' : 'English') : key === 'creative_post' ? imageModel() : key === 'creative_video' ? videoModel() : c.model;
+    rows.push(row(key, f.label, engine, model, !off.has(switchKey(key)) && (voice ? azure : !!c.key), last(key), voice ? (azure ? '' : 'Needs an Azure Speech key') : c.key ? '' : 'Needs a Gemini key'));
+  }
+  rows.push(row('zernio', 'Posting to social accounts', 'Zernio', 'not an AI model', !!getSetting('zernio_api_key'), null, getSetting('zernio_api_key') ? '' : 'Uses each workspace\'s own key, or is off'));
+  return rows;
+}
+
 export function overview(now = new Date()) {
   const since = monthStartOf(now), rate = getRate(), c = config();
   const pkr = (usd) => (usd == null ? null : usd * rate.rate);
@@ -68,6 +100,7 @@ export function overview(now = new Date()) {
       stablehorde: hordeStatus(),
       groq: groqStatus(),
       ask_order: askOrder(),
+      model_map: modelMap(),
       ask_activity: { ...askEngineActivity(now), last_errors: engineErrors() },
       models: Object.entries(FEATURES).map(([key, f]) => ({ key, label: f.label, model: key.startsWith('video_voice') ? `Azure Speech (${voiceFor(key.endsWith('_ur') ? 'Urdu' : 'English')})` : key === 'creative_post' ? `Gemini image model (${imageModel()})` : key === 'creative_video' ? `Gemini Veo (${videoModel()})` : c.model })),
     },
