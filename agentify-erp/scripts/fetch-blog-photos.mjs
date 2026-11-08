@@ -24,7 +24,7 @@ const QUERIES = {
   brick: 'bricks cement building materials', calc: 'calculator documents accounting',
 };
 const GROUPS = [
-  [/construction-(management|project|daily|labour|store|vendor|erp|purchase|client|boq|cash)|boq|labour|grey-structure|purchase-orders|erp-for-small/, ['site', 'plan', 'crane', 'brick']],
+  [/construction-accounting|construction-(management|project|daily|labour|store|vendor|erp|purchase|client|boq|cash)|boq|labour|grey-structure|purchase-orders|erp-for-small/, ['site', 'plan', 'crane', 'brick']],
   [/receipt|accounting|tax|commission|cash|ledger|reports|installment|instalment|payment/, ['calc', 'deal']],
   [/lead|whatsapp|marketing|website|listing|crm|dealer|visit|multi-branch|best-real|start-real/, ['office', 'keys', 'deal']],
 ];
