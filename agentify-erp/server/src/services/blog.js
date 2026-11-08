@@ -1,8 +1,12 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 // The public blog on the main (marketing) site: articles for people searching for CRM / ERP software.
 // Articles are plain data in this file, so they ship with the app, are rendered into the HTML for search engines
 // and need no database. Body blocks: { h } heading, { p } paragraph, { ul: [] } bullet list.
 
-export const BLOG_POSTS = [
+const BASE_POSTS = [
   {
     slug: 'real-estate-crm-for-brokerages',
     title: 'Real estate CRM for brokerages: what to look for before you buy',
@@ -87,12 +91,48 @@ export const BLOG_POSTS = [
   },
 ];
 
+const contentDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'content');
+
+/** "# heading", "* item" and plain lines to the block format used above. */
+function parseBody(lines) {
+  const out = [];
+  for (const l of lines) {
+    if (l.startsWith('# ')) out.push({ h: l.slice(2) });
+    else if (l.startsWith('* ')) { const last = out[out.length - 1]; if (last?.ul) last.ul.push(l.slice(2)); else out.push({ ul: [l.slice(2)] }); }
+    else out.push({ p: l });
+  }
+  return out;
+}
+const words = (blocks) => blocks.reduce((n, b) => n + (b.h || b.p || (b.ul || []).join(' ')).split(/\s+/).length, 0);
+
+function loadExtra() {
+  const posts = [];
+  for (const f of fs.readdirSync(contentDir).filter((x) => /^blog-pk-.*\.json$/.test(x)).sort()) {
+    for (const a of JSON.parse(fs.readFileSync(path.join(contentDir, f), 'utf8'))) {
+      const body = parseBody(a.body);
+      posts.push({ slug: a.slug, title: a.title, description: a.description, keyword: a.keyword, tag: a.tag, tags: a.tags || [], faq: a.faq || [], related: a.related || [], date: '2026-11-09', read: Math.max(2, Math.round(words(body) / 200)), body });
+    }
+  }
+  return posts;
+}
+
+export const BLOG_POSTS = [...BASE_POSTS, ...loadExtra()];
+
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-export const listPosts = () => BLOG_POSTS.map(({ slug, title, description, date, read, tag }) => ({ slug, title, description, date, read, tag }));
+export const listPosts = () => [...BLOG_POSTS].sort((a, b) => (a.date < b.date ? 1 : -1)).map(({ slug, title, description, date, read, tag }) => ({ slug, title, description, date, read, tag }));
 export const getPost = (slug) => BLOG_POSTS.find((p) => p.slug === slug) || null;
+/** Titles of the related articles that exist, for the links under an article. */
+export const relatedOf = (post) => (post.related || []).map((s) => BLOG_POSTS.find((p) => p.slug === s)).filter(Boolean).map(({ slug, title }) => ({ slug, title }));
+/** The article as the public page and API show it (adds the related-article titles). */
+export const publicPost = (post) => ({ ...post, related: relatedOf(post) });
 
 /** The article body as HTML (used for the crawler-readable copy that is placed in the page on the server). */
 export function bodyHtml(post) {
-  return post.body.map((b) => (b.h ? `<h2>${esc(b.h)}</h2>` : b.ul ? `<ul>${b.ul.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : `<p>${esc(b.p)}</p>`)).join('');
+  const main = post.body.map((b) => (b.h ? `<h2>${esc(b.h)}</h2>` : b.ul ? `<ul>${b.ul.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : `<p>${esc(b.p)}</p>`)).join('');
+  const faq = (post.faq || []).length ? `<h2>Frequently asked questions</h2>${post.faq.map(([q, a]) => `<h3>${esc(q)}</h3><p>${esc(a)}</p>`).join('')}` : '';
+  const rel = relatedOf(post);
+  const related = rel.length ? `<h2>Related articles</h2><ul>${rel.map((r) => `<li><a href="/blog/${r.slug}">${esc(r.title)}</a></li>`).join('')}</ul>` : '';
+  const tags = (post.tags || []).length ? `<p>${post.tags.map(esc).join(' ')}</p>` : '';
+  return `${main}${faq}${related}<p><a href="/real-estate">Real estate software</a> · <a href="/construction">Construction software</a> · <a href="/pricing">Pricing</a></p>${tags}`;
 }

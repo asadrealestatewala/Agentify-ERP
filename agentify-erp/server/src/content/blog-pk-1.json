@@ -1,0 +1,515 @@
+[
+ {
+  "slug": "property-dealer-software-pakistan",
+  "title": "Property dealer software in Pakistan: what a small office really needs",
+  "description": "What property dealers in Pakistan should expect from software: leads, files, instalments, commissions and receipts in PKR, without an expensive setup.",
+  "keyword": "property dealer software in Pakistan",
+  "tag": "Real estate",
+  "tags": [
+   "#PropertyDealer",
+   "#RealEstatePakistan",
+   "#PropertyCRM",
+   "#PakistanRealEstate"
+  ],
+  "faq": [
+   [
+    "Do property dealers in Pakistan need software?",
+    "If you handle more than a handful of leads and files a month, yes. A register or Excel sheet cannot remind you of follow-ups or show who owes what."
+   ],
+   [
+    "Can one tool handle leads and accounts?",
+    "Some can. Look for a system where the same record carries the lead, the sale, the instalment plan and the receipts."
+   ]
+  ],
+  "related": [
+   "real-estate-crm-pakistan-checklist",
+   "plot-file-management-system-pakistan",
+   "payment-receipts-property-pakistan"
+  ],
+  "body": [
+   "Most property offices in Pakistan run on a register, a phone full of WhatsApp chats and one trusted munshi who remembers everything. It works until the office grows, the munshi is on leave, or two dealers promise the same plot to different buyers.",
+   "# Start with what goes wrong today",
+   "* A client calls and nobody can quickly find which file or plot they were shown.",
+   "* Token and instalment payments are written in three places and do not match.",
+   "* Commission is argued about at the end of the month because nobody recorded who brought the buyer.",
+   "* The owner cannot see which projects or dealers are producing sales.",
+   "# What property dealer software should cover",
+   "* A single list of every enquiry with its source, budget and next follow-up date.",
+   "* Property and plot inventory with status: available, on hold, sold.",
+   "* Sale records with token, down payment and a full instalment schedule in PKR.",
+   "* Receipts numbered automatically, so each payment can be traced.",
+   "* Commission per dealer, linked to the sale.",
+   "* Access by role, so a junior dealer sees his own leads, not the whole office.",
+   "# Keep it simple to adopt",
+   "Choose a tool your team can learn in a day. Start with leads and inventory, then add instalments and accounts once the habit is set. Import your existing client list instead of retyping it, and run old and new side by side for a month.",
+   "# Where Agentify ERP fits",
+   "Agentify ERP is a cloud system for real estate offices that joins the lead CRM with properties, sales, instalments, commissions, receipts and accounts, and it works on Android phones. You can try it free with your own data before deciding."
+  ]
+ },
+ {
+  "slug": "real-estate-crm-pakistan-checklist",
+  "title": "Real estate CRM in Pakistan: a 10-point checklist before you subscribe",
+  "description": "A practical checklist for Pakistani agencies choosing a real estate CRM: PKR pricing, WhatsApp, Roman Urdu, mobile use, data export and support.",
+  "keyword": "real estate CRM Pakistan",
+  "tag": "Real estate",
+  "tags": [
+   "#RealEstateCRM",
+   "#PakistanRealEstate",
+   "#PropertyAgents",
+   "#CRMPakistan"
+  ],
+  "faq": [
+   [
+    "Which CRM is best for real estate in Pakistan?",
+    "There is no single best. Pick the one that fits your workflow: lead capture, follow-up reminders, inventory and instalments, in PKR, usable on a phone."
+   ],
+   [
+    "Is a free trial important?",
+    "Yes. Test with a week of your real leads before moving the whole team."
+   ]
+  ],
+  "related": [
+   "property-dealer-software-pakistan",
+   "property-lead-sources-pakistan-one-list",
+   "real-estate-crm-for-brokerages"
+  ],
+  "body": [
+   "Many CRMs are built for American or European agents. Pakistani offices have different habits: WhatsApp-first conversations, cash and bank-transfer receipts, plot files, long instalment plans and commissions shared between several people. Use this checklist when comparing options.",
+   "# The checklist",
+   "* Prices in PKR, or a clear currency conversion, and a monthly plan that does not need a long contract.",
+   "* A free trial or demo with your own data.",
+   "* Fast lead capture from the sources you actually use: portals, Facebook, your website and walk-ins.",
+   "* A phone-friendly app. Dealers work in the field, not at a desk.",
+   "* Follow-up reminders that actually reach the dealer.",
+   "* Support for plots, files and instalments, not only rentals and resale.",
+   "* Commission tracking linked to the sale.",
+   "* Roles and permissions, so staff see only what they should.",
+   "* Data export, so you can leave with your records if you need to.",
+   "* Support you can reach in your own time zone and language.",
+   "# Ask for a live walk-through",
+   "Do not accept a slide deck. Ask the vendor to enter one lead, convert it to a sale, create a 12-month instalment plan and issue a receipt, while you watch. If it takes many screens, your team will not use it.",
+   "# Run a one-week pilot",
+   "Give two dealers the tool for a week with real leads. Count how many leads got a follow-up date and how many were closed or lost with a reason. The numbers will tell you more than any feature list.",
+   "Agentify ERP offers a free trial so you can run exactly this test."
+  ]
+ },
+ {
+  "slug": "housing-society-software-pakistan",
+  "title": "Housing society and developer software in Pakistan: managing plots, files and payments",
+  "description": "How developers and housing societies in Pakistan can manage plot inventory, booking files, instalments, transfers and receipts in one system.",
+  "keyword": "housing society software Pakistan",
+  "tag": "Developers",
+  "tags": [
+   "#HousingSociety",
+   "#PropertyDeveloper",
+   "#PlotManagement",
+   "#RealEstateERP"
+  ],
+  "faq": [
+   [
+    "What should housing society software track?",
+    "Plots and blocks, booking files, instalment schedules, payments received, transfers and agent commissions."
+   ],
+   [
+    "Can a small developer use it?",
+    "Yes. Start with one project and add others as the system proves itself."
+   ]
+  ],
+  "related": [
+   "plot-file-management-system-pakistan",
+   "installment-defaulters-follow-up-pakistan",
+   "real-estate-accounting-pakistan"
+  ],
+  "body": [
+   "A developer selling hundreds of plots on instalments is running a financial business as much as a property one. Each buyer has a file, a payment plan that runs for years, and often a chain of transfers. A spreadsheet per project soon becomes impossible to trust.",
+   "# What to track",
+   "* Project, phase and block, with plot number, size, category and price list.",
+   "* Booking: buyer, dealer, token and booking date.",
+   "* The payment plan: down payment, instalments, any balloon or possession payment.",
+   "* Every payment received, with receipt number, date and mode.",
+   "* Transfers between buyers, with dates and fees as per your society's rules.",
+   "* Agent and marketing commissions linked to each booking.",
+   "# Why it matters",
+   "When a buyer asks for a statement, the office should produce it in seconds. When management asks how much is due this month, the answer should come from the system, not from a day of calling clerks.",
+   "# Controls worth having",
+   "* A plot cannot be sold twice. Status changes should be recorded with who made them.",
+   "* Price changes and discounts need approval.",
+   "* Each user sees only the projects and screens they need.",
+   "* A full history of changes for audits.",
+   "Rules for transfers, NOCs and possession differ by authority and society, so configure your own steps and fees rather than assuming a standard. Agentify ERP supports projects, sales, instalment plans, receipts and commissions in PKR; ask for a demo with your own project structure."
+  ]
+ },
+ {
+  "slug": "plot-file-management-system-pakistan",
+  "title": "Plot file management system: how to keep every file, payment and transfer straight",
+  "description": "A simple method for managing plot files in Pakistan: file numbers, buyer details, payments, transfers and document tracking without confusion.",
+  "keyword": "plot file management system",
+  "tag": "Developers",
+  "tags": [
+   "#PlotFile",
+   "#FileManagement",
+   "#PropertyRecords",
+   "#RealEstatePakistan"
+  ],
+  "faq": [
+   [
+    "What is a plot file?",
+    "In many societies, a booking file represents a buyer's claim on a plot before the final allotment or transfer. Terms differ by project."
+   ],
+   [
+    "Why do file records go wrong?",
+    "Because file numbers, buyer names and payments are kept in separate registers that drift apart."
+   ]
+  ],
+  "related": [
+   "housing-society-software-pakistan",
+   "installment-defaulters-follow-up-pakistan",
+   "property-sale-documents-checklist-pakistan"
+  ],
+  "body": [
+   "Plot files often change hands several times before the final transfer. If your records cannot show who holds a file today, what they paid and what is left, disputes are only a matter of time.",
+   "# One record per file",
+   "Give every file a unique number and keep one record that holds the buyer, CNIC copy, contact details, the plot or category, price, payment plan and all payments. Never keep a second copy in a different spreadsheet.",
+   "# Record every change of hands",
+   "* Date of the transfer and the old and new holder.",
+   "* Fee charged and the receipt for it.",
+   "* Documents collected from both parties.",
+   "* Who approved it and who processed it.",
+   "# Reconcile regularly",
+   "Once a month, compare total payments in your records with bank deposits and cash book. Differences found early are easy to fix; differences found a year later are not.",
+   "# Scan and attach documents",
+   "Keep scans of the application form, CNIC copies, payment slips and agreements attached to the file record. Store the originals safely and note where.",
+   "# Use clear statuses",
+   "Useful statuses: booked, active, fully paid, transferred, on hold, cancelled. Each change should be dated and attributed.",
+   "Policies on transfers and cancellations are set by each project, so build your system around your own rules. Agentify ERP lets you record sales, payment plans, receipts and notes against each customer, and track their history in one place."
+  ]
+ },
+ {
+  "slug": "installment-defaulters-follow-up-pakistan",
+  "title": "How to follow up late instalments without losing the customer",
+  "description": "A practical routine for chasing overdue property instalments in Pakistan: reminders, ageing lists, polite escalation and clear records.",
+  "keyword": "property instalment follow-up",
+  "tag": "Collections",
+  "tags": [
+   "#Installments",
+   "#Collections",
+   "#PropertyPayments",
+   "#PakistanRealEstate"
+  ],
+  "faq": [
+   [
+    "When should I remind a buyer about a due instalment?",
+    "A few days before the due date, on the due date, and again soon after. Early reminders prevent most delays."
+   ],
+   [
+    "Should every late payment be treated the same?",
+    "No. Separate buyers who are a few days late from those who have gone silent for months."
+   ]
+  ],
+  "related": [
+   "property-installment-tracking-software",
+   "payment-receipts-property-pakistan",
+   "real-estate-accounting-pakistan"
+  ],
+  "body": [
+   "In instalment-based sales, delayed payments hurt cash flow more than almost anything else. The fix is rarely harsher words; it is a routine that starts early and is applied to everyone.",
+   "# Build a morning routine",
+   "Every morning, open the list of instalments due this week and the list that is overdue. Assign each overdue account to one person with a note of what happens next.",
+   "# Use an ageing list",
+   "Group overdue accounts by how late they are: 1 to 7 days, 8 to 30 days, 31 to 90 days, and more. Each group needs a different approach.",
+   "* Up to a week: friendly reminder by message.",
+   "* Up to a month: phone call, ask for a firm date.",
+   "* Longer: meeting and a written note, following your agreement terms.",
+   "# Record every promise",
+   "When a buyer promises to pay on a date, record it and set a reminder for that date. Promises that nobody checks are worthless.",
+   "# Be consistent and fair",
+   "Apply late-payment terms exactly as written in the agreement. Any exceptions should be approved by a manager and recorded.",
+   "# Make paying easy",
+   "List the bank accounts and payment methods clearly, and issue a receipt the same day so that buyers trust the process.",
+   "Agentify ERP lists due and overdue instalments, issues receipts against the right instalment and keeps the full payment history for each sale."
+  ]
+ },
+ {
+  "slug": "real-estate-agent-commission-tracking-pakistan",
+  "title": "Tracking agent commissions fairly: a guide for Pakistani agencies",
+  "description": "How to set commission rules, record who brought each sale and pay dealers on what was actually collected, with fewer disputes.",
+  "keyword": "real estate commission tracking",
+  "tag": "Real estate",
+  "tags": [
+   "#AgentCommission",
+   "#PropertyDealers",
+   "#RealEstatePakistan",
+   "#SalesTeam"
+  ],
+  "faq": [
+   [
+    "When should a commission be paid?",
+    "That depends on your policy. Many offices pay in parts as the buyer pays, rather than all at the booking."
+   ],
+   [
+    "How do I avoid commission disputes?",
+    "Write the rules down, record the dealer on every lead and sale, and calculate from the system."
+   ]
+  ],
+  "related": [
+   "property-dealer-software-pakistan",
+   "real-estate-accounting-pakistan",
+   "real-estate-crm-for-brokerages"
+  ],
+  "body": [
+   "Commission arguments usually come from two things: nobody remembers who brought the client, and the rules were never written down. Both can be fixed.",
+   "# Write the rules",
+   "Decide and document:",
+   "* The percentage or fixed amount per project or property type.",
+   "* Who gets what when two dealers share a deal.",
+   "* When the commission becomes payable: at booking, with each instalment or at completion.",
+   "* What happens if the sale is cancelled.",
+   "# Record the source early",
+   "The dealer who owns the lead should be recorded the moment the enquiry arrives. Reassignments should be logged with a reason.",
+   "# Tie commission to the sale",
+   "When a sale is created, attach the dealer, any referrer and the agreed rate. The commission amount can then be calculated automatically and shown to the dealer.",
+   "# Pay on collected money if that is your policy",
+   "If commission follows instalments received, the system should compare the amount collected to the amount due. This protects cash flow for the office.",
+   "# Share a statement",
+   "Give each dealer a monthly statement of their sales, collections and commission due. Transparency prevents most arguments.",
+   "Agentify ERP links commissions to sales and receipts so that you can see what has been earned, what has been paid and what is pending."
+  ]
+ },
+ {
+  "slug": "property-lead-sources-pakistan-one-list",
+  "title": "Property leads from portals, Facebook and WhatsApp: keep them in one list",
+  "description": "Leads arrive from property portals, Facebook ads, WhatsApp and walk-ins. How Pakistani agencies can capture them in one list and measure each source.",
+  "keyword": "property leads Pakistan",
+  "tag": "Sales",
+  "tags": [
+   "#PropertyLeads",
+   "#LeadManagement",
+   "#FacebookAds",
+   "#WhatsAppBusiness"
+  ],
+  "faq": [
+   [
+    "Which lead source is best for property in Pakistan?",
+    "It depends on your market and price range. Track the source of every lead and compare deals closed, not just enquiries."
+   ],
+   [
+    "How do I stop leads being lost?",
+    "Capture every enquiry in one list, assign an owner and set a follow-up date immediately."
+   ]
+  ],
+  "related": [
+   "real-estate-crm-pakistan-checklist",
+   "lead-follow-up-roman-urdu",
+   "real-estate-website-for-agents-pakistan"
+  ],
+  "body": [
+   "A typical agency gets enquiries from property portals, Facebook or Instagram ads, WhatsApp messages, phone calls, its website and walk-in visitors. If each channel lives on a different phone or inbox, some leads will always slip through.",
+   "# Create one list",
+   "Whatever the source, every enquiry should become a lead record with name, number, what they want, budget, area and the source. This is the single most useful habit in a sales office.",
+   "# Assign an owner at once",
+   "A lead without a named owner is nobody's job. Assign by rule (area, project, rotation) or by hand, but do it within minutes.",
+   "# Set the next step",
+   "Every lead must have a next follow-up date. Reports should highlight leads that have none.",
+   "# Measure by source",
+   "After a month, compare sources on three numbers:",
+   "* How many leads came in.",
+   "* How many reached a site visit.",
+   "* How many closed, and the money you spent on each source.",
+   "A cheap source that never closes is not cheap. An expensive source that closes steadily may be your best.",
+   "# Keep the conversation history",
+   "Note what was discussed and what was sent. Another dealer should be able to pick up the lead if the first one is unavailable.",
+   "Agentify ERP captures enquiries into one inbox, assigns them to dealers, tracks follow-ups and shows results by source."
+  ]
+ },
+ {
+  "slug": "property-dealer-crm-roman-urdu",
+  "title": "Property dealer ke liye CRM: clients aur leads ka hisab kaise rakhein",
+  "description": "Property dealers ke liye asaan guide: CRM kya hai, leads aur follow-up ka record kaise rakhein, aur kaun si cheezein zaroor honi chahiye.",
+  "keyword": "property dealer CRM",
+  "tag": "Roman Urdu",
+  "tags": [
+   "#PropertyDealerCRM",
+   "#RealEstatePakistan",
+   "#LeadsManagement",
+   "#RomanUrdu"
+  ],
+  "faq": [
+   [
+    "CRM kya hota hai?",
+    "CRM ek software hai jisme aap apne clients, leads, follow-up aur deals ka record ek jagah rakhte hain."
+   ],
+   [
+    "Kya chhota property office bhi CRM use kar sakta hai?",
+    "Bilkul. Jitne zyada clients honge, utna hi CRM ka faida hoga."
+   ]
+  ],
+  "related": [
+   "lead-follow-up-roman-urdu",
+   "property-dealer-software-pakistan",
+   "real-estate-crm-pakistan-checklist"
+  ],
+  "body": [
+   "Bohat se property dealers ka sara hisab register, WhatsApp chats aur yaad-dasht par chalta hai. Jab clients badhte hain to koi na koi lead bhool jati hai aur deal haath se nikal jati hai. CRM isi masle ka hal hai.",
+   "# CRM mein kya hota hai",
+   "* Har client ya enquiry ka naam, number, budget aur pasand ka area.",
+   "* Lead kahan se aayi: portal, Facebook, WhatsApp ya walk-in.",
+   "* Agla follow-up kab karna hai, aur kaun karega.",
+   "* Dikhaye gaye plots ya properties ki list.",
+   "* Deal ban jaye to booking, token aur payments ka record.",
+   "# Rozana ki aadat banayein",
+   "Subah sab se pehle aaj ke follow-ups dekhein. Har call ke baad note likhein ke kya baat hui aur agla qadam kya hai. Ye aadat aap ki sales barha deti hai.",
+   "# Staff ke liye rules",
+   "* Har lead ka ek malik hona chahiye.",
+   "* Koi lead bina agle follow-up ki tareekh ke nahi chhorni.",
+   "* Lead band karni ho to wajah likhein.",
+   "# Kya dekhna chahiye jab software chunein",
+   "* Mobile par aasani se chale.",
+   "* Rupay (PKR) mein kaam kare.",
+   "* Instalments, receipts aur commission bhi sambhal sake.",
+   "* Trial mil jaye, taake pehle test kar sakein.",
+   "Agentify ERP mein leads, properties, sales, instalments aur commission ek hi jagah milte hain. Free trial se apne asal data par try karein."
+  ]
+ },
+ {
+  "slug": "lead-follow-up-roman-urdu",
+  "title": "Property leads ka follow-up: WhatsApp par kaise karein aur deal kaise band karein",
+  "description": "Property leads ka follow-up karne ka asaan tareeqa: pehla jawab, WhatsApp message, site visit ke baad rabta, aur CRM mein reminders.",
+  "keyword": "property lead follow up",
+  "tag": "Roman Urdu",
+  "tags": [
+   "#LeadFollowUp",
+   "#PropertyDealers",
+   "#WhatsAppSales",
+   "#RealEstatePakistan"
+  ],
+  "faq": [
+   [
+    "Lead ko kitni jaldi jawab dena chahiye?",
+    "Jitna jaldi ho sake. Pehla jawab dene wala aksar site visit jeet leta hai."
+   ],
+   [
+    "Follow-up kitni dafa karna chahiye?",
+    "Jab tak client saaf na kahe. Lekin har dafa kaam ki nayi maloomat dein."
+   ]
+  ],
+  "related": [
+   "property-dealer-crm-roman-urdu",
+   "property-lead-sources-pakistan-one-list",
+   "whatsapp-lead-follow-up-for-property-agents"
+  ],
+  "body": [
+   "Aksar buyers kai dealers se baat karte hain. Jo dealer jaldi, saaf aur tameez se jawab de, usi ke sath deal hone ka imkan zyada hota hai.",
+   "# Pehla jawab",
+   "* Enquiry aate hi jawab dein, ideal tor par kuch minutes mein.",
+   "* Naam se mukhatib hon aur poochhein: budget, area, kab tak lena hai, khud rehna hai ya investment.",
+   "* Lead ko CRM mein likh lein aur agla follow-up tay karein.",
+   "# WhatsApp ka sahi istemal",
+   "* Poori list bhejne ke bajaye 2 ya 3 munasib options bhejein.",
+   "* Tasveer, location aur qeemat saaf likhein.",
+   "* Kaam ke ilawa lambay voice notes se bachein.",
+   "# Site visit ke baad",
+   "Usi din shukriya ka message bhejein aur poochhein ke kya pasand aya. Agle qadam ki tareekh tay karein: dobara visit, token ya bank se baat.",
+   "# Lead kab band karein",
+   "Jab client saaf inkar kare ya do se teen mahine tak rabta na ho, to lead band karein aur wajah likhein, jaise budget kam, doosri jagah le li. Is se aap seekhte hain ke kya behtar ho sakta hai.",
+   "# Manager kya dekhe",
+   "* Wo leads jin ka koi agla follow-up nahi.",
+   "* Pehle jawab ka ausat waqt.",
+   "* Visit se deal tak kitne log pohonche.",
+   "CRM reminders ye sab asaan bana deta hai, aur agar dealer chhutti par ho to koi aur lead sambhal sakta hai."
+  ]
+ },
+ {
+  "slug": "property-taxes-agent-records-pakistan",
+  "title": "Property taxes in Pakistan: what agents should record on every sale",
+  "description": "Property transactions in Pakistan involve taxes that change often. What agents should record on each sale, and why to check official sources.",
+  "keyword": "property tax Pakistan agents",
+  "tag": "Compliance",
+  "tags": [
+   "#PropertyTax",
+   "#FBR",
+   "#RealEstatePakistan",
+   "#TaxRecords"
+  ],
+  "faq": [
+   [
+    "Do property tax rates change every year?",
+    "Yes, often. Budgets and Finance Acts can change rates, so always check the current notification from the FBR or the relevant province."
+   ],
+   [
+    "Can software work out my tax?",
+    "Software can store the rates you set and the figures you enter, but a tax professional should confirm them."
+   ]
+  ],
+  "related": [
+   "property-sale-documents-checklist-pakistan",
+   "real-estate-accounting-pakistan",
+   "payment-receipts-property-pakistan"
+  ],
+  "body": [
+   "Buying and selling property in Pakistan involves several levies, collected at federal and provincial level and often at different stages. Commonly discussed items include advance taxes on purchase and sale, capital value tax, stamp duty and registration fees. Their rates and conditions depend on the property value, the type of property, the province and whether the person is on the active taxpayer list.",
+   "# Why we are not quoting rates here",
+   "Rates are revised in budgets and Finance Acts, and different guides online disagree with each other. Using an out-of-date figure in a client conversation can cause real trouble. Always confirm current rates from the FBR, the provincial revenue authority or a registered tax adviser.",
+   "# What agents should record on every sale",
+   "* Buyer and seller names, CNIC and, where applicable, NTN.",
+   "* Whether each party is on the active taxpayer list, with the date you checked.",
+   "* The property type, location and area.",
+   "* The agreed price and any official valuation used for tax purposes.",
+   "* The date of the sale and of each payment.",
+   "* Copies of challans and receipts for taxes and fees paid, and who paid them.",
+   "# Keep a clear split of who pays what",
+   "Many disputes come from vague wording about who bears which cost. Write it into the agreement and into your sale record.",
+   "# Keep your documents together",
+   "Attach scans of challans, transfer letters and registry papers to the sale record. When a buyer or an auditor asks months later, you can answer in minutes.",
+   "Agentify ERP stores documents and notes against each sale and customer. Tax calculations should still be verified with a qualified professional."
+  ]
+ },
+ {
+  "slug": "property-sale-documents-checklist-pakistan",
+  "title": "Property sale documents checklist for Pakistan: a general guide for dealers",
+  "description": "A general checklist of documents property dealers in Pakistan commonly collect for a sale, with a reminder that requirements vary by authority and project.",
+  "keyword": "property documents checklist Pakistan",
+  "tag": "Compliance",
+  "tags": [
+   "#PropertyDocuments",
+   "#RealEstateChecklist",
+   "#PakistanRealEstate",
+   "#PropertyTransfer"
+  ],
+  "faq": [
+   [
+    "Are the documents the same everywhere?",
+    "No. Requirements vary by province, city, development authority and housing society. Confirm with the relevant office."
+   ],
+   [
+    "Should I keep copies?",
+    "Yes. Keep clear scans of everything collected, and note where originals are held."
+   ]
+  ],
+  "related": [
+   "plot-file-management-system-pakistan",
+   "property-taxes-agent-records-pakistan",
+   "housing-society-software-pakistan"
+  ],
+  "body": [
+   "This is a general guide, not legal advice. Each authority and society sets its own requirements, and some documents depend on the kind of property. Treat this list as a starting point for your own checklist, and confirm details with the relevant office or a lawyer.",
+   "# Documents often collected from the seller",
+   "* CNIC copy and recent photographs.",
+   "* Proof of ownership, such as an allotment letter, transfer letter, registered deed or the equivalent record used in that area.",
+   "* Recent utility bills for built property.",
+   "* Any approvals or no-objection certificates required for the project.",
+   "* Proof that dues are cleared, where the society or authority asks for it.",
+   "# Documents often collected from the buyer",
+   "* CNIC copy and photographs.",
+   "* Taxpayer registration details if required for the transaction.",
+   "* Proof of payments made, such as bank slips.",
+   "# Records the dealer should keep",
+   "* The signed sale or token agreement.",
+   "* Every receipt issued, with date, amount and mode of payment.",
+   "* Copies of challans and fees paid.",
+   "* Notes on all promises made by either party.",
+   "# Build the checklist into your process",
+   "In your sale record, list each document as pending, received or not needed. A sale should not move to the next stage until the right items are ticked.",
+   "Agentify ERP lets you attach documents to the customer and the sale, so nothing depends on one person's filing cabinet."
+  ]
+ }
+]

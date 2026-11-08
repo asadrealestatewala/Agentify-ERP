@@ -1,6 +1,6 @@
 // A ratchet against Pakistan-only wording creeping back into code that every country uses. The words PKR, en-PK,
 // Crore, Lakh, Marla and Kanal may appear in the Pakistan pack, shared/region (which implements the Pakistani style),
-// tests and the places listed in test/golden/pk-tokens.json (billing prices, the original company's starter website...).
+// the Pakistan blog articles (server/src/content/blog-pk-*.json, written for a Pakistani audience), tests and the places listed in test/golden/pk-tokens.json (billing prices, the original company's starter website...).
 // A count in any other file may go down, never up, and a new file may not use them at all.
 //   UPDATE_TOKENS=1 node --test test/no-hardcoded-country.test.js   re-records the baseline (review the diff first)
 import { test } from 'node:test';
@@ -13,7 +13,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const BASE = path.join(root, 'server', 'test', 'golden', 'pk-tokens.json');
 const TOKEN = /PKR|en-PK|Crore|Lakh|Marla|Kanal/g;
 const ROOTS = ['client/src', 'server/src', 'shared'];
-const ALLOWED = [/^server\/src\/regions\/packs\/PK\.json$/, /^shared\/region\//, /^client\/src\/locales\//];
+const ALLOWED = [/^server\/src\/content\/blog-pk-/, /^server\/src\/regions\/packs\/PK\.json$/, /^shared\/region\//, /^client\/src\/locales\//];
 
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
