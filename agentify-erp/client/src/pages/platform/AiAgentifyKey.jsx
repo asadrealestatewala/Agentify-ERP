@@ -216,8 +216,15 @@ function Voices({ o, can, voices, selected, setSelected, reload }) {
     try {
       const r = await api.post(`${A}/ai/voices/preview`, { lang, voice: selected[lang] });
       if (!r?.audio) throw new Error('The server did not send any audio. Check the Azure key and region, then try again.');
-      const audio = new Audio(`data:${r.mime || 'audio/mpeg'};base64,${r.audio}`);
-      await new Promise((resolve, reject) => { audio.onerror = () => reject(new Error('The sample could not be played in this browser.')); audio.play().then(resolve, reject); });
+      // A blob: URL, not a data: URL: the site's Content-Security-Policy allows blob: media but blocks data: media.
+      const bin = atob(r.audio); const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: r.mime || 'audio/mpeg' }));
+      const audio = new Audio(url);
+      try {
+        await new Promise((resolve, reject) => { audio.onerror = () => reject(new Error('The sample could not be played in this browser.')); audio.play().then(resolve, reject); });
+      } catch (e) { URL.revokeObjectURL(url); throw e; }
+      audio.onended = () => URL.revokeObjectURL(url);
     } catch (e) { toast(e.message, 'err'); } finally { setBusy(''); }
   };
   const save = async () => { try { await api.put(`${A}/ai/voices`, selected); toast('Voices saved'); reload(); } catch (e) { toast(e.message, 'err'); } };
