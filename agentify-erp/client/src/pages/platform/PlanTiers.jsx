@@ -1,5 +1,6 @@
 // Content tiers in the console: the margin view (price against estimated cost, with fees, tax and the commission estimate) and the Launch offer page.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, ErrorBox, Field, Loading, TextInput, Toggle } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -29,7 +30,7 @@ export function PlanMarginPage() {
   return (
     <>
       <ErrorBox error={err} />
-      <Card title="Cost inputs (all editable)">
+      <FoldCard id="PlanTiers-Cost inputs (all editable)" title="Cost inputs (all editable)" summary="Costs used to work out plan margins" >
         <div className="pa-grid3">
           {input('vps_usd', 'Server (USD a month)', 'Shared by all workspaces')}
           {input('resend_usd', 'Resend Pro (USD a month)', 'Shared by the whole platform')}
@@ -49,16 +50,16 @@ export function PlanMarginPage() {
         </div>
         <button className="btn primary sm" onClick={save}>Save cost inputs</button>
         <p className="muted" style={{ fontSize: 12.5 }}>Live AI cost per credit (from the AI price list): video {money(cc.video)}, voice {money(cc.voice)}, image {money(cc.image)}; blended at your mix {money(cc.blended)}. One email costs about ${(d.per_email_usd).toFixed(5)}. Fixed cost per workspace: {Object.entries(d.fixed_per_tenant).map(([n, v]) => `${money(v)} at ${n} workspaces`).join(', ')}.</p>
-      </Card>
-      <Card title="Sales commission by plan" actions={<span>{CURS.map((c) => <button key={c} className={`btn sm ${curNow === c ? 'primary' : ''}`} onClick={() => setCur(c)}>{c}</button>)}</span>}>
+      </FoldCard>
+      <FoldCard id="PlanTiers-Sales commission by plan" title="Sales commission by plan" summary="Commission paid on each plan"  actions={<span>{CURS.map((c) => <button key={c} className={`btn sm ${curNow === c ? 'primary' : ''}`} onClick={() => setCur(c)}>{c}</button>)}</span>}>
         {!rows.length ? <p className="muted">No content tier has a {curNow} price yet.</p> : (
           <div className="table-wrap"><table className="t"><thead><tr><th>Plan</th><th>Billing</th><th className="right">Price</th><th className="right">Commission ({m.sales_commission_pct}%)</th><th className="right">We keep</th><th className="right">AI and usage cost</th><th className="right">Net</th></tr></thead>
             <tbody>{rows.filter((r) => r.kind !== 'launch').map((r) => { const f = r.kind === 'half' ? 6 : r.kind === 'year' ? 12 : 1; const n = (x) => Math.round(x * f).toLocaleString(); return (
               <tr key={r.plan + r.kind}><td><b>{r.name}</b></td><td>{f === 1 ? 'Monthly' : f === 6 ? '6 months' : 'Yearly'}</td><td className="right nowrap">{n(r.price)} {r.currency}</td><td className="right">{n(r.sales_commission_local)}</td><td className="right">{n(r.kept_local)}</td><td className="right">{n(r.usage_cost_local)}</td><td className="right"><b style={{ color: r.net_local < 0 ? '#b3261e' : 'var(--g2, #0e7c6b)' }}>{n(r.net_local)}</b></td></tr>); })}</tbody></table></div>
         )}
         <p className="muted" style={{ fontSize: 12.5 }}>Amounts are for the whole billing period in {curNow}. AI and usage cost is the typical-use estimate (AI credits plus storage) from the cost inputs above. Net = what we keep minus that cost, before server, gateway fees and tax.</p>
-      </Card>
-      <Card title="Margin by plan" actions={<span>{CURS.map((c) => <button key={c} className={`btn sm ${curNow === c ? 'primary' : ''}`} onClick={() => setCur(c)}>{c}</button>)}</span>}>
+      </FoldCard>
+      <FoldCard id="PlanTiers-Margin by plan" title="Margin by plan" summary="Profit left on each plan"  actions={<span>{CURS.map((c) => <button key={c} className={`btn sm ${curNow === c ? 'primary' : ''}`} onClick={() => setCur(c)}>{c}</button>)}</span>}>
         {!rows.length ? <p className="muted">No content tier has a {curNow} price yet.</p> : (
           <div className="table-wrap"><table className="t"><thead><tr><th>Plan</th><th>Price</th><th className="right">In USD</th><th className="right">Credits</th><th className="right">AI full</th><th className="right">Storage</th><th className="right">Fixed</th><th className="right">Fees</th><th className="right">Tax</th><th className="right">Commission</th><th className="right">Cost full use</th><th className="right">Profit</th><th className="right">Margin full</th><th className="right">Margin typical</th><th>Check</th></tr></thead>
             <tbody>{rows.map((r) => { const [l, c] = FLAG[r.flag]; return (
@@ -68,7 +69,7 @@ export function PlanMarginPage() {
                 <td><b style={{ color: c }}>{r.flag === 'red' ? '● ' : r.flag === 'orange' ? '● ' : ''}{l}</b></td></tr>); })}</tbody></table></div>
         )}
         <p className="muted" style={{ fontSize: 12.5 }}>{d.warnings ? `${d.warnings} price${d.warnings === 1 ? '' : 's'} need a look across all countries. ` : 'Every price meets your target. '}Red = the price is below the cost of serving a workspace that uses everything. Orange = above cost but under your target multiple (a launch offer in orange is allowed; it blocks nothing). Costs here are estimates, not invoices.</p>
-      </Card>
+      </FoldCard>
     </>
   );
 }
@@ -96,7 +97,7 @@ export function LaunchOfferPage() {
   return (
     <>
       <ErrorBox error={err} />
-      <Card title="Launch offer">
+      <FoldCard id="PlanTiers-Launch offer" title="Launch offer" summary="Limited-time discount on plans" >
         <Toggle value={!!f.on} onChange={(v) => save({ on: v })} label={f.on ? (live.on ? 'ON: visitors see the banner and launch prices' : 'ON, but not showing right now (ended, out of spots or no discount set)') : 'OFF: no banner, no crossed-out prices, normal prices charged'} />
         <p className="muted" style={{ fontSize: 12.5 }}>The discount applies to the first monthly payments of plans marked "Part of the launch offer". Yearly billing has no launch discount. Workspaces that already paid before you switched the offer on keep their price. Switching the offer off, passing the end date or running out of spots removes the banner and the crossed-out prices and stops the discount at checkout.</p>
         <div className="pa-grid3">
@@ -114,8 +115,8 @@ export function LaunchOfferPage() {
           <Field label="Show the spots left"><Toggle value={!!f.show_spots} onChange={(v) => setF({ ...f, show_spots: v })} label="Needs founding spots. Off by default." /></Field>
         </div>
         <button className="btn primary sm" onClick={() => save()}>Save launch offer</button>
-      </Card>
-      <Card title="Live preview">
+      </FoldCard>
+      <FoldCard id="PlanTiers-Live preview" title="Live preview" summary="How plans look to visitors" >
         {!live.on ? <p className="muted">The offer is not showing, so visitors see normal prices and no banner.</p> : (
           CURS.filter((c) => live.countries[c]).map((c) => (
             <div key={c} style={{ marginBottom: 14 }}>
@@ -127,7 +128,7 @@ export function LaunchOfferPage() {
             </div>))
         )}
         {!!live.on && !plans.some((p) => p.visible) && <p className="muted">No plan marked for the launch offer is on the public pricing page yet. Open Plans, switch a tier to "Visible" and it appears with the launch price.</p>}
-      </Card>
+      </FoldCard>
     </>
   );
 }

@@ -1,6 +1,7 @@
 // Console: social posting through Zernio. The key is written here and never shown again (only its last 4). Also: billing mode, platform
 // limits, which workspaces are switched on, the webhook, and the owner's own Facebook and Instagram for testing end to end first.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, ErrorBox, Field, Loading, TextInput } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -14,7 +15,7 @@ function Connection({ o, can, reload }) {
   const save = async () => { const r = await act('save', () => api.put(`${A}/social/zernio`, { key: key || undefined }), 'Saved'); if (r) { setKey(''); reload(); } };
   const test = async () => { const r = await act('test', () => api.post(`${A}/social/zernio/test`)); if (r) setOk(r.accounts); };
   return (
-    <Card title="Zernio connection">
+    <FoldCard id="SocialPosting-Zernio connection" title="Zernio connection" summary="Posting service key and connection test" >
       <ErrorBox error={err} />
       <p className="muted" style={{ marginTop: 0 }}>{o.key.set ? <><span className="pill green">Key added</span> ending {o.key.hint}. </> : <><span className="pill grey">No key yet</span> </>}Posts to Facebook and Instagram go through Zernio. The key is stored encrypted and is never shown again.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 12 }}>
@@ -32,7 +33,7 @@ function Connection({ o, can, reload }) {
         {o.key.set && <button className="btn danger" disabled={!can || !!busy} onClick={() => window.confirm('Remove the Zernio key? Scheduled posts will not go out until a key is added again.') && act('rm', () => api.del(`${A}/social/zernio/key`), 'Key removed').then(reload)}>Remove key</button>}
         {ok != null && <span className="pill green">Connection works ({ok} account{ok === 1 ? '' : 's'} in this Zernio team)</span>}
       </div>
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -40,7 +41,7 @@ function Webhook({ o, can, reload }) {
   const toast = useToast(); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const setup = async () => { setBusy(true); setErr(''); try { await api.post(`${A}/social/zernio/webhook`); toast('Webhook registered'); reload(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   return (
-    <Card title="Webhook (posting results)">
+    <FoldCard id="SocialPosting-Webhook (posting results)" title="Webhook (posting results)" summary="Link that reports posting results" >
       <ErrorBox error={err} />
       <p className="muted" style={{ marginTop: 0 }}>Zernio tells us when a post is published or fails. It needs this site to be reachable on the internet, so register it on the live site. Address: <code>{o.webhook.url}</code></p>
       <div className="row" style={{ gap: 8, alignItems: 'center' }}>
@@ -48,7 +49,7 @@ function Webhook({ o, can, reload }) {
         {o.webhook.secret_saved && <span className="pill green">Registered {o.webhook.registered_at ? o.webhook.registered_at.slice(0, 10) : ''}</span>}
       </div>
       <p className="muted" style={{ fontSize: 12, marginBottom: 0 }}>Without it posts still go out; their final status is found by checking Zernio every minute.</p>
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -56,14 +57,14 @@ function Caps({ o, can, reload }) {
   const toast = useToast(); const [f, setF] = useState(() => Object.fromEntries(Object.keys(o.platforms).map((k) => [k, o.caps[k] ?? '']))); const [err, setErr] = useState('');
   const save = async () => { setErr(''); try { await api.put(`${A}/social/zernio/caps`, f); toast('Limits saved'); reload(); } catch (e) { setErr(e.message); } };
   return (
-    <Card title="Posting limits per account">
+    <FoldCard id="SocialPosting-Posting limits per account" title="Posting limits per account" summary="Daily post limits per account" >
       <ErrorBox error={err} />
       <p className="muted" style={{ marginTop: 0 }}>The most posts one connected account may publish in any 24 hours. A post over the limit stays in the calendar and goes out when the limit allows. Zernio's own page states 100 for Instagram; 25 is the starting value here. Empty means no limit from us.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
         {Object.entries(o.platforms).map(([k, l]) => <Field key={k} label={l}><input className="input" type="number" min={1} max={1000} value={f[k]} disabled={!can} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></Field>)}
       </div>
       <button className="btn primary" disabled={!can} onClick={save}>Save limits</button>
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -72,7 +73,7 @@ function Workspaces({ o, can, reload }) {
   const save = async () => { setErr(''); try { await api.put(`${A}/social/zernio/workspaces`, { ids: [...on] }); toast('Saved'); reload(); } catch (e) { setErr(e.message); } };
   const flip = (id) => setOn((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   return (
-    <Card title="Workspaces with posting switched on">
+    <FoldCard id="SocialPosting-Workspaces with posting switched on" title="Workspaces with posting switched on" summary="Who can post through Agentify" >
       <ErrorBox error={err} />
       <p className="muted" style={{ marginTop: 0 }}>Off for everyone until you tick a workspace. Switched-off workspaces keep the manual "tick it off" flow. Start with your own test workspace.</p>
       <div className="stack" style={{ maxHeight: 260, overflow: 'auto' }}>
@@ -80,7 +81,7 @@ function Workspaces({ o, can, reload }) {
         {!o.workspaces.length && <span className="muted">No workspaces yet.</span>}
       </div>
       <button className="btn primary" disabled={!can} onClick={save} style={{ marginTop: 8 }}>Save</button>
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -94,10 +95,10 @@ function Own({ o, can }) {
   const post = async () => { setBusy('post'); setConfirm(false); try { await api.post(`${A}/social/zernio/own/test-post`, { account_id: pick, text, image_url: img, accept: true }); toast('Test post sent. Check the account.'); } catch (e) { setErr(e.message); } finally { setBusy(''); } };
   const chosen = (accounts || []).find((a) => a.account_id === pick);
   return (
-    <Card title="Your own connected accounts (test first)">
+    <FoldCard id="SocialPosting-Your own connected accounts (test first)" title="Your own connected accounts (test first)" summary="Agentify's own social accounts" >
       <ErrorBox error={err} />
       <p className="muted" style={{ marginTop: 0 }}>Connect your own Facebook Page and Instagram here to test everything before any workspace uses it. Zernio's plan includes 2 free accounts. Instagram needs a business or creator account linked to a Facebook Page.</p>
-      <div className="row wrap" style={{ gap: 8 }}>{Object.entries(LABEL).map(([k, l]) => <button key={k} className="btn primary" disabled={!can || !o.key.set || !!busy} onClick={() => connect(k)}>{busy === k ? 'Opening…' : `Connect ${l}`}</button>)}<button className="btn" disabled={!o.key.set} onClick={load}>Refresh</button></div>
+      <div className="row wrap" style={{ gap: 8 }}>{Object.entries(LABEL).map(([k, l]) => <button key={k} className="btn primary" disabled={!can || !o.key.set || !!busy} onClick={() => connect(k)}>{busy === k ? 'Opening…' : `Connect ${l}`}</button>)}<button className="btn info" disabled={!o.key.set} onClick={load}>Refresh</button></div>
       {accounts == null ? <Loading rows={1} /> : !accounts.length ? <p>{o.key.set ? 'No account connected yet.' : 'Add the key first.'}</p> : (
         <>
           <table className="sheet" style={{ marginTop: 8 }}><thead><tr><th>Account</th><th>Where</th></tr></thead><tbody>{accounts.map((a) => <tr key={a.account_id}><td>{a.username ? `@${a.username}` : a.name}</td><td>{LABEL[a.platform] || a.platform}</td></tr>)}</tbody></table>
@@ -110,7 +111,7 @@ function Own({ o, can }) {
           {!confirm ? <button className="btn" disabled={!can || !!busy || !pick} onClick={() => setConfirm(true)}>Publish test post…</button>
             : <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={post}>Yes, publish this on the real account now</button><button className="btn" onClick={() => setConfirm(false)}>Cancel</button></div>}
         </>)}
-    </Card>
+    </FoldCard>
   );
 }
 
