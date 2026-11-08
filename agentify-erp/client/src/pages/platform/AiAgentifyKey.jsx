@@ -98,6 +98,37 @@ function Limits({ o, can, reload }) {
   );
 }
 
+const money = (v) => (v < 10 ? v.toFixed(2) : v < 100 ? v.toFixed(1) : Math.round(v).toLocaleString());
+function PlainPrices({ o }) {
+  const rate = o.rate.rate, cur = o.display_currency;
+  const P = Object.fromEntries(o.prices.map((p) => [p.key, p.usd]));
+  const REEL_S = 8, REEL_CHARS = 600;
+  const reel = P.creative_video * REEL_S, voice = (P.video_voice_en / 1000) * REEL_CHARS;
+  const rows = [
+    ['One question to Ask', P.ask_assistant],
+    ['One brand story or post draft', P.brand_story],
+    ['One post image', P.creative_post],
+    [`One ${REEL_S}-second reel (video only; 16 and 24 seconds cost 2 and 3 times this)`, reel],
+    ['The voice-over for one reel, in one language', voice],
+    ['One website check', P.website_analysis],
+    ['One translation', P.translation],
+  ].filter((r) => r[1] != null);
+  const when = o.rate.updated_at ? new Date(o.rate.updated_at).toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
+  const src = o.rate.source === 'live' ? `live rate${when ? ` of ${when}` : ''}` : o.rate.source === 'manual' ? `rate set by you${when ? ` on ${when}` : ''}` : 'built-in estimate, not a live rate';
+  return (
+    <Card>
+      <div style={{ fontWeight: 600, fontSize: 16 }}>Price list</div>
+      <div className="muted" style={{ marginBottom: 12 }}>What one use of each AI feature costs, on average.</div>
+      <div style={{ border: '1px solid var(--line, #e3e7e5)', borderRadius: 12, overflow: 'hidden' }}>
+        {rows.map(([label, v], i) => <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '12px 14px', borderTop: i ? '1px solid var(--line, #e3e7e5)' : 'none' }}><span>{label}</span><b style={{ whiteSpace: 'nowrap' }}>about {cur} {money(v * rate)}</b></div>)}
+      </div>
+      <div style={{ background: 'rgba(14,124,107,.08)', borderRadius: 10, padding: '10px 14px', margin: '12px 0' }}><b>Example:</b> one {REEL_S}-second reel with its English voice-over costs about <b>{cur} {money((reel + voice) * rate)}</b>.</div>
+      <p className="muted" style={{ margin: '0 0 8px' }}><b>Everything else is free:</b> scheduling, editing, downloading and sharing posts, and the rest of the app. Workspaces using their own AI key pay their provider directly.</p>
+      <div className="muted" style={{ fontSize: 12 }}>1 US dollar = {cur} {Number(rate).toFixed(2)} ({src}). Prices are averages of the last 3 months once a feature has {10} real uses, otherwise estimates.</div>
+    </Card>
+  );
+}
+
 function Prices({ o, can, reload }) {
   const toast = useToast();
   const pin = async (p) => {
@@ -316,6 +347,7 @@ export default function AiAgentifyKey({ tab = 'overview' }) {
       </Card>
       </>}
       {tab === 'prices' && <>
+        <PlainPrices o={o} />
         <Prices o={o} can={can} reload={load} />
         <Rate o={o} can={can} reload={load} />
       </>}

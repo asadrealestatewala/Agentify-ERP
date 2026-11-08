@@ -90,6 +90,7 @@ import pub from './routes/public.js';
 import integrationApi from './routes/integrationApi.js';
 import websiteIntegrations from './routes/websiteIntegrations.js';
 import embed from './routes/embed.js';
+import { refreshIfStale as refreshFxIfStale } from './services/fxRate.js';
 import { runDueDeliveries } from './services/webhooksOut.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -313,7 +314,7 @@ if (isMain) {
   const leadTick = () => forEachTenantAsync(async () => { runLeadSla(); await runSequences(); }).then(() => markJob('lead-flow')).catch((e) => markJob('lead-flow', e));
   setInterval(leadTick, 60 * 1000).unref();
   // platform-wide: daily metric snapshot (for period comparisons) and super-admin alerts
-  const platformTick = () => { syncProviderUsage().catch(() => {}); runActivation().then(() => markJob('activation')).catch((e) => markJob('activation', e)); try { snapshot(); announcePlatformRelease(); generateNotifications(null, true); markJob('platform-jobs'); } catch (e) { console.error('[platform jobs]', e); markJob('platform-jobs', e); }
+  const platformTick = () => { refreshFxIfStale(); syncProviderUsage().catch(() => {}); runActivation().then(() => markJob('activation')).catch((e) => markJob('activation', e)); try { snapshot(); announcePlatformRelease(); generateNotifications(null, true); markJob('platform-jobs'); } catch (e) { console.error('[platform jobs]', e); markJob('platform-jobs', e); }
     // trial expiry, reminders and renewals (idempotent; safe to run as often as you like)
     runLifecycle().then((r) => markJob('lifecycle', r.errors.length ? new Error(`${r.errors.length} workspace(s) failed`) : null)).catch((e) => { console.error('[lifecycle]', e); markJob('lifecycle', e); sendAlert(`Lifecycle job failed: ${e.message}`); }); };
   setTimeout(platformTick, 5000).unref();
