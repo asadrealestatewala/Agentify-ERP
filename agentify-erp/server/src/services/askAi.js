@@ -160,6 +160,11 @@ export async function askAi(question, history, user, image = null) {
   // a picture can only be read by a Groq vision model
   if (image && !ready.groq) return { refused: 'Questions about a picture need Groq to be connected. Please type your question instead.' };
   const order = image ? ['groq'] : askOrder().filter((p) => ready[p]);
+  if (!order.length) {
+    // every engine is off or has no key: the guide text itself still answers (never a guess)
+    const t = !image ? templatedAnswer(mat, lang) : null;
+    if (t) return { ...t, engine: 'guide', links: videoLinks(user, `${q} ${mat[0]?.title || ''}`), notes: ['No AI engine is switched on, so this answer is the help-guide text.'] };
+  }
   if (!order.length) return { refused: geminiAskEnabled() || hordeReady() || groqReady() ? 'The AI helper could not answer right now.' : 'The AI helper is not switched on yet. Please ask your administrator or support.' };
   let out = null, lastErr = null, engine = null;
   const notes = []; // why an engine did not answer, shown under the answer

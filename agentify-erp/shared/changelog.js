@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.81', date: '2026-11-08', title: 'Ask: "how do I ..." questions get a step-by-step answer',
+    items: [
+      { text: 'Questions like "how do I add a lead?" or "me kese appointment add kar sakta hu" now go to the help guides instead of showing lead statistics. New step guides cover adding a lead, scheduling an appointment, adding a property, creating an installment plan and creating a voucher.', where: 'Ask (Data assistant)' },
+      { text: 'Data answers now say they are a live report from your ERP, and when no AI engine is switched on Ask still answers from the help guides.', where: 'Ask (Data assistant)' },
+    ],
+  },
+  {
     version: 'v1.80', date: '2026-11-08', title: 'Console: test and switch each Ask engine',
     items: [
       { text: 'Each engine in the Ask engine order now has a Test this engine button. It sends a sample question to that engine only, with no fallback, and shows the answer, model, time and any error.', where: 'Console > AI', audience: 'platform' },

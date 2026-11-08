@@ -60,7 +60,7 @@ test('Groq: key, order, privacy, 429 fallback, pictures, voice and activity', as
   const q = 'reel voiceover credits limit';
 
   assert.deepEqual((await a('GET', '/api/assistant/capabilities')).data, { stt: false, image: false });
-  assert.match((await ask(q)).data.answer, /not switched on/);
+  { const r0 = (await ask(q)).data; assert.equal(r0.engine, 'guide'); assert.ok(r0.notes.some((n) => /No AI engine is switched on/.test(n))); }
 
   assert.equal((await as(owner, 'PUT', '/ai/groq', { key: 'nope' })).status, 400);
   const saved = await as(owner, 'PUT', '/ai/groq', { key: GKEY });
@@ -216,5 +216,30 @@ test('console engine switches: an engine that is off is never called, even as a 
   t = (await as(owner, 'GET', '/ai/overview')).data.technical;
   assert.equal(t.stablehorde.enabled, true); assert.equal(t.groq.enabled, true);
   assert.equal((await as(owner, 'PUT', '/ai/ask-engines', { only: 'bogus' })).status, 400);
+  await as(owner, 'PUT', '/ai/ask-engines', { groq: true, horde: true, gemini: false });
+});
+
+test('how-to questions in Roman Urdu, English and Urdu go to the guides, not to live-data reports', async () => {
+  const owner = (await call('erp.test', 'POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  await as(owner, 'PUT', '/ai/ask-engines', { groq: false, horde: false, gemini: false }); // no AI: the guide text answers on its own
+  const a = await login('groq', 'owner@groq.test');
+  const ask = (question) => a('POST', '/api/assistant/ask', { question });
+  const cases = [
+    ['me kese leads add kar sakta hu', /lead/i, /ke steps|mein|kholen/i],
+    ['How can I add a lead?', /lead/i, /open|press|click|choose|select/i],
+    ['me kese appointment add kar sakta hu', /appointment/i, /ke steps|mein|kholen/i],
+    ['How do I add a property?', /propert/i, /open|press|click|choose|select/i],
+    ['installment plan kaise banate hain', /installment/i, /ke steps|mein|kholen/i],
+    ['how do I create a voucher', /voucher/i, /open|press|click|choose|select/i],
+    ['لیڈ کیسے شامل کروں', /[؀-ۿ]/, /[؀-ۿ]/],
+  ];
+  for (const [q, topic, lang] of cases) {
+    const r = (await ask(q)).data;
+    console.log(`\n## ${q}\n[intent=${r.intent} engine=${r.engine}]\n${r.answer}`);
+    assert.notEqual(r.intent, 'leads', q); assert.equal(r.tables.length, 0, `${q}: no live-data tables`);
+    assert.match(r.answer, topic, q); assert.match(r.answer, lang, q);
+  }
+  // data questions still use the live-data reports
+  assert.equal((await ask('How many leads this month?')).data.intent, 'leads');
   await as(owner, 'PUT', '/ai/ask-engines', { groq: true, horde: true, gemini: false });
 });

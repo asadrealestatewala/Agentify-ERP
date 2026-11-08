@@ -76,3 +76,14 @@ export function answerMatchesLanguage(lang, answer) {
   if (lang === 'roman-urdu') { const w = words(a); return w.filter((x) => ROMAN_MARKERS.has(x)).length >= Math.min(3, Math.ceil(w.length / 12)); }
   return true;
 }
+
+/**
+ * True when the question asks HOW to do something (English, Roman Urdu, Urdu, Hindi), not for numbers from the live data.
+ * "how can I add leads" / "me kese leads add kar sakta hu" -> true; "how many leads this month" / "kitni leads hain" -> false.
+ */
+export function isHowTo(question) {
+  const q = ` ${String(question || '').toLowerCase().replace(/[?!.,]+/g, ' ').replace(/\s+/g, ' ').trim()} `;
+  const data = /\b(how many|how much|kitn[eiy]|kitna|total|count|number of|list of|report|pdf|balance|summary|statistics|stats|dikha|dikhao|batao kitn|show me)\b|کتنے|کتنی|کتنا|دکھا/.test(q);
+  if (data) return false;
+  return /\b(how (do|can|to|should|would)|how i\b|ways? to|steps? to|where (do|can|to)|kese|kaise|kesay|kaisay|kis tarah|kis tarha|tareeqa|tarika|tariqa|sikha|samjha|guide me)\b|کیسے|طریقہ|کس طرح|कैसे|तरीका/.test(q);
+}
