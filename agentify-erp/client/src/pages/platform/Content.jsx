@@ -121,7 +121,7 @@ export function WebsitePage() {
   useEffect(() => {
     if (!d) return;
     const c = d.content;
-    setF({ brand: c.brand, hero_title: c.hero_title, hero_subtitle: c.hero_subtitle, announcement_bar: c.announcement_bar, contact_email: c.contact_email, android_store_url: c.android_store_url || '', contact_phone: c.contact_phone, address: c.address, social: { ...c.social },
+    setF({ brand: c.brand, hero_title: c.hero_title, hero_subtitle: c.hero_subtitle, announcement_bar: c.announcement_bar, contact_email: c.contact_email, android_store_url: c.android_store_url || '', contact_phone: c.contact_phone, contact_phone_pk: c.contact_phone_pk || '', address: c.address, social: { ...c.social },
       re_title: c.real_estate.title, re_subtitle: c.real_estate.subtitle, re_features: pairsToText(c.real_estate.features), re_use: (c.real_estate.use_cases || []).join('\n'),
       con_title: c.construction.title, con_subtitle: c.construction.subtitle, con_features: pairsToText(c.construction.features), con_use: (c.construction.use_cases || []).join('\n'),
       faqs: pairsToText(c.faqs), testimonials: c.testimonials, partners: c.partners || [], seo: JSON.parse(JSON.stringify(c.seo)) });
@@ -130,7 +130,7 @@ export function WebsitePage() {
   const set = (k) => (v) => setF({ ...f, [k]: v });
   const save = async () => {
     try {
-      await api.put(`${A}/marketing`, { brand: f.brand, hero_title: f.hero_title, hero_subtitle: f.hero_subtitle, announcement_bar: f.announcement_bar, contact_email: f.contact_email, android_store_url: f.android_store_url, contact_phone: f.contact_phone, address: f.address, social: f.social,
+      await api.put(`${A}/marketing`, { brand: f.brand, hero_title: f.hero_title, hero_subtitle: f.hero_subtitle, announcement_bar: f.announcement_bar, contact_email: f.contact_email, android_store_url: f.android_store_url, contact_phone: f.contact_phone, contact_phone_pk: f.contact_phone_pk, address: f.address, social: f.social,
         real_estate: { title: f.re_title, subtitle: f.re_subtitle, features: textToPairs(f.re_features), use_cases: f.re_use.split('\n').filter((x) => x.trim()) },
         construction: { title: f.con_title, subtitle: f.con_subtitle, features: textToPairs(f.con_features), use_cases: f.con_use.split('\n').filter((x) => x.trim()) },
         faqs: textToPairs(f.faqs), testimonials: f.testimonials, partners: f.partners, seo: f.seo });
@@ -183,7 +183,8 @@ export function WebsitePage() {
         </Card>
         <Card title="Contact details">
           <Field label="Email"><TextInput value={f.contact_email} onChange={set('contact_email')} /></Field>
-          <Field label="Phone"><TextInput value={f.contact_phone} onChange={set('contact_phone')} /></Field>
+          <Field label="Phone (USA)"><TextInput value={f.contact_phone} onChange={set('contact_phone')} /></Field>
+          <Field label="Phone (Pakistan sales and delivery center)"><TextInput value={f.contact_phone_pk} onChange={set('contact_phone_pk')} /></Field>
           <Field label="Address"><TextInput value={f.address} onChange={set('address')} /></Field>
           {Object.keys(f.social).map((k) => <Field key={k} label={`${k[0].toUpperCase()}${k.slice(1)} link`}><TextInput value={f.social[k]} placeholder="https://" onChange={(v) => setF({ ...f, social: { ...f.social, [k]: v } })} /></Field>)}
         </Card>
