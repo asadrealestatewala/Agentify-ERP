@@ -30,10 +30,10 @@ test('sitemap lists every article', () => {
   assert.ok(x.includes('/blog</loc>'));
 });
 
-test('Pakistan article set: 20 extra, unique slugs, valid related links, SEO fields', async () => {
+test('Pakistan article set: 40 extra, unique slugs, valid related links, SEO fields', async () => {
   const { BLOG_POSTS, getPost, bodyHtml } = await import('../src/services/blog.js');
   const extra = BLOG_POSTS.filter((p) => p.keyword);
-  assert.equal(extra.length, 20);
+  assert.equal(extra.length, 40);
   const slugs = new Set(BLOG_POSTS.map((p) => p.slug));
   assert.equal(slugs.size, BLOG_POSTS.length);
   for (const p of extra) {
