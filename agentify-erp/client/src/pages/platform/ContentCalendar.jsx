@@ -2,6 +2,7 @@
 // time a post can go out. A Social Media Manager works only on this page. Nothing here posts to a network by itself:
 // the manager publishes on the channel and records it ("Mark as posted").
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, ErrorBox, Field, Loading, Modal, Select, Tabs, TextInput } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -96,7 +97,7 @@ function LimitsCard({ data, reload }) {
   const save = async () => { setBusy(true); setErr(''); try { await api.put(`${A}/content/limits`, f); toast('Limits saved'); reload(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   const num = (k) => (v) => setF({ ...f, [k]: v === '' ? '' : Number(v) });
   return (
-    <Card title="Posting limits">
+    <FoldCard id="ContentCalendar-Posting limits" title="Posting limits" summary="How many posts each account may make" >
       <ErrorBox error={err} />
       <p className="muted" style={{ marginTop: 0 }}>These starting values are placeholders. Set them to what each network and your team can handle; scheduling is refused when a limit would be broken.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(210px,1fr))', gap: 12 }}>
@@ -108,7 +109,7 @@ function LimitsCard({ data, reload }) {
         <Field label="Time zone for the limits" hint="For example UTC or Europe/London"><TextInput value={f.timezone} onChange={(v) => setF({ ...f, timezone: v })} /></Field>
       </div>
       <button className="btn primary" disabled={busy} onClick={save}>Save limits</button>
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -209,13 +210,13 @@ export default function ContentCalendarPage() {
         <Card><div className="cc-k">Posted</div><div className="cc-v">{c.posted}</div><div className="cell-sub">{c.posted_this_month} this month</div></Card>
       </div>
       <Month posts={posts} month={month} setMonth={setMonth} onDay={(d) => { const t = new Date(d); t.setHours(10, 0, 0, 0); setForm({ post: null, startAt: t.toISOString() }); }} onOpen={edit} />
-      <Card title="Posts">
+      <FoldCard id="ContentCalendar-Posts" title="Posts" summary="Planned and published posts" defaultOpen >
         <Tabs value={tab} onChange={setTab} tabs={[{ key: 'notposted', label: 'Not yet posted', count: notPosted.length }, { key: 'posted', label: 'Posted', count: done.length }]} />
         <div style={{ marginTop: 10 }}>
           {tab === 'notposted' ? <PostList rows={notPosted} empty="Nothing waiting. Add a post to start the calendar." onEdit={edit} onPosted={setPosted} act={act} /> : <PostList rows={done} empty="Nothing has been recorded as posted yet." onEdit={edit} onPosted={setPosted} act={act} />}
         </div>
-      </Card>
-      {data.can_edit_limits ? <LimitsCard data={data} reload={load} /> : <Card title="Posting limits"><p className="muted" style={{ margin: 0 }}>{data.limits.per_day} posts a day in total, {data.limits.per_channel_per_day} per channel, {data.limits.min_gap_minutes} minutes apart on a channel, between {data.limits.window_start} and {data.limits.window_end} ({data.limits.timezone}). A Super Admin can change these.</p></Card>}
+      </FoldCard>
+      {data.can_edit_limits ? <LimitsCard data={data} reload={load} /> : <FoldCard id="ContentCalendar-Posting limits" title="Posting limits" summary="How many posts each account may make" ><p className="muted" style={{ margin: 0 }}>{data.limits.per_day} posts a day in total, {data.limits.per_channel_per_day} per channel, {data.limits.min_gap_minutes} minutes apart on a channel, between {data.limits.window_start} and {data.limits.window_end} ({data.limits.timezone}). A Super Admin can change these.</p></FoldCard>}
       {form && <PostForm data={data} post={form.post} startAt={form.startAt} onCancel={() => setForm(null)} onDone={() => { setForm(null); load(); }} />}
       {ai && <AiDraftForm data={data} onCancel={() => setAi(false)} onDone={() => { setAi(false); load(); }} />}
       {posted && <PostedForm post={posted} onCancel={() => setPosted(null)} onDone={() => { setPosted(null); load(); }} />}

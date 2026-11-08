@@ -1,5 +1,6 @@
 // Plans & pricing (plan builder), transactions & invoices, and subscription history.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { useNavigate } from 'react-router-dom';
 import { Card, Empty, ErrorBox, Field, Loading, Modal, StatusBadge, TextInput, Toggle } from '../../components/ui.jsx';
 import { api } from '../../api.js';
@@ -35,7 +36,7 @@ function LadderCard({ info, onChanged }) {
     try { await api.post(`${A}/plans-ladder`, { on }); toast(on ? 'The 7-tier ladder is on sale' : 'Ladder switched off; the previous plans are back on sale'); setAsk(false); onChanged(); } catch (e) { toast(e.message, 'err'); }
   };
   return (
-    <Card title="7-tier ladder (Solo Agent to Enterprise)" actions={info.on ? <button className="btn sm" onClick={() => go(false)}>Switch off and restore the old plans</button> : <button className="btn primary sm" onClick={() => setAsk(true)}>Switch to the 7-tier ladder</button>}>
+    <FoldCard id="Billing-7-tier ladder (Solo Agent to Enterprise)" title="7-tier ladder (Solo Agent to Enterprise)" summary="Plans, prices and the switch for the new plan ladder"  actions={info.on ? <button className="btn sm" onClick={() => go(false)}>Switch off and restore the old plans</button> : <button className="btn primary sm" onClick={() => setAsk(true)}>Switch to the 7-tier ladder</button>}>
       <p className="muted" style={{ margin: 0 }}>{info.on
         ? 'The ladder is on sale. Older public plans are off sale; their subscribers keep them and can renew.'
         : 'The 7 ladder plans exist but are hidden, so nothing public has changed. Review prices and features in the table (they are under Real Estate and Both products), then switch.'}</p>
@@ -45,7 +46,7 @@ function LadderCard({ info, onChanged }) {
           <p className="muted">Ladder prices are in PKR only. Customers paying in another currency will not see a price until you add one for each plan.</p>
         </Modal>
       )}
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -108,7 +109,7 @@ export function PlansPage() {
               ))}
             </tbody></table></div>)}
           </Card>
-          <Card title="Free trial and reminders">
+          <FoldCard id="Billing-Free trial and reminders" title="Free trial and reminders" summary="Trial length and reminder emails" >
             <div className="pa-grid3" style={{ marginBottom: 0 }}>
               <Field label="Trial length for new sign-ups (days)" hint="Default 7. 0 means no trial: new workspaces wait for a first payment."><TextInput type="number" value={settings.default_trial_days} onChange={(v) => setSettings({ ...settings, default_trial_days: v })} /></Field>
               <Field label="Real estate trials get the limits of"><select className="input" value={settings.trial_plan} onChange={(e) => setSettings({ ...settings, trial_plan: e.target.value })}>{d.plans.filter((p) => p.product !== 'construction').map((p) => <option key={p.id} value={p.id}>{p.name} ({p.id})</option>)}</select></Field>
@@ -119,7 +120,7 @@ export function PlansPage() {
             </div>
             <p className="muted">Trials start and end at exact times stored in UTC; customers see them in their own timezone. The hourly lifecycle job sends reminders once and makes expired trials read-only even if nobody signs in.</p>
             <button className="btn primary sm" onClick={saveSettings}>Save trial settings</button>
-          </Card>
+          </FoldCard>
           <AddonsCard />
           <CouponsCard plans={d.plans} />
         </>
@@ -224,7 +225,7 @@ function AddonsCard() {
   };
   const setPrice = (cur, int, v) => setEdit({ ...edit, price: { ...edit.price, [cur]: { ...(edit.price[cur] || {}), [int]: v === '' ? undefined : Number(v) } } });
   return (
-    <Card title="Add-ons" actions={<button className="btn sm" onClick={() => setEdit({ isNew: true, id: '', name: '', description: '', product: 'any', price: { PKR: {} }, entitlements: {}, active: true })}>New add-on</button>}>
+    <FoldCard id="Billing-Add-ons" title="Add-ons" summary="Extra items workspaces can buy"  actions={<button className="btn sm" onClick={() => setEdit({ isNew: true, id: '', name: '', description: '', product: 'any', price: { PKR: {} }, entitlements: {}, active: true })}>New add-on</button>}>
       <p className="muted">Extras sold on top of a plan. Their limits are added to the plan's. Customers buy them with bank or wallet payments; a Billing Manager can also switch one on for a workspace.</p>
       {!rows ? <Loading /> : !rows.length ? <Empty title="No add-ons yet" /> : (
         <div className="table-wrap"><table className="t"><thead><tr><th>Add-on</th><th>Product</th><th>Price</th><th>Adds</th><th>Status</th><th /></tr></thead><tbody>
@@ -251,7 +252,7 @@ function AddonsCard() {
           <Toggle value={edit.active} onChange={(v) => setEdit({ ...edit, active: v })} label="On sale" />
         </Modal>
       )}
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -269,7 +270,7 @@ function CouponsCard({ plans }) {
   };
   const toggleIn = (k, v) => setEdit({ ...edit, [k]: (edit[k] || []).includes(v) ? edit[k].filter((x) => x !== v) : [...(edit[k] || []), v] });
   return (
-    <Card title="Coupons & promotions" actions={<button className="btn sm" onClick={() => setEdit({ isNew: true, code: '', description: '', kind: 'percent', percent_off: 10, amount_off: {}, products: [], plans: [], intervals: [], first_payment_only: true, max_redemptions: '', valid_from: '', valid_until: '', active: true })}>New coupon</button>}>
+    <FoldCard id="Billing-Coupons & promotions" title="Coupons & promotions" summary="Discount codes and offers"  actions={<button className="btn sm" onClick={() => setEdit({ isNew: true, code: '', description: '', kind: 'percent', percent_off: 10, amount_off: {}, products: [], plans: [], intervals: [], first_payment_only: true, max_redemptions: '', valid_from: '', valid_until: '', active: true })}>New coupon</button>}>
       <p className="muted">Codes customers enter when paying by bank or wallet; the discount is applied by the server. For card payments create matching promotion codes in Stripe (checkout accepts them).</p>
       {!rows ? <Loading /> : !rows.length ? <Empty title="No coupons yet" /> : (
         <div className="table-wrap"><table className="t"><thead><tr><th>Code</th><th>Discount</th><th>Applies to</th><th>Valid</th><th>Used</th><th>Status</th><th /></tr></thead><tbody>
@@ -300,7 +301,7 @@ function CouponsCard({ plans }) {
           <Toggle value={edit.active} onChange={(v) => setEdit({ ...edit, active: v })} label="Active" />
         </Modal>
       )}
-    </Card>
+    </FoldCard>
   );
 }
 

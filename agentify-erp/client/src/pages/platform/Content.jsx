@@ -1,6 +1,7 @@
 // Console pages for growth and communication: website analytics, website content & legal documents, demo requests,
 // announcements & release notes, and the integration registry.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, ConfirmDialog, Empty, ErrorBox, Field, Loading, Modal, StatusBadge, TextInput, Toggle } from '../../components/ui.jsx';
 import { api } from '../../api.js';
@@ -73,7 +74,7 @@ export function AnalyticsPage() {
               {[['Product page views', d.funnel.product_page_views], ['Pricing page views', d.funnel.pricing_views], ['Sessions that started sign-up', d.funnel.signup_started], ['Sign-ups completed', d.funnel.signup_completed], ['Checkouts started', d.funnel.checkout_started], ['Subscriptions activated', d.funnel.subscription_activated]].map(([l, v]) => <tr key={l}><td>{l}</td><td className="right mono">{n0(v)}</td></tr>)}
             </tbody></table></div>
           </Card>
-          <Card title="Partner logos" actions={<button className="btn sm" onClick={() => set('partners')([...f.partners, { name: '', country: 'US', logo: '', url: '', permission: false }])}>Add partner</button>}>
+          <FoldCard id="Content-Partner logos" title="Partner logos" summary="Logos shown on the landing page"  actions={<button className="btn sm" onClick={() => set('partners')([...f.partners, { name: '', country: 'US', logo: '', url: '', permission: false }])}>Add partner</button>}>
         <p className="muted">Companies that agreed in writing to be listed as partners. The strip appears on the landing page for the visitor's country; with none entered it is not shown. Add the official logo file from the company (PNG, JPG, WebP or SVG).</p>
         {!f.partners.length && <Empty title="No partners (no logo strip is shown on the website)" />}
         {f.partners.map((p, i) => {
@@ -94,14 +95,14 @@ export function AnalyticsPage() {
             </div>
           );
         })}
-      </Card>
+      </FoldCard>
       <div className="pa-grid2">
-            <Card title="Acquisition channels" flush>{table(d.channels, 'Channel')}</Card>
-            <Card title="Landing pages" flush>{table(d.landing_pages, 'Landing page')}</Card>
+            <FoldCard id="Content-Acquisition channels" title="Acquisition channels" summary="Where visitors came from"  flush>{table(d.channels, 'Channel')}</FoldCard>
+            <FoldCard id="Content-Landing pages" title="Landing pages" summary="Which landing pages bring visitors"  flush>{table(d.landing_pages, 'Landing page')}</FoldCard>
           </div>
           <div className="pa-grid2">
-            <Card title="Top pages" flush>{!d.pages.length ? <Empty title="No page views" /> : <div className="table-wrap"><table className="t"><thead><tr><th>Page</th><th className="right">Views</th><th className="right">Visitors</th></tr></thead><tbody>{d.pages.map((p) => <tr key={p.path}><td className="mono">{p.path}</td><td className="right">{n0(p.views)}</td><td className="right">{n0(p.visitors)}</td></tr>)}</tbody></table></div>}</Card>
-            <Card title="Campaigns (utm tags)" flush>{!d.campaigns.length ? <Empty title="No tagged campaigns" /> : <div className="table-wrap"><table className="t"><thead><tr><th>Source / medium</th><th>Campaign</th><th className="right">Sessions</th></tr></thead><tbody>{d.campaigns.map((c, i) => <tr key={i}><td>{c.source} / {c.medium || '—'}</td><td>{c.campaign || '—'}</td><td className="right">{n0(c.sessions)}</td></tr>)}</tbody></table></div>}</Card>
+            <FoldCard id="Content-Top pages" title="Top pages" summary="Most viewed pages"  flush>{!d.pages.length ? <Empty title="No page views" /> : <div className="table-wrap"><table className="t"><thead><tr><th>Page</th><th className="right">Views</th><th className="right">Visitors</th></tr></thead><tbody>{d.pages.map((p) => <tr key={p.path}><td className="mono">{p.path}</td><td className="right">{n0(p.views)}</td><td className="right">{n0(p.visitors)}</td></tr>)}</tbody></table></div>}</FoldCard>
+            <FoldCard id="Content-Campaigns (utm tags)" title="Campaigns (utm tags)" summary="Tagged campaign traffic"  flush>{!d.campaigns.length ? <Empty title="No tagged campaigns" /> : <div className="table-wrap"><table className="t"><thead><tr><th>Source / medium</th><th>Campaign</th><th className="right">Sessions</th></tr></thead><tbody>{d.campaigns.map((c, i) => <tr key={i}><td>{c.source} / {c.medium || '—'}</td><td>{c.campaign || '—'}</td><td className="right">{n0(c.sessions)}</td></tr>)}</tbody></table></div>}</FoldCard>
           </div>
         </>
       )}
@@ -146,11 +147,11 @@ export function WebsitePage() {
       <PageTitle title="Website & legal" sub="Texts of the public website on the main domain. Describe only what the product really does; testimonials need the customer's permission.">
         <a className="btn sm" href="/" target="_blank" rel="noreferrer">Open website ↗</a><button className="btn primary sm" onClick={save}>Save website content</button>
       </PageTitle>
-      <Card title="Home page">
+      <FoldCard id="Content-Home page" title="Home page" summary="Headline, subtitle and buttons on the home page" >
         <div className="pa-grid2" style={{ marginBottom: 0 }}><Field label="Brand name"><TextInput value={f.brand} onChange={set('brand')} /></Field><Field label="Announcement bar (optional)"><TextInput value={f.announcement_bar} onChange={set('announcement_bar')} /></Field></div>
         <Field label="Headline"><TextInput value={f.hero_title} onChange={set('hero_title')} /></Field>
         {area('hero_subtitle', 3, { label: 'Sub-headline' })}
-      </Card>
+      </FoldCard>
       <div className="pa-grid2">
         {[['re', 'Real Estate page'], ['con', 'Construction page']].map(([p, t]) => (
           <Card key={p} title={t}>
@@ -161,8 +162,8 @@ export function WebsitePage() {
           </Card>
         ))}
       </div>
-      <Card title="FAQs">{area('faqs', 8, { hint: 'One per line: Question | answer' })}</Card>
-      <Card title="Testimonials" actions={<button className="btn sm" onClick={() => set('testimonials')([...f.testimonials, { quote: '', name: '', role: '', company: '', permission: false }])}>Add testimonial</button>}>
+      <FoldCard id="Content-FAQs" title="FAQs" summary="Questions and answers on the site" >{area('faqs', 8, { hint: 'One per line: Question | answer' })}</FoldCard>
+      <FoldCard id="Content-Testimonials" title="Testimonials" summary="Approved customer quotes"  actions={<button className="btn sm" onClick={() => set('testimonials')([...f.testimonials, { quote: '', name: '', role: '', company: '', permission: false }])}>Add testimonial</button>}>
         <p className="muted">Only real customers who agreed to be quoted. Each needs a name, company and confirmation of permission, or it cannot be saved.</p>
         {!f.testimonials.length && <Empty title="No testimonials (none are shown on the website)" />}
         {f.testimonials.map((t, i) => {
@@ -175,20 +176,20 @@ export function WebsitePage() {
             </div>
           );
         })}
-      </Card>
+      </FoldCard>
       <div className="pa-grid2">
-        <Card title="Mobile app">
+        <FoldCard id="Content-Mobile app" title="Mobile app" summary="Phone app download texts" >
           <Field label="Google Play link"><TextInput value={f.android_store_url} placeholder="https://play.google.com/store/apps/details?id=co.agentifyerp.app" onChange={set('android_store_url')} /></Field>
           <p className="muted" style={{ margin: 0 }}>Leave empty until the Play listing is live. When set, the website and paying workspaces show a Google Play button next to the direct Android file.</p>
-        </Card>
-        <Card title="Contact details">
+        </FoldCard>
+        <FoldCard id="Content-Contact details" title="Contact details" summary="Email, phone and address shown on the site" >
           <Field label="Email"><TextInput value={f.contact_email} onChange={set('contact_email')} /></Field>
           <Field label="Phone (USA)"><TextInput value={f.contact_phone} onChange={set('contact_phone')} /></Field>
           <Field label="Phone (Pakistan sales and delivery center)"><TextInput value={f.contact_phone_pk} onChange={set('contact_phone_pk')} /></Field>
           <Field label="Address"><TextInput value={f.address} onChange={set('address')} /></Field>
           {Object.keys(f.social).map((k) => <Field key={k} label={`${k[0].toUpperCase()}${k.slice(1)} link`}><TextInput value={f.social[k]} placeholder="https://" onChange={(v) => setF({ ...f, social: { ...f.social, [k]: v } })} /></Field>)}
-        </Card>
-        <Card title="Search engine texts">
+        </FoldCard>
+        <FoldCard id="Content-Search engine texts" title="Search engine texts" summary="Titles and descriptions for Google" >
           {Object.keys(f.seo).map((k) => (
             <div key={k} style={{ marginBottom: 10 }}><b style={{ textTransform: 'capitalize' }}>{k.replace('_', ' ')}</b>
               <TextInput value={f.seo[k].title} onChange={(v) => setF({ ...f, seo: { ...f.seo, [k]: { ...f.seo[k], title: v } } })} aria-label={`${k} title`} />
@@ -196,14 +197,14 @@ export function WebsitePage() {
               <div className="muted" style={{ fontSize: 12 }}>{f.seo[k].title.length}/70 · {f.seo[k].description.length}/170</div>
             </div>
           ))}
-        </Card>
+        </FoldCard>
       </div>
-      <Card title="Legal documents" flush>
+      <FoldCard id="Content-Legal documents" title="Legal documents" summary="Terms, privacy and refund pages"  flush>
         <p className="muted" style={{ padding: '0 16px' }}>The templates need your details and a review by a qualified lawyer. A document can be published only with a reviewer's name and without [placeholders]. Every published version is kept.</p>
         <div className="table-wrap"><table className="t"><thead><tr><th>Document</th><th>Status</th><th>Version</th><th>Reviewed by</th><th>Last change</th><th /></tr></thead><tbody>
           {d.legal.map((l) => <tr key={l.slug}><td><b>{l.title}</b><div className="muted mono">/legal/{l.slug}</div></td><td><StatusBadge status={l.status === 'published' ? 'active' : 'pending'} label={l.status} /></td><td>{l.status === 'published' ? l.version : '—'}</td><td>{l.reviewed_by || '—'}</td><td className="muted">{when(l.updated_at)} {l.updated_by}</td><td className="right"><button className="btn sm" onClick={() => openDoc(l.slug)}>Edit</button></td></tr>)}
         </tbody></table></div>
-      </Card>
+      </FoldCard>
       {doc && (
         <Modal title={`Edit · ${doc.title}`} size="lg" onClose={() => setDoc(null)} footer={<><button className="btn" onClick={() => setDoc(null)}>Close</button><button className="btn" onClick={saveDoc}>Save draft</button><button className="btn primary" onClick={() => setPub('')}>Publish…</button></>}>
           <Field label="Title"><TextInput value={doc.title} onChange={(v) => setDoc({ ...doc, title: v })} /></Field>
@@ -270,9 +271,9 @@ export function AnnouncementsPage() {
         {can('content.manage') && <button className="btn primary sm" onClick={() => setEdit({ title: '', body: '', kind: 'info', version_tag: '', show_on_website: false, publish_at: '', retire_at: '', products: [], plans: [], tenants: '', roles: '' })}>New announcement</button>}
       </PageTitle>
       <ErrorBox error={err} />
-      {v && <Card title="Running version"><div className="pa-grid3" style={{ marginBottom: 0 }}>
+      {v && <FoldCard id="Content-Running version" title="Running version" summary="Which version is live" ><div className="pa-grid3" style={{ marginBottom: 0 }}>
         <div><div className="muted">Version</div><b>{v.version || 'unknown'}</b></div><div><div className="muted">Commit</div><b className="mono">{v.commit_short || 'unknown'}</b>{v.ref ? <span className="muted"> · {v.ref}</span> : ''}</div>
-        <div><div className="muted">Deployed</div><b>{v.deployed_at ? when(v.deployed_at) : 'not recorded'}</b><div className="muted">Source: {v.source} · server started {when(v.server_started_at)}</div></div></div></Card>}
+        <div><div className="muted">Deployed</div><b>{v.deployed_at ? when(v.deployed_at) : 'not recorded'}</b><div className="muted">Source: {v.source} · server started {when(v.server_started_at)}</div></div></div></FoldCard>}
       {!d ? (!err && <Loading />) : (
         <Card flush>{!d.items.length ? <Empty title="No announcements yet" /> : <div className="table-wrap"><table className="t"><thead><tr><th>Announcement</th><th>Audience</th><th>When</th><th>State</th><th>Seen / read</th><th /></tr></thead><tbody>
           {d.items.map((a) => <tr key={a.id}><td><b>{a.title}</b>{a.version_tag && <span className="muted"> · v{a.version_tag}</span>}<div className="muted">{KINDS.find(([k]) => k === a.kind)?.[1]}{a.show_on_website ? ' · on website' : ''}</div></td>
@@ -323,7 +324,7 @@ function MeetingLimits() {
   const save = async () => { try { await api.put(`${A}/meetings-settings`, f); toast('Saved'); load(); } catch (e) { toast(e.message, 'err'); } };
   const num = (k, label, hint) => <Field label={label} hint={hint}><input className="input" type="number" value={f[k]} disabled={!can('system.manage')} onChange={set(k)} /></Field>;
   return (
-    <Card title="Video meetings: limits">
+    <FoldCard id="Content-Video meetings: limits" title="Video meetings: limits" summary="Meeting length and size limits" >
       <p className="muted" style={{ marginTop: 0 }}>Set from here for the whole platform. A workspace can choose shorter meetings but never go above these. A meeting ends automatically when its time is up.</p>
       <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 12 }}>
         {num('max_minutes', 'Longest meeting (minutes)', 'Hard stop for every meeting')}
@@ -337,7 +338,7 @@ function MeetingLimits() {
       </div>
       {can('system.manage') && <button className="btn primary" onClick={save}>Save limits</button>}
       <p className="muted">Reliable video across home and office networks needs a TURN relay server. Set the ERP_ICE_SERVERS environment variable to its address; without one, some people behind strict firewalls will not connect.</p>
-    </Card>);
+    </FoldCard>);
 }
 
 const STATE = { connected: ['active', 'Connected'], configured: ['pending', 'Configured, not tested'], error: ['overdue', 'Error'], not_configured: ['inactive', 'Not configured'], not_available: ['inactive', 'Not available yet'] };

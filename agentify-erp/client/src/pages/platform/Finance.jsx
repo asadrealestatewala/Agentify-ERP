@@ -1,6 +1,7 @@
 // Revenue & subscriptions: MRR/ARR per currency, invoiced vs collected, refunds, net, recognised revenue, movement and
 // what needs attention next. Every figure comes from /api/platform/admin/finance (billing records only).
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { useNavigate } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, Empty, ErrorBox, Field, Loading, TextInput } from '../../components/ui.jsx';
@@ -60,30 +61,30 @@ export function FinancePage() {
             <div className="pa-kpi"><div className="l">New · Renewals · Churned</div><div className="v">{d.movement.new_subscriptions} · {d.movement.renewals} · {d.movement.churned}</div><div className="c">{d.movement.upgrades} upgrades, {d.movement.downgrades} downgrades</div></div>
             <div className="pa-kpi"><div className="l">Failed payments</div><div className="v">{d.failed_payments}</div><div className="c">Provider failures and rejected bank/wallet payments</div></div>
           </div>
-          <Card title="Money by currency" flush>
+          <FoldCard id="Finance-Money by currency" title="Money by currency" summary="Collected, refunded and net per currency"  flush>
             <div className="table-wrap"><table className="t"><thead><tr><th>Metric</th>{currencies.map((c) => <th key={c} className="right">{c}</th>)}</tr></thead><tbody>
               {MONEY_ROWS.map(([k, l]) => <tr key={k}><td title={d.definitions[k] || ''}><b>{l}</b><div className="muted" style={{ fontSize: 12 }}>{d.definitions[k] || ''}</div></td>{currencies.map((c) => <td key={c} className="right mono">{n0(d.money[k]?.[c] || 0)}</td>)}</tr>)}
             </tbody></table></div>
             {!currencies.length && <Empty title="No revenue in this filter yet" />}
-          </Card>
+          </FoldCard>
           {!!chart.length && <Card title="Collected, refunds, net and recognised"><ResponsiveContainer width="100%" height={240}><BarChart data={chart}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="currency" /><YAxis tickFormatter={n0} width={80} /><Tooltip formatter={(v) => n0(v)} /><Legend />
             <Bar dataKey="Collected" fill="#14b8a6" /><Bar dataKey="Refunds" fill="#f43f5e" /><Bar dataKey="Net" fill="#3b82f6" /><Bar dataKey="Recognised" fill="#8b5cf6" /></BarChart></ResponsiveContainer></Card>}
           <div className="pa-grid2">
-            <Card title="Subscribers by product" flush>
+            <FoldCard id="Finance-Subscribers by product" title="Subscribers by product" summary="Paying workspaces per product"  flush>
               <div className="table-wrap"><table className="t"><thead><tr><th>Product</th><th>Workspaces</th><th>Paying</th><th>On trial</th><th>MRR</th></tr></thead><tbody>
                 {d.by_product.map((p) => <tr key={p.product}><td>{p.label}</td><td>{p.workspaces}</td><td>{p.paying}</td><td>{p.trialing}</td><td className="nowrap">{money(p.mrr)}</td></tr>)}
               </tbody></table></div>
-            </Card>
-            <Card title="Subscribers by plan" flush>
+            </FoldCard>
+            <FoldCard id="Finance-Subscribers by plan" title="Subscribers by plan" summary="Paying workspaces per plan"  flush>
               {!d.by_plan.length ? <Empty title="No paying subscribers in this filter" /> : <div className="table-wrap"><table className="t"><thead><tr><th>Plan</th><th>Subscribers</th><th>MRR</th></tr></thead><tbody>
                 {d.by_plan.map((p) => <tr key={p.plan}><td>{p.name}<div className="muted mono">{p.plan}</div></td><td>{p.subscribers}</td><td className="nowrap">{money(p.mrr)}</td></tr>)}
               </tbody></table></div>}
-            </Card>
+            </FoldCard>
           </div>
           <div className="pa-grid3">
-            <Card title="Upcoming renewals (30 days)" flush>{!d.upcoming_renewals.length ? <Empty title="None" /> : <div className="table-wrap"><table className="t"><tbody>{d.upcoming_renewals.map((t) => <tr key={t.id} className="pa-link" onClick={() => nav(`/platform/workspaces/${t.id}`)}><td>{t.name}<div className="muted">{t.plan} · {t.provider || 'manual'}</div></td><td className="nowrap">{t.date}</td></tr>)}</tbody></table></div>}</Card>
-            <Card title="Trials ending (7 days)" flush>{!d.expiring_trials.length ? <Empty title="None" /> : <div className="table-wrap"><table className="t"><tbody>{d.expiring_trials.map((t) => <tr key={t.id} className="pa-link" onClick={() => nav(`/platform/workspaces/${t.id}`)}><td>{t.name}<div className="muted">{t.product === 'construction' ? 'Construction' : 'Real estate'}</div></td><td className="nowrap">{new Date(t.ends_at).toLocaleString()}</td></tr>)}</tbody></table></div>}</Card>
-            <Card title="Overdue payments" flush>{!d.overdue.length ? <Empty title="None" /> : <div className="table-wrap"><table className="t"><tbody>{d.overdue.map((t) => <tr key={t.id} className="pa-link" onClick={() => nav(`/platform/workspaces/${t.id}`)}><td>{t.name}<div className="muted">{t.value ? `${t.value.currency} ${n0(t.value.amount)}/mo` : ''}</div></td><td className="nowrap">grace to {t.grace_until || '—'}</td></tr>)}</tbody></table></div>}</Card>
+            <FoldCard id="Finance-Upcoming renewals (30 days)" title="Upcoming renewals (30 days)" summary="Renewals due soon"  flush>{!d.upcoming_renewals.length ? <Empty title="None" /> : <div className="table-wrap"><table className="t"><tbody>{d.upcoming_renewals.map((t) => <tr key={t.id} className="pa-link" onClick={() => nav(`/platform/workspaces/${t.id}`)}><td>{t.name}<div className="muted">{t.plan} · {t.provider || 'manual'}</div></td><td className="nowrap">{t.date}</td></tr>)}</tbody></table></div>}</FoldCard>
+            <FoldCard id="Finance-Trials ending (7 days)" title="Trials ending (7 days)" summary="Trials about to end"  flush>{!d.expiring_trials.length ? <Empty title="None" /> : <div className="table-wrap"><table className="t"><tbody>{d.expiring_trials.map((t) => <tr key={t.id} className="pa-link" onClick={() => nav(`/platform/workspaces/${t.id}`)}><td>{t.name}<div className="muted">{t.product === 'construction' ? 'Construction' : 'Real estate'}</div></td><td className="nowrap">{new Date(t.ends_at).toLocaleString()}</td></tr>)}</tbody></table></div>}</FoldCard>
+            <FoldCard id="Finance-Overdue payments" title="Overdue payments" summary="Payments past their due date"  flush>{!d.overdue.length ? <Empty title="None" /> : <div className="table-wrap"><table className="t"><tbody>{d.overdue.map((t) => <tr key={t.id} className="pa-link" onClick={() => nav(`/platform/workspaces/${t.id}`)}><td>{t.name}<div className="muted">{t.value ? `${t.value.currency} ${n0(t.value.amount)}/mo` : ''}</div></td><td className="nowrap">grace to {t.grace_until || '—'}</td></tr>)}</tbody></table></div>}</FoldCard>
           </div>
         </>
       )}

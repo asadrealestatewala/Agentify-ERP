@@ -1,6 +1,7 @@
 // Blog agent: AI-written blog drafts that a person approves before they appear on /blog. Settings (daily cap, topic focus, keys),
 // a "Run now" button and the review queue with checks, sources, edit, approve and reject.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, ErrorBox, Field, Loading, Modal, Tabs, TextInput } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -22,7 +23,7 @@ function Settings({ data, reload }) {
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   return (
-    <Card title="Settings">
+    <FoldCard id="BlogAgent-Settings" title="Settings" summary="Blog agent schedule, keys and limits" defaultOpen >
       <ErrorBox error={err} />
       <label className="check"><input type="checkbox" checked={s.enabled} onChange={(e) => save({ enabled: e.target.checked })} /> Write new drafts automatically every day (up to the limit below)</label>
       <div className="grid-2" style={{ marginTop: 10 }}>
@@ -40,7 +41,7 @@ function Settings({ data, reload }) {
       )}
       {data.can_edit_keys && <label className="check" style={{ marginTop: 6 }}><input type="checkbox" checked={s.auto_publish} onChange={(e) => save({ auto_publish: e.target.checked })} /> Publish automatically when every quality check passes (leave off to approve each article yourself)</label>}
       <div style={{ marginTop: 10 }}><button className="btn primary" disabled={busy} onClick={() => save()}>Save settings</button></div>
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -52,7 +53,7 @@ function Review({ id, onClose, reload }) {
   if (!d) return <Modal title="Article" onClose={onClose}><ErrorBox error={err} />{!err && <Loading rows={4} />}</Modal>;
   return (
     <Modal title="Review article" size="lg" onClose={onClose} footer={<>
-      <button className="btn" onClick={onClose}>Close</button>
+      <button className="btn warn" onClick={onClose}>Close</button>
       {d.status !== 'rejected' && d.status !== 'published' && <button className="btn" disabled={busy} onClick={() => run(async () => { await save(); await api.post(`${A}/blog-agent/posts/${id}/reject`); }, 'Rejected')}>Reject</button>}
       <button className="btn" disabled={busy} onClick={() => run(save, 'Saved')}>Save changes</button>
       {d.status === 'published'
@@ -90,7 +91,7 @@ export default function BlogAgentPage() {
       </PageTitle>
       <ErrorBox error={err} />
       <Card><b>{data.made_today} of {data.settings.cap}</b> drafts made today. {data.settings.enabled ? 'The agent tops this up automatically every hour until the limit is reached.' : 'Automatic writing is off; use Write drafts now.'}{!data.settings.tavily.set && ' Add a Tavily API key below to start.'}</Card>
-      <Card title="Articles">
+      <FoldCard id="BlogAgent-Articles" title="Articles" summary="Drafts and published articles" defaultOpen >
         <Tabs value={tab} onChange={setTab} tabs={[{ key: 'draft', label: 'To review', count: count('draft') }, { key: 'published', label: 'Published', count: count('published') }, { key: 'rejected', label: 'Rejected', count: count('rejected') }]} />
         <div style={{ marginTop: 10 }}>
           {rows.length === 0 ? <p className="muted">Nothing here yet.</p> : rows.map((p) => (
@@ -100,7 +101,7 @@ export default function BlogAgentPage() {
             </div>
           ))}
         </div>
-      </Card>
+      </FoldCard>
       <Settings data={data} reload={load} />
       {open && <Review id={open} onClose={() => setOpen(null)} reload={load} />}
     </>

@@ -1,6 +1,7 @@
 // Storage & quotas: what every workspace uses against its limit, the plans' storage, and the bucket against its total.
 // Plan storage is edited here (same plan record as Plans & pricing); a workspace's own limit is an override on top of its plan.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, ErrorBox, Field, Loading, Modal, TextInput } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -102,7 +103,7 @@ export default function StoragePage() {
         <Card><div className="cc-k">Workspaces near or at their limit</div><div className="cc-v">{d.tenants.filter((x) => x.pct != null && x.pct >= 0.8).length}</div><div className="cell-sub">80% or more of their quota</div></Card>
       </div>
 
-      <Card title="Object storage bucket" actions={canManage && b.configured ? <button className="btn" disabled={syncing} onClick={sync}>{syncing ? 'Counting…' : 'Sync from bucket'}</button> : null}>
+      <FoldCard id="Storage-Object storage bucket" title="Object storage bucket" summary="Where files are stored"  actions={canManage && b.configured ? <button className="btn" disabled={syncing} onClick={sync}>{syncing ? 'Counting…' : 'Sync from bucket'}</button> : null}>
         {!b.configured ? <p style={{ margin: 0 }}><span className="pill grey">Not connected</span> Private files are still stored on the server. Set <code>S3_ENDPOINT</code>, <code>S3_REGION</code>, <code>S3_BUCKET</code>, <code>S3_ACCESS_KEY</code> and <code>S3_SECRET_KEY</code> on the server to switch to object storage.</p> : (
           <div style={{ display: 'grid', gap: 6 }}>
             <div><span className="pill green">Connected</span> bucket <b>{b.name}</b> · {b.endpoint} · region {b.region}</div>
@@ -112,15 +113,15 @@ export default function StoragePage() {
         {canManage && <div className="row" style={{ gap: 8, marginTop: 12 }}><label htmlFor="tot" className="muted">Bucket size</label>
           <input id="tot" className="input" style={{ width: 110 }} type="number" min="1" value={total} onChange={(e) => setTotal(e.target.value)} /><span className="muted">GB</span>
           <button className="btn sm" disabled={Number(total) === b.total_gb} onClick={saveTotal}>Save</button></div>}
-      </Card>
+      </FoldCard>
 
-      <Card title="Storage included in each plan" flush>
+      <FoldCard id="Storage-Storage included in each plan" title="Storage included in each plan" summary="Free storage per plan"  flush>
         <div className="table-wrap"><table className="t"><thead><tr><th>Plan</th><th>Product</th><th className="num">Workspaces</th><th className="num">Now</th><th>Change{canEditPlans ? '' : ' (needs plan editing access)'}</th></tr></thead>
           <tbody>{d.plans.map((p) => <PlanRow key={p.id} plan={p} canEdit={canEditPlans} reload={load} />)}</tbody></table></div>
         <p className="muted" style={{ margin: '8px 14px 12px', fontSize: 13 }}>A new limit applies to every workspace on the plan that has no limit of its own. Empty means unlimited. The same plan appears in Plans & pricing.</p>
-      </Card>
+      </FoldCard>
 
-      <Card title="Workspaces" actions={<input className="input" style={{ width: 200 }} placeholder="Find a workspace" aria-label="Find a workspace" value={q} onChange={(e) => setQ(e.target.value)} />} flush>
+      <FoldCard id="Storage-Workspaces" title="Workspaces" summary="Storage used by each workspace" defaultOpen  actions={<input className="input" style={{ width: 200 }} placeholder="Find a workspace" aria-label="Find a workspace" value={q} onChange={(e) => setQ(e.target.value)} />} flush>
         <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th>Plan</th><th className="num">Public images</th><th className="num">Private files</th><th className="num">Used</th><th className="num">Limit</th><th>Usage</th><th className="num">In bucket (counted)</th><th /></tr></thead>
           <tbody>{rows.map((x) => (
             <tr key={x.id}>
@@ -133,7 +134,7 @@ export default function StoragePage() {
               <td>{canManage && <button className="btn sm" onClick={() => setEdit(x)}>Edit limit</button>}</td>
             </tr>))}
             {!rows.length && <tr><td colSpan={9} className="muted">No workspaces found.</td></tr>}</tbody></table></div>
-      </Card>
+      </FoldCard>
       {edit && <QuotaModal t={edit} onClose={() => setEdit(null)} reload={load} />}
     </>
   );

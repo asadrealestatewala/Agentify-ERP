@@ -76,6 +76,7 @@ test('Groq: key, order, privacy, 429 fallback, pictures, voice and activity', as
   const sent = JSON.stringify(groqCalls[0].body);
   assert.equal(groqCalls[0].auth, `Bearer ${GKEY}`); assert.equal(groqCalls[0].body.model, 'openai/gpt-oss-120b');
   assert.ok(!/sara@client|03001234567/.test(sent), 'personal data stripped'); assert.match(sent, /REFERENCE MATERIAL/);
+  assert.match(sent, /VOICE: Sound like a warm/); assert.match(sent, /WORKSPACE FACTS: .*You are talking to/);
   const row = platformDb().prepare("SELECT * FROM ai_usage WHERE provider='groq' ORDER BY id DESC LIMIT 1").get();
   assert.equal(row.feature, 'ask_assistant'); assert.equal(row.input_tokens, 400); assert.ok(row.tenant_id > 0);
   const act = (await as(owner, 'GET', '/ai/overview')).data.technical.ask_activity;
@@ -242,4 +243,25 @@ test('how-to questions in Roman Urdu, English and Urdu go to the guides, not to 
   // data questions still use the live-data reports
   assert.equal((await ask('How many leads this month?')).data.intent, 'leads');
   await as(owner, 'PUT', '/ai/ask-engines', { groq: true, horde: true, gemini: false });
+});
+
+test('data answers get a friendly lead-in, but the exact answer stays and invented numbers are dropped', async () => {
+  const owner = (await call('erp.test', 'POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  await as(owner, 'PUT', '/ai/groq', { key: GKEY, enabled: true });
+  const a = await login('groq', 'owner@groq.test');
+  resetRateLimit();
+  groqStatus = 200;
+  const plainRes = await a('POST', '/api/assistant/ask', { question: 'How many leads do we have?' });
+  assert.equal(plainRes.status, 200); assert.notEqual(plainRes.data.intent, 'unknown');
+  const exact = plainRes.data.answer;
+  const n = (exact.match(/\d+/) || ['0'])[0];
+  groqText = `Good news, here is the picture: ${n} in total. Details are below.`;
+  const r = await a('POST', '/api/assistant/ask', { question: 'How many leads do we have?' });
+  assert.equal(r.data.answer, exact, 'exact answer unchanged');
+  assert.match(r.data.friendly, /Details are below/);
+  groqText = 'Wow, 987654 leads! Details are below.';
+  const bad = await a('POST', '/api/assistant/ask', { question: 'How many leads do we have?' });
+  assert.equal(bad.data.friendly, undefined, 'an invented number is never shown');
+  assert.equal(bad.data.answer, exact);
+  groqText = '1. Open Creative Studio.\n2. Choose Video reels.';
 });

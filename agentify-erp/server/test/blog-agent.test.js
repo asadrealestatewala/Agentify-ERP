@@ -146,3 +146,26 @@ test('Groq JSON-mode failure is retried without JSON mode, and a broken article 
     assert.deepEqual(modes, [true, false, true, false], 'strict JSON first, then plain, on each attempt');
   } finally { globalThis.fetch = prev; agent.saveSettings({ engine: 'gemini' }); }
 });
+
+test('the console bell gets a review alert and a run alert, and the review alert clears when nothing is left', async () => {
+  const { platformDb } = await import('../src/platform.js');
+  const open = (k) => platformDb().prepare("SELECT * FROM platform_notifications WHERE kind=? AND resolved_at IS NULL").all(k);
+  agent.syncReviewAlert();
+  const pending = agent.listDrafts().filter((x) => x.status === 'draft').length;
+  assert.equal(open('blog_review').length, pending > 0 ? 1 : 0);
+  assert.ok(platformDb().prepare("SELECT COUNT(*) n FROM platform_notifications WHERE kind='blog_run'").get().n >= 0);
+  for (const d of agent.listDrafts().filter((x) => x.status === 'draft')) agent.decide(d.id, 'reject', 'admin@test');
+  assert.equal(open('blog_review').length, 0, 'cleared when no draft is waiting');
+  const row = agent.listDrafts()[0]; agent.decide(row.id, 'unpublish', 'admin@test');
+  assert.match(open('blog_review')[0].title, /1 blog draft to review/);
+});
+test('a run raises one alert that says how many articles were written', async () => {
+  const { platformDb } = await import('../src/platform.js');
+  platformDb().prepare("DELETE FROM blog_agent_posts WHERE substr(created_at,1,10)=?").run(new Date().toISOString().slice(0, 10));
+  const before = platformDb().prepare("SELECT COUNT(*) n FROM platform_notifications WHERE kind='blog_run'").get().n;
+  const r = await agent.runBlogAgent({ force: true });
+  assert.ok(r.made.length > 0, JSON.stringify(r));
+  const rows = platformDb().prepare("SELECT * FROM platform_notifications WHERE kind='blog_run' ORDER BY id DESC").all();
+  assert.equal(rows.length, before + 1);
+  assert.match(rows[0].title, new RegExp(`wrote ${r.made.length} article`));
+});

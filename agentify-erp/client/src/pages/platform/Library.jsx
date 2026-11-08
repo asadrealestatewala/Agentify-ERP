@@ -1,6 +1,7 @@
 // Shared template library: wording kept once for the whole platform. Every workspace reads the active items; a workspace may
 // replace an item with its own text, which only that workspace sees. This page edits the shared items and shows who replaced what.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, Empty, ErrorBox, Field, Loading, Modal, TextInput } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -54,14 +55,14 @@ export default function LibraryPage() {
               <td>{i.status === 'active' ? <span className="pill green">Active</span> : <span className="pill grey">Retired</span>}</td>
               <td className="right nowrap"><button className="btn sm" onClick={() => setOpen(i)}>Edit</button> <button className="btn sm" onClick={() => flip(i)}>{i.status === 'active' ? 'Retire' : 'Reinstate'}</button></td></tr>))}
         </tbody></table></div></Card>)}
-      <Card title="Workspaces using their own version">
+      <FoldCard id="Library-Workspaces using their own version" title="Workspaces using their own version" summary="Workspaces that changed this item" defaultOpen >
         {!d.drift.length ? <p className="muted" style={{ margin: 0 }}>No workspace has replaced a shared item.</p> : (
           <div className="table-wrap"><table className="t"><thead><tr><th>Item</th><th>Workspace</th><th>Their copy is based on</th><th>Shared text now</th><th /></tr></thead><tbody>
             {d.drift.map((r) => (
               <tr key={`${r.item_id}-${r.tenant_id}`}><td>{r.title}{r.status === 'retired' && <span className="pill grey" style={{ marginLeft: 6 }}>retired</span>}</td><td>{r.workspace} <span className="muted">{r.slug}</span></td><td>v{r.base_version}</td><td>v{r.version}</td>
                 <td>{r.behind ? <span className="pill amber">Shared text has moved on</span> : <span className="pill green">Up to date</span>}</td></tr>))}
           </tbody></table></div>)}
-      </Card>
+      </FoldCard>
       {open && <ItemModal item={open === 'new' ? null : open} types={d.types} onClose={() => setOpen(null)} reload={load} />}
     </>
   );

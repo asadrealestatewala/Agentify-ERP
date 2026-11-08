@@ -6,6 +6,7 @@ import { Card, ErrorBox, Field, Loading, Tabs, TextInput } from '../../component
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, PageTitle, useCan } from './AdminShell.jsx';
+import { FoldCard, Dot } from './Fold.jsx';
 import AiAgentifyKey from './AiAgentifyKey.jsx';
 
 const n0 = (v) => Number(v || 0).toLocaleString();
@@ -22,7 +23,7 @@ function Settings({ s, reload }) {
   const remove = async () => { if (!window.confirm('Remove the Gemini key? AI drafts stop until a key is added again.')) return; try { await api.del(`${A}/ai/settings/key`); toast('Key removed'); reload(); } catch (e) { setErr(e.message); } };
   const set = (k) => (v) => setF({ ...f, [k]: v });
   return (
-    <Card title="AI settings (Gemini)">
+    <FoldCard title="AI settings (Gemini)" summary={s.connected ? <Dot tone="ok">Connected</Dot> : <Dot tone="warn">Not connected</Dot>} tone={s.connected ? 'ok' : 'warn'} defaultOpen={!s.connected}>
       <ErrorBox error={err} />
       <p className="muted" style={{ marginTop: 0 }}>{s.connected ? <><span className="pill green">Connected</span> key ending {s.key_hint}. </> : <><span className="pill grey">Not connected</span> </>}Create a key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">Google AI Studio</a>. It is tested when saved, stored encrypted and never shown again. Google has no balance lookup, so credits left = the monthly budget below minus the estimated spend recorded here.</p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12 }}>
@@ -34,18 +35,18 @@ function Settings({ s, reload }) {
         <Field label="Output price per 1M tokens" hint="Thinking tokens count as output"><input className="input" type="number" min={0} step="any" value={f.price_out_per_m} onChange={(e) => set('price_out_per_m')(e.target.value)} /></Field>
         <Field label="AI post drafts per day" hint="Placeholder limit; 0 switches drafts off"><input className="input" type="number" min={0} value={f.draft_daily_cap} onChange={(e) => set('draft_daily_cap')(e.target.value)} /></Field>
       </div>
-      <div className="row" style={{ gap: 8 }}><button className="btn primary" disabled={busy} onClick={save}>Save settings</button>{s.connected && <button className="btn" disabled={testing} onClick={test}>{testing ? 'Testing…' : 'Test the connection'}</button>}{s.connected && <button className="btn" onClick={remove}>Remove key</button>}</div>
-    </Card>
+      <div className="row" style={{ gap: 8 }}><button className="btn primary" disabled={busy} onClick={save}>Save settings</button>{s.connected && <button className="btn info" disabled={testing} onClick={test}>{testing ? 'Testing…' : 'Test the connection'}</button>}{s.connected && <button className="btn" onClick={remove}>Remove key</button>}</div>
+    </FoldCard>
   );
 }
 
 function Table({ title, rows, cols, empty }) {
   return (
-    <Card title={title}>
+    <FoldCard title={title} summary={rows.length ? `${rows.length} ${rows.length === 1 ? 'row' : 'rows'}` : empty || 'Nothing yet'}>
       {!rows.length ? <p className="muted" style={{ margin: 0 }}>{empty}</p> : (
         <div className="table-wrap"><table className="t"><thead><tr>{cols.map((c) => <th key={c[0]} className={c[2] ? 'num' : ''}>{c[0]}</th>)}</tr></thead>
           <tbody>{rows.map((r, i) => <tr key={i}>{cols.map((c) => <td key={c[0]} className={c[2] ? 'num' : ''}>{c[1](r)}</td>)}</tr>)}</tbody></table></div>)}
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -64,7 +65,7 @@ function WorkspaceControls({ canEdit, show }) {
   const est = (v) => (v == null ? '—' : `${cur} ${v < 1 ? v.toFixed(4) : v.toFixed(2)}`);
   return (
     <>
-      {show === 'controls' && <Card title="Master switch, feature switches and workspace-key limits" actions={c.kill_switch ? <span className="pill red">AI is switched off for all workspaces</span> : <span className="pill green">AI is on</span>}>
+      {show === 'controls' && <FoldCard title="Master switch, feature switches and workspace-key limits" summary={c.kill_switch ? 'AI is off for all workspaces' : `This month: ${n0(c.month.calls)} calls`} tone={c.kill_switch ? 'bad' : 'ok'} defaultOpen actions={c.kill_switch ? <span className="pill red">AI is switched off for all workspaces</span> : <span className="pill green">AI is on</span>}>
         {c.kill_switch_last && <p className="muted" style={{ marginTop: 0, fontSize: 12 }}>Last change: {new Date(c.kill_switch_last.at).toLocaleString()}{c.kill_switch_last.by ? ` by ${c.kill_switch_last.by}` : ''}{c.kill_switch_last.state ? ` (switched ${c.kill_switch_last.state})` : ''}</p>}
         <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>These apply to AI that workspaces run with their own provider keys (data assistant, property writer, website builder, promo video scripts). Limits are checked before a feature starts. Agentify's own Gemini drafts have their own budget above. Speech-to-text transcripts are not counted or limited yet.</p>
         {canEdit && (
@@ -73,11 +74,11 @@ function WorkspaceControls({ canEdit, show }) {
             <Field label={`Monthly cap on workspace AI (${cur})`} hint={c.prices_set ? 'Estimated from the prices above; AI pauses for everyone when reached' : 'Enter the provider prices first'}><input className="input" type="number" min={0} step="any" value={g.monthly_cap} disabled={!c.prices_set} onChange={(e) => setG({ ...g, monthly_cap: e.target.value })} /></Field>
             <div className="row" style={{ gap: 8 }}>
               <button className="btn primary" onClick={() => put(`${A}/ai/controls`, { default_daily_limit: g.default_daily_limit, ...(c.prices_set ? { monthly_cap: g.monthly_cap } : {}) }, 'Limits saved')}>Save limits</button>
-              <button className={`btn ${c.kill_switch ? '' : 'danger'}`} onClick={() => { if (c.kill_switch || window.confirm('Switch AI off for every workspace now? Features that use AI stop until you switch it back on.')) put(`${A}/ai/controls`, { kill_switch: !c.kill_switch }, c.kill_switch ? 'AI is on again' : 'AI is switched off for all workspaces'); }}>{c.kill_switch ? 'Switch AI back on' : 'Kill switch'}</button>
+              <button className={`btn ${c.kill_switch ? 'success' : 'danger'}`} onClick={() => { if (c.kill_switch || window.confirm('Switch AI off for every workspace now? Features that use AI stop until you switch it back on.')) put(`${A}/ai/controls`, { kill_switch: !c.kill_switch }, c.kill_switch ? 'AI is on again' : 'AI is switched off for all workspaces'); }}>{c.kill_switch ? 'Switch AI back on' : 'Kill switch'}</button>
             </div>
           </div>)}
         <p className="muted" style={{ fontSize: 13, marginBottom: 0 }}>This month: {n0(c.month.calls)} calls · {n0(c.month.input_tokens + c.month.output_tokens)} tokens · estimated {est(c.month.spent)}{c.month.cap != null ? ` of a ${cur} ${c.month.cap} cap${c.month.over ? ' (reached, AI is paused)' : ''}` : ''}</p>
-      </Card>}
+      </FoldCard>}
       {show === 'features' && <Table title="Workspace AI by feature (this month)" rows={c.features} empty=""
         cols={[['Feature', (r) => r.label], ['Calls', (r) => n0(r.calls), 1], ['Tokens', (r) => n0(r.input_tokens + r.output_tokens), 1], ['Est. cost', (r) => est(r.est_cost), 1],
           ['Switch', (r) => (canEdit ? <label className="row" style={{ gap: 6 }}><input type="checkbox" checked={r.enabled} onChange={(e) => put(`${A}/ai/controls`, { features: { [r.key]: e.target.checked } }, `${r.label} ${e.target.checked ? 'on' : 'off'}`)} aria-label={`${r.label} on or off`} />{r.enabled ? 'On' : 'Off'}</label> : r.enabled ? 'On' : 'Off')]]} />}

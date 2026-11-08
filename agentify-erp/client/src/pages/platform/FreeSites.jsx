@@ -1,5 +1,6 @@
 // Console page: the separate domain free websites are served from, the signup switch, and a DNS check.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, ErrorBox, Field, Loading, TextInput, Toggle } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -29,7 +30,7 @@ export default function FreeSitesPage() {
       <ErrorBox error={err} />
       {!d ? (!err && <Loading />) : (
         <>
-          <Card title="Domain and signup">
+          <FoldCard id="FreeSites-Domain and signup" title="Domain and signup" summary="Free-site domain and signup switch" defaultOpen >
             <div className="stack">
               <Field label="Free websites domain" hint="For example agentifysites.co. Must be a different domain from the app. Leave empty to keep free websites off.">
                 <TextInput value={f.domain} onChange={(v) => setF((x) => ({ ...x, domain: v }))} placeholder="agentifysites.co" disabled={!manage} />
@@ -38,15 +39,15 @@ export default function FreeSitesPage() {
               <p className="muted">Status: {d.effective_open ? 'open. People can create a free website.' : 'closed. Nobody can create a free website, and nothing is served on this domain.'}{d.sites ? ` ${d.sites} free website${d.sites === 1 ? '' : 's'} exist${d.sites === 1 ? 's' : ''}.` : ''}</p>
               {manage && <div className="row"><button className="btn primary" disabled={busy || !dirty} onClick={save}>Save</button></div>}
             </div>
-          </Card>
+          </FoldCard>
           {d.domain && (
-            <Card title="DNS and certificates (you do this at your domain provider)">
+            <FoldCard id="FreeSites-DNS and certificates (you do this at your domain provider)" title="DNS and certificates (you do this at your domain provider)" summary="DNS records to add at your domain provider" defaultOpen >
               <p>Add these records so every free website reaches this server. Certificates are then issued automatically the first time each site is opened, only for free websites that exist.</p>
               <table className="t"><thead><tr><th>Type</th><th>Name</th><th>Value</th><th /></tr></thead><tbody>
                 {d.dns.records.map((r) => <tr key={r.name}><td>{r.type}</td><td><code>{r.name}</code></td><td>{d.dns.server_ip ? <code>{d.dns.server_ip}</code> : 'this server\'s public IPv4 address'}</td><td className="muted">{r.note}</td></tr>)}
               </tbody></table>
               {!d.dns.server_ip && <p className="muted">Tip: set ERP_SERVER_IP on the server so the check below can compare the records with this server.</p>}
-              <div className="row" style={{ marginTop: 10 }}><button className="btn" disabled={busy} onClick={check}>Check DNS now</button></div>
+              <div className="row" style={{ marginTop: 10 }}><button className="btn info" disabled={busy} onClick={check}>Check DNS now</button></div>
               {dns && (
                 <div style={{ marginTop: 10 }}>
                   <p>Wildcard (<code>*.{dns.domain}</code>): {dns.wildcard.length ? dns.wildcard.join(', ') : 'no answer'} {dns.server_ip ? (dns.wildcard_ok ? '✓ points here' : '✗ does not point here') : ''}</p>
@@ -55,7 +56,7 @@ export default function FreeSitesPage() {
                   <p className="muted">This checks DNS only. It does not prove that HTTPS works; open a free website address to confirm that.</p>
                 </div>
               )}
-            </Card>
+            </FoldCard>
           )}
         </>
       )}

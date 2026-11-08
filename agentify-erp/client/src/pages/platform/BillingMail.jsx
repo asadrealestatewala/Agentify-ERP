@@ -1,5 +1,6 @@
 // Super Admin console: Billing mail. The billing@ sender, whether its inbox exists in the Mailbox, and the receipts sent for payments.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Link } from 'react-router-dom';
 import { Card, Empty, ErrorBox, Loading, StatusBadge } from '../../components/ui.jsx';
 import { api } from '../../api.js';
@@ -23,7 +24,7 @@ export default function BillingMailPage() {
   const resend = async (id) => { setBusy(`r${id}`); try { const r = await api.post(`${A}/billing-mail/receipts/${id}/resend`); toast(r.sent ? 'Receipt sent' : 'Receipt could not be sent', r.sent ? 'ok' : 'err'); load(); } catch (e) { toast(e.message, 'err'); } finally { setBusy(''); } };
   return (
     <>
-      <Card title="Billing sender and inbox" actions={<StatusBadge tone={d.inbox ? 'green' : 'amber'} label={d.inbox ? 'Inbox ready' : 'Inbox not created'} />}>
+      <FoldCard id="BillingMail-Billing sender and inbox" title="Billing sender and inbox" summary="Where billing emails come from and replies go" defaultOpen  actions={<StatusBadge tone={d.inbox ? 'green' : 'amber'} label={d.inbox ? 'Inbox ready' : 'Inbox not created'} />}>
         <p style={{ marginTop: 0 }}>Payment receipts and billing notices are sent as <span className="mono">{d.from}</span>. Customers who reply, or write to <span className="mono">{d.address}</span>, land in the billing inbox.</p>
         {d.can_open_mailbox
           ? (d.inbox
@@ -33,8 +34,8 @@ export default function BillingMailPage() {
               <button className="btn primary" disabled={!d.resend_ready || busy === 'inbox'} onClick={createInbox}>Create {d.address} inbox</button>
             </>)
           : <p className="muted">Only the Platform Owner and Super Admin can read the billing inbox.</p>}
-      </Card>
-      <Card title="Payment receipts">
+      </FoldCard>
+      <FoldCard id="BillingMail-Payment receipts" title="Payment receipts" summary="What receipts say and who gets them" defaultOpen >
         {!d.receipts.length ? <Empty>No receipts yet. One is sent for each payment you approve or record, and for each paid card invoice.</Empty> : (
           <div className="table-wrap"><table className="t">
             <thead><tr><th>When</th><th>Workspace</th><th>Amount</th><th>Reference</th><th>Sent to</th><th>Status</th><th /></tr></thead>
@@ -52,7 +53,7 @@ export default function BillingMailPage() {
             })}</tbody>
           </table></div>
         )}
-      </Card>
+      </FoldCard>
     </>
   );
 }

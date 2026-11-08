@@ -1,5 +1,6 @@
 // Security & access (console users with roles, sessions, sign-in history, security rules), audit log and maintenance.
 import { useCallback, useContext, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, ConfirmDialog, Empty, ErrorBox, Field, Loading, Modal, StatusBadge, TextInput, Toggle } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -47,10 +48,10 @@ export function AdminsPage() {
         <button className="btn primary sm" onClick={() => setAdd({ name: '', email: '', role: 'read_only' })}>Invite console user</button>
       </PageTitle>
       <ErrorBox error={err} />
-      {sec && <Card title="Security rules">
+      {sec && <FoldCard id="Security-Security rules" title="Security rules" summary="Password, login and session rules" defaultOpen >
         <Toggle value={sec.require_2fa} onChange={setRequire} label="Require two-factor sign-in for every console user" />
         <p className="muted" style={{ marginBottom: 0 }}>Users without it can only open Security to set it up until they do. You need it on your own account before switching this on.</p>
-      </Card>}
+      </FoldCard>}
       {!d ? (!err && <Loading />) : (
         <Card flush>
           <div className="table-wrap"><table className="t"><thead><tr><th>User</th><th>Role</th><th>Two-factor</th><th>Last sign-in</th><th>Access</th><th /></tr></thead><tbody>
@@ -216,13 +217,13 @@ export function MaintenancePage() {
           </>}
         </Card>
       )}
-      <Card title="Recent server errors" flush actions={<button className="btn sm" onClick={errors.load}>Refresh</button>}>
+      <FoldCard id="Security-Recent server errors" title="Recent server errors" summary="Latest errors from the server"  flush actions={<button className="btn sm info" onClick={errors.load}>Refresh</button>}>
         {!errors.d ? <Loading /> : !errors.d.length ? <Empty title="No server errors since the last restart" /> : (
           <div className="table-wrap"><table className="t"><thead><tr><th>When (UTC)</th><th>Request</th><th>Workspace host</th><th>Error</th></tr></thead><tbody>
             {errors.d.map((e, i) => <tr key={i}><td className="nowrap muted">{e.at.replace('T', ' ').slice(0, 19)}</td><td className="mono">{e.method} {e.path}</td><td>{e.host}</td><td>{e.message}</td></tr>)}
           </tbody></table></div>
         )}
-      </Card>
+      </FoldCard>
       {ask && <ConfirmDialog title="Close every workspace?" danger confirmLabel="Start maintenance" reason message="All customers lose access until you end maintenance here. The reason is kept in the audit log." onCancel={() => setAsk(false)} onConfirm={(reason) => set(true, reason)} />}
     </>
   );
@@ -246,14 +247,14 @@ export function EmailSafetyPage() {
       <ErrorBox error={err} />
       {!d ? (!err && <Loading />) : (
         <>
-          <Card title="Rules">
+          <FoldCard id="Security-Rules" title="Rules" summary="Which email domains are allowed or blocked" >
             <Toggle value={d.signup_email_code} onChange={(v) => sw('signup_email_code', v)} label="Require an emailed code before a workspace is created" />
             <p className="muted">The owner types a 6-digit code sent to their address, so the mailbox must be real and theirs. Applies only while email sending is connected (Integrations); otherwise signup stays open without it.</p>
             <Toggle value={d.block_disposable_email} onChange={(v) => sw('block_disposable_email', v)} label={`Refuse temporary and disposable email services (${d.builtin_count} built-in domains plus your list)`} />
             <Toggle value={d.check_email_mx} onChange={(v) => sw('check_email_mx', v)} label="Refuse domains that cannot receive email at all (typos and invented domains)" />
             <p className="muted" style={{ marginBottom: 0 }}>No list can be complete: new disposable services appear every day. The emailed code is the strong protection; the list removes the easy abuse. When you spot a new service in Workspaces, add its domain below.</p>
-          </Card>
-          <Card title="Your domain list">
+          </FoldCard>
+          <FoldCard id="Security-Your domain list" title="Your domain list" summary="Domains you added" >
             <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
               <Field label="Domain"><TextInput value={rule.domain} onChange={(v) => setRule({ ...rule, domain: v })} placeholder="example-temp-mail.com" /></Field>
               <Field label="What to do"><select className="input" value={rule.action} onChange={(e) => setRule({ ...rule, action: e.target.value })}><option value="block">Block it</option><option value="allow">Always allow it</option></select></Field>
@@ -266,14 +267,14 @@ export function EmailSafetyPage() {
                 {d.rules.map((x) => <tr key={x.domain}><td><b>{x.domain}</b></td><td><StatusBadge status={x.action === 'block' ? 'overdue' : 'active'} label={x.action === 'block' ? 'Blocked' : 'Always allowed'} /></td><td>{x.note || ''}</td><td className="muted">{x.created_by || ''} {String(x.created_at).slice(0, 10)}</td><td><button className="btn sm" onClick={() => del(x.domain)}>Remove</button></td></tr>)}
               </tbody></table></div>
             )}
-          </Card>
-          <Card title="Try an address">
+          </FoldCard>
+          <FoldCard id="Security-Try an address" title="Try an address" summary="Test an email address against the rules" >
             <div className="row" style={{ gap: 8, alignItems: 'flex-end' }}>
               <Field label="Email address"><TextInput value={probe} onChange={setProbe} placeholder="someone@example.com" /></Field>
-              <button className="btn" disabled={!probe.trim()} onClick={check}>Check</button>
+              <button className="btn info" disabled={!probe.trim()} onClick={check}>Check</button>
             </div>
             {result && <div className={`alert ${result.ok ? 'ok' : 'err'}`} role="status" style={{ marginTop: 10 }}>{result.ok ? 'This address would be accepted.' : result.message}</div>}
-          </Card>
+          </FoldCard>
         </>
       )}
     </>

@@ -9,6 +9,7 @@ import { getSetting, setSetting } from './platformConfig.js';
 import { allPosts, parseBody, words } from './blog.js';
 import { store, invalidate, toPost } from './blogStore.js';
 import { bad, notFound } from '../util.js';
+import { platformDb } from '../platform.js';
 
 export const HARD_MAX_PER_DAY = 10;
 export const DEFAULTS = { cap: 5, focus: 'Real estate agencies, property dealers, developers and construction contractors in Pakistan (and general real-estate software buyers); practical how-to and buying-guide topics', min_words: 600 };
@@ -164,7 +165,29 @@ export async function runBlogAgent({ force = false, by = null } = {}) {
       try { res.made.push(await makeOne(t, { auto: s.auto_publish })); } catch (e) { res.errors.push(`${t.topic}: ${e.message}`); if (e.extra?.code) break; }
     }
     return res;
-  } finally { running = false; }
+  } finally { running = false; runAlert(res); syncReviewAlert(); }
+}
+
+// ---- alerts in the console bell
+/** One standing alert while drafts wait for review (cleared when none are left), and one alert per run. Alerts only; nothing is posted anywhere. */
+export function syncReviewAlert() {
+  try {
+    const n = store().prepare("SELECT COUNT(*) n FROM blog_agent_posts WHERE status='draft'").get().n;
+    const d = platformDb();
+    if (n > 0) d.prepare("INSERT INTO platform_notifications(kind,severity,title,body,link,dedupe) VALUES('blog_review','info',?,?,'/platform/blog-agent','blog-review') ON CONFLICT(dedupe) DO UPDATE SET resolved_at=NULL, title=excluded.title, body=excluded.body")
+      .run(`${n} blog draft${n === 1 ? '' : 's'} to review`, 'Open the Blog agent, read each article, then approve or reject it.');
+    else d.prepare("UPDATE platform_notifications SET resolved_at=datetime('now') WHERE dedupe='blog-review' AND resolved_at IS NULL").run();
+  } catch { /* an alert must never break the agent */ }
+}
+function runAlert(res) {
+  try {
+    const made = res.made.length, live = res.made.filter((m) => m.status === 'published').length;
+    if (!made && !res.errors.length) return;
+    const title = made ? `Blog agent wrote ${made} article${made === 1 ? '' : 's'}${live ? `, ${live} published automatically` : ' for your review'}` : 'Blog agent could not write articles';
+    const body = [res.errors.length ? `${res.errors.length} failed: ${res.errors[0]}`.slice(0, 300) : '', live ? 'Published articles are on /blog now; open the agent to unpublish any you do not want.' : ''].filter(Boolean).join(' ') || null;
+    platformDb().prepare("INSERT INTO platform_notifications(kind,severity,title,body,link,dedupe) VALUES('blog_run',?,?,?,'/platform/blog-agent',?) ON CONFLICT(dedupe) DO NOTHING")
+      .run(live || (res.errors.length && !made) ? 'warning' : 'info', title, body, `blog-run:${new Date().toISOString()}`);
+  } catch { /* ignore */ }
 }
 
 // ---- review queue
@@ -192,9 +215,9 @@ export function decide(id, action, by) {
   } else if (action === 'unpublish') store().prepare("UPDATE blog_agent_posts SET status='draft', reviewed_by=?, updated_at=datetime('now') WHERE id=?").run(by, r.id);
   else if (action === 'reject') store().prepare("UPDATE blog_agent_posts SET status='rejected', reviewed_by=?, updated_at=datetime('now') WHERE id=?").run(by, r.id);
   else throw bad('Unknown action');
-  invalidate();
+  invalidate(); syncReviewAlert();
   return getDraft(id);
 }
-export function removeDraft(id) { const r = getDraft(id); if (r.status === 'published') throw bad('Unpublish the article first.'); store().prepare('DELETE FROM blog_agent_posts WHERE id=?').run(r.id); invalidate(); }
+export function removeDraft(id) { const r = getDraft(id); if (r.status === 'published') throw bad('Unpublish the article first.'); store().prepare('DELETE FROM blog_agent_posts WHERE id=?').run(r.id); invalidate(); syncReviewAlert(); }
 export const overview = () => ({ settings: settings(), made_today: madeToday(), hard_max: HARD_MAX_PER_DAY, posts: listDrafts() });
 export { toPost };
