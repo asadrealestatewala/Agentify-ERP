@@ -77,10 +77,10 @@ export function overview(now = new Date()) {
   const since = monthStartOf(now), rate = getRate(), c = config();
   const pkr = (usd) => (usd == null ? null : usd * rate.rate);
   const off = new Set(featuresOff());
-  const rows = db().prepare("SELECT feature, COUNT(*) uses, COALESCE(SUM(usd),0) usd FROM ai_usage WHERE key_owner='platform' AND feature IS NOT NULL AND at>=? GROUP BY feature").all(since);
+  const rows = db().prepare("SELECT feature, COUNT(*) uses, COALESCE(SUM(usd),0) usd, COALESCE(SUM(COALESCE(pkr, usd*?)),0) pkr, COALESCE(SUM(input_tokens),0) tin, COALESCE(SUM(output_tokens),0) tout, COALESCE(SUM(CASE WHEN unit='character' THEN units END),0) chars FROM ai_usage WHERE key_owner='platform' AND feature IS NOT NULL AND at>=? GROUP BY feature").all(rate.rate, since);
   const byF = new Map(rows.map((r) => [r.feature, r]));
-  const spent = rows.reduce((a, r) => a + r.usd, 0);
-  const features = Object.entries(FEATURES).map(([key, f]) => ({ key, label: f.label, uses: byF.get(key)?.uses || 0, usd: byF.get(key)?.usd || 0, pkr: pkr(byF.get(key)?.usd || 0), enabled: !off.has(switchKey(key)) }));
+  const spent = rows.reduce((a, r) => a + r.usd, 0), spentPkr = rows.reduce((a, r) => a + r.pkr, 0);
+  const features = Object.entries(FEATURES).map(([key, f]) => ({ key, label: f.label, uses: byF.get(key)?.uses || 0, usd: byF.get(key)?.usd || 0, pkr: byF.get(key)?.pkr || 0, tokens_in: byF.get(key)?.tin || 0, tokens_out: byF.get(key)?.tout || 0, characters: byF.get(key)?.chars || 0, enabled: !off.has(switchKey(key)) }));
   const per = new Map(db().prepare("SELECT tenant_id, COALESCE(SUM(usd),0) usd FROM ai_usage WHERE key_owner='platform' AND tenant_id IS NOT NULL AND at>=? GROUP BY tenant_id").all(since).map((r) => [r.tenant_id, r.usd]));
   const ws = new Map(db().prepare('SELECT tenant_id, ai_enabled, platform_daily_limit FROM workspace_ai_settings').all().map((r) => [r.tenant_id, r]));
   const workspaces = db().prepare('SELECT id, name, slug, plan, status, data_deleted_at FROM tenants ORDER BY name').all().map((t) => {
@@ -91,7 +91,7 @@ export function overview(now = new Date()) {
   const tp = textPrices();
   return {
     rate, display_currency: displayCurrency(), ffmpeg: ffmpegStatus(),
-    month: { spent_usd: spent, spent_pkr: pkr(spent), budget_usd: budgetUsd(), video_budget_usd: videoBudgetUsd(), video_spent_usd: byF.get('creative_video')?.usd || 0 },
+    month: { spent_usd: spent, spent_pkr: spentPkr, budget_usd: budgetUsd(), video_budget_usd: videoBudgetUsd(), video_spent_usd: byF.get('creative_video')?.usd || 0 },
     features, prices: priceList(now), text_price_source: tp.source, workspaces,
     limits: { platform_daily_limit: numSetting('ai_platform_daily_limit'), platform_daily_limit_effective: platformDailyLimit(null), default_monthly_credits: defaultMonthlyCredits() },
     technical: {

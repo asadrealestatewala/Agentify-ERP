@@ -5,6 +5,7 @@ import { Card, ErrorBox, Field, Loading, StatusBadge, TextInput } from '../../co
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, useCan } from './AdminShell.jsx';
+import { IconMessageCircle, IconPhoto, IconMovie, IconMicrophone, IconBook2, IconWorldSearch, IconLanguage, IconPencil, IconChevronDown } from '@tabler/icons-react';
 import AiVoiceLab, { FfmpegStatus } from './AiVoiceLab.jsx';
 
 const n0 = (v) => Number(v || 0).toLocaleString();
@@ -12,6 +13,52 @@ const usd = (v) => (v == null ? '—' : `$${v < 1 ? v.toFixed(4) : v.toFixed(2)}
 const rs = (v, cur) => (v == null ? '—' : `${cur} ${Math.round(v).toLocaleString()}`);
 const SRC = { default: 'estimate', average: '3-month average', override: 'set by you' };
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12, alignItems: 'start' };
+
+const FEATURE_LOOK = {
+  ask_assistant: { Icon: IconMessageCircle, bg: '#0e7c6b', one: 'question answered', many: 'questions answered' },
+  creative_post: { Icon: IconPhoto, bg: '#2f7fd1', one: 'post image made', many: 'post images made' },
+  creative_video: { Icon: IconMovie, bg: '#d9622b', one: 'video made', many: 'videos made' },
+  video_voice_en: { Icon: IconMicrophone, bg: '#12906f', one: 'English voice-over made', many: 'English voice-overs made' },
+  video_voice_ur: { Icon: IconMicrophone, bg: '#0b6b5c', one: 'Urdu voice-over made', many: 'Urdu voice-overs made' },
+  brand_story: { Icon: IconBook2, bg: '#6a5acd', one: 'brand story written', many: 'brand stories written' },
+  website_analysis: { Icon: IconWorldSearch, bg: '#3b8ea5', one: 'website checked', many: 'websites checked' },
+  translation: { Icon: IconLanguage, bg: '#8a5fc4', one: 'translation done', many: 'translations done' },
+  content_draft: { Icon: IconPencil, bg: '#c9822b', one: 'post draft written', many: 'post drafts written' },
+};
+
+function CostSummary({ o, cur }) {
+  const [open, setOpen] = useState(null);
+  const month = new Date().toLocaleString('en', { month: 'long' });
+  return (
+    <Card>
+      <div style={{ fontWeight: 600 }}>AI cost in {month}</div>
+      <div style={{ fontSize: 34, fontWeight: 700, color: '#0e7c6b', lineHeight: 1.2 }}>{rs(o.month.spent_pkr, cur)}</div>
+      <div className="muted" style={{ marginBottom: 12 }}>All workspaces together on Agentify's own keys, so far this month. Tap a row for details.</div>
+      <div style={{ border: '1px solid var(--line, #e3e7e5)', borderRadius: 12, overflow: 'hidden' }}>
+        {o.features.map((f, i) => {
+          const L = FEATURE_LOOK[f.key] || { Icon: IconMessageCircle, bg: '#0e7c6b', one: 'use', many: 'uses' };
+          const isOpen = open === f.key;
+          return (
+            <div key={f.key} style={{ borderTop: i ? '1px solid var(--line, #e3e7e5)' : 'none' }}>
+              <button type="button" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : f.key)} style={{ all: 'unset', boxSizing: 'border-box', width: '100%', display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', cursor: 'pointer' }}>
+                <span style={{ width: 44, height: 44, borderRadius: 12, background: L.bg, color: '#fff', display: 'grid', placeItems: 'center', flex: 'none', opacity: f.enabled ? 1 : 0.5 }}><L.Icon size={22} stroke={1.75} aria-hidden="true" /></span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600 }}>{f.label}{!f.enabled && <span className="pill red" style={{ marginLeft: 8 }}>Off</span>}</div>
+                  <div className="muted">{f.uses ? `${n0(f.uses)} ${f.uses === 1 ? L.one : L.many}` : 'Not used yet'}</div>
+                </span>
+                <IconChevronDown size={18} aria-hidden="true" style={{ transition: 'transform .15s', transform: isOpen ? 'rotate(180deg)' : 'none' }} />
+              </button>
+              {isOpen && <div className="muted" style={{ padding: '0 14px 14px 72px', fontSize: 13, lineHeight: 1.6 }}>
+                Cost: <b>{rs(f.pkr, cur)}</b> ({usd(f.usd)}) · {f.uses ? `about ${rs(f.pkr / f.uses, cur)} per use` : 'no cost yet'}<br />
+                {f.characters ? `${n0(f.characters)} letters spoken` : f.tokens_in || f.tokens_out ? `${n0(f.tokens_in)} read / ${n0(f.tokens_out)} written (tokens)` : 'Charged per use, not by text size'}
+              </div>}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
 
 function Rate({ o, can, reload }) {
   const toast = useToast();
@@ -233,6 +280,7 @@ function Technical({ o, can, reload, voices, onTested }) {
         <Field label="Azure region" hint="For example uaenorth or eastus"><TextInput value={az.region} onChange={(v) => setAz({ ...az, region: v })} /></Field>
         <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={save}>Save Azure details</button>{t.azure.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled={!t.azure.key_added || !t.azure.region || testing} onClick={testAzure}>{testing ? 'Testing…' : 'Test the connection'}</button></div>
       </div>}
+      <p className="muted"><b>How the cost is counted:</b> the AI company charges by the amount of text the AI reads and writes (tokens), and the voice service by the number of letters it speaks. Agentify records the exact cost each time AI is used, with the rupee rate of that moment, and adds it all up in rupees on this page. Calls made with a workspace's own key are paid by that workspace and are not counted here.</p>
       <div style={{ marginTop: 12 }}><b>Which model does what</b>
         <div className="table-wrap"><table className="t"><thead><tr><th>Purpose</th><th>Engine</th><th>Model</th><th>State</th><th>Last used</th></tr></thead><tbody>{t.model_map.map((m) => <tr key={m.key}><td>{m.purpose}{m.note ? <div className="muted" style={{ fontSize: 11 }}>{m.note}</div> : null}</td><td>{m.engine}</td><td>{m.model}</td><td><span className={`pill ${m.on ? 'green' : 'grey'}`}>{m.on ? 'On' : 'Off'}</span></td><td>{m.last ? <>{new Date(m.last.at).toLocaleString()}<div className="muted" style={{ fontSize: 11 }}>{m.last.ok ? 'worked' : 'failed'}{m.last.model ? ` · ${m.last.model}` : ''}</div></> : <span className="muted">not yet</span>}</td></tr>)}</tbody></table></div>
       </div>
@@ -257,13 +305,14 @@ export default function AiAgentifyKey({ tab = 'overview' }) {
   return (
     <>
       {tab === 'overview' && <>
+      <CostSummary o={o} cur={cur} />
       <div className="cc-stats">
         <Card><div className="cc-k">Agentify-key AI cost this month</div><div className="cc-v">{usd(o.month.spent_usd)}</div><div className="cell-sub">{rs(o.month.spent_pkr, cur)} at {o.rate.rate} {cur} per USD</div></Card>
         <Card><div className="cc-k">Video cost this month</div><div className="cc-v">{usd(o.month.video_spent_usd)}</div><div className="cell-sub">{o.month.video_budget_usd != null ? `of ${usd(o.month.video_budget_usd)} video budget` : 'No video budget set'}</div></Card>
       </div>
       <Card title="Cost this month by feature" flush>
-        <div className="table-wrap"><table className="t"><thead><tr><th>Feature</th><th className="num">Uses</th><th className="num">USD</th><th className="num">{cur}</th><th>Switch</th></tr></thead>
-          <tbody>{o.features.map((f) => <tr key={f.key}><td>{f.label}</td><td className="num">{n0(f.uses)}</td><td className="num">{usd(f.usd)}</td><td className="num">{rs(f.pkr, cur).replace(`${cur} `, '')}</td><td>{f.enabled ? 'On' : <span className="pill red">Off</span>}</td></tr>)}</tbody></table></div>
+        <div className="table-wrap"><table className="t"><thead><tr><th>Feature</th><th className="num">Uses</th><th className="num">Read / written</th><th className="num">USD</th><th className="num">{cur}</th><th>Switch</th></tr></thead>
+          <tbody>{o.features.map((f) => <tr key={f.key}><td>{f.label}</td><td className="num">{n0(f.uses)}</td><td className="num">{f.characters ? `${n0(f.characters)} letters spoken` : f.tokens_in || f.tokens_out ? `${n0(f.tokens_in)} read / ${n0(f.tokens_out)} written` : '–'}</td><td className="num">{usd(f.usd)}</td><td className="num">{rs(f.pkr, cur).replace(`${cur} `, '')}</td><td>{f.enabled ? 'On' : <span className="pill red">Off</span>}</td></tr>)}</tbody></table></div>
       </Card>
       </>}
       {tab === 'prices' && <>
