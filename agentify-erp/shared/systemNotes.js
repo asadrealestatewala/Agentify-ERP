@@ -26,6 +26,7 @@ export const SETTING_NOTES = {
   receipt_copies: 'How many copies of a receipt are printed.', receipt_qr: 'Whether a QR code is printed on receipts so the receipt can be checked.', expense_title: 'Title at the top of expense vouchers.',
   expense_header: 'Text under the title of expense vouchers.', expense_footer: 'Text at the bottom of expense vouchers.', agents_can_publish: 'Whether sales agents may publish their own listings without approval.',
   staff_login_path: 'The address staff use to sign in to your workspace.', brand_color: 'Your brand colour, used for your workspace and documents.',
+  ask_business_notes: 'Facts about your business that Ask may use when staff ask about the company (hours, policies, payment rules, FAQs). Up to 4,000 characters.', ask_style: 'How Ask talks: friendly (like a helpful colleague) or formal.',
 };
 
 export const LOOKUP_NOTES = {

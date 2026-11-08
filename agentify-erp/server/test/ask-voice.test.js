@@ -1,0 +1,23 @@
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'erp-askvoice-'));
+Object.assign(process.env, { ERP_DATA_DIR: dir, ERP_UPLOAD_DIR: path.join(dir, 'uploads'), ERP_DB: path.join(dir, 'legacy.db'), ERP_PLATFORM_DB: path.join(dir, 'platform.db'),
+  ERP_BASE_DOMAIN: 'erp.test', ERP_DEMO: '0', ADMIN_EMAIL: 'owner@legacy.test', ADMIN_PASSWORD: 'Legacy@12345', ERP_MAIL_QUIET: '1', ERP_SECRETS_KEY: 'test-secrets-key-0123456789' });
+const dbm = await import('../src/db.js');
+const { companyDocs, companyMaterial } = await import('../src/services/askAi.js');
+after(() => dbm.closeDbs());
+
+test('company info: contact details and admin notes become searchable, private blocks', () => {
+  dbm.setSetting('company_name', 'Skyline Homes'); dbm.setSetting('company_phone', '+92 300 1112223');
+  dbm.setSetting('ask_business_notes', 'Office hours: Monday to Saturday, 10am to 7pm.\n\nRefund policy: booking money is refundable within 14 days of payment.');
+  assert.equal(companyDocs().length, 3);
+  const hours = companyMaterial('what are our office hours?', 'en');
+  assert.ok(hours.length && /10am to 7pm/.test(hours[0].text) && hours[0].private);
+  const refund = companyMaterial('is the booking money refundable?', 'en');
+  assert.match(refund[0].text, /14 days/);
+  assert.deepEqual(companyMaterial('how do I add a lead', 'en'), []);
+});

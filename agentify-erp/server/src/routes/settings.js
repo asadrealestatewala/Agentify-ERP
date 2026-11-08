@@ -27,7 +27,7 @@ export const SETTING_KEYS = ['company_name', 'company_address', 'company_phone',
   'notify_whatsapp_enabled', 'installment_reminder_days', 'allow_negative_bank',
   // printed documents (receipt vouchers, expense vouchers, statements)
   'print_header', 'print_footer', 'print_email', 'print_phone', 'print_address', 'print_website', 'print_social', 'print_show_logo',
-  'receipt_title', 'receipt_header', 'receipt_footer', 'receipt_terms', 'receipt_copies', 'receipt_qr', 'expense_title', 'expense_header', 'expense_footer', 'agents_can_publish', 'staff_login_path', 'brand_color'];
+  'receipt_title', 'receipt_header', 'receipt_footer', 'receipt_terms', 'receipt_copies', 'receipt_qr', 'expense_title', 'expense_header', 'expense_footer', 'agents_can_publish', 'staff_login_path', 'brand_color', 'ask_business_notes', 'ask_style'];
 
 /** Bootstrap data for dropdowns across the app. */
 r.get('/meta', asyncH((req, res) => {
@@ -69,6 +69,8 @@ r.put('/system', can('settings', 'edit'), asyncH((req, res) => {
     if (lock && c.hex !== getSetting('brand_color', '')) throw bad(lock);
   }
   if (req.body.staff_login_path !== undefined) req.body.staff_login_path = cleanStaffPath(req.body.staff_login_path);
+  if (req.body.ask_business_notes !== undefined) req.body.ask_business_notes = String(req.body.ask_business_notes || '').slice(0, 4000);
+  if (req.body.ask_style !== undefined && !['friendly', 'formal'].includes(req.body.ask_style)) req.body.ask_style = 'friendly';
   for (const k of SETTING_KEYS) if (k !== 'website_api_key' && req.body[k] !== undefined) setSetting(k, k === 'website_webhook_url' ? String(req.body[k] || '').trim() : req.body[k]);
   if (req.body.print_social !== undefined) { const v = jparse(req.body.print_social, null); if (!Array.isArray(v)) throw bad('Social handles must be a list'); }
   if (req.body.agent_targets) { if (!jparse(req.body.agent_targets)) throw bad('Agent targets must be valid JSON'); }

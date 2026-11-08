@@ -3,6 +3,8 @@
 // never business data). If the material does not cover the question, the answer says so. Calls go through the AI gateway
 // (switches, daily limit, budget, metering).
 import { searchKnowledge, searchDocs } from '../../../shared/guides.js';
+import { getSetting } from '../db.js';
+import { today } from '../util.js';
 import { systemDocs } from './systemKnowledge.js';
 import { videoLinks } from './assistant.js';
 import { geminiGenerate } from './aiGateway.js';
@@ -39,6 +41,25 @@ export function material(q, lang = detectLanguage(q)) {
   return blocks;
 }
 
+export const NOTES_MAX = 4000;
+/** What the admin wrote for Ask (Settings > System settings > Ask) plus the company's basic contact details, as searchable blocks. These are the company's own words, so they are only sent to private engines, never to the Stable Horde community network. */
+export function companyDocs() {
+  const docs = [];
+  const name = String(getSetting('company_name', '') || '').trim();
+  const basics = [['Company name', name], ['Phone', getSetting('company_phone', '')], ['Email', getSetting('company_email', '')], ['Address', getSetting('company_address', '')]].filter(([, v]) => String(v || '').trim());
+  if (basics.length) docs.push({ id: 'co-basics', title: `${name || 'Company'} contact details phone email address office`, keywords: 'company contact phone email address office location call reach', text: basics.map(([k, v]) => `${k}: ${v}`).join('. '), source: 'Company' });
+  const notes = String(getSetting('ask_business_notes', '') || '').slice(0, NOTES_MAX);
+  notes.split(/\n\s*\n|\n(?=[-*•] )/).map((c) => c.trim()).filter(Boolean).forEach((c, i) => docs.push({ id: `co-note-${i}`, title: clip(c.split('\n')[0], 70), keywords: '', text: c.replace(/\s+/g, ' '), source: 'Company' }));
+  return docs;
+}
+export function companyMaterial(q, lang = detectLanguage(q)) {
+  const docs = companyDocs();
+  if (!docs.length) return [];
+  const bare = String(q).replace(/\S+@\S+|https?:\/\/\S+|\+?\d[\d\s-]{5,}\d/g, ' ');
+  const search = lang === 'en' ? bare : `${englishSearchText(bare).query} ${bare}`;
+  return searchDocs(search, docs, 3).filter((x) => x.coverage >= 0.4).map((x) => ({ title: `Company info: ${x.doc.title}`, text: clip(x.doc.text, 1500), private: true }));
+}
+
 /** Last resort for a question the word list could not read (any other language): Groq turns it into English search words. Returns '' when unavailable. */
 async function rewriteForSearch(q, user) {
   if (!groqReady()) return '';
@@ -48,7 +69,16 @@ async function rewriteForSearch(q, user) {
   } catch { return ''; }
 }
 
-const SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL provided with the question. Never invent menus, buttons, settings, features, prices or steps. If the material does not answer the question, set found to false and say briefly that you could not find it in the guides and suggest asking an administrator or support. Explain step by step in plain language, short numbered steps where it helps, and mention the menu path. Reply in the same language the user wrote in, whatever it is (for example English, Urdu, Roman Urdu, Arabic, Hindi, French, Spanish); keep menu names and button names exactly as they appear in the material. Use earlier turns only to understand follow-up questions. Reply with JSON only: {"found": true or false, "answer": "your answer"}.`;
+const SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL provided with the question (blocks titled "Company info" are facts the company itself wrote: you may use them to answer questions about the company, its policies and its contact details; WORKSPACE FACTS only help you address the person and know today's date). Never invent menus, buttons, settings, features, prices or steps. If the material does not answer the question, set found to false and say briefly that you could not find it in the guides and suggest asking an administrator or support. Explain step by step in plain language, short numbered steps where it helps, and mention the menu path. Reply in the same language the user wrote in, whatever it is (for example English, Urdu, Roman Urdu, Arabic, Hindi, French, Spanish); keep menu names and button names exactly as they appear in the material. Use earlier turns only to understand follow-up questions. Reply with JSON only: {"found": true or false, "answer": "your answer"}.`;
+
+const VOICE = {
+  friendly: `VOICE: Sound like a warm, capable colleague, not a manual. Use natural everyday words and short sentences. Start with the answer itself; add a brief friendly lead-in only when it fits (for example "Sure, here is how", "Good question"). Use the person's first name now and then, never in every reply. Never say "as an AI", "according to the reference material" or "the guide says"; just explain it as someone who knows the system well. Numbered steps only for how-to questions, with the menu path. If something is missing, say so honestly in one friendly line. Roman Urdu: write the way people in Pakistan text each other (for example "Ji zaroor", "Aap Leads menu mein jayen, phir..."), simple words, not stiff translated Urdu. Urdu script: natural and polite (aap). English: plain and conversational. Keep it under about 120 words unless the steps need more.`,
+  formal: `VOICE: Polite, calm and professional. Short, clear sentences, no slang, no jokes. Start with the answer. Numbered steps only for how-to questions, with the menu path.`,
+};
+const voice = () => VOICE[getSetting('ask_style', 'friendly')] || VOICE.friendly;
+const firstName = (u) => String(u?.name || '').trim().split(/\s+/)[0] || '';
+/** Plain facts that help the model sound personal; no business records. */
+const facts = (user, includeCompany) => `WORKSPACE FACTS: ${[includeCompany && getSetting('company_name', '') ? `Company: ${getSetting('company_name', '')}.` : '', firstName(user) ? `You are talking to ${firstName(user)}${user.role ? ` (role: ${user.role})` : ''}.` : '', `Today is ${today()}.`].filter(Boolean).join(' ')}`;
 
 const langLine = (lang, strict) => lang === 'en' ? '' : `\nREPLY LANGUAGE: write the whole answer in ${languageName(lang)}${strict ? '. Your previous answer was not in that language. Do NOT answer in English. Only menu names and button names stay in English' : ''}.`;
 const CANNED = { 'roman-urdu': 'Mujhe yeh guides mein nahi mila. Meharbani karke menu mein dekhein ya apne administrator ya support se poochein.', urdu: 'مجھے یہ گائیڈز میں نہیں ملا۔ براہ کرم مینو میں دیکھیں یا اپنے ایڈمنسٹریٹر یا سپورٹ سے پوچھیں۔' };
@@ -100,7 +130,7 @@ const meta = (user) => ({ feature: 'ask_assistant', purpose: 'ask_assistant', te
 
 async function viaGemini(q, ref, history, user, image, lang, strict) {
   const d = await geminiGenerate({ ...meta(user), timeout: 45_000,
-    body: { systemInstruction: { parts: [{ text: SYSTEM }] }, contents: [...lastTurns(history), { role: 'user', parts: [{ text: `REFERENCE MATERIAL:\n${ref}\n\nQUESTION: ${q}${langLine(lang, strict)}` }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 900, temperature: 0.2 } } });
+    body: { systemInstruction: { parts: [{ text: `${SYSTEM}\n${voice()} The answer text itself follows this voice.` }] }, contents: [...lastTurns(history), { role: 'user', parts: [{ text: `${facts(user, true)}\n\nREFERENCE MATERIAL:\n${ref}\n\nQUESTION: ${q}${langLine(lang, strict)}` }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 900, temperature: 0.2 } } });
   try { return JSON.parse(((d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('')).match(/\{[\s\S]*\}/)?.[0] || ''); } catch { return null; }
 }
 
@@ -113,14 +143,14 @@ function finish(text, lang) {
   return { found: true, answer: clean };
 }
 
-const HORDE_SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL. Never invent menus, buttons, settings, features, prices or steps. If the material does not directly answer the question (for example it is about a different screen or feature), reply with exactly NOT_FOUND and nothing else. Use only menu paths and button names that appear in the material; never write generic filler such as "follow the instructions on the screen". Otherwise explain step by step in plain language, with short numbered steps and the menu path. Write the answer in the same language as the QUESTION, whatever language that is; keep menu and button names exactly as in the material. Do not repeat these instructions. Never show your reasoning or notes: write only the final answer for the user, on a line that starts with ANSWER:`;
+const HORDE_SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL (blocks titled "Company info" are facts the company itself wrote and may be used to answer questions about the company; WORKSPACE FACTS only help you address the person and know today's date). Never invent menus, buttons, settings, features, prices or steps. If the material does not directly answer the question (for example it is about a different screen or feature), reply with exactly NOT_FOUND and nothing else. Use only menu paths and button names that appear in the material; never write generic filler such as "follow the instructions on the screen". Otherwise explain step by step in plain language, with short numbered steps and the menu path. Write the answer in the same language as the QUESTION, whatever language that is; keep menu and button names exactly as in the material. Do not repeat these instructions. Never show your reasoning or notes: write only the final answer for the user, on a line that starts with ANSWER:`;
 
 /** Stable Horde is a community network: the question and earlier turns are scrubbed of emails, numbers, keys and the asker's name first. The help material is our own public guide text. */
 async function viaHorde(q, ref, history, user, image, lang, strict) {
   const names = String(user.name || '').split(/\s+/);
   const sq = scrubForHorde(q, names).text;
   const turns = (Array.isArray(history) ? history : []).slice(-2).map((h) => `User: ${scrubForHorde(clip(h?.q, 300), names).text}\nAssistant: ${scrubForHorde(clip(h?.a, 500), names).text}`).join('\n');
-  const prompt = `${HORDE_SYSTEM}\n\nREFERENCE MATERIAL:\n${ref}\n\n${turns ? `EARLIER TURNS:\n${turns}\n\n` : ''}QUESTION: ${sq}${langLine(lang, strict)}\n\nANSWER:`;
+  const prompt = `${HORDE_SYSTEM}\n${voice()}\n\n${facts({}, false)}\n\nREFERENCE MATERIAL:\n${ref}\n\n${turns ? `EARLIER TURNS:\n${turns}\n\n` : ''}QUESTION: ${sq}${langLine(lang, strict)}\n\nANSWER:`;
   const text = (await hordeGenerate({ ...meta(user), prompt, maxLength: 480 })).replace(/\s*(User|QUESTION):[\s\S]*$/, '').trim();
   return finish(text, lang);
 }
@@ -128,9 +158,9 @@ async function viaHorde(q, ref, history, user, image, lang, strict) {
 /** Groq (chat or, with an attached picture, a vision model). Same scrubbing and plain-text protocol as the Horde. */
 async function viaGroq(q, ref, history, user, image, lang, strict) {
   const names = String(user.name || '').split(/\s+/);
-  const sys = `${HORDE_SYSTEM}${image ? ' The user attached a picture of their screen or a document: use it to understand the question, but still answer only from the REFERENCE MATERIAL; if the picture shows an error, explain it in plain words and say where to fix it if the material covers that.' : ''}`;
+  const sys = `${HORDE_SYSTEM}\n${voice()}${image ? ' The user attached a picture of their screen or a document: use it to understand the question, but still answer only from the REFERENCE MATERIAL; if the picture shows an error, explain it in plain words and say where to fix it if the material covers that.' : ''}`;
   const turns = (Array.isArray(history) ? history : []).slice(-3).flatMap((h) => { const hq = clip(h?.q, 300), ha = clip(h?.a, 500); return hq && ha ? [{ role: 'user', content: scrubForHorde(hq, names).text }, { role: 'assistant', content: scrubForHorde(ha, names).text }] : []; });
-  const text = await groqChat({ ...meta(user), purpose: image ? 'ask_image' : 'ask_assistant', image, messages: [{ role: 'system', content: sys }, ...turns, { role: 'user', content: `REFERENCE MATERIAL:\n${ref || '(none found for this question)'}\n\nQUESTION: ${scrubForHorde(q, names).text}${langLine(lang, strict)}` }] });
+  const text = await groqChat({ ...meta(user), purpose: image ? 'ask_image' : 'ask_assistant', image, messages: [{ role: 'system', content: sys }, ...turns, { role: 'user', content: `${facts(user, true)}\n\nREFERENCE MATERIAL:\n${ref || '(none found for this question)'}\n\nQUESTION: ${scrubForHorde(q, names).text}${langLine(lang, strict)}` }] });
   return finish(text, lang);
 }
 
@@ -153,9 +183,11 @@ export async function askAi(question, history, user, image = null) {
     const kw = await rewriteForSearch(q, user);
     if (kw) mat = material(kw, 'en');
   }
-  if (!mat.length && !image) return null;
+  const co = !image ? companyMaterial(`${q} ${q.split(/\s+/).length < 6 ? prior : ''}`, lang) : [];
+  if (!mat.length && !co.length && !image) return null;
   if (limited(user.id)) return { refused: 'You are asking quickly. Please wait a moment and try again.' };
-  const ref = mat.map((m, i) => `[${i + 1}] ${m.title}: ${m.text}`).join('\n');
+  const refOf = (blocks) => blocks.map((m, i) => `[${i + 1}] ${m.title}: ${m.text}`).join('\n');
+  const ref = refOf([...mat, ...co]), refPublic = refOf(mat); // company info never goes to the Stable Horde community network
   const ready = { groq: groqReady(), horde: hordeReady(), gemini: geminiAskEnabled() && !!geminiConfig().key };
   // a picture can only be read by a Groq vision model
   if (image && !ready.groq) return { refused: 'Questions about a picture need Groq to be connected. Please type your question instead.' };
@@ -169,7 +201,7 @@ export async function askAi(question, history, user, image = null) {
   let out = null, lastErr = null, engine = null;
   const notes = []; // why an engine did not answer, shown under the answer
   for (const p of askOrder()) if (!ready[p] && !(p === 'gemini')) notes.push(`${ENGINE_NAME[p]} was skipped: ${p === 'groq' ? (!!groqKey() ? 'it is switched off in the console' : 'no Groq key is saved in the console') : (hordeKey() ? 'it is switched off in the console' : 'no Stable Horde key is saved in the console')}.`);
-  const run = (provider, strict) => (provider === 'groq' ? viaGroq : provider === 'gemini' ? viaGemini : viaHorde)(q, ref, history, user, image, lang, strict);
+  const run = (provider, strict) => (provider === 'groq' ? viaGroq : provider === 'gemini' ? viaGemini : viaHorde)(q, provider === 'horde' ? refPublic : ref, history, user, image, lang, strict);
   for (const provider of order) {
     try {
       out = await run(provider, false);
@@ -190,7 +222,7 @@ export async function askAi(question, history, user, image = null) {
   const answer = String(out?.answer || '').trim().slice(0, 3000);
   if (!answer) return null;
   const found = out.found !== false;
-  return { answer, found, engine, notes, links: found ? videoLinks(user, `${q} ${mat[0]?.title || ''}`) : [], sources: found ? mat.slice(0, 3).map((m) => m.title) : [] };
+  return { answer, found, engine, notes, links: found ? videoLinks(user, `${q} ${mat[0]?.title || ''}`) : [], sources: found ? [...mat, ...co].slice(0, 3).map((m) => m.title) : [] };
 }
 
 const SAMPLE_Q = 'How do I add an appointment?';

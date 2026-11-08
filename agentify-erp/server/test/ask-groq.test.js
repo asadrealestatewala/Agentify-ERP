@@ -76,6 +76,7 @@ test('Groq: key, order, privacy, 429 fallback, pictures, voice and activity', as
   const sent = JSON.stringify(groqCalls[0].body);
   assert.equal(groqCalls[0].auth, `Bearer ${GKEY}`); assert.equal(groqCalls[0].body.model, 'llama-3.3-70b-versatile');
   assert.ok(!/sara@client|03001234567/.test(sent), 'personal data stripped'); assert.match(sent, /REFERENCE MATERIAL/);
+  assert.match(sent, /VOICE: Sound like a warm/); assert.match(sent, /WORKSPACE FACTS: .*You are talking to/);
   const row = platformDb().prepare("SELECT * FROM ai_usage WHERE provider='groq' ORDER BY id DESC LIMIT 1").get();
   assert.equal(row.feature, 'ask_assistant'); assert.equal(row.input_tokens, 400); assert.ok(row.tenant_id > 0);
   const act = (await as(owner, 'GET', '/ai/overview')).data.technical.ask_activity;
