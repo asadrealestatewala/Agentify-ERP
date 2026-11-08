@@ -244,6 +244,12 @@ export function SystemSettings() {
           <Field label="Currency" hint="Set by the workspace region"><input className="input" disabled value={f.currency || cur()} /></Field>
           <Field label="Date format"><input className="input" disabled value="DD-MMM-YYYY (Asia/Karachi)" /></Field>
         </div></Card>
+        <Card title="Ask assistant"><div className="stack">
+          <div className="muted">Teach Ask about your business. Write facts it may use when staff ask about the company: office hours, payment and refund rules, booking steps, FAQs. Separate topics with a blank line. Do not put passwords or private customer data here. Staff can see this text, and the relevant lines are sent to the AI provider with a question.</div>
+          <Field label="Business notes for Ask" hint={`${(f.ask_business_notes || '').length} / 4000 characters`}><textarea className="textarea" rows={7} disabled={ro} maxLength={4000} value={f.ask_business_notes || ''} onChange={(e) => set('ask_business_notes', e.target.value)} placeholder={'Office hours: Monday to Saturday, 10am to 7pm.\n\nBooking: a plot is booked with 20% down payment, the rest in 24 monthly installments.'} /></Field>
+          <Field label="How Ask talks"><select className="input" disabled={ro} value={f.ask_style || 'friendly'} onChange={(e) => set('ask_style', e.target.value)}><option value="friendly">Friendly (like a helpful colleague)</option><option value="formal">Formal and brief</option></select></Field>
+          <Field label="Friendly sentence above data answers" hint="Ask adds one friendly line above report answers. The exact figures and tables stay as they are. Only the answer sentence is sent to the AI provider, never the table rows."><select className="input" disabled={ro} value={f.ask_friendly_data === '0' ? '0' : '1'} onChange={(e) => set('ask_friendly_data', e.target.value)}><option value="1">On</option><option value="0">Off</option></select></Field>
+        </div></Card>
         <Card title="Commission & targets"><div className="form-grid">
           <Field label="Default commission %" hint="Used when no commission rule matches"><input className="input" type="number" step="0.1" disabled={ro} value={f.default_commission_pct || ''} onChange={(e) => set('default_commission_pct', e.target.value)} /></Field>
           <Field label="Agent tier targets (JSON: tier → lifetime sales)" className="full"><textarea className="textarea" disabled={ro} value={f.agent_targets || ''} onChange={(e) => set('agent_targets', e.target.value)} /></Field>

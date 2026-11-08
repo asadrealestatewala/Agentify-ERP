@@ -3,7 +3,7 @@ import { all, run } from '../db.js';
 import { can, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { ask } from '../services/assistant.js';
-import { askAi, limited } from '../services/askAi.js';
+import { askAi, limited, friendlyLead } from '../services/askAi.js';
 import { groqReady, groqTranscribe } from '../services/groqGateway.js';
 import { createReport } from '../services/aiReports.js';
 import { currentTenant } from '../context.js';
@@ -28,6 +28,8 @@ r.post('/ask', asyncH(async (req, res) => {
     if (ai?.refused) out = { ...out, answer: `${out.answer}\n\n_${ai.refused}_` };
     else if (ai) out = { intent: ai.found ? 'ai' : 'unknown', ai: true, tables: [], suggestions: out.suggestions, answer: ai.answer, engine: ai.engine, notes: ai.notes || [], links: ai.links, sources: ai.sources };
   }
+  // a live-data answer: add a friendly lead-in; the exact answer and tables stay unchanged below it
+  if (!image && out.intent !== 'unknown') { const lead = await friendlyLead(q, out, req.user); if (lead) out = { ...out, friendly: lead }; }
   run('INSERT INTO chat_log(user_id,question,intent,ok,created_at) VALUES(?,?,?,?,?)', req.user.id, q, out.intent, out.intent === 'unknown' ? 0 : 1, now());
   res.json(out);
 }));

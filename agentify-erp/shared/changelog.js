@@ -6,6 +6,14 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.84', date: '2026-11-09', title: 'Ask sounds more human and knows your business',
+    items: [
+      { text: 'Ask now answers like a friendly colleague: natural wording, your first name now and then, and everyday Roman Urdu. Admins can switch it to a formal, brief style.', where: 'Settings > System settings > Ask assistant' },
+      { text: 'Report answers such as lead counts now start with a short friendly sentence. The exact answer and tables stay unchanged right below it, and the sentence is dropped if it would show any figure that is not in the exact answer. Admins can switch this off.', where: 'Settings > System settings > Ask assistant' },
+      { text: 'Teach Ask about your business: add office hours, payment and refund rules or FAQs, and Ask uses them when staff ask about the company. Your company phone, email and address are included automatically.', where: 'Settings > System settings > Ask assistant' },
+    ],
+  },
+  {
     version: 'v1.83', date: '2026-11-08', title: 'Console: choose Gemini or Groq for the blog agent',
     items: [
       { text: 'The Blog agent can now write with Groq as well as Gemini. Pick the writing engine in its settings; if the chosen engine fails, the other one is used when it is connected.', where: 'Console > Marketing > Blog agent', audience: 'platform' },
