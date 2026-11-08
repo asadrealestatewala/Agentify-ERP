@@ -1,6 +1,7 @@
 // Super Admin console: Mailbox. Inbox (Resend Inboxes: hello@ and admin@), Sent log (everything the platform e-mailed, with live delivery
 // status) and Settings. Platform Owner and Super Admin only; the server checks that on every request and calls Resend, never this page.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Link } from 'react-router-dom';
 import { Card, ConfirmDialog, Empty, ErrorBox, Field, Loading, Modal, StatusBadge, TextInput } from '../../components/ui.jsx';
 import Icon from '../../components/Icon.jsx';
@@ -400,7 +401,7 @@ export function MailboxSettingsPage() {
       <PageTitle title="Mailbox settings" sub="Inboxes, who replies come from, and the webhook that keeps the inbox and the sent log live." />
       {!d.configured && <Empty icon="mail" title="Resend is not connected" hint="Save the API key in Integrations first." action={<Link className="btn primary" to="/platform/integrations">Open Integrations</Link>} />}
       {d.configured && <>
-        <Card title="Inboxes and sending identities">
+        <FoldCard id="Mailbox-Inboxes and sending identities" title="Inboxes and sending identities" summary="Mailboxes and sender addresses" >
           <p className="muted" style={{ marginTop: 0 }}>You can send from hello@ and admin@. The no-reply address only sends automated mail and has no inbox.</p>
           <div className="table-wrap"><table className="t"><thead><tr><th>Address</th><th>From name</th><th>Sending</th><th /></tr></thead><tbody>
             {d.inboxes.map((i) => <tr key={i.id}><td className="mono">{i.email}</td>
@@ -409,18 +410,18 @@ export function MailboxSettingsPage() {
               <td>{i.can_send && <button className="btn sm" disabled={(names[i.id] ?? '') === i.from_name} onClick={() => saveName(i)}>Save</button>}</td></tr>)}
           </tbody></table></div>
           {!d.inboxes.length && <Empty icon="mail" title="No inboxes found" hint="Create hello@ and admin@ inboxes in Resend." />}
-        </Card>
-        <Card title="Reply-To for automated e-mails">
+        </FoldCard>
+        <FoldCard id="Mailbox-Reply-To for automated e-mails" title="Reply-To for automated e-mails" summary="Where replies to system emails go" >
           <p className="muted" style={{ marginTop: 0 }}>Confirmations, invitations and notices are sent from {d.sender || 'the no-reply address'}. When someone replies, the reply goes to this address.</p>
           <Field label="Reply-To address" hint={d.reply_to_default ? `Leave blank to use ${d.reply_to_default}` : 'Leave blank for no Reply-To'}><TextInput type="email" value={replyTo} onChange={setReplyTo} placeholder={d.reply_to_default} /></Field>
           <button className="btn primary" onClick={saveReply} disabled={replyTo === d.reply_to}>Save</button>
-        </Card>
-        <Card title="Webhook" actions={<StatusBadge status={wh.secret_saved ? (wh.last_event_at ? 'active' : 'pending') : 'overdue'} label={wh.secret_saved ? (wh.last_event_at ? 'Receiving events' : 'Waiting for first event') : 'Signing secret missing'} />}>
+        </FoldCard>
+        <FoldCard id="Mailbox-Webhook" title="Webhook" summary="Link that reports incoming mail"  actions={<StatusBadge status={wh.secret_saved ? (wh.last_event_at ? 'active' : 'pending') : 'overdue'} label={wh.secret_saved ? (wh.last_event_at ? 'Receiving events' : 'Waiting for first event') : 'Signing secret missing'} />}>
           <p className="muted" style={{ marginTop: 0 }}>In Resend, add a webhook with this address and select the e-mail events (sent, delivered, bounced, complained, failed, received). Then paste its signing secret into Integrations, Transactional email.</p>
           <div className="mb-copy"><input className="input mono" readOnly value={wh.url} aria-label="Webhook address" onFocus={(e) => e.target.select()} /><button className="btn" onClick={() => copy(wh.url)}>Copy</button></div>
           <p className="muted">{wh.last_event_at ? <>Last event {wh.last_event_type} at {when(wh.last_event_at)}.</> : 'No event received yet.'} {wh.last_mail_at && <>Last received mail {when(wh.last_mail_at)}.</>}</p>
           {!wh.secret_saved && <Link className="btn" to="/platform/integrations">Add the signing secret</Link>}
-        </Card>
+        </FoldCard>
       </>}
     </>
   );

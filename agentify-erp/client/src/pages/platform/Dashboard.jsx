@@ -1,5 +1,6 @@
 // Executive overview, system health, alerts and platform setup pages. All figures come from /api/platform/admin.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { useNavigate } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Card, Empty, ErrorBox, Loading } from '../../components/ui.jsx';
@@ -117,28 +118,28 @@ export function Dashboard() {
             </Card>
           </div>
           <div className="pa-grid2">
-            <Card title="Top workspaces by revenue (period, net of refunds)" flush>
+            <FoldCard id="Dashboard-Top workspaces by revenue (period, net of refunds)" title="Top workspaces by revenue (period, net of refunds)" summary="Biggest paying workspaces"  flush>
               {!c.top_workspaces.length ? <Empty title="No payments in this period" /> : <div className="table-wrap"><table className="t"><tbody>
                 {c.top_workspaces.map((t) => <tr key={`${t.id}-${t.currency}`} style={{ cursor: 'pointer' }} onClick={() => nav(`/platform/workspaces/${t.id}`)}><td><b>{t.name}</b><div className="muted">{t.slug}</div></td><td className="muted">{t.n} payment(s)</td><td className="right mono">{t.currency} {n0(t.total)}</td></tr>)}
               </tbody></table></div>}
-            </Card>
-            <Card title="Recent transactions" flush actions={<button className="btn sm" onClick={() => nav('/platform/payments')}>Payments</button>}>
+            </FoldCard>
+            <FoldCard id="Dashboard-Recent transactions" title="Recent transactions" summary="Latest payments and refunds"  flush actions={<button className="btn sm" onClick={() => nav('/platform/payments')}>Payments</button>}>
               {!c.recent_transactions.length ? <Empty title="No transactions yet" /> : <div className="table-wrap"><table className="t"><tbody>
                 {c.recent_transactions.map((t) => <tr key={`${t.kind}-${t.id}`} style={{ cursor: 'pointer' }} onClick={() => nav(`/platform/workspaces/${t.tenant_id}`)}><td className="nowrap muted">{String(t.created_at).slice(0, 10)}</td><td><b>{t.tenant}</b><div className="muted mono">{t.reference}</div></td><td>{t.kind === 'invoice' ? 'Invoice' : t.kind === 'refund' ? 'Refund' : `Transfer · ${t.method}`}</td><td className="mono right nowrap">{t.kind === 'refund' ? '−' : ''}{t.currency} {n0(t.amount)}</td><td><span className={`pill ${t.status === 'paid' || t.status === 'approved' ? 'green' : t.status === 'pending' || t.status === 'refunded' ? 'amber' : 'red'}`}><i />{t.status}</span></td></tr>)}
               </tbody></table></div>}
-            </Card>
+            </FoldCard>
           </div>
           <div className="pa-grid2">
-            <Card title="System health" actions={<HealthBadge state={d.health.overall} />} flush>
+            <FoldCard id="Dashboard-System health" title="System health" summary="Server, database and email checks" defaultOpen  actions={<HealthBadge state={d.health.overall} />} flush>
               <div className="table-wrap"><table className="t"><tbody>
                 {d.health.checks.map((h) => <tr key={h.id} style={{ cursor: h.link ? 'pointer' : undefined }} onClick={() => h.link && nav(h.link)}><td><b>{h.label}</b><div className="muted">{h.detail}</div></td><td className="right"><HealthBadge state={h.state} /></td></tr>)}
               </tbody></table></div>
-            </Card>
-            <Card title="Recent administrative activity" flush actions={<button className="btn sm" onClick={() => nav('/platform/audit')}>Audit log</button>}>
+            </FoldCard>
+            <FoldCard id="Dashboard-Recent administrative activity" title="Recent administrative activity" summary="Latest changes made in the console"  flush actions={<button className="btn sm" onClick={() => nav('/platform/audit')}>Audit log</button>}>
               {!c.recent_activity.length ? <Empty title="No console activity yet" /> : <div className="table-wrap"><table className="t"><tbody>
                 {c.recent_activity.map((a) => <tr key={a.id}><td className="nowrap muted">{fmtWhen(a.created_at)}</td><td>{a.admin}</td><td>{a.action}</td></tr>)}
               </tbody></table></div>}
-            </Card>
+            </FoldCard>
           </div>
         </>
       )}
@@ -164,7 +165,7 @@ export function HealthPage() {
   const { d, err, load } = useData(`${A}/health`);
   return (
     <>
-      <PageTitle title="System health" sub="Only verified results are shown as healthy. Items nothing has checked are marked “Not checked”."><button className="btn sm" onClick={load}>Check again</button></PageTitle>
+      <PageTitle title="System health" sub="Only verified results are shown as healthy. Items nothing has checked are marked “Not checked”."><button className="btn sm info" onClick={load}>Check again</button></PageTitle>
       <ErrorBox error={err} />
       {!d ? (!err && <Loading />) : (
         <Card title={<span>Overall <HealthBadge state={d.overall} /></span>} actions={<span className="muted">Checked {new Date(d.checked_at).toLocaleTimeString()}{d.unknown ? ` · ${d.unknown} not checked` : ''}</span>} flush>

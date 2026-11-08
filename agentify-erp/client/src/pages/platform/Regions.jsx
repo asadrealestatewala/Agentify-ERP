@@ -1,5 +1,6 @@
 // Console page: which regions workspaces can pick, their feature switches, legal rules awaiting review, and exchange rates.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, Empty, ErrorBox, Field, Loading, Modal, StatusBadge, TextInput } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -43,12 +44,12 @@ export function RegionsPage() {
                 </td>
               </tr>))}
           </tbody></table></div></Card>
-          <Card title="Exchange rates" flush>
+          <FoldCard id="Regions-Exchange rates" title="Exchange rates" summary="Rates used to show prices in other currencies" defaultOpen  flush>
             {manage && <div style={{ padding: 12 }}><button className="btn sm primary" onClick={() => setFx({ base: 'USD', quote: 'PKR', rate: '' })}>Add rate</button></div>}
             {!d.fx.length ? <Empty title="No exchange rates yet" /> : <div className="table-wrap"><table className="t"><thead><tr><th>From</th><th>To</th><th>Rate</th><th>As of</th><th>Source</th></tr></thead><tbody>
               {d.fx.map((x) => <tr key={`${x.base}${x.quote}${x.as_of}`}><td>{x.base}</td><td>{x.quote}</td><td className="mono">{x.rate}</td><td>{x.as_of}</td><td className="muted">{x.source}</td></tr>)}
             </tbody></table></div>}
-          </Card>
+          </FoldCard>
         </>
       )}
       {rules && (

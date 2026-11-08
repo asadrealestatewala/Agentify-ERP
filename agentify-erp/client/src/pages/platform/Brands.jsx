@@ -1,6 +1,7 @@
 // Brands: groups of workspaces that share a logo and colours. Nothing else is shared; every workspace keeps its own data,
 // staff, clients, fees and accounts. Add a workspace to a brand from the brand page or from the workspace's own page.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, ConfirmDialog, Empty, ErrorBox, Field, Loading, Modal, TextInput } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -72,7 +73,7 @@ function Editor({ brand, canEdit, onClose, reload }) {
   const roll = detail?.rollup;
   return (
     <Modal title={brand ? brand.name : 'Add a brand'} size="lg" onClose={onClose}
-      footer={<>{brand && canEdit && <button className="btn danger" onClick={() => setConfirm(true)} style={{ marginRight: 'auto' }}>Delete brand</button>}<button className="btn" onClick={onClose}>Close</button>{canEdit && <button className="btn primary" disabled={busy} onClick={save}>{brand ? 'Save and apply' : 'Create brand'}</button>}</>}>
+      footer={<>{brand && canEdit && <button className="btn danger" onClick={() => setConfirm(true)} style={{ marginRight: 'auto' }}>Delete brand</button>}<button className="btn warn" onClick={onClose}>Close</button>{canEdit && <button className="btn primary" disabled={busy} onClick={save}>{brand ? 'Save and apply' : 'Create brand'}</button>}</>}>
       <ErrorBox error={err} />
       <div className="pa-grid2" style={{ marginBottom: 12 }}>
         <Field label="Brand name" required><TextInput value={f.name} onChange={set('name')} disabled={ro} /></Field>
@@ -98,7 +99,7 @@ function Editor({ brand, canEdit, onClose, reload }) {
                 <Card><div className="cc-k">Contacts / properties</div><div className="cc-v">{n0(roll.contacts)} / {n0(roll.properties)}</div><div className="cell-sub">Counts only; each workspace sees its own</div></Card>
                 <Card><div className="cc-k">Sales / receipts</div><div className="cc-v">{n0(roll.sales)} / {n0(roll.receipts)}</div><div className="cell-sub">Counts only</div></Card>
               </div>
-              <Card title="Workspaces in this brand" flush>
+              <FoldCard id="Brands-Workspaces in this brand" title="Workspaces in this brand" summary="Workspaces that use this brand" defaultOpen  flush>
                 {!detail.workspaces.length ? <p className="muted" style={{ margin: 12 }}>None yet. Open a workspace (Workspaces &gt; Company profile) and choose this brand.</p> : (
                   <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th>Owner</th><th>Status</th><th>Main</th>{canEdit && <th />}</tr></thead><tbody>
                     {detail.workspaces.map((w) => (
@@ -106,7 +107,7 @@ function Editor({ brand, canEdit, onClose, reload }) {
                         <td>{w.main ? <span className="pill green">Main</span> : canEdit ? <button className="btn sm" onClick={() => setMain(w.id)}>Make main</button> : '—'}</td>
                         {canEdit && <td className="right"><button className="btn sm" onClick={() => remove(w.id)}>Remove</button></td>}</tr>))}
                   </tbody></table></div>)}
-              </Card>
+              </FoldCard>
             </>)}
         </>)}
       {confirm && <ConfirmDialog title="Delete this brand?" message="Its workspaces become independent. They keep the logo and colour last applied and can change them again. Nothing else is touched." confirmLabel="Delete brand" danger onConfirm={del} onCancel={() => setConfirm(false)} />}

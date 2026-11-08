@@ -1,6 +1,7 @@
 // Super Admin console: Email operations. Provider health and usage, platform and per-workspace consumption, delivery health,
 // failures, provider limits and manual commercial notes, onboarding-email schedule. Tenant data shown here is aggregate counts.
 import { useCallback, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, Empty, ErrorBox, Field, Loading, StatusBadge, TextInput, Toggle } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -26,7 +27,7 @@ function ResendConnection() {
   const reg = c.webhook.registered;
   const domains = t?.checks?.domains?.list || [];
   return (
-    <Card title="Resend connection" actions={<StatusBadge tone={!c.key.saved ? 'red' : t?.ok ? 'green' : t ? 'amber' : 'grey'} label={!c.key.saved ? 'No key saved' : t?.ok ? 'Connected' : t ? 'Needs attention' : 'Not tested yet'} />}>
+    <FoldCard id="EmailOps-Resend connection" title="Resend connection" summary="Email provider key and connection test"  actions={<StatusBadge tone={!c.key.saved ? 'red' : t?.ok ? 'green' : t ? 'amber' : 'grey'} label={!c.key.saved ? 'No key saved' : t?.ok ? 'Connected' : t ? 'Needs attention' : 'Not tested yet'} />}>
       <p style={{ marginTop: 0 }}>{c.key.saved ? <>API key saved{c.key.last4 ? <> (ends in <span className="mono">{c.key.last4}</span>)</> : null}, from the {c.key.source}. It is stored encrypted and is never shown again.</> : 'Paste your Resend API key under Integrations > Email. It is stored encrypted and is never shown again.'} <a href="/platform/integrations">Open Integrations</a></p>
       <div className="row wrap" style={{ gap: 8 }}>
         <button className="btn primary" disabled={!c.key.saved || busy === 'test'} onClick={() => run('test', 'test', (r) => (r.ok ? 'Connection works' : r.summary))}>Test connection</button>
@@ -68,7 +69,7 @@ function ResendConnection() {
           <li>Reply detection is only live once a reply domain is chosen and Resend receives mail for it.</li>
         </ol>
       </details>
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -94,31 +95,31 @@ export default function EmailOps() {
       <PageTitle title="Email operations" sub="Tenant email: provider health, consumption, delivery quality and the queue. Account and security email is counted separately." />
       <ResendConnection />
       <div className="pa-grid2">
-        <Card title="Provider" actions={<StatusBadge tone={d.provider.connected ? 'green' : 'red'} label={d.provider.connected ? 'Connected' : 'Not connected'} />}>
+        <FoldCard id="EmailOps-Provider" title="Provider" summary="Email provider status"  actions={<StatusBadge tone={d.provider.connected ? 'green' : 'red'} label={d.provider.connected ? 'Connected' : 'Not connected'} />}>
           <p style={{ margin: 0 }}>Last successful usage sync: <strong>{d.provider.last_success_at ? d.provider.last_success_at.replace('T', ' ').slice(0, 19) : 'never'}</strong></p>
           {d.provider.usage_error && <div className="alert warn" style={{ marginTop: 8 }}>Last sync problem: {d.provider.usage_error}</div>}
           {u ? <pre className="mono" style={{ fontSize: 12, whiteSpace: 'pre-wrap', margin: '8px 0 0' }}>{JSON.stringify(u, null, 2)}</pre> : <p className="muted">No usage reading yet.</p>}
           <p className="muted" style={{ fontSize: 12.5 }}>Shown exactly as the provider returns it. It does not include plan names, invoices or prices.</p>
-          <button className="btn" onClick={sync}>Refresh usage now</button>
-        </Card>
-        <Card title="Queue and delivery health">
+          <button className="btn info" onClick={sync}>Refresh usage now</button>
+        </FoldCard>
+        <FoldCard id="EmailOps-Queue and delivery health" title="Queue and delivery health" summary="Waiting, sent and failed emails" >
           <p style={{ margin: 0 }}>Waiting: <strong>{d.queue.queued}</strong> · Unconfirmed: <strong>{d.queue.ambiguous}</strong> · Failed (30 days): <strong>{d.queue.failed_30d}</strong>{d.queue.paused_until ? ` · Paused until ${d.queue.paused_until}` : ''}</p>
           <p style={{ margin: '6px 0 0' }}>Accepted (30 days): <strong>{d.health.accepted_30d}</strong> · Bounce rate <strong>{pct(d.health.bounce_rate)}</strong> · Complaint rate <strong>{pct(d.health.complaint_rate)}</strong></p>
           <p className="muted" style={{ fontSize: 12.5 }}>Account and security email in the last 30 days: {d.service_mail_30d}. Tenant mail yields to it when provider limits are close.</p>
-        </Card>
+        </FoldCard>
       </div>
-      <Card title="Email used by plan (current period)" flush>
+      <FoldCard id="EmailOps-Email used by plan (current period)" title="Email used by plan (current period)" summary="Emails sent per plan"  flush>
         <p className="muted" style={{ margin: '12px 16px 0', fontSize: 12.5 }}>Each workspace's period starts on its own day, so a row adds up periods that are not the same calendar month. Workspaces with no allowance set are counted as "used without allowance", not against a limit.</p>
         {d.by_plan?.length ? <div className="table-wrap"><table className="t"><thead><tr><th>Plan</th><th>Workspaces</th><th>Operational used / allowance</th><th>Marketing used / allowance</th><th>Warning</th><th>Used up</th></tr></thead><tbody>
           {d.by_plan.map((p) => { const o = p.categories.operational, m = p.categories.marketing; const cell = (c) => (c.workspaces_with_allowance ? `${c.used_total} / ${c.allowance_total}` : '—') + (c.used_without_allowance ? ` (+${c.used_without_allowance} without allowance)` : ''); return <tr key={p.plan}><td>{p.plan_name}</td><td>{p.workspaces}</td><td>{cell(o)}</td><td>{cell(m)}</td><td>{o.at_warning + m.at_warning}</td><td>{o.exhausted + m.exhausted}</td></tr>; })}
         </tbody></table></div> : <Empty title="No workspaces yet" />}
-      </Card>
-      <Card title="Email used by workspace (current period)" flush>
+      </FoldCard>
+      <FoldCard id="EmailOps-Email used by workspace (current period)" title="Email used by workspace (current period)" summary="Emails sent per workspace"  flush>
         {d.workspaces?.length ? <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th>Plan</th><th>Operational</th><th>Marketing</th><th>Period resets</th></tr></thead><tbody>
           {d.workspaces.map((w) => <tr key={w.id}><td>{w.name}</td><td>{w.plan_name}</td>{['operational', 'marketing'].map((k) => { const c = w.categories[k]; const [tone, label] = STATE[c.state] || ['grey', c.state]; return <td key={k}>{w.plan_name === 'Not metered' ? 'Not metered' : <>{usedOf(c)} <StatusBadge tone={tone} label={label} /></>}</td>; })}<td>{String(w.period_resets_at || '').slice(0, 10)}</td></tr>)}
         </tbody></table></div> : <Empty title="No workspaces yet" />}
-      </Card>
-      <Card title="Provider limits (entered by hand) and commercial notes">
+      </FoldCard>
+      <FoldCard id="EmailOps-Provider limits (entered by hand) and commercial notes" title="Provider limits (entered by hand) and commercial notes" summary="Limits from your email provider plan" >
         <p className="muted" style={{ marginTop: 0 }}>These are your own figures, used to protect capacity for account email and to label estimated cost. Nothing here is read from the provider's billing.</p>
         <div className="pa-grid3">
           <Field label="Monthly send limit"><TextInput type="number" value={f.monthly} onChange={(v) => setF({ ...f, monthly: v })} /></Field>
@@ -131,24 +132,24 @@ export default function EmailOps() {
         </div>
         <Field label="Notes"><TextInput value={f.notes} onChange={(v) => setF({ ...f, notes: v })} /></Field>
         <button className="btn primary" onClick={save}>Save</button>
-      </Card>
-      <Card title="Workspace consumption (last 30 days)" flush>
+      </FoldCard>
+      <FoldCard id="EmailOps-Workspace consumption (last 30 days)" title="Workspace consumption (last 30 days)" summary="Email use per workspace"  flush>
         {d.tenants.length ? <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th>Type</th><th>Queued/used</th><th>Accepted</th><th>Delivered</th><th>Bounced</th><th>Complained</th><th>Failed</th><th>Stopped</th></tr></thead><tbody>
           {d.tenants.map((t) => <tr key={`${t.tenant_id}${t.category}`}><td>{t.name}</td><td>{t.category}</td><td>{t.used}</td><td>{t.accepted}</td><td>{t.delivered}</td><td>{t.bounced}</td><td>{t.complained}</td><td>{t.failed}</td><td>{t.stopped}</td></tr>)}
         </tbody></table></div> : <Empty title="No tenant email yet" />}
-      </Card>
-      <Card title="Recent failures and unconfirmed sends" flush>
+      </FoldCard>
+      <FoldCard id="EmailOps-Recent failures and unconfirmed sends" title="Recent failures and unconfirmed sends" summary="Emails that failed or were not confirmed"  flush>
         {d.recent_failures.length ? <div className="table-wrap"><table className="t"><thead><tr><th>#</th><th>Workspace</th><th>To</th><th>Status</th><th>Detail</th><th /></tr></thead><tbody>
           {d.recent_failures.map((r) => <tr key={r.id}><td>{r.id}</td><td>{r.tenant_id}</td><td>{r.to_addr}</td><td>{r.status}</td><td>{r.last_error}</td><td>{r.status === 'ambiguous' || r.status === 'failed' ? <button className="btn sm" onClick={async () => { await api.post(`${A}/email/queue/${r.id}/release`); load(); }}>Release quota</button> : null}</td></tr>)}
         </tbody></table></div> : <Empty title="No failures" />}
-      </Card>
-      <Card title="Setup email schedule">
+      </FoldCard>
+      <FoldCard id="EmailOps-Setup email schedule" title="Setup email schedule" summary="When onboarding emails go out" >
         <p className="muted" style={{ marginTop: 0 }}>Sent to workspace owners from Agentify, only inside their local {d.onboarding.hours[0]}:00–{d.onboarding.hours[1]}:00, at most {d.onboarding.max_per_week} a week, skipped when a step is already done.</p>
         <Toggle value={d.onboarding.enabled} onChange={async (v) => { await api.put(`${A}/email/onboarding`, { enabled: v }); load(); }} label="Onboarding emails on" />
         <div className="pa-grid3" style={{ marginTop: 8 }}>
           {Object.entries(d.onboarding.messages).map(([k, m]) => <Toggle key={k} value={m.enabled} onChange={async (v) => { await api.put(`${A}/email/onboarding`, { messages: { [k]: { enabled: v } } }); load(); }} label={`${k.replace('_', ' ')}${m.day ? ` (day ${m.day})` : ''}`} />)}
         </div>
-      </Card>
+      </FoldCard>
     </div>
   );
 }

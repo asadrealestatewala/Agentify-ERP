@@ -1,4 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, ErrorBox, Field, Loading, Select, TextInput } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -20,7 +21,7 @@ function AddForm({ data, onDone, onCancel }) {
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   };
   return (
-    <Card title="Add a video to the library">
+    <FoldCard id="TrainingVideos-Add a video to the library" title="Add a video to the library" summary="Add a training video" defaultOpen >
       <ErrorBox error={err} />
       <Field label="Video file" hint="MP4, WebM or MOV"><input type="file" accept="video/mp4,video/webm,video/quicktime" aria-label="Video file" onChange={(e) => setFile(e.target.files?.[0] || null)} /></Field>
       <Field label="Title" hint="Shown to everyone, and used as the YouTube title (100 characters at most)"><TextInput value={f.title} onChange={(v) => setF({ ...f, title: v })} /></Field>
@@ -30,7 +31,7 @@ function AddForm({ data, onDone, onCancel }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(190px,1fr))', gap: 6 }}>{data.roles.map((r) => <label key={r} className="check"><input type="checkbox" checked={roles.includes(r)} onChange={() => setRoles(roles.includes(r) ? roles.filter((x) => x !== r) : [...roles, r])} /> {r}</label>)}</div>
       </Field>
       <div className="row" style={{ gap: 8 }}><button className="btn primary" disabled={busy} onClick={go}>{busy ? 'Uploading…' : 'Add video'}</button><button className="btn" onClick={onCancel}>Cancel</button></div>
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -41,7 +42,7 @@ function YoutubeCard({ yt, canManage, reload }) {
   const connect = async () => { setBusy(true); setErr(''); try { const { url } = await api.get(`${A}/training-videos/youtube/connect`); window.location.assign(url); } catch (e) { setErr(e.message); setBusy(false); } };
   const disconnect = async () => { setBusy(true); try { await api.del(`${A}/training-videos/youtube`); toast('YouTube disconnected'); reload(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   return (
-    <Card title="YouTube channel">
+    <FoldCard id="TrainingVideos-YouTube channel" title="YouTube channel" summary="Channel the videos come from" defaultOpen >
       <ErrorBox error={err} />
       {yt.state === 'not_configured' && <>
         <p><b>Not configured.</b> Videos cannot be posted until the Google sign-in app has a client ID and secret. Nothing else is affected: workspaces keep playing the videos from this server meanwhile.</p>
@@ -56,10 +57,10 @@ function YoutubeCard({ yt, canManage, reload }) {
         <p><span className="pill green">Connected</span> {yt.account ? <>as <b>{yt.account}</b>. </> : null}{yt.channel?.id ? <>Uploads go to the channel <b>{yt.channel.title || 'unnamed'}</b> <span className="mono">({yt.channel.id})</span>.</> : 'The channel could not be read. Disconnect and connect again to see which channel uploads go to.'}</p>
         {canManage && <>
           <Field label="Expected channel ID (optional safety)" hint="When set, posting is refused unless the connected channel matches, so nothing lands on the wrong channel. Find it in YouTube Studio > Settings > Channel > Advanced settings."><TextInput value={expected} onChange={setExpected} placeholder="UC…" /></Field>
-          <div className="row" style={{ gap: 8 }}><button className="btn" disabled={busy} onClick={saveExpected}>Save expected channel</button><button className="btn" disabled={busy} onClick={disconnect}>Disconnect</button></div>
+          <div className="row" style={{ gap: 8 }}><button className="btn" disabled={busy} onClick={saveExpected}>Save expected channel</button><button className="btn danger" disabled={busy} onClick={disconnect}>Disconnect</button></div>
         </>}</>}
       <p className="muted" style={{ fontSize: 12.5, marginTop: 10 }}>Google limits uploads: the default quota allows about 6 uploads a day. YouTube also keeps videos from a new Google project private until the project passes YouTube's API compliance review, so unlisted and public only take effect after that review.</p>
-    </Card>
+    </FoldCard>
   );
 }
 

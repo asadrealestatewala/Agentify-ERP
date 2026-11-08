@@ -1,6 +1,7 @@
 // Console: reel video tools. (1) Is ffmpeg installed on this server? (2) Voice test lab: try one Punjabi line through both reel voice
 // paths and listen, before Punjabi is offered to any workspace. Platform-only; nothing is saved.
 import { useEffect, useRef, useState } from 'react';
+import { FoldCard } from './Fold.jsx';
 import { Card, ErrorBox } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
@@ -9,13 +10,13 @@ import { A } from './AdminShell.jsx';
 export function FfmpegStatus({ ffmpeg }) {
   if (!ffmpeg) return null;
   return (
-    <Card title="Reel video tools">
+    <FoldCard id="AiVoiceLab-Reel video tools" title="Reel video tools" summary="Video tool checks" defaultOpen >
       <p style={{ margin: 0 }}>
         <span className={`pill ${ffmpeg.available ? 'green' : 'amber'}`}>{ffmpeg.available ? 'ffmpeg ready' : 'ffmpeg missing'}</span>{' '}
         {ffmpeg.available ? `${ffmpeg.version}. Reels can be 8, 16 or 24 seconds with the voice inside the video.` : ffmpeg.message}
       </p>
       {!ffmpeg.available && <p className="muted" style={{ marginBottom: 0 }}>To install it, run as root on the server: <code>apt-get update &amp;&amp; apt-get install -y ffmpeg</code>, then restart the app. The next deploy also installs it automatically.</p>}
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -50,7 +51,7 @@ export default function AiVoiceLab({ can }) {
   };
   const c = info?.clip;
   return (
-    <Card title="Voice test lab: Punjabi (hidden from workspaces)">
+    <FoldCard id="AiVoiceLab-Voice test lab: Punjabi (hidden from workspaces)" title="Voice test lab: Punjabi (hidden from workspaces)" summary="Try Punjabi voices before release" defaultOpen >
       <ErrorBox error={err} />
       <p className="muted" style={{ marginTop: 0 }}>Workspaces only see English and Urdu. Try one short Punjabi line here before deciding. Nothing is saved, and the cost is charged to Agentify.</p>
       {info && (
@@ -71,6 +72,6 @@ export default function AiVoiceLab({ can }) {
           {busy === 'clip' && <p><span className="pill amber">Making the test clip…</span></p>}
           {clip && <video src={clip} controls playsInline style={{ maxWidth: 260, width: '100%', borderRadius: 6, background: '#000' }} />}
         </>)}
-    </Card>
+    </FoldCard>
   );
 }
