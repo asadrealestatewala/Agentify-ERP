@@ -6,6 +6,7 @@ import { Card, Empty, ErrorBox, Field, Loading, PageHead } from '../components/u
 import { api } from '../api.js';
 import { useAuth, useToast } from '../context.jsx';
 import { dateTime } from '../format.js';
+import ReportButton from '../components/ReportButton.jsx';
 
 const CreativeReview = lazy(() => import('./CreativeReview.jsx'));
 const CreativeResults = lazy(() => import('./CreativeResults.jsx'));
@@ -37,16 +38,6 @@ function SendToCalendar({ kind, id }) {
   return done ? <button className="btn sm" onClick={() => nav('/content')}>Open calendar</button> : <button className="btn sm" onClick={send} disabled={busy} data-tour="creative-calendar">{busy ? 'Adding…' : 'Send to calendar'}</button>;
 }
 
-function ReportButton({ feature, prompt, output }) {
-  const toast = useToast();
-  const [done, setDone] = useState(false);
-  const send = async () => {
-    const note = window.prompt('What is wrong with this result? (optional)', '');
-    if (note === null) return;
-    try { await api.post('/api/creative/report', { feature, prompt, output, note }); setDone(true); toast('Thank you. We will review it.'); } catch (e) { toast(e.message, 'err'); }
-  };
-  return <button className="btn sm" onClick={send} disabled={done} data-tour="creative-report">{done ? 'Reported' : 'Report'}</button>;
-}
 
 /** Toggle chips for multi-select choices (platforms, languages, tone words). */
 function Chips({ options, value, onChange, max, disabled, label }) {
@@ -297,6 +288,7 @@ function Mine({ version }) {
           <div className="row" style={{ gap: 6 }}>
             {r.has_file && <a className="btn sm" href={`/api/creative/items/${r.id}/file?download=1`}>Download</a>}
             <SendToCalendar kind="item" id={r.id} />
+            <ReportButton feature={r.kind === 'story' ? 'brand_story' : 'creative_post'} prompt={r.title} output={`saved ${r.kind === 'story' ? 'story' : 'image'} ${r.id}`} />
             {can('content', 'delete') && <button className="btn sm danger" onClick={() => del(r)}>Delete</button>}
           </div>
         </Card>))}

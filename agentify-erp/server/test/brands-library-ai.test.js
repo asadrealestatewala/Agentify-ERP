@@ -199,4 +199,11 @@ test('AI limits: kill switch, feature switch, workspace switch, daily limit and 
   assert.equal((await as(smm, 'GET', '/ai/controls')).status, 403);
   assert.equal((await as(smm, 'PUT', '/ai/controls', { kill_switch: true })).status, 403);
   assert.ok(platformDb().prepare("SELECT 1 FROM platform_audit WHERE action='ai-controls-changed'").get());
+  // the master switch remembers who changed it last
+  await as(owner, 'PUT', '/ai/controls', { kill_switch: true });
+  let last = (await as(owner, 'GET', '/ai/controls')).data.kill_switch_last;
+  assert.equal(last.state, 'off'); assert.ok(last.by && last.at);
+  await as(owner, 'PUT', '/ai/controls', { kill_switch: false });
+  last = (await as(owner, 'GET', '/ai/controls')).data.kill_switch_last;
+  assert.equal(last.state, 'on');
 });

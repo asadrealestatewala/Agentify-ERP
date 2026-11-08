@@ -73,7 +73,7 @@ r.delete('/reels/:id(\\d+)', can('content', 'delete'), asyncH((req, res) => {
 /** Flag a result as wrong, unsafe or poor; Agentify reviews these. */
 r.post('/report', can('content', 'view'), asyncH((req, res) => {
   const b = req.body || {};
-  if (!['brand_story', 'creative_post', 'creative_video', 'ask_assistant'].includes(b.feature)) throw bad('Nothing to report');
+  if (!['brand_story', 'creative_post', 'creative_video', 'ask_assistant', 'content_draft'].includes(b.feature)) throw bad('Nothing to report');
   const t = currentTenant();
   const out = createReport({ tenantId: t?.id ?? null, tenantName: t?.name ?? null, userName: req.user.name, feature: b.feature, prompt: b.prompt, output: b.output, note: b.note });
   audit(req, 'AI result reported', 'creative', out.id, b.feature); res.status(201).json(out);

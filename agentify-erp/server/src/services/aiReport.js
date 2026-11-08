@@ -7,7 +7,7 @@ import { imageModel, videoModel, voiceFor, azureTest, azureSpeak, DEFAULT_VOICES
 import { hordeStatus, hordeReady, geminiAskEnabled } from './hordeGateway.js';
 import { groqStatus, groqReady } from './groqGateway.js';
 import { askOrder, engineErrors } from './askOrder.js';
-import { config, monthStartOf, ensureTable, featuresOff } from './aiUsage.js';
+import { config, monthStartOf, ensureTable, featuresOff, flag, killSwitchLastChange } from './aiUsage.js';
 import { FEATURES, priceList, textPrices } from './aiPricing.js';
 import { getRate, displayCurrency } from './fxRate.js';
 import { ffmpegStatus } from './ffmpeg.js';
@@ -90,7 +90,7 @@ export function overview(now = new Date()) {
   });
   const tp = textPrices();
   return {
-    rate, display_currency: displayCurrency(), ffmpeg: ffmpegStatus(),
+    rate, display_currency: displayCurrency(), master: { on: !flag('ai_kill_switch'), last_change: killSwitchLastChange() }, ffmpeg: ffmpegStatus(),
     month: { spent_usd: spent, spent_pkr: spentPkr, budget_usd: budgetUsd(), video_budget_usd: videoBudgetUsd(), video_spent_usd: byF.get('creative_video')?.usd || 0 },
     features, prices: priceList(now), text_price_source: tp.source, workspaces,
     limits: { platform_daily_limit: numSetting('ai_platform_daily_limit'), platform_daily_limit_effective: platformDailyLimit(null), default_monthly_credits: defaultMonthlyCredits() },

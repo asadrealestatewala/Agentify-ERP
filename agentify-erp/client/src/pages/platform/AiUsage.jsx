@@ -17,6 +17,8 @@ function Settings({ s, reload }) {
   const [f, setF] = useState({ api_key: '', model: s.model || '', budget_month: s.budget_month ?? '', price_in_per_m: s.price_in_per_m ?? '', price_out_per_m: s.price_out_per_m ?? '', currency: s.currency || 'USD', draft_daily_cap: s.draft_daily_cap });
   const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const save = async () => { setBusy(true); setErr(''); try { await api.put(`${A}/ai/settings`, { ...f, api_key: f.api_key || undefined }); toast('AI settings saved'); setF({ ...f, api_key: '' }); reload(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const [testing, setTesting] = useState(false);
+  const test = async () => { setTesting(true); setErr(''); try { const r = await api.post(`${A}/ai/settings/test`, {}); toast(`Gemini connected (${r.model})`); } catch (e) { setErr(e.message); } finally { setTesting(false); } };
   const remove = async () => { if (!window.confirm('Remove the Gemini key? AI drafts stop until a key is added again.')) return; try { await api.del(`${A}/ai/settings/key`); toast('Key removed'); reload(); } catch (e) { setErr(e.message); } };
   const set = (k) => (v) => setF({ ...f, [k]: v });
   return (
@@ -32,7 +34,7 @@ function Settings({ s, reload }) {
         <Field label="Output price per 1M tokens" hint="Thinking tokens count as output"><input className="input" type="number" min={0} step="any" value={f.price_out_per_m} onChange={(e) => set('price_out_per_m')(e.target.value)} /></Field>
         <Field label="AI post drafts per day" hint="Placeholder limit; 0 switches drafts off"><input className="input" type="number" min={0} value={f.draft_daily_cap} onChange={(e) => set('draft_daily_cap')(e.target.value)} /></Field>
       </div>
-      <div className="row" style={{ gap: 8 }}><button className="btn primary" disabled={busy} onClick={save}>Save settings</button>{s.connected && <button className="btn" onClick={remove}>Remove key</button>}</div>
+      <div className="row" style={{ gap: 8 }}><button className="btn primary" disabled={busy} onClick={save}>Save settings</button>{s.connected && <button className="btn" disabled={testing} onClick={test}>{testing ? 'Testing…' : 'Test the connection'}</button>}{s.connected && <button className="btn" onClick={remove}>Remove key</button>}</div>
     </Card>
   );
 }
@@ -63,6 +65,7 @@ function WorkspaceControls({ canEdit, show }) {
   return (
     <>
       {show === 'controls' && <Card title="Master switch, feature switches and workspace-key limits" actions={c.kill_switch ? <span className="pill red">AI is switched off for all workspaces</span> : <span className="pill green">AI is on</span>}>
+        {c.kill_switch_last && <p className="muted" style={{ marginTop: 0, fontSize: 12 }}>Last change: {new Date(c.kill_switch_last.at).toLocaleString()}{c.kill_switch_last.by ? ` by ${c.kill_switch_last.by}` : ''}{c.kill_switch_last.state ? ` (switched ${c.kill_switch_last.state})` : ''}</p>}
         <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>These apply to AI that workspaces run with their own provider keys (data assistant, property writer, website builder, promo video scripts). Limits are checked before a feature starts. Agentify's own Gemini drafts have their own budget above. Speech-to-text transcripts are not counted or limited yet.</p>
         {canEdit && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12, alignItems: 'start' }}>

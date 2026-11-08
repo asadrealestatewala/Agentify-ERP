@@ -779,7 +779,7 @@ r.delete('/ai/azure/key', requireOperator, need('integrations.manage'), (req, re
 r.get('/ai/reports', requireOperator, need('finance.view'), (req, res) => res.json(aiReports.listReports({ handled: req.query.handled === '1' })));
 r.put('/ai/reports/:id(\\d+)', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiReports.handleReport(req.params.id, req.operator.email, req.body?.handled !== false); audit(req.operator.email, 'ai-report-handled', { id: v.id, status: v.status }); res.json(v); }));
 r.get('/ai/controls', requireOperator, need('finance.view'), (_req, res) => res.json(aiu.controls()));
-r.put('/ai/controls', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiu.saveControls(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-controls-changed', { fields: Object.keys(req.body || {}) }); res.json(v); }));
+r.put('/ai/controls', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = aiu.saveControls(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-controls-changed', { fields: Object.keys(req.body || {}) }); if ('kill_switch' in (req.body || {})) audit(req.operator.email, 'ai-kill-switch', { state: req.body.kill_switch ? 'off' : 'on' }); res.json(v); }));
 r.put('/ai/workspaces/:id(\\d+)', requireOperator, need('integrations.manage'), asyncH((req, res) => {
   const w = aiu.saveWorkspaceAi(req.params.id, req.body || {}, req.operator.email);
   audit(req.operator.email, 'workspace-ai-changed', { slug: w.slug, ai_enabled: w.ai_enabled, daily_call_limit: w.daily_call_limit }); res.json(w);
@@ -807,6 +807,7 @@ r.put('/library/:id(\\d+)', requireOperator, need('library.manage'), asyncH((req
 r.post('/library/:id(\\d+)/:action(retire|reinstate)', requireOperator, need('library.manage'), asyncH((req, res) => {
   const i = lib.setStatus(req.params.id, req.params.action === 'retire' ? 'retired' : 'active', req.operator.email); audit(req.operator.email, `library-item-${req.params.action}d`, { id: i.id, title: i.title }); res.json(i);
 }));
+r.post('/ai/settings/test', requireOperator, need('integrations.manage'), asyncH(async (_req, res) => res.json(await aiu.testSavedKey())));
 r.get('/ai/settings', requireOperator, need('integrations.manage'), (_req, res) => res.json(aiu.settingsView()));
 r.put('/ai/settings', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const v = await aiu.saveSettings(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-settings-changed', { key_changed: !!req.body?.api_key && !/^•/.test(req.body.api_key) }); res.json(v); }));
 r.delete('/ai/settings/key', requireOperator, need('integrations.manage'), (req, res) => { aiu.disconnect(); audit(req.operator.email, 'ai-key-removed', {}); res.json(aiu.settingsView()); });
