@@ -116,7 +116,13 @@ function loadExtra() {
   return posts;
 }
 
-export const BLOG_POSTS = [...BASE_POSTS, ...loadExtra()];
+import { publishedPosts } from './blogStore.js';
+
+const BUILT_IN = [...BASE_POSTS, ...loadExtra()];
+/** Built-in articles. Use allPosts() to include the ones the blog agent published. */
+export const BLOG_POSTS = BUILT_IN;
+export const allPosts = () => { const extra = publishedPosts(); return extra.length ? [...BUILT_IN, ...extra.filter((e) => !BUILT_IN.some((b) => b.slug === e.slug))] : BUILT_IN; };
+export { parseBody, words };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -129,7 +135,8 @@ const px = (raw, o) => `${raw}${raw.includes('?') ? '&' : '?'}auto=format&fit=cr
  */
 export const imageOf = (p) => {
   const alt = `${p.keyword ? `${p.keyword[0].toUpperCase()}${p.keyword.slice(1)}: ` : ''}${p.title}`;
-  const ph = PHOTOS[p.slug];
+  const ph = p.photo || PHOTOS[p.slug];
+  if (!ph && p.agent) return { webp: BLOG_INDEX_OG, jpg: BLOG_INDEX_OG, og: BLOG_INDEX_OG, width: 1200, height: 630, alt };
   if (!ph) return { webp: `/blog-img/${p.slug}.webp`, jpg: `/blog-img/${p.slug}.jpg`, og: `/blog-img/${p.slug}-og.jpg`, width: 1600, height: 900, alt };
   return {
     webp: px(ph.raw, 'fm=webp&w=1600&h=900'), jpg: px(ph.raw, 'fm=jpg&w=1600&h=900'), og: px(ph.raw, 'fm=jpg&w=1200&h=630'),
@@ -139,10 +146,10 @@ export const imageOf = (p) => {
 };
 export const BLOG_INDEX_OG = '/blog-img/blog-index-og.jpg';
 
-export const listPosts = () => [...BLOG_POSTS].sort((a, b) => (a.date < b.date ? 1 : -1)).map((p) => ({ slug: p.slug, title: p.title, description: p.description, date: p.date, read: p.read, tag: p.tag, image: imageOf(p) }));
-export const getPost = (slug) => BLOG_POSTS.find((p) => p.slug === slug) || null;
+export const listPosts = () => [...allPosts()].sort((a, b) => (a.date < b.date ? 1 : -1)).map((p) => ({ slug: p.slug, title: p.title, description: p.description, date: p.date, read: p.read, tag: p.tag, image: imageOf(p) }));
+export const getPost = (slug) => allPosts().find((p) => p.slug === slug) || null;
 /** Titles of the related articles that exist, for the links under an article. */
-export const relatedOf = (post) => (post.related || []).map((s) => BLOG_POSTS.find((p) => p.slug === s)).filter(Boolean).map(({ slug, title }) => ({ slug, title }));
+export const relatedOf = (post) => (post.related || []).map((s) => allPosts().find((p) => p.slug === s)).filter(Boolean).map(({ slug, title }) => ({ slug, title }));
 /** The article as the public page and API show it (adds the related-article titles). */
 export const publicPost = (post) => ({ ...post, related: relatedOf(post), image: imageOf(post) });
 

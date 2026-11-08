@@ -8,7 +8,7 @@ import { bad, HttpError } from '../util.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BLOG_POSTS, getPost, listPosts, bodyHtml, imageOf, BLOG_INDEX_OG } from './blog.js';
+import { allPosts, getPost, listPosts, bodyHtml, imageOf, BLOG_INDEX_OG } from './blog.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -430,7 +430,7 @@ export function platformSitemap(req) {
   const o = siteOrigin(req);
   const built = builtOn();
   const urls = Object.keys(MARKETING_ROUTES).filter((p) => p !== '/signup').map((p) => `  <url><loc>${o}${p}</loc><lastmod>${built}</lastmod><changefreq>${p.startsWith('/legal') ? 'monthly' : 'weekly'}</changefreq></url>`);
-  BLOG_POSTS.forEach((p) => urls.push(`  <url><loc>${o}/blog/${p.slug}</loc><lastmod>${p.date}</lastmod><changefreq>monthly</changefreq><image:image><image:loc>${escHtml(/^https?:/.test(imageOf(p).jpg) ? imageOf(p).jpg : o + imageOf(p).jpg)}</image:loc></image:image></url>`));
+  allPosts().forEach((p) => urls.push(`  <url><loc>${o}/blog/${p.slug}</loc><lastmod>${p.date}</lastmod><changefreq>monthly</changefreq><image:image><image:loc>${escHtml(/^https?:/.test(imageOf(p).jpg) ? imageOf(p).jpg : o + imageOf(p).jpg)}</image:loc></image:image></url>`));
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${urls.join('\n')}\n</urlset>\n`;
 }
 export const platformRobots = (req) => `User-agent: *\nAllow: /\nDisallow: /platform\nDisallow: /api/\nSitemap: ${siteOrigin(req)}/sitemap.xml\n`;

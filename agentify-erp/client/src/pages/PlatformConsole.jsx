@@ -18,6 +18,7 @@ import BrandsPage from './platform/Brands.jsx';
 import LibraryPage from './platform/Library.jsx';
 import StoragePage from './platform/Storage.jsx';
 import ContentCalendarPage from './platform/ContentCalendar.jsx';
+import BlogAgentPage from './platform/BlogAgent.jsx';
 import { AdminsPage, SessionsPage, LoginsPage, AuditPage, MaintenancePage, EmailSafetyPage } from './platform/Security.jsx';
 import { ReportsPage, ReconciliationPage } from './platform/Reports.jsx';
 import { Dashboard, HealthPage, NotificationsPage, SetupPage } from './platform/Dashboard.jsx';
@@ -437,6 +438,7 @@ function ConsoleRoutes() {
         <Route path="ai-usage" element={<Allowed perm="finance.view"><AiUsagePage /></Allowed>} />
         <Route path="social-posting" element={<Allowed perm="finance.view"><SocialPostingPage /></Allowed>} />
         <Route path="content" element={<Allowed perm="content.calendar"><ContentCalendarPage /></Allowed>} />
+        <Route path="blog-agent" element={<Allowed perm="content.manage"><BlogAgentPage /></Allowed>} />
         <Route path="whats-new" element={<WhatsNew platform />} />
         <Route path="health" element={<Allowed perm="system.view"><HealthPage /></Allowed>} />
         <Route path="notifications" element={<Allowed perm="dashboard.view"><NotificationsPage /></Allowed>} />

@@ -47,6 +47,7 @@ import { cleanWhatsappLimits } from '../services/whatsappLimits.js';
 import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
 import * as cal from '../services/contentCalendar.js';
+import * as blogAgent from '../services/blogAgent.js';
 import { addPromoDrafts, promoFileOf, downloadName } from '../services/promoDrafts.js';
 import * as aiu from '../services/aiUsage.js';
 import * as aiRep from '../services/aiReport.js';
@@ -698,6 +699,26 @@ const videoUpload = multer({
   limits: { fileSize: 500 * 1024 * 1024, files: 1, fields: 12 },
   fileFilter: (_r, f, cb) => (['.mp4', '.webm', '.mov'].includes(path.extname(f.originalname).toLowerCase()) && /^video\//.test(f.mimetype) ? cb(null, true) : cb(bad('Choose a video file (MP4, WebM or MOV)'))),
 });
+// ---- Blog agent: daily AI-written blog drafts that a person approves before they appear on /blog
+r.get('/blog-agent', requireOperator, need('content.manage'), (_req, res) => res.json({ ...blogAgent.overview(), can_edit_keys: can(_req.operator, 'system.manage') }));
+r.put('/blog-agent/settings', requireOperator, need('content.manage'), asyncH((req, res) => {
+  const b = req.body || {};
+  if ((b.tavily_key !== undefined || b.unsplash_key !== undefined || b.auto_publish != null) && !can(req.operator, 'system.manage')) throw new HttpError(403, 'Only a Super Admin can change keys or auto-publish');
+  const out = blogAgent.saveSettings(b, req.operator.email);
+  audit(req.operator.email, 'blog-agent-settings', { fields: Object.keys(b).filter((k) => !/key/.test(k)), keys_changed: Object.keys(b).filter((k) => /key/.test(k)) });
+  res.json(out);
+}));
+r.post('/blog-agent/run', requireOperator, need('content.manage'), asyncH(async (req, res) => {
+  const out = await blogAgent.runBlogAgent({ force: true, by: req.operator.email });
+  audit(req.operator.email, 'blog-agent-run', { made: out.made?.length || 0, errors: out.errors?.length || 0 });
+  res.json({ ...out, ...blogAgent.overview() });
+}));
+r.get('/blog-agent/posts/:id', requireOperator, need('content.manage'), asyncH((req, res) => res.json(blogAgent.getDraft(req.params.id))));
+r.put('/blog-agent/posts/:id', requireOperator, need('content.manage'), asyncH((req, res) => { const p = blogAgent.editDraft(req.params.id, req.body || {}); audit(req.operator.email, 'blog-agent-edited', { id: p.id }); res.json(p); }));
+r.post('/blog-agent/posts/:id/:action(publish|unpublish|reject)', requireOperator, need('content.manage'), asyncH((req, res) => {
+  const p = blogAgent.decide(req.params.id, req.params.action, req.operator.email); audit(req.operator.email, `blog-agent-${req.params.action}`, { id: p.id, slug: p.slug }); res.json(p);
+}));
+r.delete('/blog-agent/posts/:id', requireOperator, need('content.manage'), asyncH((req, res) => { blogAgent.removeDraft(req.params.id); audit(req.operator.email, 'blog-agent-deleted', { id: Number(req.params.id) }); res.json({ ok: true }); }));
 // ---- Content calendar (Agentify's own marketing posts); the Social Media Manager role works only here
 r.get('/content', requireOperator, need('content.calendar'), (_req, res) => res.json({ ...cal.overview(), can_edit_limits: can(_req.operator, 'system.manage'), ai: aiu.aiStatus() }));
 r.post('/content/posts', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.createPost(req.body || {}, req.operator.email); audit(req.operator.email, 'content-post-created', { id: p.id, channel: p.channel }); res.status(201).json(p); }));
