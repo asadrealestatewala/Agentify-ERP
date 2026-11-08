@@ -55,16 +55,19 @@ test('every article has image files, share tags and image schema', async () => {
   const dir = new URL('../../client/public/blog-img/', import.meta.url);
   for (const p of BLOG_POSTS) {
     const im = imageOf(p);
-    for (const f of [im.webp, im.jpg, im.og]) assert.ok(fs.existsSync(new URL(f.replace('/blog-img/', ''), dir)), `${p.slug} missing ${f}`);
+    for (const f of [im.webp, im.jpg, im.og]) {
+      if (f.startsWith('https://images.unsplash.com/')) { assert.ok(im.credit?.name && im.credit.profile.includes('utm_source=agentify_erp'), `${p.slug} needs a photo credit`); continue; }
+      assert.ok(fs.existsSync(new URL(f.replace('/blog-img/', ''), dir)), `${p.slug} missing ${f}`);
+    }
     assert.ok(im.alt.length > 10);
   }
   assert.ok(fs.existsSync(new URL('blog-index-og.jpg', dir)));
   const p = BLOG_POSTS[7];
   const h = injectMeta(shell, `/blog/${p.slug}`, req);
-  assert.match(h, /property="og:image" content="https:\/\/agentifyerp\.co\/blog-img\/.+-og\.jpg"/);
+  assert.match(h, /property="og:image" content="https:\/\/(agentifyerp\.co\/blog-img\/.+-og\.jpg|images\.unsplash\.com\/.+)"/);
   assert.match(h, /summary_large_image/);
-  assert.match(h, /"image":\["https:\/\/agentifyerp\.co\/blog-img\//);
-  assert.match(h, /<img src="\/blog-img\/.+" width="1600" height="900" alt=/);
-  assert.match(platformSitemap(req), /<image:loc>https:\/\/agentifyerp\.co\/blog-img\//);
+  assert.match(h, /"image":\["https:\/\/(agentifyerp\.co\/blog-img|images\.unsplash\.com)\//);
+  assert.match(h, /<img src="(\/blog-img\/|https:\/\/images\.unsplash\.com\/).+" width="1600" height="900" alt=/);
+  assert.match(platformSitemap(req), /<image:loc>https:\/\/(agentifyerp\.co\/blog-img|images\.unsplash\.com)\//);
   assert.match(injectMeta(shell, '/blog', req), /blog-index-og\.jpg/);
 });

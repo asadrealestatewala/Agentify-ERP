@@ -989,7 +989,7 @@ function BlogList({ info }) {
       <div className="lprod">
         {posts.map((p) => (
           <Link key={p.slug} className="lcard lblog" to={`/blog/${p.slug}`}>
-            <picture><source srcSet={p.image.webp} type="image/webp" /><img src={p.image.jpg} width={p.image.width} height={p.image.height} alt={p.image.alt} loading="lazy" decoding="async" /></picture>
+            <picture><source srcSet={(p.image.card || p.image).webp} type="image/webp" /><img src={(p.image.card || p.image).jpg} width={p.image.width} height={p.image.height} alt={p.image.alt} loading="lazy" decoding="async" /></picture>
             <span className="ltag2">{p.tag}</span>
             <h3>{p.title}</h3>
             <p className="lbdesc">{p.description}</p>
@@ -1015,6 +1015,7 @@ function BlogPost({ info, slug }) {
       <h1 style={{ fontSize: 32, marginBottom: 6 }}>{d.title}</h1>
       <p className="lmini">{d.date} · {d.read} min read</p>
       <picture><source srcSet={d.image.webp} type="image/webp" /><img className="lpic" src={d.image.jpg} width={d.image.width} height={d.image.height} alt={d.image.alt} fetchPriority="high" decoding="async" /></picture>
+      {d.image.credit && <p className="lmini lcredit">Photo by <a href={d.image.credit.profile} target="_blank" rel="noopener noreferrer">{d.image.credit.name}</a> on <a href="https://unsplash.com/?utm_source=agentify_erp&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></p>}
       {d.body.map((b, i) => (b.h ? <h2 key={i}>{b.h}</h2> : b.ul ? <ul key={i}>{b.ul.map((x, j) => <li key={j}>{x}</li>)}</ul> : <p key={i}>{b.p}</p>))}
       {!!d.faq?.length && <><h2>Frequently asked questions</h2>{d.faq.map(([q, a], i) => <div key={i}><h3 style={{ fontSize: 17, margin: '14px 0 4px' }}>{q}</h3><p>{a}</p></div>)}</>}
       {!!d.related?.length && <><h2>Related articles</h2><ul>{d.related.map((r) => <li key={r.slug}><Link to={`/blog/${r.slug}`}>{r.title}</Link></li>)}</ul></>}

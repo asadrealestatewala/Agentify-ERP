@@ -120,8 +120,23 @@ export const BLOG_POSTS = [...BASE_POSTS, ...loadExtra()];
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-/** Image files for an article (made by scripts/gen-blog-images.mjs): WebP and JPEG at 1600x900, a 1200x630 link-preview JPEG, and alt text with the target keyword. */
-export const imageOf = (p) => ({ webp: `/blog-img/${p.slug}.webp`, jpg: `/blog-img/${p.slug}.jpg`, og: `/blog-img/${p.slug}-og.jpg`, width: 1600, height: 900, alt: `${p.keyword ? `${p.keyword[0].toUpperCase()}${p.keyword.slice(1)}: ` : ''}${p.title}` });
+/** Unsplash photos picked by scripts/fetch-blog-photos.mjs: slug -> { raw, name, profile, page }. Articles without one use the illustration. */
+const PHOTOS = (() => { try { return JSON.parse(fs.readFileSync(new URL('../content/blog-photos.json', import.meta.url), 'utf8')); } catch { return {}; } })();
+const px = (raw, o) => `${raw}${raw.includes('?') ? '&' : '?'}auto=format&fit=crop&q=75&${o}`;
+/**
+ * Image for an article, with alt text that has the target keyword. With an Unsplash photo: hot-linked WebP and JPEG at 1600x900, a 800x450
+ * version for the cards, a 1200x630 link-preview JPEG and the photographer credit. Without one: the files made by scripts/gen-blog-images.mjs.
+ */
+export const imageOf = (p) => {
+  const alt = `${p.keyword ? `${p.keyword[0].toUpperCase()}${p.keyword.slice(1)}: ` : ''}${p.title}`;
+  const ph = PHOTOS[p.slug];
+  if (!ph) return { webp: `/blog-img/${p.slug}.webp`, jpg: `/blog-img/${p.slug}.jpg`, og: `/blog-img/${p.slug}-og.jpg`, width: 1600, height: 900, alt };
+  return {
+    webp: px(ph.raw, 'fm=webp&w=1600&h=900'), jpg: px(ph.raw, 'fm=jpg&w=1600&h=900'), og: px(ph.raw, 'fm=jpg&w=1200&h=630'),
+    card: { webp: px(ph.raw, 'fm=webp&w=800&h=450'), jpg: px(ph.raw, 'fm=jpg&w=800&h=450') },
+    width: 1600, height: 900, alt, credit: { name: ph.name, profile: ph.profile, page: ph.page },
+  };
+};
 export const BLOG_INDEX_OG = '/blog-img/blog-index-og.jpg';
 
 export const listPosts = () => [...BLOG_POSTS].sort((a, b) => (a.date < b.date ? 1 : -1)).map((p) => ({ slug: p.slug, title: p.title, description: p.description, date: p.date, read: p.read, tag: p.tag, image: imageOf(p) }));
@@ -139,6 +154,6 @@ export function bodyHtml(post) {
   const related = rel.length ? `<h2>Related articles</h2><ul>${rel.map((r) => `<li><a href="/blog/${r.slug}">${esc(r.title)}</a></li>`).join('')}</ul>` : '';
   const tags = (post.tags || []).length ? `<p>${post.tags.map(esc).join(' ')}</p>` : '';
   const img = imageOf(post);
-  const hero = `<img src="${img.jpg}" width="${img.width}" height="${img.height}" alt="${esc(img.alt)}" />`;
+  const hero = `<img src="${esc(img.jpg)}" width="${img.width}" height="${img.height}" alt="${esc(img.alt)}" />${img.credit ? `<p>Photo by <a href="${esc(img.credit.profile)}">${esc(img.credit.name)}</a> on <a href="https://unsplash.com/?utm_source=agentify_erp&utm_medium=referral">Unsplash</a></p>` : ''}`;
   return `${hero}${main}${faq}${related}<p><a href="/real-estate">Real estate software</a> · <a href="/construction">Construction software</a> · <a href="/pricing">Pricing</a></p>${tags}`;
 }
