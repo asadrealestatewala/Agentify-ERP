@@ -1,6 +1,7 @@
 // Public website on the main domain: home, the two product pages, pricing, contact/demo, legal documents, sign-up and
 // "find my workspace". Texts, plans, prices, trial terms and legal documents come from /api/platform/marketing and are
 // edited by platform staff in the console. Nothing here invents customers, counts, testimonials or integrations.
+import { phoneLinks } from './phones.js';
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { api } from '../api.js';
@@ -253,7 +254,7 @@ function Footer({ info, onCookies }) {
   return (
     <footer><div className="lwrap"><div className="lcols">
       <div><h4>{c.brand}</h4><p style={{ margin: 0 }}>{PRODUCT_LABELS.real_estate} and {PRODUCT_LABELS.construction} on one platform.</p>
-        {(c.contact_email || c.contact_phone || c.address) && <p style={{ marginTop: 10 }}>{[c.contact_email && <a key="e" href={`mailto:${c.contact_email}`}>{c.contact_email}</a>, c.contact_phone, c.address].filter(Boolean).map((x, i) => <span key={i} style={{ display: 'block' }}>{x}</span>)}</p>}
+        {(c.contact_email || c.contact_phone || c.contact_phone_pk || c.address) && <p style={{ marginTop: 10 }}>{[c.contact_email && <a key="e" href={`mailto:${c.contact_email}`}>{c.contact_email}</a>, ...phoneLinks(c).map((x) => <span key={x.href}>{x.label}: <a href={x.href}>{x.phone}</a></span>), c.address].filter(Boolean).map((x, i) => <span key={i} style={{ display: 'block' }}>{x}</span>)}</p>}
         {!!social.length && <p>{social.map(([k, v]) => <a key={k} href={v} target="_blank" rel="noreferrer noopener" style={{ marginRight: 12, textTransform: 'capitalize' }}>{k}</a>)}</p>}
       </div>
       <div><h4>Products</h4><Link to="/real-estate">Real Estate Brokerage</Link><Link to="/construction">Construction Management</Link><Link to="/pricing">Pricing</Link><Link to="/blog">Blog</Link></div>
@@ -696,7 +697,8 @@ function Contact({ info }) {
   };
   return (
     <section><div className="lwrap">
-      <div className="lsh"><h1 style={{ fontSize: 40 }}>Book a demo</h1><p>Tell us about your business and we will show you the parts that matter to you.{c.contact_email ? <> You can also email <a href={`mailto:${c.contact_email}`}>{c.contact_email}</a>.</> : ''}</p></div>
+      <div className="lsh"><h1 style={{ fontSize: 40 }}>Book a demo</h1><p>Tell us about your business and we will show you the parts that matter to you.{c.contact_email ? <> You can also email <a href={`mailto:${c.contact_email}`}>{c.contact_email}</a>.</> : ''}</p>
+        {!!phoneLinks(c).length && <p style={{ marginTop: 6 }}>Call us: {phoneLinks(c).map((x, i) => <span key={x.href}>{i > 0 && ' · '}{x.label}: <a href={x.href}>{x.phone}</a></span>)}</p>}</div>
       {done ? <div className="lok" style={{ maxWidth: 560, margin: '0 auto' }}>Thank you. We have your request and will contact you at {f.email}.</div> : (
         <form className="lform" onSubmit={submit} noValidate>
           {err && <div className="lerr" role="alert">{err}</div>}

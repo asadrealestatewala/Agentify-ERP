@@ -177,6 +177,7 @@ export const CONTENT_DEFAULTS = {
   sections_off: [],
   contact_email: '',
   contact_phone: '',
+  contact_phone_pk: '+92 316 8080801',
   address: '',
   social: { facebook: '', linkedin: '', instagram: '', youtube: '' },
   announcement_bar: '',
@@ -226,7 +227,7 @@ export function saveMarketing(b, by) {
   ensure();
   const cur = marketingContent();
   const next = { ...cur };
-  for (const k of ['brand', 'hero_title', 'hero_subtitle', 'contact_email', 'contact_phone', 'address', 'announcement_bar']) if (b[k] !== undefined) next[k] = str(b[k], k === 'hero_subtitle' ? 600 : 200, k);
+  for (const k of ['brand', 'hero_title', 'hero_subtitle', 'contact_email', 'contact_phone', 'contact_phone_pk', 'address', 'announcement_bar']) if (b[k] !== undefined) next[k] = str(b[k], k === 'hero_subtitle' ? 600 : 200, k);
   if (b.android_store_url !== undefined) {
     const u = String(b.android_store_url || '').trim();
     if (u) { let ok = false; try { const x = new URL(u); ok = x.protocol === 'https:' && x.hostname === 'play.google.com'; } catch { /* invalid */ } if (!ok) throw bad('The Google Play link must start with https://play.google.com/'); }
