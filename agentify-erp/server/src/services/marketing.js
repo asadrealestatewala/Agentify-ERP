@@ -5,6 +5,12 @@
 import { cleanCopy, SECTION_IDS } from '../../../shared/landingCopy.js';
 import { platformDb, BASE_DOMAIN } from '../platform.js';
 import { bad, HttpError } from '../util.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { BLOG_POSTS, getPost, listPosts, bodyHtml } from './blog.js';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
 
 const pdb = () => platformDb();
 
@@ -359,34 +365,64 @@ export function updateDemoRequest(id, { status, note }, by) {
 }
 
 // ---------------------------------------------------------------- SEO for the platform host
-export const MARKETING_ROUTES = { '/': 'home', '/real-estate': 'real_estate', '/construction': 'construction', '/pricing': 'pricing', '/contact': 'contact', '/signup': 'home',
+export const MARKETING_ROUTES = { '/': 'home', '/blog': 'blog', '/real-estate': 'real_estate', '/construction': 'construction', '/pricing': 'pricing', '/contact': 'contact', '/signup': 'home',
   '/delete-account': 'delete_account', '/download-app': 'download_app', '/legal/terms': 'legal', '/legal/privacy': 'legal', '/legal/refunds': 'legal', '/legal/subscription': 'legal' };
 const escHtml = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const siteOrigin = (req) => (BASE_DOMAIN && BASE_DOMAIN !== 'localhost' ? `https://${BASE_DOMAIN}` : `${req.protocol}://${req.get('host')}`);
 
-/** index.html with the page's title, description, canonical URL and social sharing tags filled in on the server. */
+const jsonLd = (o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`;
+
+/** True for /blog/<slug> of a real article. */
+export const blogSlugOf = (path) => { const m = String(path).match(/^\/blog\/([a-z0-9-]+)$/); return m && getPost(m[1]) ? m[1] : null; };
+
+/** index.html with the page's title, description, canonical URL, sharing tags, structured data and a crawler-readable copy filled in on the server. */
 export function injectMeta(html, path, req) {
-  const page = MARKETING_ROUTES[path];
+  const slug = blogSlugOf(path);
+  const post = slug ? getPost(slug) : null;
+  const page = post ? 'blog_post' : MARKETING_ROUTES[path];
   if (!page) return html;
   const c = marketingContent();
+  const origin = siteOrigin(req);
   let m = c.seo[page] || c.seo.home;
-  if (page === 'legal') { const slug = path.split('/').pop(); const doc = LEGAL_DEFAULTS[slug]; m = { title: `${doc?.title || 'Legal'} | ${c.brand}`, description: `${doc?.title || 'Legal document'} for ${c.brand}.` }; }
+  if (page === 'legal') { const slug2 = path.split('/').pop(); const doc = LEGAL_DEFAULTS[slug2]; m = { title: `${doc?.title || 'Legal'} | ${c.brand}`, description: `${doc?.title || 'Legal document'} for ${c.brand}.` }; }
   if (page === 'delete_account') m = { title: `Delete your account | ${c.brand}`, description: `Ask ${c.brand} to delete your account and data.` };
   if (page === 'download_app') m = { title: `Download the app | ${c.brand}`, description: `Get the ${c.brand} app for Android.` };
-  const url = `${siteOrigin(req)}${path === '/' ? '/' : path}`;
+  if (page === 'blog') m = { title: `Blog: real estate and construction software guides | ${c.brand}`, description: 'Practical guides for real estate brokerages and construction companies: CRM, lead follow-up, installments, BOQ and cost control.' };
+  if (post) m = { title: `${post.title} | ${c.brand}`, description: post.description };
+  const url = `${origin}${path === '/' ? '/' : path}`;
+  const ld = [];
+  if (page === 'home') {
+    ld.push({ '@context': 'https://schema.org', '@type': 'Organization', name: c.brand, url: `${origin}/`, logo: `${origin}/icon-512.png` });
+    ld.push({ '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: c.brand, applicationCategory: 'BusinessApplication', operatingSystem: 'Web, Android', url: `${origin}/`, description: m.description });
+  }
+  if (post) ld.push({ '@context': 'https://schema.org', '@type': 'BlogPosting', headline: post.title, description: post.description, datePublished: post.date, dateModified: post.date, mainEntityOfPage: url, author: { '@type': 'Organization', name: c.brand }, publisher: { '@type': 'Organization', name: c.brand, logo: { '@type': 'ImageObject', url: `${origin}/icon-512.png` } } });
   const tags = [
     `<title>${escHtml(m.title)}</title>`, `<meta name="description" content="${escHtml(m.description)}" />`, `<link rel="canonical" href="${escHtml(url)}" />`,
-    `<meta property="og:type" content="website" />`, `<meta property="og:site_name" content="${escHtml(c.brand)}" />`, `<meta property="og:title" content="${escHtml(m.title)}" />`,
-    `<meta property="og:description" content="${escHtml(m.description)}" />`, `<meta property="og:url" content="${escHtml(url)}" />`, `<meta property="og:image" content="${escHtml(siteOrigin(req))}/icon-512.png" />`,
+    `<meta property="og:type" content="${post ? 'article' : 'website'}" />`, `<meta property="og:site_name" content="${escHtml(c.brand)}" />`, `<meta property="og:title" content="${escHtml(m.title)}" />`,
+    `<meta property="og:description" content="${escHtml(m.description)}" />`, `<meta property="og:url" content="${escHtml(url)}" />`, `<meta property="og:image" content="${escHtml(origin)}/icon-512.png" />`,
     `<meta name="twitter:card" content="summary" />`, `<meta name="twitter:title" content="${escHtml(m.title)}" />`, `<meta name="twitter:description" content="${escHtml(m.description)}" />`,
+    ...ld.map(jsonLd),
   ].join('\n    ');
-  return html.replace(/<title>[\s\S]*?<\/title>/, tags);
+  // text for crawlers and slow connections; React replaces it as soon as the page loads
+  const copy = post ? `<article><h1>${escHtml(post.title)}</h1>${bodyHtml(post)}</article>`
+    : page === 'blog' ? `<h1>${escHtml(c.brand)} blog</h1><ul>${listPosts().map((p) => `<li><a href="/blog/${p.slug}">${escHtml(p.title)}</a> ${escHtml(p.description)}</li>`).join('')}</ul>`
+    : `<h1>${escHtml(m.title)}</h1><p>${escHtml(m.description)}</p><nav><a href="/real-estate">Real estate software</a> <a href="/construction">Construction software</a> <a href="/pricing">Pricing</a> <a href="/blog">Blog</a> <a href="/contact">Book a demo</a></nav>`;
+  return html.replace(/<title>[\s\S]*?<\/title>/, tags).replace('<div id="root"></div>', `<div id="root">${copy}</div>`);
+}
+
+let distMtime = null;
+/** When the website was last built; used as the sitemap's last-modified date for the main pages. */
+function builtOn() {
+  if (distMtime) return distMtime;
+  try { distMtime = fs.statSync(path.join(here, '..', '..', '..', 'client', 'dist', 'index.html')).mtime.toISOString().slice(0, 10); } catch { distMtime = new Date().toISOString().slice(0, 10); }
+  return distMtime;
 }
 
 export function platformSitemap(req) {
   const o = siteOrigin(req);
-  const today = new Date().toISOString().slice(0, 10);
-  const urls = Object.keys(MARKETING_ROUTES).filter((p) => p !== '/signup').map((p) => `  <url><loc>${o}${p}</loc><lastmod>${today}</lastmod><changefreq>${p.startsWith('/legal') ? 'monthly' : 'weekly'}</changefreq></url>`);
+  const built = builtOn();
+  const urls = Object.keys(MARKETING_ROUTES).filter((p) => p !== '/signup').map((p) => `  <url><loc>${o}${p}</loc><lastmod>${built}</lastmod><changefreq>${p.startsWith('/legal') ? 'monthly' : 'weekly'}</changefreq></url>`);
+  BLOG_POSTS.forEach((p) => urls.push(`  <url><loc>${o}/blog/${p.slug}</loc><lastmod>${p.date}</lastmod><changefreq>monthly</changefreq></url>`));
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
 }
 export const platformRobots = (req) => `User-agent: *\nAllow: /\nDisallow: /platform\nDisallow: /api/\nSitemap: ${siteOrigin(req)}/sitemap.xml\n`;
