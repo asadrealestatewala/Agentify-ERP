@@ -50,7 +50,7 @@ export async function connectAi(provider, body, userId) {
     // any OpenAI-compatible service: address and model are needed, and the test is a real tiny chat request
     const base = String(await assertPublicHttps(body.base_url || prev?.base_url || '')).replace(/\/+$/, '').replace(/\/chat\/completions$/, '');
     const model = String(body.model || prev?.model || '').trim().slice(0, 100);
-    if (!model) throw bad('Enter the model name to use, for example llama-3.3-70b-versatile.');
+    if (!model) throw bad('Enter the model name to use, for example openai/gpt-oss-120b.');
     try { await http(`${base}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model, max_tokens: 5, messages: [{ role: 'user', content: 'Say OK' }] }), timeout: 30_000 }); } catch (e) { throw bad(`That service did not accept the key or model: ${e.message}`); }
     saveIntegration(slot(provider), { api_key: key, model, base_url: base }, { publicInfo: { key: mask(key), model, host: new URL(base).host }, status: 'connected', userId });
     markTested(slot(provider), true);

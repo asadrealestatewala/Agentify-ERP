@@ -74,7 +74,7 @@ test('Groq: key, order, privacy, 429 fallback, pictures, voice and activity', as
   const r1 = await ask(`${q} for sara@client.com 03001234567`);
   assert.equal(r1.data.intent, 'ai', JSON.stringify(r1.data)); assert.match(r1.data.answer, /Creative Studio/); assert.equal(r1.data.engine, 'groq');
   const sent = JSON.stringify(groqCalls[0].body);
-  assert.equal(groqCalls[0].auth, `Bearer ${GKEY}`); assert.equal(groqCalls[0].body.model, 'llama-3.3-70b-versatile');
+  assert.equal(groqCalls[0].auth, `Bearer ${GKEY}`); assert.equal(groqCalls[0].body.model, 'openai/gpt-oss-120b');
   assert.ok(!/sara@client|03001234567/.test(sent), 'personal data stripped'); assert.match(sent, /REFERENCE MATERIAL/);
   const row = platformDb().prepare("SELECT * FROM ai_usage WHERE provider='groq' ORDER BY id DESC LIMIT 1").get();
   assert.equal(row.feature, 'ask_assistant'); assert.equal(row.input_tokens, 400); assert.ok(row.tenant_id > 0);
@@ -165,7 +165,7 @@ test('console "Which model does what" lists each purpose with engine, model, sta
   await as(owner, 'PUT', '/ai/groq', { key: GKEY, enabled: true, provider_order: ['groq', 'horde', 'gemini'] });
   const map = (await as(owner, 'GET', '/ai/overview')).data.technical.model_map;
   const by = Object.fromEntries(map.map((r) => [r.key, r]));
-  assert.equal(by.ask_chat.engine, 'Groq → Stable Horde'); assert.equal(by.ask_chat.model, 'llama-3.3-70b-versatile'); assert.equal(by.ask_chat.on, true);
+  assert.equal(by.ask_chat.engine, 'Groq → Stable Horde'); assert.equal(by.ask_chat.model, 'openai/gpt-oss-120b'); assert.equal(by.ask_chat.on, true);
   assert.equal(by.ask_image.model, 'meta-llama/llama-4-scout-17b-16e-instruct'); assert.equal(by.ask_voice.engine, 'Groq');
   assert.ok(by.ask_chat.last && by.ask_chat.last.engine, 'last use comes from the ledger');
   assert.equal(by.ask_listen.on, true); assert.ok(by.creative_post && by.video_voice_ur && by.zernio);
@@ -180,7 +180,7 @@ test('console can test each engine alone: no fallback, shows answer, model, time
   const gBefore = groqCalls.length, hBefore = hordeJobs.length;
   groqText = '1. Open CRM > Appointments and press New.'; groqStatus = 200;
   const g = (await as(owner, 'POST', '/ai/ask-engine/test', { engine: 'groq' })).data;
-  assert.equal(g.ok, true); assert.match(g.answer, /Appointments/); assert.equal(g.model, 'llama-3.3-70b-versatile'); assert.ok(g.ms >= 0);
+  assert.equal(g.ok, true); assert.match(g.answer, /Appointments/); assert.equal(g.model, 'openai/gpt-oss-120b'); assert.ok(g.ms >= 0);
   assert.equal(groqCalls.length, gBefore + 1); assert.equal(hordeJobs.length, hBefore, 'Horde is not asked when testing Groq');
   groqStatus = 429;
   const bad = (await as(owner, 'POST', '/ai/ask-engine/test', { engine: 'groq' })).data;

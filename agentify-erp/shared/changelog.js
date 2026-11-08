@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.84', date: '2026-11-08', title: 'Console: Groq default model updated',
+    items: [
+      { text: 'Groq retired its old default chat model, so Groq answers failed with "model does not exist". The default is now openai/gpt-oss-120b. A model you typed yourself in the Groq settings is kept.', where: 'Console > AI > Groq and Ask engines', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.83', date: '2026-11-08', title: 'Console: choose Gemini or Groq for the blog agent',
     items: [
       { text: 'The Blog agent can now write with Groq as well as Gemini. Pick the writing engine in its settings; if the chosen engine fails, the other one is used when it is connected.', where: 'Console > Marketing > Blog agent', audience: 'platform' },
