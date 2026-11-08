@@ -127,3 +127,22 @@ test('Google Search Console ownership file is served on the main site', async ()
     assert.equal(t.b, 'google-site-verification: googlea752702b6eef04aa.html'); assert.equal(t.status, 200);
   } finally { srv.close(); (await import('../src/db.js')).closeDbs(); }
 });
+
+test('Groq JSON-mode failure is retried without JSON mode, and a broken article answer is retried once', async () => {
+  agent.saveSettings({ engine: 'groq' });
+  const prev = globalThis.fetch; const modes = []; let bad = 1;
+  const art = JSON.stringify(article('retry subject gamma delta'));
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (!u.includes('api.groq.com')) return prev(url, opts);
+    const body = JSON.parse(opts.body); modes.push(Boolean(body.response_format));
+    if (body.response_format) return new Response(JSON.stringify({ error: { message: "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details." } }), { status: 400 });
+    const content = bad-- > 0 ? 'not json at all' : art; // first plain answer is garbage, second is fine
+    return new Response(JSON.stringify({ choices: [{ message: { content } }], usage: { prompt_tokens: 5, completion_tokens: 5 } }), { status: 200 });
+  };
+  try {
+    const a = await agent.writeArticle({ topic: 'x', keyword: 'y', query: 'z' }, []);
+    assert.ok(a.title.includes('retry subject'));
+    assert.deepEqual(modes, [true, false, true, false], 'strict JSON first, then plain, on each attempt');
+  } finally { globalThis.fetch = prev; agent.saveSettings({ engine: 'gemini' }); }
+});

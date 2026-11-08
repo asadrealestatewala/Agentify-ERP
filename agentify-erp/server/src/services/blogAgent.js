@@ -48,7 +48,13 @@ const existingTitles = () => [...allPosts().map((p) => p.title), ...store().prep
 const jsonOf = (d) => { const t = (d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join(''); try { return JSON.parse(t.match(/[\[{][\s\S]*[\]}]/)?.[0] || ''); } catch { return null; } };
 const asGemini = (text) => ({ candidates: [{ content: { parts: [{ text }] } }] });
 const viaGemini = (system, prompt, max) => geminiGenerate({ feature: 'blog_agent', purpose: 'blog_agent', body: { systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: max, temperature: 0.7 } }, timeout: 120_000 });
-const viaGroq = async (system, prompt, max) => asGemini(await groqChat({ feature: 'blog_agent', purpose: 'blog_agent', messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }], maxTokens: Math.min(max, 8000), timeout: 120_000, json: true, temperature: 0.7 }));
+const groqCall = (system, prompt, max, json) => groqChat({ feature: 'blog_agent', purpose: 'blog_agent', messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }], maxTokens: Math.min(max, 8000), timeout: 120_000, json, temperature: 0.7 });
+/** Groq's strict JSON mode refuses a whole answer when one quote is unescaped ("Failed to generate JSON"). Then ask again without it; jsonOf() reads the JSON out of the text. */
+const viaGroq = async (system, prompt, max) => {
+  try { return asGemini(await groqCall(system, prompt, max, true)); }
+  catch (e) { if (!/Failed to generate JSON|json_validate|failed_generation/i.test(String(e.message))) throw e; }
+  return asGemini(await groqCall(`${system}\nReturn ONLY the JSON object, no other text, and escape any double quote inside a string.`, prompt, max, false));
+};
 /** One JSON-answering model call on the chosen engine; if it fails, the other engine is tried when it is connected. */
 async function gem(system, prompt, max) {
   const first = engineChoice(); const order = first === 'groq' ? [['groq', viaGroq], ['gemini', viaGemini]] : [['gemini', viaGemini], ['groq', viaGroq]];
@@ -111,10 +117,12 @@ export function checkArticle(a, others = existingTitles()) {
 
 export async function writeArticle(t, sources) {
   const src = sources.map((s, i) => `[${i + 1}] ${s.title} (${s.url})\n${s.snippet}`).join('\n\n');
-  const d = await gem(WRITE_SYSTEM, `Topic: ${t.topic}\nMain keyword: ${t.keyword || t.topic}\n\nSource snippets (facts only, do not copy):\n${src || '(no sources found, write only well-known general guidance)'}`, 6000);
-  const a = jsonOf(d);
-  if (!a || !Array.isArray(a.body)) throw bad('The AI did not return a usable article');
-  return a;
+  const prompt = `Topic: ${t.topic}\nMain keyword: ${t.keyword || t.topic}\n\nSource snippets (facts only, do not copy):\n${src || '(no sources found, write only well-known general guidance)'}`;
+  for (let attempt = 0; attempt < 2; attempt += 1) { // a model sometimes returns broken JSON; one more try is cheap
+    const a = jsonOf(await gem(WRITE_SYSTEM, prompt, 6000));
+    if (a && Array.isArray(a.body) && a.title) return a;
+  }
+  throw bad('The AI did not return a usable article twice in a row');
 }
 
 /** Make one article for a topic and save it as a draft (or publish it when auto-publish is on and every check passed). */

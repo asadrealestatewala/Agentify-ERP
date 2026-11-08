@@ -9,6 +9,7 @@ export const CHANGELOG = [
     version: 'v1.84', date: '2026-11-08', title: 'Console: Groq default model updated',
     items: [
       { text: 'Groq retired its old default chat model, so Groq answers failed with "model does not exist". The default is now openai/gpt-oss-120b. A model you typed yourself in the Groq settings is kept.', where: 'Console > AI > Groq and Ask engines', audience: 'platform' },
+      { text: 'The Blog agent no longer gives up when Groq returns broken JSON for an article: it asks again in plain mode and retries the article once before reporting an error.', where: 'Console > Marketing > Blog agent', audience: 'platform' },
     ],
   },
   {
