@@ -1014,6 +1014,10 @@ function BlogPost({ info, slug }) {
       <h1 style={{ fontSize: 32, marginBottom: 6 }}>{d.title}</h1>
       <p className="lmini">{d.date} · {d.read} min read</p>
       {d.body.map((b, i) => (b.h ? <h2 key={i}>{b.h}</h2> : b.ul ? <ul key={i}>{b.ul.map((x, j) => <li key={j}>{x}</li>)}</ul> : <p key={i}>{b.p}</p>))}
+      {!!d.faq?.length && <><h2>Frequently asked questions</h2>{d.faq.map(([q, a], i) => <div key={i}><h3 style={{ fontSize: 17, margin: '14px 0 4px' }}>{q}</h3><p>{a}</p></div>)}</>}
+      {!!d.related?.length && <><h2>Related articles</h2><ul>{d.related.map((r) => <li key={r.slug}><Link to={`/blog/${r.slug}`}>{r.title}</Link></li>)}</ul></>}
+      <p className="lmini"><Link to="/real-estate">Real estate software</Link> · <Link to="/construction">Construction software</Link> · <Link to="/pricing">Pricing</Link></p>
+      {!!d.tags?.length && <p className="lmini">{d.tags.join(' ')}</p>}
       <p style={{ marginTop: 28 }}><Link className="lbtn p" to="/signup">Start your free trial</Link></p>
     </article></div></section>
   );

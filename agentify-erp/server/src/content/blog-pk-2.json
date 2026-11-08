@@ -1,0 +1,423 @@
+[
+ {
+  "slug": "payment-receipts-property-pakistan",
+  "title": "Payment receipts for property sales: how to issue them properly",
+  "description": "Why numbered receipts matter in property sales in Pakistan, what every receipt should show, and how to avoid cash and bank-transfer confusion.",
+  "keyword": "property payment receipt",
+  "tag": "Accounts",
+  "tags": [
+   "#PaymentReceipt",
+   "#PropertyAccounts",
+   "#RealEstatePakistan",
+   "#Instalments"
+  ],
+  "faq": [
+   [
+    "What should a property payment receipt include?",
+    "Receipt number, date, buyer, property or file, amount, mode of payment, what it is for and who received it."
+   ],
+   [
+    "Should bank transfers get receipts too?",
+    "Yes. Issue a receipt when the money is confirmed in your account, and record the reference."
+   ]
+  ],
+  "related": [
+   "installment-defaulters-follow-up-pakistan",
+   "real-estate-accounting-pakistan",
+   "property-installment-tracking-software"
+  ],
+  "body": [
+   "In property sales, the receipt is the proof of payment for both sides. A buyer who has paid for three years wants to be sure every rupee is recorded. The office wants to be sure that every rupee received has reached the books.",
+   "# What every receipt should show",
+   "* A unique, sequential receipt number.",
+   "* Date and time of receipt.",
+   "* Buyer's name and the file, plot or unit it relates to.",
+   "* Amount in figures and in words.",
+   "* Mode: cash, cheque, bank transfer or online, with the reference.",
+   "* What it pays for: token, down payment, a numbered instalment, a transfer fee or other.",
+   "* Name or signature of the person who received it.",
+   "# Rules that prevent trouble",
+   "* Never issue a handwritten receipt that is not entered in the system the same day.",
+   "* Do not reuse or skip receipt numbers; cancelled ones should be marked cancelled, not deleted.",
+   "* For cheques, record the cheque number and clearing date, and confirm clearing before treating it as paid.",
+   "* Match the day's receipts with the cash in hand and bank deposits every evening.",
+   "# Link receipts to instalments",
+   "A receipt should reduce the right instalment and update the buyer's balance. When this happens automatically, statements are always correct.",
+   "# Give buyers a copy",
+   "Send a PDF or printed copy straight away. Buyers who can see their own record trust you more and chase you less.",
+   "Agentify ERP issues numbered receipts against instalments and keeps the full payment history for each sale."
+  ]
+ },
+ {
+  "slug": "real-estate-accounting-pakistan",
+  "title": "Accounting for real estate businesses in Pakistan: the basics owners should know",
+  "description": "A plain guide to the accounts a real estate business needs: advances, instalments receivable, commissions, project costs and monthly reports in PKR.",
+  "keyword": "real estate accounting Pakistan",
+  "tag": "Accounts",
+  "tags": [
+   "#RealEstateAccounting",
+   "#PropertyBusiness",
+   "#PKR",
+   "#Bookkeeping"
+  ],
+  "faq": [
+   [
+    "Do I need an accountant if I use software?",
+    "Yes for tax filings and final accounts. Software keeps daily records clean so the accountant's job is easier and cheaper."
+   ],
+   [
+    "What is the most common accounting mistake?",
+    "Mixing customer advances with income, and not recording expenses against the right project."
+   ]
+  ],
+  "related": [
+   "payment-receipts-property-pakistan",
+   "real-estate-agent-commission-tracking-pakistan",
+   "property-taxes-agent-records-pakistan"
+  ],
+  "body": [
+   "Real estate accounting has a few features that ordinary shop bookkeeping does not. Money arrives in stages, often years before the property is handed over, and costs are shared across projects. Knowing the basics helps you ask better questions of your accountant.",
+   "# Money received in advance",
+   "Token and instalments received before a sale is complete are usually customer advances, not final income. How and when you recognise revenue should be agreed with your accountant based on the applicable standards.",
+   "# Instalments receivable",
+   "Keep a clear list of what each buyer still owes and when. It is one of your biggest assets, and it should always match your sales records.",
+   "# Commissions and marketing costs",
+   "Record commissions against the sale they belong to. This shows the true profit on each project.",
+   "# Project costs",
+   "Land, development, construction, approvals and marketing should each be recorded against the right project. Without that, you cannot tell which project makes money.",
+   "# Monthly reports every owner should read",
+   "* Cash and bank balances.",
+   "* Collections this month against what was due.",
+   "* Overdue instalments by age.",
+   "* Expenses by project.",
+   "* Commissions paid and payable.",
+   "# Reduce re-typing",
+   "If the sales system and accounts system are separate, someone types every receipt twice. A joined system posts entries automatically and reduces mistakes.",
+   "Agentify ERP combines sales, receipts, commissions and accounts, with reports in PKR. Final accounts and tax filings should be prepared with your professional adviser."
+  ]
+ },
+ {
+  "slug": "real-estate-website-for-agents-pakistan",
+  "title": "A website for your property business: what to put on it and how to get enquiries",
+  "description": "What a Pakistani real estate agent or developer should put on a website to attract enquiries: listings, contact options, project pages and trust signals.",
+  "keyword": "real estate website Pakistan",
+  "tag": "Marketing",
+  "tags": [
+   "#RealEstateWebsite",
+   "#PropertyMarketing",
+   "#LocalSEO",
+   "#PakistanRealEstate"
+  ],
+  "faq": [
+   [
+    "Do I need a website if I post on social media?",
+    "A website is the one place you fully control, shows up in Google searches and gives buyers a place to verify you."
+   ],
+   [
+    "What helps a property website rank?",
+    "Clear pages for each project and area, accurate details, fast loading on mobile and a Google Business Profile."
+   ]
+  ],
+  "related": [
+   "property-lead-sources-pakistan-one-list",
+   "real-estate-crm-pakistan-checklist",
+   "property-dealer-software-pakistan"
+  ],
+  "body": [
+   "Many buyers search on their phone before they call anyone. A simple, honest website helps them find you and trust you before the first conversation.",
+   "# What to put on it",
+   "* Your business name, address and phone numbers, the same everywhere online.",
+   "* Current listings with clear photos, size, price and area.",
+   "* A page for each project you handle, with its location and details.",
+   "* A short About page: who you are, how long you have worked and the areas you cover.",
+   "* A visible WhatsApp and call button on every page.",
+   "* A simple enquiry form that sends details straight to your sales team.",
+   "# Make it work on mobile",
+   "Most visitors will use a phone. Pages must load quickly, text must be readable and buttons easy to tap.",
+   "# Help Google understand you",
+   "* Write a unique title and description for each page.",
+   "* Mention the city and area naturally in your content.",
+   "* Create a Google Business Profile with the same name, address and phone number.",
+   "* Update listings, and remove sold ones.",
+   "# Connect enquiries to your CRM",
+   "An enquiry on the website should land in your lead list, with an owner and follow-up date, within minutes.",
+   "Agentify ERP includes a website builder for real estate businesses, with listings and enquiry forms that connect to the CRM. Only publish information you are able to stand behind."
+  ]
+ },
+ {
+  "slug": "construction-management-software-pakistan",
+  "title": "Construction management software in Pakistan: what contractors and builders should look for",
+  "description": "What small and mid-size construction companies in Pakistan need from project software: BOQ, budgets, purchasing, labour, subcontractors and client billing.",
+  "keyword": "construction management software Pakistan",
+  "tag": "Construction",
+  "tags": [
+   "#ConstructionSoftware",
+   "#PakistanConstruction",
+   "#Contractors",
+   "#ProjectManagement"
+  ],
+  "faq": [
+   [
+    "Is construction software only for large firms?",
+    "No. A small builder with two or three active sites often gains the most because cost and payment records are scattered."
+   ],
+   [
+    "What should I check first?",
+    "Whether it handles your actual BOQ, purchases and payments, and whether site staff can use it on a phone."
+   ]
+  ],
+  "related": [
+   "boq-excel-vs-software-pakistan",
+   "construction-purchase-orders-material-control",
+   "construction-boq-and-budget-software"
+  ],
+  "body": [
+   "Construction in Pakistan is full of moving parts: many suppliers paid in cash or on credit, daily-wage labour, subcontractors paid on measurement, and clients who pay against progress. Keeping all of this in separate notebooks makes it hard to know your real position on any site.",
+   "# The core modules",
+   "* Projects and sites, each with a budget.",
+   "* Bill of quantities with quantities, units and rates.",
+   "* Purchasing: requests, orders, supplier bills and payments.",
+   "* Materials issued to site and stock in hand.",
+   "* Labour and subcontractor work and payments.",
+   "* Client billing against progress.",
+   "# The questions it should answer",
+   "* How much have I spent on this site against the budget?",
+   "* What do I owe suppliers and subcontractors, and when?",
+   "* What can I bill the client this month?",
+   "* Which items are running over?",
+   "# Keep it practical",
+   "Site engineers and supervisors will enter data from the field, so mobile access and a simple screen matter more than a long feature list. If it is hard to use, they will go back to paper.",
+   "# Start with one site",
+   "Pick a running project, enter its BOQ and budget, and record purchases and payments for a month. Compare what the system shows with your own feel for the site.",
+   "Agentify ERP has a construction management product covering projects, BOQs, budgets, procurement, materials, labour, subcontractors and client billing, with a free trial."
+  ]
+ },
+ {
+  "slug": "boq-excel-vs-software-pakistan",
+  "title": "BOQ in Excel or in software? A guide for Pakistani contractors",
+  "description": "Excel is fine for a first BOQ, but it struggles with changes, actual costs and many sites. Here is when contractors should move to project software.",
+  "keyword": "BOQ software Pakistan",
+  "tag": "Construction",
+  "tags": [
+   "#BOQ",
+   "#ConstructionEstimating",
+   "#Excel",
+   "#PakistanContractors"
+  ],
+  "faq": [
+   [
+    "Is Excel good enough for BOQs?",
+    "For estimating a single job, often yes. It becomes risky once you track actual costs, variations and several sites in the same file."
+   ],
+   [
+    "What is the biggest risk of spreadsheets?",
+    "Silent errors from copied formulas, old versions and multiple people editing different copies."
+   ]
+  ],
+  "related": [
+   "construction-management-software-pakistan",
+   "grey-structure-cost-tracking-pakistan",
+   "construction-boq-and-budget-software"
+  ],
+  "body": [
+   "Many contractors in Pakistan build their BOQs in Excel, and for good reason: it is flexible, familiar and cheap. The problems start after the BOQ is made.",
+   "# Where Excel works well",
+   "* Quick estimates and quotations.",
+   "* One-off jobs with a single estimator.",
+   "* Rate analysis that you want to see and tweak by hand.",
+   "# Where it breaks down",
+   "* Several versions of the same file, and nobody knows which is final.",
+   "* Actual costs live elsewhere, so you cannot compare against the BOQ.",
+   "* Variations and extra work are not tracked item by item.",
+   "* A broken formula can change a total without anyone noticing.",
+   "* Site staff cannot easily update it from the field.",
+   "# What software adds",
+   "* One BOQ per project, with a locked baseline and a record of changes.",
+   "* Purchases and payments charged to BOQ items or budget lines.",
+   "* Progress against each item, which feeds the client bill.",
+   "* Reports on budget versus actual at any time.",
+   "# A sensible path",
+   "Keep estimating in Excel if you prefer, then import the finished BOQ into project software to control the job. Do not try to move everything in one week.",
+   "Agentify ERP supports BOQs, budgets and cost tracking for construction projects, so you can follow the job from estimate to final bill."
+  ]
+ },
+ {
+  "slug": "construction-purchase-orders-material-control",
+  "title": "Purchase orders and material control on construction sites",
+  "description": "How builders can control material purchases with purchase orders, delivery checks and stock records, reducing waste and unpaid-bill surprises.",
+  "keyword": "construction purchase order",
+  "tag": "Construction",
+  "tags": [
+   "#Procurement",
+   "#ConstructionMaterials",
+   "#SiteManagement",
+   "#CostControl"
+  ],
+  "faq": [
+   [
+    "Why use purchase orders on a small site?",
+    "They stop surprise bills and let you compare the price paid with the budget."
+   ],
+   [
+    "Who should receive material on site?",
+    "A named person, who checks quantity and quality against the order and signs for it."
+   ]
+  ],
+  "related": [
+   "construction-management-software-pakistan",
+   "grey-structure-cost-tracking-pakistan",
+   "construction-boq-and-budget-software"
+  ],
+  "body": [
+   "Material is usually the largest cost on a building project. It is also where waste, theft and billing mistakes hide. A basic purchase-to-payment routine solves most of it.",
+   "# The four steps",
+   "* Request: the site asks for material, with quantity and date needed.",
+   "* Order: the office approves and issues an order to a supplier at an agreed rate.",
+   "* Receive: the site checks what arrives against the order and records it.",
+   "* Pay: the supplier bill is matched to the order and the receipt before payment.",
+   "# Why each step matters",
+   "Without a request, anyone can order. Without an order, the rate is only a verbal promise. Without a receiving record, you may pay for material that never reached the site. Without matching, you can pay twice.",
+   "# Track stock",
+   "Record material issued to each work area. If cement or steel use is far above what the work needs, you will notice early.",
+   "# Compare with the budget",
+   "Each purchase should be charged to a project and a budget line. Seeing the budget used so far changes how people buy.",
+   "# Keep supplier records",
+   "Note rates, delivery performance and balances for each supplier. It helps in negotiations and at month-end.",
+   "Agentify ERP covers purchase requests, orders, receiving, supplier bills and project costs in one construction workspace."
+  ]
+ },
+ {
+  "slug": "labour-subcontractor-payments-pakistan",
+  "title": "Labour and subcontractor payments: keeping site records that everyone accepts",
+  "description": "How to record daily-wage labour and subcontractor work, measure it fairly and pay on time without disputes on Pakistani construction sites.",
+  "keyword": "subcontractor payments construction",
+  "tag": "Construction",
+  "tags": [
+   "#Subcontractors",
+   "#SiteLabour",
+   "#ConstructionPayments",
+   "#PakistanConstruction"
+  ],
+  "faq": [
+   [
+    "How should subcontractors be paid?",
+    "Common methods are by measured work against agreed rates. Whatever you choose, write it down before work starts."
+   ],
+   [
+    "How do I avoid labour disputes?",
+    "Keep daily attendance and measurements signed by both sides, and pay on fixed dates."
+   ]
+  ],
+  "related": [
+   "construction-management-software-pakistan",
+   "construction-client-billing-progress-pakistan",
+   "construction-boq-and-budget-software"
+  ],
+  "body": [
+   "Labour and subcontractor claims cause more arguments than almost anything else on site. The cure is clear agreements and records that both sides sign.",
+   "# Before work starts",
+   "* Agree the scope, rate and unit of measurement in writing.",
+   "* Agree how often you will measure and when payment is made.",
+   "* Note any advance given and how it will be recovered.",
+   "# Daily-wage labour",
+   "Record attendance daily, by name and trade, with the hours or days worked. A supervisor should sign the sheet. Pay from the sheet, not from memory.",
+   "# Measured subcontract work",
+   "Measure completed quantities regularly, ideally with the subcontractor present. Record the measurement, the rate and the amount due. Deduct advances and any agreed retention, then record the payment.",
+   "# Keep a ledger for each subcontractor",
+   "It should show work measured, amounts due, advances, deductions and payments, with the balance at any date. This is the document that ends arguments.",
+   "# Link it to the budget",
+   "Charge labour and subcontract costs to the right project and work item, so that your cost reports are complete.",
+   "Agentify ERP records labour and subcontractor work and payments by project, so balances are always visible."
+  ]
+ },
+ {
+  "slug": "construction-client-billing-progress-pakistan",
+  "title": "Billing your client on progress: certificates, retention and getting paid on time",
+  "description": "How contractors in Pakistan can prepare progress bills from measured work, handle retention and advances, and keep client payments flowing.",
+  "keyword": "construction client billing",
+  "tag": "Construction",
+  "tags": [
+   "#ProgressBilling",
+   "#ConstructionBilling",
+   "#Contractors",
+   "#CashFlow"
+  ],
+  "faq": [
+   [
+    "What is a progress bill?",
+    "A bill for the work completed up to a date, usually based on measurements agreed with the client or consultant."
+   ],
+   [
+    "Why are contractor payments often delayed?",
+    "Often because the bill is late, measurements are disputed or the paperwork is incomplete."
+   ]
+  ],
+  "related": [
+   "labour-subcontractor-payments-pakistan",
+   "construction-management-software-pakistan",
+   "construction-boq-and-budget-software"
+  ],
+  "body": [
+   "For a contractor, cash flow depends on how quickly and accurately progress is billed. Late or disputed bills are a common reason projects run short of money.",
+   "# Bill from the BOQ",
+   "Use the contract BOQ as the base. For each item, record the quantity completed to date and multiply by the contract rate. Subtract what was billed previously to find the amount for this period.",
+   "# Handle advances and retention",
+   "If you received an advance, recover it as the contract says. If the client holds retention, record the amount held and the date it should be released.",
+   "# Record variations separately",
+   "Extra or changed work should be priced and approved, then added to the bill with a reference to the approval.",
+   "# Prepare supporting documents",
+   "Attach measurement sheets, photos and approvals. Clean, complete paperwork gets certified faster.",
+   "# Follow up",
+   "Track each bill by date submitted, date certified, amount received and balance. Chase certification before chasing payment.",
+   "# Review your own costs",
+   "Compare the amount billed with the cost incurred on the same work. If costs are running above billing, you want to know this month, not at the end.",
+   "Agentify ERP supports progress measurement and client billing connected to your BOQ and project costs."
+  ]
+ },
+ {
+  "slug": "grey-structure-cost-tracking-pakistan",
+  "title": "Grey structure cost tracking: a simple method for builders and homeowners",
+  "description": "How builders and homeowners in Pakistan can track grey structure costs by stage: materials, labour, contractors and extras, before the finishing starts.",
+  "keyword": "grey structure cost",
+  "tag": "Construction",
+  "tags": [
+   "#GreyStructure",
+   "#HomeConstruction",
+   "#CostTracking",
+   "#PakistanBuilders"
+  ],
+  "faq": [
+   [
+    "What is grey structure?",
+    "In Pakistan, the structure of a building before finishing work, typically including foundation, columns, slabs and walls."
+   ],
+   [
+    "How do I avoid cost overruns on a house?",
+    "Set a budget by stage, record every purchase and payment, and review actual against budget weekly."
+   ]
+  ],
+  "related": [
+   "boq-excel-vs-software-pakistan",
+   "construction-purchase-orders-material-control",
+   "construction-boq-and-budget-software"
+  ],
+  "body": [
+   "Many house builders and small developers in Pakistan budget the grey structure and then discover, halfway through, that costs have drifted. A simple stage-wise tracking method helps.",
+   "# Split the budget by stage",
+   "Typical stages: excavation and foundation, plinth, columns and walls, roof slabs, plaster and services rough-in. Give each a budget made from your BOQ or contractor quote.",
+   "# Record everything against a stage",
+   "* Material purchases: cement, steel, bricks, sand, crush and so on.",
+   "* Labour and contractor payments.",
+   "* Machinery and transport.",
+   "* Extra items requested during construction.",
+   "# Review weekly",
+   "Once a week, compare spending with the stage budget and with the work completed. If half the stage budget is gone but only a third of the work is done, you have a warning.",
+   "# Control extras",
+   "Write down any change, price it and approve it before the work starts. Unpriced extras are the main reason final costs differ from the quote.",
+   "# Keep supplier and contractor balances",
+   "Know what you owe and what is due this month, so cash does not run out in the middle of a pour.",
+   "# Keep records for later",
+   "Complete records help with resale, valuation and any disputes. Agentify ERP lets builders track project budgets, purchases, labour and payments by stage."
+  ]
+ }
+]

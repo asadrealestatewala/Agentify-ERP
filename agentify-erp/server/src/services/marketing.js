@@ -396,12 +396,14 @@ export function injectMeta(html, path, req) {
     ld.push({ '@context': 'https://schema.org', '@type': 'Organization', name: c.brand, url: `${origin}/`, logo: `${origin}/icon-512.png` });
     ld.push({ '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: c.brand, applicationCategory: 'BusinessApplication', operatingSystem: 'Web, Android', url: `${origin}/`, description: m.description });
   }
-  if (post) ld.push({ '@context': 'https://schema.org', '@type': 'BlogPosting', headline: post.title, description: post.description, datePublished: post.date, dateModified: post.date, mainEntityOfPage: url, author: { '@type': 'Organization', name: c.brand }, publisher: { '@type': 'Organization', name: c.brand, logo: { '@type': 'ImageObject', url: `${origin}/icon-512.png` } } });
+  if (post?.faq?.length) ld.push({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: post.faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) });
+  if (post) ld.push({ '@context': 'https://schema.org', '@type': 'BlogPosting', headline: post.title, description: post.description, datePublished: post.date, dateModified: post.date, mainEntityOfPage: url, author: { '@type': 'Organization', name: c.brand }, publisher: { '@type': 'Organization', name: c.brand, logo: { '@type': 'ImageObject', url: `${origin}/icon-512.png` } }, ...(post.keyword ? { keywords: [post.keyword, ...(post.tags || []).map((t) => t.replace(/^#/, ''))].join(', ') } : {}) });
   const tags = [
     `<title>${escHtml(m.title)}</title>`, `<meta name="description" content="${escHtml(m.description)}" />`, `<link rel="canonical" href="${escHtml(url)}" />`,
     `<meta property="og:type" content="${post ? 'article' : 'website'}" />`, `<meta property="og:site_name" content="${escHtml(c.brand)}" />`, `<meta property="og:title" content="${escHtml(m.title)}" />`,
     `<meta property="og:description" content="${escHtml(m.description)}" />`, `<meta property="og:url" content="${escHtml(url)}" />`, `<meta property="og:image" content="${escHtml(origin)}/icon-512.png" />`,
     `<meta name="twitter:card" content="summary" />`, `<meta name="twitter:title" content="${escHtml(m.title)}" />`, `<meta name="twitter:description" content="${escHtml(m.description)}" />`,
+    ...(post?.keyword ? [`<meta name="keywords" content="${escHtml([post.keyword, ...(post.tags || []).map((t) => t.replace(/^#/, ''))].join(', '))}" />`] : []),
     ...ld.map(jsonLd),
   ].join('\n    ');
   // text for crawlers and slow connections; React replaces it as soon as the page loads
