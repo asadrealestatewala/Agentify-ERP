@@ -130,3 +130,30 @@ th.pa-sortable { cursor: pointer; user-select: none; } th.pa-sortable:hover { co
 .pa-ws th:first-child, .pa-ws td:first-child { padding-left: 14px; padding-right: 2px; }
 .pa-ws th:last-child, .pa-ws td:last-child { padding-right: 14px; }
 @media (max-width: 700px) { .pa-ws .pa-cell { flex: 1; min-width: 0; text-align: right; } .pa-ws .pa-cell .muted { overflow-wrap: anywhere; } }
+
+/* ---- shared console spacing: one rhythm for every page (cards, alerts, tabs, tables, forms) ---- */
+.pa { --pa-gap: 16px; }
+/* any block that follows another block gets the same gap, whatever the page puts between them */
+.pa-content > * + *, .pa-content .card + .card, .pa-content .card + .alert, .pa-content .alert + .card, .pa-content .alert + .alert,
+.pa-content .tabs-wrap + .card, .pa-content .tabs + .card, .pa-content .card + .tabs-wrap, .pa-content .card + .cc-stats, .pa-content .cc-stats + .card,
+.pa-content .alert + .cc-stats, .pa-content .cc-stats + .alert, .pa-content p.muted + .card, .pa-content .pa-kpis + .card, .pa-content .pa-grid2 + .card, .pa-content .pa-grid3 + .card,
+.pa-content .card + .pa-grid2, .pa-content .card + .pa-grid3, .pa-content .card + .pa-kpis { margin-top: var(--pa-gap); }
+.pa-content > .pa-head + *, .pa-content > .pa-head + .card { margin-top: 0; }
+.pa-content .pa-kpis, .pa-content .pa-grid2, .pa-content .pa-grid3, .pa-content .cc-stats { margin-bottom: 0; margin-top: var(--pa-gap); }
+.pa-content > .pa-head + .pa-kpis, .pa-content > .pa-head + .pa-grid2, .pa-content > .pa-head + .pa-grid3, .pa-content > .pa-head + .cc-stats { margin-top: 0; }
+.pa-content .pa-grid2 > .card, .pa-content .pa-grid3 > .card, .pa-content .cc-stats > .card { margin-top: 0; }
+.pa-content .cc-stats { gap: var(--pa-gap); }
+/* tables: comfortable cells, scroll inside the card instead of squeezing or overflowing the page */
+.pa .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pa .t th, .pa .t td { padding: 11px 14px; }
+.pa .t th:first-child, .pa .t td:first-child { padding-left: 16px; }
+.pa .t th:last-child, .pa .t td:last-child { padding-right: 16px; }
+.pa .t th { white-space: nowrap; } .pa .t td.num, .pa .t th.num { padding-left: 18px; }
+.pa .card-b > p.muted:first-child { margin-top: 0; }
+.pa .card-b > .btn { margin-top: 14px; }
+.pa .card-b .alert { margin: 0 0 14px; }
+.pa .tabs, .pa .tabs-wrap { margin-bottom: 0; }
+.pa .tabs-wrap + *, .pa .tabs + * { margin-top: var(--pa-gap); }
+.pa .tab { padding: 10px 16px; }
+.pa .pa-head { margin-bottom: var(--pa-gap); }
+@media (max-width: 600px) { .pa { --pa-gap: 12px; } .pa .t th, .pa .t td { padding: 10px 12px; } .pa .card-b { padding: 14px; } }
