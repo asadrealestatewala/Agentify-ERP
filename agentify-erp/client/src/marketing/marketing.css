@@ -232,3 +232,4 @@ html[data-consent="open"] .lp .lsticky{display:none}
 .lp .lprod .lcard.lblog .lgo{margin-top:auto;padding-top:12px}
 .lp picture{display:block;line-height:0}
 .lp img.lpic{object-fit:cover}
+.lp .lcredit{margin:-12px 0 16px;font-size:12.5px}.lp .lcredit a{color:inherit;text-decoration:underline}

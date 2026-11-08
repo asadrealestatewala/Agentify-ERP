@@ -392,7 +392,8 @@ export function injectMeta(html, path, req) {
   if (post) m = { title: `${post.title} | ${c.brand}`, description: post.description };
   const url = `${origin}${path === '/' ? '/' : path}`;
   const img = post ? imageOf(post) : null;
-  const shareImg = post ? `${origin}${img.og}` : page === 'blog' ? `${origin}${BLOG_INDEX_OG}` : `${origin}/icon-512.png`;
+  const abs = (u) => (/^https?:/.test(u) ? u : `${origin}${u}`);
+  const shareImg = post ? abs(img.og) : page === 'blog' ? `${origin}${BLOG_INDEX_OG}` : `${origin}/icon-512.png`;
   const big = !!post || page === 'blog';
   const ld = [];
   if (page === 'home') {
@@ -400,7 +401,7 @@ export function injectMeta(html, path, req) {
     ld.push({ '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: c.brand, applicationCategory: 'BusinessApplication', operatingSystem: 'Web, Android', url: `${origin}/`, description: m.description });
   }
   if (post?.faq?.length) ld.push({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: post.faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) });
-  if (post) ld.push({ '@context': 'https://schema.org', '@type': 'BlogPosting', headline: post.title, description: post.description, image: [`${origin}${img.jpg}`, `${origin}${img.og}`], datePublished: post.date, dateModified: post.date, mainEntityOfPage: url, author: { '@type': 'Organization', name: c.brand }, publisher: { '@type': 'Organization', name: c.brand, logo: { '@type': 'ImageObject', url: `${origin}/icon-512.png` } }, ...(post.keyword ? { keywords: [post.keyword, ...(post.tags || []).map((t) => t.replace(/^#/, ''))].join(', ') } : {}) });
+  if (post) ld.push({ '@context': 'https://schema.org', '@type': 'BlogPosting', headline: post.title, description: post.description, image: [abs(img.jpg), abs(img.og)], datePublished: post.date, dateModified: post.date, mainEntityOfPage: url, author: { '@type': 'Organization', name: c.brand }, publisher: { '@type': 'Organization', name: c.brand, logo: { '@type': 'ImageObject', url: `${origin}/icon-512.png` } }, ...(post.keyword ? { keywords: [post.keyword, ...(post.tags || []).map((t) => t.replace(/^#/, ''))].join(', ') } : {}) });
   const tags = [
     `<title>${escHtml(m.title)}</title>`, `<meta name="description" content="${escHtml(m.description)}" />`, `<link rel="canonical" href="${escHtml(url)}" />`,
     `<meta property="og:type" content="${post ? 'article' : 'website'}" />`, `<meta property="og:site_name" content="${escHtml(c.brand)}" />`, `<meta property="og:title" content="${escHtml(m.title)}" />`,
@@ -429,7 +430,7 @@ export function platformSitemap(req) {
   const o = siteOrigin(req);
   const built = builtOn();
   const urls = Object.keys(MARKETING_ROUTES).filter((p) => p !== '/signup').map((p) => `  <url><loc>${o}${p}</loc><lastmod>${built}</lastmod><changefreq>${p.startsWith('/legal') ? 'monthly' : 'weekly'}</changefreq></url>`);
-  BLOG_POSTS.forEach((p) => urls.push(`  <url><loc>${o}/blog/${p.slug}</loc><lastmod>${p.date}</lastmod><changefreq>monthly</changefreq><image:image><image:loc>${o}${imageOf(p).jpg}</image:loc></image:image></url>`));
+  BLOG_POSTS.forEach((p) => urls.push(`  <url><loc>${o}/blog/${p.slug}</loc><lastmod>${p.date}</lastmod><changefreq>monthly</changefreq><image:image><image:loc>${escHtml(/^https?:/.test(imageOf(p).jpg) ? imageOf(p).jpg : o + imageOf(p).jpg)}</image:loc></image:image></url>`));
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${urls.join('\n')}\n</urlset>\n`;
 }
 export const platformRobots = (req) => `User-agent: *\nAllow: /\nDisallow: /platform\nDisallow: /api/\nSitemap: ${siteOrigin(req)}/sitemap.xml\n`;
