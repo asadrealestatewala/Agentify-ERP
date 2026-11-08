@@ -16,6 +16,7 @@ export const FEATURES = {
   website_analysis: { label: 'Website analysis', unit: 'call', per: 'one website analysis', usd: 0.01 },
   translation: { label: 'Translation', unit: 'call', per: 'one translation', usd: 0.003 },
   content_draft: { label: 'Agentify post drafts', unit: 'call', per: 'one draft', usd: 0.003 },
+  blog_agent: { label: 'Blog agent articles', unit: 'call', per: 'one AI step (topics or one article)', usd: 0.01 },
 };
 export const MIN_SAMPLE = 10;
 const TEXT_DEFAULT = { in: 0.3, out: 2.5 }; // Gemini 2.5 Flash, USD per million tokens

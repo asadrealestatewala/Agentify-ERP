@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.82', date: '2026-11-08', title: 'Console: Blog agent writes daily blog drafts for you to approve',
+    items: [
+      { text: 'A new Blog agent page researches topics on the web, writes original articles and saves them as drafts, up to a daily limit you set (5 to start, 10 at most). Each draft shows its quality checks and sources; you edit it, then Approve and publish, or Reject. Nothing reaches the blog without your approval unless you switch on auto-publish.', where: 'Console > Marketing > Blog agent', audience: 'platform' },
+      { text: 'Published agent articles join the public blog and the sitemap automatically.', where: 'Console > Marketing > Blog agent', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.81', date: '2026-11-08', title: 'Ask: "how do I ..." questions get a step-by-step answer',
     items: [
       { text: 'Questions like "how do I add a lead?" or "me kese appointment add kar sakta hu" now go to the help guides instead of showing lead statistics. New step guides cover adding a lead, scheduling an appointment, adding a property, creating an installment plan and creating a voucher.', where: 'Ask (Data assistant)' },
