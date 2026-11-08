@@ -27,7 +27,7 @@ export const SETTING_KEYS = ['company_name', 'company_address', 'company_phone',
   'notify_whatsapp_enabled', 'installment_reminder_days', 'allow_negative_bank',
   // printed documents (receipt vouchers, expense vouchers, statements)
   'print_header', 'print_footer', 'print_email', 'print_phone', 'print_address', 'print_website', 'print_social', 'print_show_logo',
-  'receipt_title', 'receipt_header', 'receipt_footer', 'receipt_terms', 'receipt_copies', 'receipt_qr', 'expense_title', 'expense_header', 'expense_footer', 'agents_can_publish', 'staff_login_path', 'brand_color', 'ask_business_notes', 'ask_style'];
+  'receipt_title', 'receipt_header', 'receipt_footer', 'receipt_terms', 'receipt_copies', 'receipt_qr', 'expense_title', 'expense_header', 'expense_footer', 'agents_can_publish', 'staff_login_path', 'brand_color', 'ask_business_notes', 'ask_style', 'ask_friendly_data'];
 
 /** Bootstrap data for dropdowns across the app. */
 r.get('/meta', asyncH((req, res) => {

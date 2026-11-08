@@ -164,6 +164,33 @@ async function viaGroq(q, ref, history, user, image, lang, strict) {
   return finish(text, lang);
 }
 
+const NUM = /\d[\d,]*(?:\.\d+)?/g;
+const nums = (t) => new Set((String(t).match(NUM) || []).map((x) => x.replace(/,/g, '').replace(/\.0+$/, '')));
+const SKIP_FRIENDLY = new Set(['help', 'howto', 'denied', 'empty', 'unknown', 'ai']);
+/**
+ * A short friendly lead-in for a live-data answer (counts, reports). The exact answer text and tables are NOT changed and are shown right below it;
+ * only the answer sentence (no table rows) leaves the server, with emails and phone numbers removed. If the model writes any number that is not in
+ * the exact answer or the question, the lead-in is dropped, so it can never show a different figure than the table.
+ */
+export async function friendlyLead(question, out, user) {
+  try {
+    if (SKIP_FRIENDLY.has(out.intent) || !out.answer || getSetting('ask_friendly_data', '1') === '0' || getSetting('ask_style', 'friendly') !== 'friendly') return null;
+    if (!groqReady() || limited(user.id)) return null;
+    const lang = detectLanguage(question);
+    const names = String(user.name || '').split(/\s+/);
+    const exact = String(out.answer).replace(/\*\*/g, '');
+    const text = await groqChat({ ...meta(user), purpose: 'ask_assistant', maxTokens: 140, timeout: 12_000, temperature: 0.4, messages: [
+      { role: 'system', content: `You add a short friendly lead-in (1 or 2 sentences, under 45 words) above an exact answer from the company's own system. ${voice()} Rules: restate only facts and numbers that appear in EXACT ANSWER; never add, change, round or calculate any number or name; do not mention tables or that you are an AI; say that the details are below. Write only the lead-in.` },
+      { role: 'user', content: `${facts(user, false)}\n\nQUESTION: ${scrubForHorde(question, names).text}\n\nEXACT ANSWER: ${scrubForHorde(exact, names).text}${langLine(lang, false)}` }] });
+    const lead = cleanAnswer(text);
+    if (!lead || lead.length > 500) return null;
+    const allowed = new Set([...nums(exact), ...nums(question), ...nums(today())]);
+    for (const n of nums(lead)) if (!allowed.has(n)) return null;
+    if (lang !== 'en' && !answerMatchesLanguage(lang, lead)) return null;
+    return lead;
+  } catch { return null; }
+}
+
 const hits = new Map(); // per-user rate limit: 10 AI answers a minute
 export function limited(userId) {
   const t = Date.now(), list = (hits.get(userId) || []).filter((x) => t - x < 60_000);
