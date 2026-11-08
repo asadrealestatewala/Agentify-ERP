@@ -6,6 +6,7 @@ import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, useCan } from './AdminShell.jsx';
 import { IconMessageCircle, IconPhoto, IconMovie, IconMicrophone, IconBook2, IconWorldSearch, IconLanguage, IconPencil, IconChevronDown, IconSparkles, IconBuildingCommunity } from '@tabler/icons-react';
+import { FoldCard, Dot } from './Fold.jsx';
 import AiVoiceLab, { FfmpegStatus } from './AiVoiceLab.jsx';
 
 const n0 = (v) => Number(v || 0).toLocaleString();
@@ -67,14 +68,14 @@ function Rate({ o, can, reload }) {
   const put = async (body, msg) => { try { await api.put(`${A}/ai/fx`, body); toast(msg); reload(); } catch (e) { toast(e.message, 'err'); } };
   const refresh = async () => { try { await api.post(`${A}/ai/fx/refresh`, {}); toast('Live rate refreshed'); reload(); } catch (e) { toast(e.message, 'err'); } };
   return (
-    <Card title={`Dollar rate (USD to ${o.display_currency})`}>
+    <FoldCard title={`Dollar rate (USD to ${o.display_currency})`} summary={`1 USD = ${o.rate.rate} ${o.display_currency} (${o.rate.source === 'manual' ? 'set by you' : 'live rate'})`} tone="info">
       <p className="muted" style={{ marginTop: 0 }}>1 USD = <b>{o.rate.rate}</b> {o.display_currency} · {o.rate.source === 'live' ? 'live rate' : o.rate.source === 'manual' ? 'set by you' : 'built-in estimate (no live rate yet)'}{o.rate.updated_at ? ` · updated ${new Date(o.rate.updated_at).toLocaleString()}` : ''}. Google and Azure bill in US dollars; the rupee figure is only for your reading.</p>
       {can && <div style={grid}>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={o.rate.live_enabled} onChange={(e) => put({ live: e.target.checked }, e.target.checked ? 'Live rate on' : 'Live rate off')} /> Use the live rate</label>
         <Field label="Manual rate" hint="Used when the live rate is off or unavailable. Empty clears it."><input className="input" type="number" min={0} step="any" value={manual} onChange={(e) => setManual(e.target.value)} /></Field>
-        <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={() => put({ manual_rate: manual }, 'Manual rate saved')}>Save rate</button><button className="btn" onClick={refresh}>Refresh live rate</button></div>
+        <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={() => put({ manual_rate: manual }, 'Manual rate saved')}>Save rate</button><button className="btn info" onClick={refresh}>Refresh live rate</button></div>
       </div>}
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -85,7 +86,7 @@ function Limits({ o, can, reload }) {
   const save = async () => { try { await api.put(`${A}/ai/controls`, f); toast('Limits saved'); reload(); } catch (e) { toast(e.message, 'err'); } };
   const pct = o.month.budget_usd ? Math.min(100, Math.round((o.month.spent_usd / o.month.budget_usd) * 100)) : null;
   return (
-    <Card title="Budget and limits (Agentify's own key)">
+    <FoldCard title="Budget and limits (Agentify's own key)" summary={o.month.budget_usd == null ? <Dot tone="warn">No monthly budget set</Dot> : `Budget ${usd(o.month.budget_usd)} a month, ${usd(o.month.spent_usd)} used`} tone={o.month.budget_usd == null ? 'warn' : 'ok'} defaultOpen={o.month.budget_usd == null}>
       <p className="muted" style={{ marginTop: 0 }}>{o.month.budget_usd == null ? <b>No monthly budget is set, so nothing stops spending yet. Enter one below.</b> : <>This month: {rs(o.month.spent_pkr, o.display_currency)} of {rs(o.month.budget_usd * o.rate.rate, o.display_currency)} ({usd(o.month.spent_usd)} of {usd(o.month.budget_usd)}, {pct}% used). When it is reached, AI stops for everyone until the 1st; the rest of the app keeps working.</>} The master switch and feature switches are in the card further down.</p>
       {can ? (
         <div style={grid}>
@@ -95,7 +96,7 @@ function Limits({ o, can, reload }) {
           <Field label="Default monthly credits per workspace" hint="Creative Studio credits. Empty means no limit yet."><input className="input" type="number" min={0} value={f.default_monthly_credits} onChange={set('default_monthly_credits')} /></Field>
           <div><button className="btn primary" onClick={save}>Save limits</button></div>
         </div>) : <p className="muted">Your role cannot change these.</p>}
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -162,11 +163,11 @@ function Prices({ o, can, reload }) {
     try { await api.put(`${A}/ai/prices/${p.key}`, { usd: v }); toast('Price saved'); reload(); } catch (e) { toast(e.message, 'err'); }
   };
   return (
-    <Card title="Price list" flush>
+    <FoldCard title="Price list" summary={`${o.prices.length} features priced`} flush>
       <div className="table-wrap"><table className="t"><thead><tr><th>Feature</th><th>One use</th><th className="num">USD</th><th className="num">{o.display_currency}</th><th>Based on</th>{can && <th />}</tr></thead>
         <tbody>{o.prices.map((p) => <tr key={p.key}><td>{p.label}</td><td>{p.per}</td><td className="num">{usd(p.usd)}</td><td className="num">{(p.usd * o.rate.rate).toFixed(2)}</td><td>{SRC[p.source]}{p.source === 'average' ? ` (${p.sample} uses)` : ''}</td>{can && <td><button className="btn sm" onClick={() => pin(p)}>Set price</button></td>}</tr>)}</tbody></table></div>
       <p className="muted" style={{ fontSize: 13, margin: 12 }}>Prices start as estimates and switch to the average of the last 3 months once a feature has 10 real uses. Check them against Google's and Azure's current pricing.</p>
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -224,12 +225,12 @@ function Reports({ can }) {
   useEffect(() => { load(); }, [load]);
   const mark = async (r, handled) => { try { await api.put(`${A}/ai/reports/${r.id}`, { handled }); toast(handled ? 'Marked as handled' : 'Reopened'); load(); } catch (e) { toast(e.message, 'err'); } };
   return (
-    <Card title="Reported AI answers" actions={<label className="row" style={{ gap: 6, fontSize: 13 }}><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Show handled too</label>}>
+    <FoldCard title="Reported AI answers" summary="Answers people flagged as wrong or unsafe" actions={<label className="row" style={{ gap: 6, fontSize: 13 }}><input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} /> Show handled too</label>}>
       {!rows ? <Loading rows={1} /> : !rows.length ? <p className="muted" style={{ margin: 0 }}>Nothing reported. Results that people flag with the Report button appear here.</p> : (
         <div className="table-wrap"><table className="t"><thead><tr><th>When</th><th>Workspace</th><th>Feature</th><th>What was asked</th><th>Result</th><th>Note</th>{can && <th />}</tr></thead>
           <tbody>{rows.map((r) => <tr key={r.id}><td>{new Date(r.created_at.replace(' ', 'T') + (r.created_at.includes('Z') ? '' : 'Z')).toLocaleString()}</td><td>{r.tenant_name || '—'}<div className="muted" style={{ fontSize: 12 }}>{r.user_name}</div></td><td>{r.feature}</td><td style={{ maxWidth: 220 }}>{r.prompt || '—'}</td><td style={{ maxWidth: 260 }}>{(r.output || '—').slice(0, 220)}</td><td>{r.note || '—'}</td>
-            {can && <td>{r.status === 'open' ? <button className="btn sm" onClick={() => mark(r, true)}>Mark handled</button> : <button className="btn sm" onClick={() => mark(r, false)}>Reopen</button>}</td>}</tr>)}</tbody></table></div>)}
-    </Card>
+            {can && <td>{r.status === 'open' ? <button className="btn sm success" onClick={() => mark(r, true)}>Mark handled</button> : <button className="btn sm" onClick={() => mark(r, false)}>Reopen</button>}</td>}</tr>)}</tbody></table></div>)}
+    </FoldCard>
   );
 }
 
@@ -256,7 +257,7 @@ function Voices({ o, can, voices, selected, setSelected, reload }) {
   const save = async () => { try { await api.put(`${A}/ai/voices`, selected); toast('Voices saved'); reload(); } catch (e) { toast(e.message, 'err'); } };
   const ready = o.technical.azure.key_added && o.technical.azure.region;
   return (
-    <Card title="Video voices">
+    <FoldCard title="Video voices" summary="Pick the English and Urdu voices used in promo videos">
       <p className="muted" style={{ marginTop: 0 }}>{ready ? 'The voice used for video voice-overs. Press Hear it to listen before saving.' : 'Add the Azure key and region in Technical details below first.'}</p>
       <div style={grid}>
         {['English', 'Urdu'].map((lang) => {
@@ -265,13 +266,13 @@ function Voices({ o, can, voices, selected, setSelected, reload }) {
             <Field key={lang} label={`${lang} voice`}>
               <span className="row" style={{ gap: 8 }}>
                 <select className="input" value={selected[lang]} disabled={!can || !ready} onChange={(e) => setSelected({ ...selected, [lang]: e.target.value })}>{list.map((v) => <option key={v.name} value={v.name}>{v.label}</option>)}</select>
-                <button className="btn sm" disabled={!ready || busy === lang} onClick={() => hear(lang)}>{busy === lang ? 'Playing…' : 'Hear it'}</button>
+                <button className="btn sm info" disabled={!ready || busy === lang} onClick={() => hear(lang)}>{busy === lang ? 'Playing…' : 'Hear it'}</button>
               </span>
             </Field>);
         })}
       </div>
       {can && <div style={{ marginTop: 12 }}><button className="btn primary" disabled={!ready} onClick={save}>Save voices</button></div>}
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -294,7 +295,7 @@ function Groq({ t, can, reload }) {
   const sw = { groq: g.enabled, horde: t.stablehorde.enabled, gemini: t.stablehorde.gemini_enabled };
   const flip = async (body, msg) => { try { await api.put(`${A}/ai/ask-engines`, body); toast(msg); reload(); } catch (err) { toast(err.message, 'err'); } };
   return (
-    <Card title="Groq and Ask engines">
+    <FoldCard title="Groq and Ask engines" summary={g.key_added ? <Dot tone={g.enabled ? 'ok' : 'warn'}>{g.enabled ? 'Groq connected' : 'Groq off'}</Dot> : <Dot tone="warn">Groq key not added</Dot>} tone={g.key_added && g.enabled ? 'ok' : 'warn'}>
       <p className="muted" style={{ marginTop: 0 }}>Groq key: {g.key_added ? <span className="pill green">Added {g.key_hint}</span> : <span className="pill grey">Not added</span>}. Groq runs Ask chat answers, questions about a picture people attach, and speech-to-text for the microphone (so voice works in the Android app too). Free Groq accounts have rate limits: when Groq says it is busy, Ask moves to the next engine. Questions are scrubbed of emails, numbers, keys and names before they are sent; a picture cannot be scrubbed, so tell people not to attach client data.</p>
       {can && <div style={grid}>
         <Field label={g.key_added ? 'Replace Groq key (optional)' : 'Groq API key'} hint="Starts with gsk_ . Stored encrypted."><TextInput type="password" value={f.key} onChange={(v) => setF({ ...f, key: v })} autoComplete="off" /></Field>
@@ -325,8 +326,8 @@ function Groq({ t, can, reload }) {
         {g.key_added && !g.enabled && <p className="muted" style={{ margin: '2px 0', color: '#b45309' }}>Groq is skipped because it is switched off in the engine list.</p>}
         {t.ask_activity.by_engine.length > 0 && <div className="table-wrap"><table className="t"><thead><tr><th>Engine</th><th>Used for</th><th className="num">Answered</th><th className="num">Failed</th><th>Last</th></tr></thead><tbody>{t.ask_activity.by_engine.map((r) => <tr key={`${r.provider}${r.purpose}`}><td>{ENGINE_LABEL[{ stablehorde: 'horde' }[r.provider] || r.provider] || r.provider}</td><td>{{ ask_assistant: 'Chat', ask_image: 'Pictures', ask_voice: 'Voice' }[r.purpose] || r.purpose}</td><td className="num">{r.ok}</td><td className="num">{r.failed}</td><td>{new Date(r.last_at).toLocaleString()}</td></tr>)}</tbody></table></div>}
       </div>
-      {can && <div className="row" style={{ gap: 8, marginTop: 12 }}><button className="btn primary" onClick={save}>Save Groq and order</button>{g.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled={!g.key_added || busy} onClick={test}>{busy ? 'Testing…' : 'Test the connection'}</button></div>}
-    </Card>
+      {can && <div className="row" style={{ gap: 8, marginTop: 12 }}><button className="btn primary" onClick={save}>Save Groq and order</button>{g.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn info" disabled={!g.key_added || busy} onClick={test}>{busy ? 'Testing…' : 'Test the connection'}</button></div>}
+    </FoldCard>
   );
 }
 
@@ -340,15 +341,15 @@ function Horde({ t, can, reload }) {
   const test = async () => { setBusy(true); try { const r = await api.post(`${A}/ai/horde/test`, {}); toast(`Stable Horde connected${r.username ? ` as ${r.username}` : ''}${r.kudos != null ? ` · ${Math.round(r.kudos)} kudos` : ''}`); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
   const remove = async () => { if (!window.confirm('Remove the Stable Horde key? Ask falls back to Gemini only.')) return; try { await api.del(`${A}/ai/horde/key`); toast('Stable Horde key removed'); reload(); } catch (e) { toast(e.message, 'err'); } };
   return (
-    <Card title="Stable Horde (community AI for Ask)">
+    <FoldCard title="Stable Horde (community AI for Ask)" summary={h.key_added ? <Dot tone={h.enabled ? 'ok' : 'warn'}>{h.enabled ? 'Connected' : 'Switched off'}</Dot> : <Dot>Optional, key not added</Dot>}>
       <p className="muted" style={{ marginTop: 0 }}>Key: {h.key_added ? <span className="pill green">Added {h.key_hint}</span> : <span className="pill grey">Not added</span>}. Stable Horde is one of Ask's engines (see Ask engines above for the order). Gemini is used only while its Enabled box in the engine list above is ticked. If Horde fails and Gemini is off, people see a short busy message. Ask answers from the Agentify guides in the language the person writes in. Stable Horde is run by volunteers: answers can be slow and uneven, and prompts may be seen by workers. Only guide text and the question are sent, with emails, phone numbers, long numbers, keys and the asker's name removed first. Never put client data in Ask.</p>
       {can && <div style={grid}>
         <Field label={h.key_added ? 'Replace Stable Horde key (optional)' : 'Stable Horde API key'} hint="From aihorde.net. Stored encrypted."><TextInput type="password" value={f.key} onChange={(v) => setF({ ...f, key: v })} autoComplete="off" /></Field>
         <Field label="Models (optional)" hint="Up to 5, comma separated. Empty lets the Horde choose."><TextInput value={f.models} onChange={(v) => setF({ ...f, models: v })} /></Field>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={f.trusted_only} onChange={(e) => setF({ ...f, trusted_only: e.target.checked })} /> Use trusted workers only (recommended)</label>
-        <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={save}>Save Stable Horde</button>{h.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled={!h.key_added || busy} onClick={test}>{busy ? 'Testing…' : 'Test the connection'}</button></div>
+        <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={save}>Save Stable Horde</button>{h.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn info" disabled={!h.key_added || busy} onClick={test}>{busy ? 'Testing…' : 'Test the connection'}</button></div>
       </div>}
-    </Card>
+    </FoldCard>
   );
 }
 
@@ -362,18 +363,18 @@ function Technical({ o, can, reload, voices, onTested }) {
   const remove = async () => { if (!window.confirm('Remove the Azure key? Video voices stop until a key is added again.')) return; try { await api.del(`${A}/ai/azure/key`); toast('Azure key removed'); reload(); } catch (e) { toast(e.message, 'err'); } };
   return (
     <>
-    <Card title="Technical details">
+    <FoldCard title="Technical details" summary={<>Gemini {t.gemini.added ? <Dot>added</Dot> : <Dot tone="warn">not added</Dot>} Azure speech {t.azure.key_added ? <Dot>added</Dot> : <Dot tone="warn">not added</Dot>}</>}>
       <p className="muted" style={{ marginTop: 0 }}>Gemini key: {t.gemini.added ? <span className="pill green">Added {t.gemini.key_hint}</span> : <span className="pill grey">Not added</span>} (add or test it in AI settings below) · Azure Speech key: {t.azure.key_added ? <span className="pill green">Added {t.azure.key_hint}</span> : <span className="pill grey">Not added</span>}{t.azure.region ? ` · region ${t.azure.region}` : ''}. Keys are stored encrypted and are never shown again.</p>
       {can && <div style={grid}>
         <Field label={t.azure.key_added ? 'Replace Azure Speech key (optional)' : 'Azure Speech key'}><TextInput type="password" value={az.key} onChange={(v) => setAz({ ...az, key: v })} autoComplete="off" /></Field>
         <Field label="Azure region" hint="For example uaenorth or eastus"><TextInput value={az.region} onChange={(v) => setAz({ ...az, region: v })} /></Field>
-        <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={save}>Save Azure details</button>{t.azure.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled={!t.azure.key_added || !t.azure.region || testing} onClick={testAzure}>{testing ? 'Testing…' : 'Test the connection'}</button></div>
+        <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={save}>Save Azure details</button>{t.azure.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn info" disabled={!t.azure.key_added || !t.azure.region || testing} onClick={testAzure}>{testing ? 'Testing…' : 'Test the connection'}</button></div>
       </div>}
       <p className="muted"><b>How the cost is counted:</b> the AI company charges by the amount of text the AI reads and writes (tokens), and the voice service by the number of letters it speaks. Agentify records the exact cost each time AI is used, with the rupee rate of that moment, and adds it all up in rupees on this page. Calls made with a workspace's own key are paid by that workspace and are not counted here.</p>
       <div style={{ marginTop: 12 }}><b>Which model does what</b>
         <div className="table-wrap"><table className="t"><thead><tr><th>Purpose</th><th>Engine</th><th>Model</th><th>State</th><th>Last used</th></tr></thead><tbody>{t.model_map.map((m) => <tr key={m.key}><td>{m.purpose}{m.note ? <div className="muted" style={{ fontSize: 11 }}>{m.note}</div> : null}</td><td>{m.engine}</td><td>{m.model}</td><td><span className={`pill ${m.on ? 'green' : 'grey'}`}>{m.on ? 'On' : 'Off'}</span></td><td>{m.last ? <>{new Date(m.last.at).toLocaleString()}<div className="muted" style={{ fontSize: 11 }}>{m.last.ok ? 'worked' : 'failed'}{m.last.model ? ` · ${m.last.model}` : ''}</div></> : <span className="muted">not yet</span>}</td></tr>)}</tbody></table></div>
       </div>
-    </Card>
+    </FoldCard>
     <Groq t={t} can={can} reload={reload} />
     <Horde t={t} can={can} reload={reload} />
     </>
@@ -400,10 +401,10 @@ export default function AiAgentifyKey({ tab = 'overview' }) {
         <Card><div className="cc-k">Agentify-key AI cost this month</div><div className="cc-v">{usd(o.month.spent_usd)}</div><div className="cell-sub">{rs(o.month.spent_pkr, cur)} at {o.rate.rate} {cur} per USD</div></Card>
         <Card><div className="cc-k">Video cost this month</div><div className="cc-v">{usd(o.month.video_spent_usd)}</div><div className="cell-sub">{o.month.video_budget_usd != null ? `of ${usd(o.month.video_budget_usd)} video budget` : 'No video budget set'}</div></Card>
       </div>
-      <Card title="Cost this month by feature" flush>
+      <FoldCard title="Cost this month by feature" summary="Full table of uses and costs" flush>
         <div className="table-wrap"><table className="t"><thead><tr><th>Feature</th><th className="num">Uses</th><th className="num">Read / written</th><th className="num">USD</th><th className="num">{cur}</th><th>Switch</th></tr></thead>
           <tbody>{o.features.map((f) => <tr key={f.key}><td>{f.label}</td><td className="num">{n0(f.uses)}</td><td className="num">{f.characters ? `${n0(f.characters)} letters spoken` : f.tokens_in || f.tokens_out ? `${n0(f.tokens_in)} read / ${n0(f.tokens_out)} written` : '–'}</td><td className="num">{usd(f.usd)}</td><td className="num">{rs(f.pkr, cur).replace(`${cur} `, '')}</td><td>{f.enabled ? 'On' : <span className="pill red">Off</span>}</td></tr>)}</tbody></table></div>
-      </Card>
+      </FoldCard>
       </>}
       {tab === 'prices' && <>
         <PlainPrices o={o} />

@@ -6,6 +6,7 @@ import { Card, Empty, ErrorBox, Loading } from '../../components/ui.jsx';
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, PageTitle } from './AdminShell.jsx';
+import { FoldCard, Dot } from './Fold.jsx';
 import { HealthBadge } from './Dashboard.jsx';
 
 const COLORS = ['#14b8a6', '#3b82f6', '#f59e0b', '#f43f5e', '#8b5cf6'];
@@ -42,29 +43,30 @@ export function ReportsPage() {
       </PageTitle>
       <div className="pa-grid3" style={{ gridTemplateColumns: 'minmax(220px, 1fr) minmax(0, 3fr)' }}>
         <div className="stack">
-          <Card title="Reports" flush>
+          <FoldCard id="reports-list" title="Choose a report" summary={rep ? rep.title : 'Pick one'} defaultOpen flush>
             {!list ? <Loading /> : Object.entries(groups).map(([g, rs]) => (
               <div key={g} style={{ padding: '6px 12px 10px' }}>
                 <div className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '.05em', margin: '6px 0' }}>{g}</div>
                 {rs.map((r) => <button key={r.id} className={`btn sm ${r.id === id ? 'primary' : 'ghost'}`} style={{ display: 'block', width: '100%', textAlign: 'left', marginBottom: 4 }} onClick={() => setQ({ report: r.id })}>{r.title}</button>)}
               </div>
             ))}
-          </Card>
-          <Card title="Saved views" flush actions={<button className="btn sm" onClick={saveView}>Save current</button>}>
+          </FoldCard>
+          <FoldCard id="saved-views" title="Saved views" summary={views.length ? `${views.length} saved` : 'None yet'} flush actions={<button className="btn sm success" onClick={saveView}>Save current</button>}>
             {!views.length ? <div className="muted" style={{ padding: 12 }}>Save a report and date range you use often.</div> : views.map((v) => (
               <div key={v.name} className="row" style={{ padding: '6px 12px', gap: 6 }}>
                 <button className="btn sm ghost" style={{ flex: 1, textAlign: 'left' }} onClick={() => setQ({ report: v.report, range: v.range, from: v.from, to: v.to })}>{v.name}</button>
                 <button className="btn sm ghost" aria-label={`Delete ${v.name}`} onClick={async () => setViews(await api.del(`${A}/reports/views/${encodeURIComponent(v.name)}`))}>✕</button>
               </div>
             ))}
-          </Card>
+          </FoldCard>
         </div>
         <div className="stack">
           <ErrorBox error={err} />
           {!rep ? (!err && <Loading rows={8} />) : (
+            <>
             <Card title={rep.title} actions={list?.can_export && <>
-              <a className="btn sm" href={`${A}/reports/${id}/export?format=csv&${qs}`}>Export CSV</a>
-              <a className="btn sm" href={`${A}/reports/${id}/export?format=xlsx&${qs}`}>Export Excel</a>
+              <a className="btn sm success" href={`${A}/reports/${id}/export?format=csv&${qs}`}>Export CSV</a>
+              <a className="btn sm info" href={`${A}/reports/${id}/export?format=xlsx&${qs}`}>Export Excel</a>
             </>}>
               <p className="muted" style={{ marginTop: 0 }}>{rep.description} {rep.range.from} to {rep.range.to} ({rep.range.timezone}).{rep.note ? ` ${rep.note}` : ''}</p>
               {rep.summary && <div className="pa-kpis" style={{ gridTemplateColumns: `repeat(${Object.keys(rep.summary).length}, minmax(0, 1fr))` }}>{Object.entries(rep.summary).map(([k, v]) => <div key={k} className="pa-kpi" style={{ cursor: 'default' }}><div className="l">{k}</div><div className="v">{fmt(v)}</div></div>)}</div>}
@@ -75,13 +77,16 @@ export function ReportsPage() {
                   {rep.chart.series.map((s, i) => <Bar key={s} dataKey={s} name={rep.columns.find(([k]) => k === s)?.[1] || s} fill={COLORS[i % COLORS.length]} radius={[5, 5, 0, 0]} maxBarSize={28} />)}
                 </BarChart></ResponsiveContainer></div>
               )}
+            </Card>
+            <FoldCard id="report-rows" title="Detailed rows" summary={rep.rows.length ? `${rep.rows.length.toLocaleString()} rows, click to see them` : 'Nothing in this period'} tone={rep.rows.length ? undefined : 'warn'} defaultOpen={rep.rows.length > 0 && rep.rows.length <= 8} flush>
               {!rep.rows.length ? <Empty title="Nothing in this period" /> : (
                 <div className="table-wrap"><table className="t"><thead><tr>{rep.columns.map(([k, l]) => <th key={k}>{l}</th>)}</tr></thead><tbody>
                   {rep.rows.slice(0, 500).map((row, i) => <tr key={i}>{rep.columns.map(([k]) => <td key={k} className={typeof row[k] === 'number' ? 'mono' : ''}>{fmt(row[k])}</td>)}</tr>)}
                 </tbody></table></div>
               )}
-              {rep.rows.length > 500 && <p className="muted">Showing the first 500 of {rep.rows.length} rows. Export to see them all.</p>}
-            </Card>
+              {rep.rows.length > 500 && <p className="muted" style={{ margin: 12 }}>Showing the first 500 of {rep.rows.length} rows. Export to see them all.</p>}
+            </FoldCard>
+            </>
           )}
         </div>
       </div>
@@ -97,7 +102,7 @@ export function ReconciliationPage() {
   const state = (s) => (s === 'ok' ? 'healthy' : s === 'warning' ? 'degraded' : 'unhealthy');
   return (
     <>
-      <PageTitle title="Payment reconciliation" sub="Checks that payments, invoices and subscriptions agree with each other. Anything listed here needs a look before month-end."><button className="btn sm" onClick={load}>Run again</button></PageTitle>
+      <PageTitle title="Payment reconciliation" sub="Checks that payments, invoices and subscriptions agree with each other. Anything listed here needs a look before month-end."><button className="btn info" onClick={load}>Run again</button></PageTitle>
       <ErrorBox error={err} />
       {!d ? (!err && <Loading />) : (
         <>
@@ -105,13 +110,13 @@ export function ReconciliationPage() {
             <p style={{ margin: 0 }}>All paid invoices: {d.paid_totals.length ? d.paid_totals.map((t) => `${t.currency} ${Number(t.total).toLocaleString()} (${t.n})`).join(' · ') : 'none yet'}</p>
           </Card>
           {d.checks.map((c) => (
-            <Card key={c.id} title={<span>{c.label} <span className={`pa-state ${state(c.state)}`}>{c.state === 'ok' ? 'OK' : `${c.count} to check`}</span></span>} flush={!!c.rows.length}>
+            <FoldCard key={c.id} id={`recon-${c.id}`} title={c.label} summary={<Dot tone={c.state === 'ok' ? 'ok' : c.state === 'warning' ? 'warn' : 'bad'}>{c.state === 'ok' ? 'All good' : `${c.count} to check`}</Dot>} tone={c.state === 'ok' ? 'ok' : c.state === 'warning' ? 'warn' : 'bad'} defaultOpen={c.state !== 'ok'} flush={!!c.rows.length}>
               {!c.rows.length ? <p className="muted" style={{ margin: 0 }}>{c.detail}</p> : (
                 <div className="table-wrap"><table className="t"><thead><tr>{Object.keys(c.rows[0]).map((k) => <th key={k}>{k.replace(/_/g, ' ')}</th>)}</tr></thead><tbody>
                   {c.rows.map((r, i) => <tr key={i}>{Object.values(r).map((v, j) => <td key={j}>{fmt(v)}</td>)}</tr>)}
                 </tbody></table></div>
               )}
-            </Card>
+            </FoldCard>
           ))}
         </>
       )}
