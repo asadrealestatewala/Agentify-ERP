@@ -24,3 +24,21 @@ export function noteEngine(provider, err) {
 }
 export const engineErrors = () => Object.fromEntries(['groq', 'horde', 'gemini'].map((p) => { let v = null; try { v = JSON.parse(getSetting(`ask_last_error_${p}`) || 'null'); } catch { /* ignore */ } return [p, v]; }));
 
+
+/**
+ * Console: the on/off switch of each Ask engine, honoured everywhere (an engine that is off is never called, not even as a backup).
+ * b: { groq?: bool, horde?: bool, gemini?: bool } or { only: 'groq' | 'horde' | 'gemini' } to keep one engine on and switch the others off.
+ * Keys are never touched: switching an engine on again only needs the same key.
+ */
+export function saveEngineSwitches(b, by) {
+  const keys = { groq: 'groq_enabled', horde: 'stablehorde_enabled', gemini: 'ask_gemini_enabled' };
+  let want = {};
+  if (b.only != null) {
+    if (!keys[b.only]) throw bad('Choose Groq, Stable Horde or Gemini.');
+    want = Object.fromEntries(Object.keys(keys).map((k) => [k, k === b.only]));
+  } else {
+    for (const k of Object.keys(keys)) if (k in b) want[k] = !!b[k];
+  }
+  for (const [k, on] of Object.entries(want)) setSetting(keys[k], on ? '1' : '0', { by });
+  return want;
+}

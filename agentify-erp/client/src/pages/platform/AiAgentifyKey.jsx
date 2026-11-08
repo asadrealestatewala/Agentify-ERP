@@ -144,38 +144,49 @@ const ENGINE_LABEL = { groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini' };
 function Groq({ t, can, reload }) {
   const toast = useToast();
   const g = t.groq;
-  const [f, setF] = useState({ key: '', enabled: g.enabled, chat_model: g.chat_model === g.defaults.chat ? '' : g.chat_model, vision_model: g.vision_model === g.defaults.vision ? '' : g.vision_model, stt_model: g.stt_model === g.defaults.stt ? '' : g.stt_model });
+  const [f, setF] = useState({ key: '', chat_model: g.chat_model === g.defaults.chat ? '' : g.chat_model, vision_model: g.vision_model === g.defaults.vision ? '' : g.vision_model, stt_model: g.stt_model === g.defaults.stt ? '' : g.stt_model });
   const [order, setOrder] = useState(t.ask_order);
   const [busy, setBusy] = useState(false);
-  const save = async () => { try { await api.put(`${A}/ai/groq`, { enabled: f.enabled, chat_model: f.chat_model, vision_model: f.vision_model, stt_model: f.stt_model, provider_order: order, ...(f.key ? { key: f.key } : {}) }); toast('Groq settings saved'); setF({ ...f, key: '' }); reload(); } catch (e) { toast(e.message, 'err'); } };
+  const [probe, setProbe] = useState(null); // result of a one-engine test
+  const [probing, setProbing] = useState('');
+  const tryEngine = async (e) => { setProbing(e); setProbe(null); try { setProbe(await api.post(`${A}/ai/ask-engine/test`, { engine: e })); reload(); } catch (err) { toast(err.message, 'err'); } finally { setProbing(''); } };
+  const save = async () => { try { await api.put(`${A}/ai/groq`, { chat_model: f.chat_model, vision_model: f.vision_model, stt_model: f.stt_model, provider_order: order, ...(f.key ? { key: f.key } : {}) }); toast('Groq settings saved'); setF({ ...f, key: '' }); reload(); } catch (e) { toast(e.message, 'err'); } };
   const test = async () => { setBusy(true); try { const r = await api.post(`${A}/ai/groq/test`, {}); toast(`Groq connected (${r.models} models available)`); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
   const remove = async () => { if (!window.confirm('Remove the Groq key? Ask voice and picture questions stop until a key is added again.')) return; try { await api.del(`${A}/ai/groq/key`); toast('Groq key removed'); reload(); } catch (e) { toast(e.message, 'err'); } };
   const move = (i, d) => { const o = [...order]; const j = i + d; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; setOrder(o); };
-  const on = { groq: g.key_added && g.enabled, horde: t.stablehorde.key_added, gemini: t.stablehorde.gemini_enabled && t.gemini.added };
+  const on = { groq: g.key_added && g.enabled, horde: t.stablehorde.key_added && t.stablehorde.enabled, gemini: t.stablehorde.gemini_enabled && t.gemini.added };
+  const sw = { groq: g.enabled, horde: t.stablehorde.enabled, gemini: t.stablehorde.gemini_enabled };
+  const flip = async (body, msg) => { try { await api.put(`${A}/ai/ask-engines`, body); toast(msg); reload(); } catch (err) { toast(err.message, 'err'); } };
   return (
     <Card title="Groq and Ask engines">
       <p className="muted" style={{ marginTop: 0 }}>Groq key: {g.key_added ? <span className="pill green">Added {g.key_hint}</span> : <span className="pill grey">Not added</span>}. Groq runs Ask chat answers, questions about a picture people attach, and speech-to-text for the microphone (so voice works in the Android app too). Free Groq accounts have rate limits: when Groq says it is busy, Ask moves to the next engine. Questions are scrubbed of emails, numbers, keys and names before they are sent; a picture cannot be scrubbed, so tell people not to attach client data.</p>
       {can && <div style={grid}>
         <Field label={g.key_added ? 'Replace Groq key (optional)' : 'Groq API key'} hint="Starts with gsk_ . Stored encrypted."><TextInput type="password" value={f.key} onChange={(v) => setF({ ...f, key: v })} autoComplete="off" /></Field>
-        <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={f.enabled} onChange={(e) => setF({ ...f, enabled: e.target.checked })} /> Use Groq in Ask (chat, pictures, voice)</label>
         <Field label="Chat model (optional)" hint={`Default ${g.defaults.chat}`}><TextInput value={f.chat_model} onChange={(v) => setF({ ...f, chat_model: v })} /></Field>
         <Field label="Picture model (optional)" hint={`Default ${g.defaults.vision}`}><TextInput value={f.vision_model} onChange={(v) => setF({ ...f, vision_model: v })} /></Field>
         <Field label="Speech model (optional)" hint={`Default ${g.defaults.stt}`}><TextInput value={f.stt_model} onChange={(v) => setF({ ...f, stt_model: v })} /></Field>
       </div>}
       <div style={{ marginTop: 12 }}>
         <b>Ask engine order</b>
-        <p className="muted" style={{ margin: '2px 0 8px' }}>Ask tries the top engine first and moves down when one is off, has no key or fails.</p>
+        <p className="muted" style={{ margin: '2px 0 8px' }}>Ask tries the top engine first and moves down when one fails. An engine whose Enabled box is unticked is never called, not even as a backup, until you tick it again.</p>
         {order.map((e, i) => <div key={e} className="row" style={{ gap: 8, marginBottom: 4 }}>
           <span style={{ width: 20 }}>{i + 1}.</span><span style={{ minWidth: 110 }}>{ENGINE_LABEL[e]}</span>{on[e] ? <span className="pill green">on</span> : <span className="pill grey">off</span>}
-          {can && <><button className="btn sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${ENGINE_LABEL[e]} up`}>Up</button><button className="btn sm" disabled={i === order.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${ENGINE_LABEL[e]} down`}>Down</button></>}
+          {can && <><label className="row" style={{ gap: 4 }}><input type="checkbox" checked={!!sw[e]} onChange={(x) => flip({ [e]: x.target.checked }, `${ENGINE_LABEL[e]} switched ${x.target.checked ? 'on' : 'off'}`)} aria-label={`Switch ${ENGINE_LABEL[e]} on or off`} /> Enabled</label><button className="btn sm" onClick={() => flip({ only: e }, `Only ${ENGINE_LABEL[e]} is on now`)}>Use only this engine</button><button className="btn sm" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`Move ${ENGINE_LABEL[e]} up`}>Up</button><button className="btn sm" disabled={i === order.length - 1} onClick={() => move(i, 1)} aria-label={`Move ${ENGINE_LABEL[e]} down`}>Down</button><button className="btn sm" disabled={!!probing} onClick={() => tryEngine(e)} aria-label={`Test ${ENGINE_LABEL[e]} alone`}>{probing === e ? 'Testing…' : 'Test this engine'}</button></>}
         </div>)}
+        {probe && <div style={{ marginTop: 8, padding: 10, border: '1px solid #cbd5e1', borderRadius: 8 }}>
+          <b>{probe.name} alone</b> · {probe.ok ? <span className="pill green">worked</span> : <span className="pill grey">did not work</span>}{probe.ms != null ? ` · ${(probe.ms / 1000).toFixed(1)} s` : ''}{probe.model ? ` · model ${probe.model}` : ''}
+          <div className="muted" style={{ fontSize: 12 }}>Question sent: "{probe.question}". Only this engine was asked; nothing fell back to another one.</div>
+          {probe.note && <div style={{ color: '#b45309', fontSize: 12 }}>{probe.note}</div>}
+          {probe.error && <div style={{ color: '#b45309', marginTop: 4 }}>{probe.error}</div>}
+          {probe.answer && <div style={{ whiteSpace: 'pre-wrap', marginTop: 4 }}>{probe.answer}</div>}
+        </div>}
       </div>
       <div style={{ marginTop: 12 }}>
         <b>Who has been answering Ask (last {t.ask_activity.days} days)</b>
         {t.ask_activity.last ? <p className="muted" style={{ margin: '2px 0 6px' }}>Latest call: <b>{ENGINE_LABEL[{ stablehorde: 'horde' }[t.ask_activity.last.provider] || t.ask_activity.last.provider] || t.ask_activity.last.provider}</b>{t.ask_activity.last.model ? ` (${t.ask_activity.last.model})` : ''} · {t.ask_activity.last.ok ? 'answered' : 'failed'} · {new Date(t.ask_activity.last.at).toLocaleString()}</p> : <p className="muted" style={{ margin: '2px 0 6px' }}>No AI answers yet.</p>}
         {Object.entries(t.ask_activity.last_errors || {}).filter(([, v]) => v).map(([k, v]) => <p key={k} className="muted" style={{ margin: '2px 0', color: '#b45309' }}>Last {ENGINE_LABEL[k] || k} problem ({new Date(v.at).toLocaleString()}): {v.message}</p>)}
         {!g.key_added && <p className="muted" style={{ margin: '2px 0', color: '#b45309' }}>Groq is skipped because no Groq key is saved yet.</p>}
-        {g.key_added && !g.enabled && <p className="muted" style={{ margin: '2px 0', color: '#b45309' }}>Groq is skipped because "Use Groq" is switched off.</p>}
+        {g.key_added && !g.enabled && <p className="muted" style={{ margin: '2px 0', color: '#b45309' }}>Groq is skipped because it is switched off in the engine list.</p>}
         {t.ask_activity.by_engine.length > 0 && <div className="table-wrap"><table className="t"><thead><tr><th>Engine</th><th>Used for</th><th className="num">Answered</th><th className="num">Failed</th><th>Last</th></tr></thead><tbody>{t.ask_activity.by_engine.map((r) => <tr key={`${r.provider}${r.purpose}`}><td>{ENGINE_LABEL[{ stablehorde: 'horde' }[r.provider] || r.provider] || r.provider}</td><td>{{ ask_assistant: 'Chat', ask_image: 'Pictures', ask_voice: 'Voice' }[r.purpose] || r.purpose}</td><td className="num">{r.ok}</td><td className="num">{r.failed}</td><td>{new Date(r.last_at).toLocaleString()}</td></tr>)}</tbody></table></div>}
       </div>
       {can && <div className="row" style={{ gap: 8, marginTop: 12 }}><button className="btn primary" onClick={save}>Save Groq and order</button>{g.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled={!g.key_added || busy} onClick={test}>{busy ? 'Testing…' : 'Test the connection'}</button></div>}
@@ -187,17 +198,16 @@ function Groq({ t, can, reload }) {
 function Horde({ t, can, reload }) {
   const toast = useToast();
   const h = t.stablehorde;
-  const [f, setF] = useState({ key: '', models: h.models.join(', '), trusted_only: h.trusted_only, gemini_enabled: h.gemini_enabled });
+  const [f, setF] = useState({ key: '', models: h.models.join(', '), trusted_only: h.trusted_only });
   const [busy, setBusy] = useState(false);
-  const save = async () => { try { await api.put(`${A}/ai/horde`, { models: f.models, trusted_only: f.trusted_only, gemini_enabled: f.gemini_enabled, ...(f.key ? { key: f.key } : {}) }); toast('Stable Horde settings saved'); setF({ ...f, key: '' }); reload(); } catch (e) { toast(e.message, 'err'); } };
+  const save = async () => { try { await api.put(`${A}/ai/horde`, { models: f.models, trusted_only: f.trusted_only, ...(f.key ? { key: f.key } : {}) }); toast('Stable Horde settings saved'); setF({ ...f, key: '' }); reload(); } catch (e) { toast(e.message, 'err'); } };
   const test = async () => { setBusy(true); try { const r = await api.post(`${A}/ai/horde/test`, {}); toast(`Stable Horde connected${r.username ? ` as ${r.username}` : ''}${r.kudos != null ? ` · ${Math.round(r.kudos)} kudos` : ''}`); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
   const remove = async () => { if (!window.confirm('Remove the Stable Horde key? Ask falls back to Gemini only.')) return; try { await api.del(`${A}/ai/horde/key`); toast('Stable Horde key removed'); reload(); } catch (e) { toast(e.message, 'err'); } };
   return (
     <Card title="Stable Horde (community AI for Ask)">
-      <p className="muted" style={{ marginTop: 0 }}>Key: {h.key_added ? <span className="pill green">Added {h.key_hint}</span> : <span className="pill grey">Not added</span>}. Stable Horde is one of Ask's engines (see Ask engines above for the order). Gemini is used only if you tick "Allow Gemini for Ask" below. If Horde fails and Gemini is off, people see a short busy message. Ask answers from the Agentify guides in the language the person writes in. Stable Horde is run by volunteers: answers can be slow and uneven, and prompts may be seen by workers. Only guide text and the question are sent, with emails, phone numbers, long numbers, keys and the asker's name removed first. Never put client data in Ask.</p>
+      <p className="muted" style={{ marginTop: 0 }}>Key: {h.key_added ? <span className="pill green">Added {h.key_hint}</span> : <span className="pill grey">Not added</span>}. Stable Horde is one of Ask's engines (see Ask engines above for the order). Gemini is used only while its Enabled box in the engine list above is ticked. If Horde fails and Gemini is off, people see a short busy message. Ask answers from the Agentify guides in the language the person writes in. Stable Horde is run by volunteers: answers can be slow and uneven, and prompts may be seen by workers. Only guide text and the question are sent, with emails, phone numbers, long numbers, keys and the asker's name removed first. Never put client data in Ask.</p>
       {can && <div style={grid}>
         <Field label={h.key_added ? 'Replace Stable Horde key (optional)' : 'Stable Horde API key'} hint="From aihorde.net. Stored encrypted."><TextInput type="password" value={f.key} onChange={(v) => setF({ ...f, key: v })} autoComplete="off" /></Field>
-        <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={f.gemini_enabled} onChange={(e) => setF({ ...f, gemini_enabled: e.target.checked })} /> Allow Gemini for Ask (off by default; while off, Gemini is never used by Ask)</label>
         <Field label="Models (optional)" hint="Up to 5, comma separated. Empty lets the Horde choose."><TextInput value={f.models} onChange={(v) => setF({ ...f, models: v })} /></Field>
         <label className="row" style={{ gap: 8 }}><input type="checkbox" checked={f.trusted_only} onChange={(e) => setF({ ...f, trusted_only: e.target.checked })} /> Use trusted workers only (recommended)</label>
         <div className="row" style={{ gap: 8 }}><button className="btn primary" onClick={save}>Save Stable Horde</button>{h.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}<button className="btn" disabled={!h.key_added || busy} onClick={test}>{busy ? 'Testing…' : 'Test the connection'}</button></div>

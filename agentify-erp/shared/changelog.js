@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.80', date: '2026-11-08', title: 'Console: test and switch each Ask engine',
+    items: [
+      { text: 'Each engine in the Ask engine order now has a Test this engine button. It sends a sample question to that engine only, with no fallback, and shows the answer, model, time and any error.', where: 'Console > AI', audience: 'platform' },
+      { text: 'Every Ask engine (Groq, Stable Horde, Gemini) has its own Enabled box, and a Use only this engine button switches the others off. An engine that is off is never called, not even as a backup, until you switch it on again.', where: 'Console > AI', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.79', date: '2026-11-08', title: 'Console: Which model does what',
     items: [
       { text: 'A new table on the AI page lists every AI purpose (Ask answers, pictures, voice, Creative Studio images, reels and voices, posting) with the engine and model behind it, whether it is on, and when it was last used.', where: 'Console > AI', audience: 'platform' },

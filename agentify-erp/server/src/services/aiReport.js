@@ -4,7 +4,7 @@ import { getSetting, setSetting, audit } from './platformConfig.js';
 import { bad } from '../util.js';
 import { listReports, openReportCount } from './aiReports.js';
 import { imageModel, videoModel, voiceFor, azureTest, azureSpeak, DEFAULT_VOICES, SAMPLE_TEXT } from './aiGateway.js';
-import { hordeStatus, hordeKey, geminiAskEnabled } from './hordeGateway.js';
+import { hordeStatus, hordeReady, geminiAskEnabled } from './hordeGateway.js';
 import { groqStatus, groqReady } from './groqGateway.js';
 import { askOrder, engineErrors } from './askOrder.js';
 import { config, monthStartOf, ensureTable, featuresOff } from './aiUsage.js';
@@ -48,7 +48,7 @@ export function askEngineActivity(now = new Date()) {
  */
 export function modelMap() {
   const c = config(), g = groqStatus(), h = hordeStatus(), off = new Set(featuresOff());
-  const ready = { groq: groqReady(), horde: !!hordeKey(), gemini: geminiAskEnabled() && !!c.key };
+  const ready = { groq: groqReady(), horde: hordeReady(), gemini: geminiAskEnabled() && !!c.key };
   const name = { groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini' };
   const modelOf = { groq: g.chat_model, horde: h.models.length ? h.models.join(', ') : 'chosen by the Horde', gemini: c.model };
   const chain = askOrder().filter((p) => ready[p]);
