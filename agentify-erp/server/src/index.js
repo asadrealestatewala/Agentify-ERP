@@ -11,7 +11,7 @@ import { uploadDir, get } from './db.js';
 import { scheduleBackups } from './services/backup.js';
 import { tenantContext, bootstrapTenants, forEachTenant, forEachTenantAsync, isMultiTenant, resolveTenant, BASE_DOMAIN } from './platform.js';
 import { runDuePosts } from './integrations/social.js';
-import { injectMeta, platformSitemap, platformRobots, MARKETING_ROUTES } from './services/marketing.js';
+import { injectMeta, platformSitemap, platformRobots, MARKETING_ROUTES, blogSlugOf } from './services/marketing.js';
 import { injectSiteMeta, websiteOnlyOnCustomDomain, freeSiteToSitesDomain } from './services/siteHost.js';
 import { ensureFirstAdmin } from './services/platformAuth.js';
 import { markJob, snapshot, generateNotifications } from './services/platformMetrics.js';
@@ -238,11 +238,11 @@ export function createApp() {
       m.start_url = APP_START_PATHS.has(start) ? `${start}?source=pwa` : '/?source=pwa';
       res.type('application/manifest+json').set('Cache-Control', 'no-cache').send(JSON.stringify(m));
     });
-    app.use(express.static(dist));
+    app.use(express.static(dist, { index: false })); // '/' must go through the handler below so the home page gets its tags
     // marketing pages on the main domain get their title, description, canonical and sharing tags on the server (crawlers)
     let shell = null;
     app.get(/^\/(?!api|uploads).*/, (req, res) => {
-      if (onMain(req) && MARKETING_ROUTES[req.path]) {
+      if (onMain(req) && (MARKETING_ROUTES[req.path] || blogSlugOf(req.path))) {
         shell ||= fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
         return res.type('html').send(injectMeta(shell, req.path, req));
       }

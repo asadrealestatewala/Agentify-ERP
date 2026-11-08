@@ -1,4 +1,5 @@
 // Control-plane API (not tenant-scoped): self-serve signup and the platform operator's tenant administration.
+import { listPosts, getPost } from '../services/blog.js';
 import crypto from 'node:crypto';
 import { issueLoginCode } from '../services/oauthFlow.js';
 import express, { Router } from 'express';
@@ -291,6 +292,8 @@ r.get('/marketing', asyncH((req, res) => {
     plans: planCatalog().filter((p) => PLANS[p.id]?.visible), addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })),
     google_signup: !!appCreds('google'), local_methods: methods, cards: stripe.stripeConfigured(), signup_email_code: signupCodeNeeded(), terms_version: termsVersion(), ga4_id: getSetting('ga4_measurement_id') || null });
 }));
+r.get('/blog', asyncH((req, res) => { mainOnly(req); res.json({ posts: listPosts() }); }));
+r.get('/blog/:slug', asyncH((req, res) => { mainOnly(req); const p = getPost(req.params.slug); if (!p) throw new HttpError(404, 'Article not found'); res.json(p); }));
 r.get('/announcements', asyncH((req, res) => { mainOnly(req); res.json(publicAnnouncements()); }));
 r.get('/legal/:slug', asyncH((req, res) => { mainOnly(req); res.json(publicLegal(req.params.slug)); }));
 /** Public account-deletion request (required by app stores). A hidden field catches bots; the answer never says whether the account exists. */

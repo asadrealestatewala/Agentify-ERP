@@ -435,7 +435,7 @@ function Footer({ info }) {
         <div className="gx-foot-big" aria-hidden="true">{(c.brand || "Agentify ERP").replace(/ ERP$/, "")}</div>
         <div className="gx-foot-g">
           <div><p>{c.brand}: <T k="footer.tagline" /></p>{(c.contact_email || c.contact_phone || c.address) && <p className="gx-fine">{[c.contact_email, c.contact_phone, c.address].filter(Boolean).join(' · ')}</p>}{!!social.length && <p>{social.map(([k, v]) => <a key={k} href={v} target="_blank" rel="noreferrer noopener" className="gx-cap">{k}</a>)}</p>}</div>
-          <div><h4>Product</h4><a href="#features">Features</a><a href="#tour">Live demo</a><a href="#pricing">Pricing</a><Link to="/real-estate">Real estate</Link><Link to="/construction">Construction</Link></div>
+          <div><h4>Product</h4><a href="#features">Features</a><a href="#tour">Live demo</a><a href="#pricing">Pricing</a><Link to="/real-estate">Real estate</Link><Link to="/construction">Construction</Link><Link to="/blog">Blog</Link></div>
           <div><h4>Company</h4><Link to="/contact">Book a demo</Link><Link to="/signup">Start free</Link><Link to="/login">Sign in</Link>{!inst.installed && inst.apk && <a className="gx-linkbtn" href={inst.apk}>Download the app</a>}{!inst.installed && !inst.apk && <button type="button" className="gx-linkbtn" onClick={() => (inst.canPrompt ? inst.install() : document.getElementById('mobile')?.scrollIntoView({ behavior: 'smooth' }))}>Download the app</button>}</div>
           <div><h4>Legal</h4>{(c.legal || []).map((d) => <Link key={d.slug} to={`/legal/${d.slug}`}>{d.title}</Link>)}<Link to="/delete-account">Delete your account</Link>
             <CountryMenu variant="foot" /></div>

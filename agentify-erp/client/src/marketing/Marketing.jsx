@@ -227,7 +227,7 @@ function Header({ info }) {
   const loc = useLocation();
   useEffect(() => setOpen(false), [loc.pathname]);
   const brand = info.content.brand;
-  const links = [['/real-estate', 'Real Estate'], ['/construction', 'Construction'], ['/pricing', 'Pricing'], ['/contact', 'Book a demo']];
+  const links = [['/real-estate', 'Real Estate'], ['/construction', 'Construction'], ['/pricing', 'Pricing'], ['/blog', 'Blog'], ['/contact', 'Book a demo']];
   return (
     <>
       <OfferBar info={info} />
@@ -256,7 +256,7 @@ function Footer({ info, onCookies }) {
         {(c.contact_email || c.contact_phone || c.address) && <p style={{ marginTop: 10 }}>{[c.contact_email && <a key="e" href={`mailto:${c.contact_email}`}>{c.contact_email}</a>, c.contact_phone, c.address].filter(Boolean).map((x, i) => <span key={i} style={{ display: 'block' }}>{x}</span>)}</p>}
         {!!social.length && <p>{social.map(([k, v]) => <a key={k} href={v} target="_blank" rel="noreferrer noopener" style={{ marginRight: 12, textTransform: 'capitalize' }}>{k}</a>)}</p>}
       </div>
-      <div><h4>Products</h4><Link to="/real-estate">Real Estate Brokerage</Link><Link to="/construction">Construction Management</Link><Link to="/pricing">Pricing</Link></div>
+      <div><h4>Products</h4><Link to="/real-estate">Real Estate Brokerage</Link><Link to="/construction">Construction Management</Link><Link to="/pricing">Pricing</Link><Link to="/blog">Blog</Link></div>
       <div><h4>Company</h4><Link to="/contact">Book a demo</Link><Link to="/signup">Start free trial</Link><Link to="/login">Sign in</Link><Link to="/download-app">Download the app</Link></div>
       <div><h4>Country</h4><CountrySwitch /></div>
       <div><h4>Legal</h4>{info.content.legal.map((d) => <Link key={d.slug} to={`/legal/${d.slug}`}>{d.title}</Link>)}<Link to="/delete-account">Delete your account</Link><button className="llink" onClick={onCookies}>Cookie settings</button></div>
@@ -972,6 +972,51 @@ function Signup({ info }) {
 
 // ---------------------------------------------------------------- shell
 /** The page for a path. (The site is mounted from several top-level routes, so it picks its page itself.) */
+/** Blog: article list and article page. Articles come from the server, which also puts a copy in the HTML for search engines. */
+function BlogList({ info }) {
+  const [posts, setPosts] = useState(null);
+  const [err, setErr] = useState('');
+  useTitle(`Blog: real estate and construction software guides | ${info.content.brand}`, 'Practical guides for real estate brokerages and construction companies: CRM, lead follow-up, installments, BOQ and cost control.');
+  useEffect(() => { api.get('/api/platform/blog').then((d) => setPosts(d.posts)).catch((e) => setErr(e.message)); }, []);
+  if (err) return <section><div className="lwrap"><div className="lerr">{err}</div></div></section>;
+  if (!posts) return <Loading />;
+  return (
+    <section><div className="lwrap">
+      <h1 style={{ fontSize: 34, marginBottom: 6 }}>Blog</h1>
+      <p className="lmini" style={{ marginBottom: 24 }}>Practical guides for real estate brokerages and construction companies.</p>
+      <div className="lprod">
+        {posts.map((p) => (
+          <Link key={p.slug} className="lcard" to={`/blog/${p.slug}`}>
+            <span className="ltag2">{p.tag}</span>
+            <h3>{p.title}</h3>
+            <p style={{ margin: 0 }}>{p.description}</p>
+            <span className="lmini">{p.date} · {p.read} min read</span>
+            <span className="lgo">Read the article →</span>
+          </Link>
+        ))}
+      </div>
+    </div></section>
+  );
+}
+
+function BlogPost({ info, slug }) {
+  const [d, setD] = useState(null);
+  const [err, setErr] = useState('');
+  useEffect(() => { setD(null); api.get(`/api/platform/blog/${encodeURIComponent(slug)}`).then(setD).catch((e) => setErr(e.message)); }, [slug]);
+  useTitle(d ? `${d.title} | ${info.content.brand}` : null, d?.description);
+  if (err) return <section><div className="lwrap"><div className="lerr">{err}</div><p><Link to="/blog">Back to the blog</Link></p></div></section>;
+  if (!d) return <Loading />;
+  return (
+    <section><div className="lwrap"><article className="ldoc">
+      <p className="lmini"><Link to="/blog">Blog</Link> · {d.tag}</p>
+      <h1 style={{ fontSize: 32, marginBottom: 6 }}>{d.title}</h1>
+      <p className="lmini">{d.date} · {d.read} min read</p>
+      {d.body.map((b, i) => (b.h ? <h2 key={i}>{b.h}</h2> : b.ul ? <ul key={i}>{b.ul.map((x, j) => <li key={j}>{x}</li>)}</ul> : <p key={i}>{b.p}</p>))}
+      <p style={{ marginTop: 28 }}><Link className="lbtn p" to="/signup">Start your free trial</Link></p>
+    </article></div></section>
+  );
+}
+
 function page(path, info) {
   const p = path.replace(/\/+$/, '') || '/';
   if (p === '/' || PATH_COUNTRY[p.slice(1)]) return <Home info={info} />;
@@ -979,6 +1024,9 @@ function page(path, info) {
   if (p === '/construction') return <ProductPage info={info} product="construction" />;
   if (p === '/pricing') return <Pricing info={info} />;
   if (p === '/contact') return <Contact info={info} />;
+  if (p === '/blog') return <BlogList info={info} />;
+  const art = p.match(/^\/blog\/([a-z0-9-]+)$/);
+  if (art) return <BlogPost key={art[1]} info={info} slug={art[1]} />;
   if (p === '/signup') return <Signup info={info} />;
   if (p === '/login') return <FindWorkspace info={info} />;
   if (p === '/delete-account') return <DeleteAccount info={info} />;
