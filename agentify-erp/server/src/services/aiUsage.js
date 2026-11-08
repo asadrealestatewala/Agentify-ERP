@@ -88,6 +88,20 @@ export async function saveSettings(b, by) {
   if ('draft_daily_cap' in b) { const n = Number(b.draft_daily_cap); if (!Number.isInteger(n) || n < 0 || n > 1000) throw bad('Daily AI draft limit must be a whole number from 0 to 1000'); set('ai_draft_daily_cap', n); }
   return settingsView();
 }
+/** Tests the saved Gemini key without changing anything. */
+export async function testSavedKey() {
+  const key = getSetting('platform_gemini_key');
+  if (!key) throw bad('Add a Gemini key first.');
+  try { await testAi('gemini', key); } catch (e) { throw bad(`Google did not accept this key: ${e.message}`); }
+  return { ok: true, model: config().model };
+}
+/** Who last switched the master AI switch, and when (from the audit trail). */
+export function killSwitchLastChange() {
+  const r = platformDb().prepare("SELECT admin, detail, created_at FROM platform_audit WHERE action='ai-kill-switch' ORDER BY id DESC LIMIT 1").get();
+  if (!r) return null;
+  let state = null; try { state = JSON.parse(r.detail || '{}').state || null; } catch { /* ignore */ }
+  return { by: r.admin || null, at: r.created_at ? `${r.created_at.replace(' ', 'T')}Z` : null, state };
+}
 export const disconnect = () => setSetting('platform_gemini_key', null);
 
 // ---- reporting
@@ -194,7 +208,7 @@ export function controls(now = new Date()) {
   });
   return {
     month: workspaceMonth(now), currency: c.currency, prices_set: c.price_in != null && c.price_out != null,
-    kill_switch: flag('ai_kill_switch'), default_daily_limit: def,
+    kill_switch: flag('ai_kill_switch'), kill_switch_last: killSwitchLastChange(), default_daily_limit: def,
     features: Object.entries(AI_FEATURES).map(([key, label]) => ({ key, label, enabled: !off.has(key), ...(byFeature.find((f) => f.purpose === key) || { calls: 0, input_tokens: 0, output_tokens: 0, est_cost: c.price_in == null || c.price_out == null ? null : 0 }) })),
     workspaces,
   };

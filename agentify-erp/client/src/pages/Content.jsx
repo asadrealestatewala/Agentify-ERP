@@ -4,6 +4,7 @@ import { Card, ConfirmDialog, Empty, Field, Loading, Modal, PageHead, Select } f
 import { api } from '../api.js';
 import { useAuth, useFetch, useToast, useUndoDelete } from '../context.jsx';
 import { date, todayPK } from '../format.js';
+import ReportButton from '../components/ReportButton.jsx';
 import ConnectedAccounts from '../components/ConnectedAccounts.jsx';
 
 export const PLATFORM = {
@@ -204,6 +205,7 @@ function PostEditor({ initial, users, canManage, posting, onClose, onSaved }) {
           ) : <div className="drop" onClick={() => fileRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); upload(e.dataTransfer.files?.[0]); }}><Icon name="upload" size={18} /><div>Drop the creative here or click to choose</div><div style={{ fontSize: 12 }}>JPG, PNG, WebP, MP4, MOV — up to 200 MB</div></div>}
           <input ref={fileRef} type="file" hidden accept="image/*,video/*" onChange={(e) => upload(e.target.files?.[0])} />
         </Field>
+        {post?.id && post.source === 'ai' && <div className="row" style={{ gap: 8, alignItems: 'center' }}><span className="muted" style={{ fontSize: 12 }}>Written by AI.</span><ReportButton feature="content_draft" prompt={post.title} output={String(post.body || '').slice(0, 1500)} /></div>}
         <Approval post={post} posting={posting} canApprove={canManage} onChanged={refresh} />
         {post?.id && !(posting?.enabled && (post.account_ids || []).length) && (
           <Field label="Publish">

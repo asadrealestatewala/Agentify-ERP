@@ -5,12 +5,13 @@ import { Card, ErrorBox, Field, Loading, StatusBadge, TextInput } from '../../co
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, useCan } from './AdminShell.jsx';
-import { IconMessageCircle, IconPhoto, IconMovie, IconMicrophone, IconBook2, IconWorldSearch, IconLanguage, IconPencil, IconChevronDown } from '@tabler/icons-react';
+import { IconMessageCircle, IconPhoto, IconMovie, IconMicrophone, IconBook2, IconWorldSearch, IconLanguage, IconPencil, IconChevronDown, IconSparkles } from '@tabler/icons-react';
 import AiVoiceLab, { FfmpegStatus } from './AiVoiceLab.jsx';
 
 const n0 = (v) => Number(v || 0).toLocaleString();
 const usd = (v) => (v == null ? '—' : `$${v < 1 ? v.toFixed(4) : v.toFixed(2)}`);
 const rs = (v, cur) => (v == null ? '—' : `${cur} ${Math.round(v).toLocaleString()}`);
+const ago = (iso) => { if (!iso) return ''; const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000)); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : `${Math.round(m / 1440)} days ago`; };
 const SRC = { default: 'estimate', average: '3-month average', override: 'set by you' };
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))', gap: 12, alignItems: 'start' };
 
@@ -85,15 +86,39 @@ function Limits({ o, can, reload }) {
   const pct = o.month.budget_usd ? Math.min(100, Math.round((o.month.spent_usd / o.month.budget_usd) * 100)) : null;
   return (
     <Card title="Budget and limits (Agentify's own key)">
-      <p className="muted" style={{ marginTop: 0 }}>{o.month.budget_usd == null ? <b>No monthly budget is set, so nothing stops spending yet. Enter one below.</b> : <>This month: {usd(o.month.spent_usd)} of {usd(o.month.budget_usd)} ({pct}% used). When it is reached, AI stops for everyone until the 1st; the rest of the app keeps working.</>} The master switch and feature switches are in the card further down.</p>
+      <p className="muted" style={{ marginTop: 0 }}>{o.month.budget_usd == null ? <b>No monthly budget is set, so nothing stops spending yet. Enter one below.</b> : <>This month: {rs(o.month.spent_pkr, o.display_currency)} of {rs(o.month.budget_usd * o.rate.rate, o.display_currency)} ({usd(o.month.spent_usd)} of {usd(o.month.budget_usd)}, {pct}% used). When it is reached, AI stops for everyone until the 1st; the rest of the app keeps working.</>} The master switch and feature switches are in the card further down.</p>
       {can ? (
         <div style={grid}>
-          <Field label="Monthly AI budget (USD)" hint="The safety brake. Google's own alerts do not stop spending; this does."><input className="input" type="number" min={0} step="any" value={f.budget_usd_month} onChange={set('budget_usd_month')} /></Field>
-          <Field label="Monthly video budget (USD)" hint="Video is the costly part. Empty means no separate video cap."><input className="input" type="number" min={0} step="any" value={f.video_budget_usd_month} onChange={set('video_budget_usd_month')} /></Field>
+          <Field label="Monthly AI budget (USD)" hint={`${f.budget_usd_month !== '' && Number(f.budget_usd_month) >= 0 ? `About ${rs(Number(f.budget_usd_month) * o.rate.rate, o.display_currency)} at today's rate. ` : ''}The safety brake. Google's own alerts do not stop spending; this does.`}><input className="input" type="number" min={0} step="any" value={f.budget_usd_month} onChange={set('budget_usd_month')} /></Field>
+          <Field label="Monthly video budget (USD)" hint={`${f.video_budget_usd_month !== '' && Number(f.video_budget_usd_month) >= 0 ? `About ${rs(Number(f.video_budget_usd_month) * o.rate.rate, o.display_currency)}. ` : ''}Video is the costly part. Empty means no separate video cap.`}><input className="input" type="number" min={0} step="any" value={f.video_budget_usd_month} onChange={set('video_budget_usd_month')} /></Field>
           <Field label="Daily uses per workspace" hint={`Empty uses the default (${o.limits.platform_daily_limit_effective}). One use = one AI call.`}><input className="input" type="number" min={0} value={f.platform_daily_limit} onChange={set('platform_daily_limit')} /></Field>
           <Field label="Default monthly credits per workspace" hint="Creative Studio credits. Empty means no limit yet."><input className="input" type="number" min={0} value={f.default_monthly_credits} onChange={set('default_monthly_credits')} /></Field>
           <div><button className="btn primary" onClick={save}>Save limits</button></div>
         </div>) : <p className="muted">Your role cannot change these.</p>}
+    </Card>
+  );
+}
+
+function MasterSwitch({ o, can, reload }) {
+  const toast = useToast();
+  const on = o.master.on, last = o.master.last_change;
+  const flip = async () => {
+    if (on && !window.confirm('Switch AI off for every workspace now? Features that use AI stop until you switch it back on. The rest of the app keeps working.')) return;
+    try { await api.put(`${A}/ai/controls`, { kill_switch: on }); toast(on ? 'AI is switched off for every workspace' : 'AI is on again'); reload(); } catch (e) { toast(e.message, 'err'); }
+  };
+  return (
+    <Card>
+      <div className="row" style={{ gap: 14, alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'center', minWidth: 0 }}>
+          <span style={{ width: 44, height: 44, borderRadius: 12, background: '#0e7c6b', color: '#fff', display: 'grid', placeItems: 'center', flex: 'none', opacity: on ? 1 : 0.5 }}><IconSparkles size={22} stroke={1.75} aria-hidden="true" /></span>
+          <div>
+            <div style={{ fontWeight: 600 }}>All AI, for every workspace <span className={`pill ${on ? 'green' : 'red'}`} style={{ marginLeft: 6 }}>{on ? 'On' : 'Off'}</span></div>
+            <div className="muted" style={{ fontSize: 13 }}>Turn off to stop every AI feature at every workspace at once. Everything else in the app keeps working.</div>
+            <div className="muted" style={{ fontSize: 12 }}>{last ? `Last change: ${ago(last.at)}${last.by ? ` by ${last.by}` : ''}${last.state ? ` (switched ${last.state})` : ''}` : 'No change recorded yet.'}</div>
+          </div>
+        </div>
+        {can && <label className="row" style={{ gap: 8, flex: 'none' }}><input type="checkbox" role="switch" checked={on} onChange={flip} aria-label="All AI on or off" /> {on ? 'On' : 'Off'}</label>}
+      </div>
     </Card>
   );
 }
@@ -158,7 +183,7 @@ function Workspaces({ o, can, reload }) {
     <Card title="Workspaces (Agentify's own key)" flush actions={hidden > 0 && <label className="row" style={{ gap: 6, fontSize: 13 }}><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show cancelled and suspended ({hidden})</label>}>
       <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th className="num">Cost this month</th><th className="num">Uses today</th><th className="num">Credits left</th><th>AI</th></tr></thead>
         <tbody>{rows.map((w) => (
-          <tr key={w.id}><td>{w.name} <span className="muted">{w.slug}</span>{w.status && w.status !== 'active' && <> <StatusBadge status={w.status} /></>}</td><td className="num">{usd(w.usd)} <span className="muted">· {rs(w.pkr, o.display_currency)}</span></td>
+          <tr key={w.id}><td>{w.name} <span className="muted">{w.slug}</span>{w.status && w.status !== 'active' && <> <StatusBadge status={w.status} /></>}<div className="muted" style={{ fontSize: 12 }}>Used today: {n0(w.uses_today)} of {n0(w.daily_limit)}{!w.usd && !w.uses_today ? <> <span className="pill grey">Inactive</span></> : null}</div></td><td className="num">{usd(w.usd)} <span className="muted">· {rs(w.pkr, o.display_currency)}</span></td>
             <td className="num"><span className="cell-act">{n0(w.uses_today)} / {n0(w.daily_limit)} {can && <button className="btn sm" onClick={() => limit(w)}>Change</button>}</span></td>
             <td className="num"><span className="cell-act">{w.credits.left == null ? 'No limit' : `${n0(w.credits.left)} of ${n0(w.credits.allowance)}`} {can && <><button className="btn sm" onClick={() => allowance(w)}>Set</button><button className="btn sm" onClick={() => topup(w)}>Top up</button></>}</span></td>
             <td>{can ? <button className={`btn sm ${w.ai_enabled ? '' : 'danger'}`} onClick={() => act(() => api.put(`${A}/ai/workspaces/${w.id}`, { ai_enabled: !w.ai_enabled }), `${w.name}: saved`)}>{w.ai_enabled ? 'On' : 'Off'}</button> : (w.ai_enabled ? 'On' : 'Off')}</td></tr>))}</tbody></table></div>
@@ -337,6 +362,7 @@ export default function AiAgentifyKey({ tab = 'overview' }) {
     <>
       {tab === 'overview' && <>
       <CostSummary o={o} cur={cur} />
+      <MasterSwitch o={o} can={can} reload={load} />
       <div className="cc-stats">
         <Card><div className="cc-k">Agentify-key AI cost this month</div><div className="cc-v">{usd(o.month.spent_usd)}</div><div className="cell-sub">{rs(o.month.spent_pkr, cur)} at {o.rate.rate} {cur} per USD</div></Card>
         <Card><div className="cc-k">Video cost this month</div><div className="cc-v">{usd(o.month.video_spent_usd)}</div><div className="cell-sub">{o.month.video_budget_usd != null ? `of ${usd(o.month.video_budget_usd)} video budget` : 'No video budget set'}</div></Card>
