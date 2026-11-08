@@ -3,6 +3,8 @@
 // approves each one before it appears on /blog (unless auto-publish is switched on, which is off by default). A hard daily cap applies.
 // It never copies other sites: sources are read for facts only and the prompt forbids invented figures, names and quotes.
 import { geminiGenerate } from './aiGateway.js';
+import { groqChat, groqReady } from './groqGateway.js';
+import { config as geminiConfig } from './aiUsage.js';
 import { getSetting, setSetting } from './platformConfig.js';
 import { allPosts, parseBody, words } from './blog.js';
 import { store, invalidate, toPost } from './blogStore.js';
@@ -14,15 +16,18 @@ const TAGS = ['Real estate', 'Construction', 'Sales', 'Business', 'Pakistan', 'S
 
 // ---- settings
 const flag = (k, d = false) => { const v = getSetting(k); return v == null || v === '' ? d : v === '1'; };
+export const ENGINES = ['gemini', 'groq'];
+const engineChoice = () => { const v = getSetting('blog_agent_engine'); return ENGINES.includes(v) ? v : 'gemini'; };
 export function settings() {
   const cap = Number(getSetting('blog_agent_cap')); const tav = getSetting('tavily_api_key'); const uns = getSetting('unsplash_access_key');
   return { enabled: flag('blog_agent_enabled'), auto_publish: flag('blog_agent_auto_publish'), cap: Number.isInteger(cap) && cap >= 1 ? Math.min(cap, HARD_MAX_PER_DAY) : DEFAULTS.cap,
-    focus: getSetting('blog_agent_focus') || DEFAULTS.focus, tavily: { set: !!tav, hint: tav ? `…${tav.slice(-4)}` : null }, unsplash: { set: !!uns, hint: uns ? `…${uns.slice(-4)}` : null } };
+    focus: getSetting('blog_agent_focus') || DEFAULTS.focus, engine: engineChoice(), engines: { gemini: !!geminiConfig().key, groq: groqReady() }, tavily: { set: !!tav, hint: tav ? `…${tav.slice(-4)}` : null }, unsplash: { set: !!uns, hint: uns ? `…${uns.slice(-4)}` : null } };
 }
 export function saveSettings(b = {}, by = null) {
   if (b.enabled != null) setSetting('blog_agent_enabled', b.enabled ? '1' : '0', { by });
   if (b.auto_publish != null) setSetting('blog_agent_auto_publish', b.auto_publish ? '1' : '0', { by });
   if (b.cap != null) { const n = Number(b.cap); if (!Number.isInteger(n) || n < 1 || n > HARD_MAX_PER_DAY) throw bad(`Articles per day must be a whole number from 1 to ${HARD_MAX_PER_DAY}`); setSetting('blog_agent_cap', String(n), { by }); }
+  if (b.engine != null) { if (!ENGINES.includes(b.engine)) throw bad('Choose Gemini or Groq as the writing engine'); setSetting('blog_agent_engine', b.engine, { by }); }
   if (b.focus != null) { const f = String(b.focus).trim(); if (f.length > 600) throw bad('The topic focus is too long (600 characters at most)'); setSetting('blog_agent_focus', f, { by }); }
   for (const [field, key] of [['tavily_key', 'tavily_api_key'], ['unsplash_key', 'unsplash_access_key']]) {
     if (b[field] === undefined) continue;
@@ -41,7 +46,20 @@ const startOfDay = () => new Date().toISOString().slice(0, 10);
 export const madeToday = () => store().prepare("SELECT COUNT(*) n FROM blog_agent_posts WHERE substr(created_at,1,10)=? AND status!='rejected'").get(startOfDay()).n;
 const existingTitles = () => [...allPosts().map((p) => p.title), ...store().prepare('SELECT title FROM blog_agent_posts').all().map((r) => r.title)];
 const jsonOf = (d) => { const t = (d.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join(''); try { return JSON.parse(t.match(/[\[{][\s\S]*[\]}]/)?.[0] || ''); } catch { return null; } };
-const gem = (system, prompt, max) => geminiGenerate({ feature: 'blog_agent', purpose: 'blog_agent', body: { systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: max, temperature: 0.7 } }, timeout: 120_000 });
+const asGemini = (text) => ({ candidates: [{ content: { parts: [{ text }] } }] });
+const viaGemini = (system, prompt, max) => geminiGenerate({ feature: 'blog_agent', purpose: 'blog_agent', body: { systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseMimeType: 'application/json', maxOutputTokens: max, temperature: 0.7 } }, timeout: 120_000 });
+const viaGroq = async (system, prompt, max) => asGemini(await groqChat({ feature: 'blog_agent', purpose: 'blog_agent', messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }], maxTokens: Math.min(max, 8000), timeout: 120_000, json: true, temperature: 0.7 }));
+/** One JSON-answering model call on the chosen engine; if it fails, the other engine is tried when it is connected. */
+async function gem(system, prompt, max) {
+  const first = engineChoice(); const order = first === 'groq' ? [['groq', viaGroq], ['gemini', viaGemini]] : [['gemini', viaGemini], ['groq', viaGroq]];
+  const ready = { gemini: !!geminiConfig().key, groq: groqReady() };
+  let lastErr;
+  for (const [name, fn] of order) {
+    if (!ready[name]) continue;
+    try { return await fn(system, prompt, max); } catch (e) { lastErr = e; if (e.extra?.code && e.extra.code !== 'provider_error') throw e; }
+  }
+  throw lastErr || bad('Connect Gemini or Groq in the console AI settings first.');
+}
 
 // ---- web research (Tavily). Sources are used for facts only.
 export async function searchWeb(query, key = getSetting('tavily_api_key')) {
@@ -64,11 +82,11 @@ async function findPhoto(query) {
 }
 
 // ---- steps
-const TOPIC_SYSTEM = 'You are the SEO editor of the Agentify ERP blog (CRM and ERP for real estate and construction companies). Propose blog topics people actually search for. Reply with JSON only: an array of {"topic": "working title", "keyword": "main search phrase", "query": "web search query to research it"}.';
+const TOPIC_SYSTEM = 'You are the SEO editor of the Agentify ERP blog (CRM and ERP for real estate and construction companies). Propose blog topics people actually search for. Reply with JSON only: {"topics": [{"topic": "working title", "keyword": "main search phrase", "query": "web search query to research it"}]}.';
 export async function proposeTopics(n, focus) {
   const have = existingTitles().slice(-120).join('\n');
   const d = await gem(TOPIC_SYSTEM, `Focus: ${focus}\nPropose ${n + 3} NEW topics. Do not repeat or closely overlap these existing articles:\n${have}`, 1500);
-  const arr = jsonOf(d); if (!Array.isArray(arr)) return [];
+  const raw = jsonOf(d); const arr = Array.isArray(raw) ? raw : raw?.topics; if (!Array.isArray(arr)) return [];
   const titles = existingTitles();
   return arr.filter((t) => t?.topic && t?.query && !titles.some((x) => similarity(x, t.topic) > 0.5)).slice(0, n);
 }

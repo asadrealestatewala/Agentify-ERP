@@ -10,12 +10,12 @@ const fmt = (iso) => (iso ? new Date(`${iso.replace(' ', 'T')}Z`).toLocaleString
 
 function Settings({ data, reload }) {
   const toast = useToast(); const s = data.settings;
-  const [f, setF] = useState({ cap: s.cap, focus: s.focus, tavily_key: '', unsplash_key: '' });
+  const [f, setF] = useState({ cap: s.cap, focus: s.focus, engine: s.engine, tavily_key: '', unsplash_key: '' });
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const save = async (extra = {}) => {
     setBusy(true); setErr('');
     try {
-      const body = { cap: Number(f.cap), focus: f.focus, ...extra };
+      const body = { cap: Number(f.cap), focus: f.focus, engine: f.engine, ...extra };
       if (f.tavily_key) body.tavily_key = f.tavily_key;
       if (f.unsplash_key) body.unsplash_key = f.unsplash_key;
       await api.put(`${A}/blog-agent/settings`, body); toast('Saved'); setF({ ...f, tavily_key: '', unsplash_key: '' }); reload();
@@ -27,6 +27,9 @@ function Settings({ data, reload }) {
       <label className="check"><input type="checkbox" checked={s.enabled} onChange={(e) => save({ enabled: e.target.checked })} /> Write new drafts automatically every day (up to the limit below)</label>
       <div className="grid-2" style={{ marginTop: 10 }}>
         <Field label={`Articles per day (1 to ${data.hard_max})`}><TextInput type="number" min="1" max={data.hard_max} value={f.cap} onChange={(v) => setF({ ...f, cap: v })} /></Field>
+        <Field label="Writing engine" hint={`Gemini ${s.engines.gemini ? 'is connected' : 'is not connected'}; Groq ${s.engines.groq ? 'is connected' : 'is not connected'}. If the chosen engine fails, the other one is used when connected. Connect them under Console > AI.`}>
+          <select className="input" value={f.engine} onChange={(e) => setF({ ...f, engine: e.target.value })}><option value="gemini">Gemini (Google)</option><option value="groq">Groq (fast, free tier is rate limited)</option></select>
+        </Field>
         <Field label="Topic focus" hint="What the blog should be about. Be specific."><TextInput value={f.focus} onChange={(v) => setF({ ...f, focus: v })} /></Field>
       </div>
       {data.can_edit_keys && (

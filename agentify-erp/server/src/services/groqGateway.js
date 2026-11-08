@@ -58,7 +58,7 @@ export async function groqTest() {
  * One chat answer. messages: OpenAI-style. image: optional data URL (switches to the vision model).
  * Returns the text.
  */
-export async function groqChat({ feature = 'ask_assistant', purpose = 'ask_assistant', messages, image = null, tenantId = null, userId = null, maxTokens = 700, timeout = 45_000 }) {
+export async function groqChat({ feature = 'ask_assistant', purpose = 'ask_assistant', messages, image = null, tenantId = null, userId = null, maxTokens = 700, timeout = 45_000, json = false, temperature = 0.2 }) {
   const key = groqKey();
   if (!key || !groqEnabled()) throw bad('Connect Groq first (AI > Groq).');
   assertPlatformAllowed({ feature, tenantId, credits: 0 });
@@ -67,7 +67,7 @@ export async function groqChat({ feature = 'ask_assistant', purpose = 'ask_assis
   let d;
   try {
     const res = await fetch(`${BASE}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(timeout),
-      body: JSON.stringify({ model: mdl, messages: msgs, temperature: 0.2, max_tokens: maxTokens }) });
+      body: JSON.stringify({ model: mdl, messages: msgs, temperature, max_tokens: maxTokens, ...(json ? { response_format: { type: 'json_object' } } : {}) }) });
     if (!res.ok) throw new Error(await apiError(res));
     d = await res.json();
   } catch (e) { throw fail(feature, purpose, mdl, { tenantId, userId }, e); }
