@@ -127,6 +127,8 @@ export function createApp() {
   const onMain = (req) => isMultiTenant() && !resolveTenant(req.hostname);
   app.get('/sitemap.xml', (req, res, next) => (onMain(req) ? res.type('application/xml').send(platformSitemap(req)) : next()));
   app.get('/robots.txt', (req, res, next) => (onMain(req) ? res.type('text/plain').send(platformRobots(req)) : next()));
+  // Google Search Console ownership file for agentifyerp.co (keep it, or Google drops the verification)
+  app.get('/googlea752702b6eef04aa.html', (req, res, next) => (onMain(req) ? res.type('text/html').send('google-site-verification: googlea752702b6eef04aa.html') : next()));
   // promo videos for the content calendar: fixed file names only, public so social networks and managers can fetch them
   const PROMO_DIR = path.join(here, '..', 'assets', 'promo');
   for (const f of PROMO_FILE_NAMES) {

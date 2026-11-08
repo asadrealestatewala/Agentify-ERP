@@ -6,7 +6,7 @@ import path from 'node:path';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'erp-blogagent-'));
 Object.assign(process.env, { ERP_DATA_DIR: dir, ERP_UPLOAD_DIR: path.join(dir, 'uploads'), ERP_DB: path.join(dir, 'legacy.db'), ERP_PLATFORM_DB: path.join(dir, 'platform.db'),
-  ERP_SECRETS_KEY: 'test-secrets-key-0123456789', ERP_DEMO: '0', ADMIN_EMAIL: 'owner@legacy.test', ADMIN_PASSWORD: 'Legacy@12345' });
+  ERP_SECRETS_KEY: 'test-secrets-key-0123456789', ERP_BASE_DOMAIN: 'agentifyerp.co', ERP_DEMO: '0', ADMIN_EMAIL: 'owner@legacy.test', ADMIN_PASSWORD: 'Legacy@12345' });
 
 const agent = await import('../src/services/blogAgent.js');
 const blog = await import('../src/services/blog.js');
@@ -95,4 +95,14 @@ test('the sitemap lists published agent articles', async () => {
   agent.decide(d.id, 'publish', 'admin@test');
   const { platformSitemap } = await import('../src/services/marketing.js');
   assert.ok(String(platformSitemap({ get: () => 'agentifyerp.co', protocol: 'https', headers: {}, hostname: 'agentifyerp.co' })).includes(`/blog/${d.slug}`));
+});
+
+test('Google Search Console ownership file is served on the main site', async () => {
+  const { createApp } = await import('../src/index.js');
+  const http = await import('node:http');
+  const srv = createApp().listen(0);
+  try {
+    const t = await new Promise((resolve, reject) => http.get({ host: '127.0.0.1', port: srv.address().port, path: '/googlea752702b6eef04aa.html', headers: { Host: 'agentifyerp.co' } }, (r) => { let b = ''; r.on('data', (c) => { b += c; }); r.on('end', () => resolve({ status: r.statusCode, b })); }).on('error', reject));
+    assert.equal(t.b, 'google-site-verification: googlea752702b6eef04aa.html'); assert.equal(t.status, 200);
+  } finally { srv.close(); (await import('../src/db.js')).closeDbs(); }
 });
