@@ -159,3 +159,17 @@ test('Ask never shows a model\'s reasoning: it tries the next engine, then answe
   const noGroq = (await a('POST', '/api/assistant/ask', { question })).data;
   assert.ok(noGroq.notes.some((n) => /Groq was skipped: it is switched off/.test(n)), JSON.stringify(noGroq.notes));
 });
+
+test('console "Which model does what" lists each purpose with engine, model, state and last use', async () => {
+  const owner = (await call('erp.test', 'POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  await as(owner, 'PUT', '/ai/groq', { key: GKEY, enabled: true, provider_order: ['groq', 'horde', 'gemini'] });
+  const map = (await as(owner, 'GET', '/ai/overview')).data.technical.model_map;
+  const by = Object.fromEntries(map.map((r) => [r.key, r]));
+  assert.equal(by.ask_chat.engine, 'Groq → Stable Horde'); assert.equal(by.ask_chat.model, 'llama-3.3-70b-versatile'); assert.equal(by.ask_chat.on, true);
+  assert.equal(by.ask_image.model, 'meta-llama/llama-4-scout-17b-16e-instruct'); assert.equal(by.ask_voice.engine, 'Groq');
+  assert.ok(by.ask_chat.last && by.ask_chat.last.engine, 'last use comes from the ledger');
+  assert.equal(by.ask_listen.on, true); assert.ok(by.creative_post && by.video_voice_ur && by.zernio);
+  await as(owner, 'PUT', '/ai/groq', { enabled: false });
+  const off = Object.fromEntries((await as(owner, 'GET', '/ai/overview')).data.technical.model_map.map((r) => [r.key, r]));
+  assert.equal(off.ask_chat.engine, 'Stable Horde'); assert.equal(off.ask_image.on, false); assert.equal(off.ask_voice.engine, 'Browser microphone');
+});

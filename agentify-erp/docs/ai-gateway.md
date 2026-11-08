@@ -47,3 +47,7 @@ The former "AI usage & credits" page, extended (same route and menu spot). New c
 - Reasoning models can print their thinking. `cleanAnswer` (askAi.js) strips `<think>` blocks, keeps text after an `ANSWER:` line and rejects text that reads like notes. A rejected reply moves Ask to the next engine.
 - If no engine gives a clean answer (busy, failed or only reasoning) and the question matched a help page, Ask answers from that page: menu path and the guide's own steps, with a short wrapper in the asked language (`templatedAnswer`, engine "guide"). Switch, limit and budget refusals still show their own message.
 - The Ask response has `notes`: why an engine was skipped (no key, switched off) or failed. The panel shows them under the answer.
+
+## Which model does what (v1.79)
+
+Console > AI > the Technical card has a "Which model does what" table (`modelMap` in aiReport.js): purpose, engine, model, on/off and the last ledger call. Ask answers show the ranked chain of engines that are ready now; pictures need Groq; voice uses Groq speech-to-text when on, else the browser microphone.

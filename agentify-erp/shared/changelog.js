@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.79', date: '2026-11-08', title: 'Console: Which model does what',
+    items: [
+      { text: 'A new table on the AI page lists every AI purpose (Ask answers, pictures, voice, Creative Studio images, reels and voices, posting) with the engine and model behind it, whether it is on, and when it was last used.', where: 'Console > AI', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.78', date: '2026-11-07', title: 'Ask no longer shows AI "thinking" and says why an engine was skipped',
     items: [
       { text: 'If the AI prints its own notes instead of an answer, Ask now discards it, tries the next engine and, if none gives a clean answer, shows the menu path and steps straight from the help guide.', where: 'Ask (the Ask button on every screen)' },
