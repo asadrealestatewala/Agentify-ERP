@@ -5,7 +5,7 @@ import { Card, ErrorBox, Field, Loading, StatusBadge, TextInput } from '../../co
 import { api } from '../../api.js';
 import { useToast } from '../../context.jsx';
 import { A, useCan } from './AdminShell.jsx';
-import { IconMessageCircle, IconPhoto, IconMovie, IconMicrophone, IconBook2, IconWorldSearch, IconLanguage, IconPencil, IconChevronDown, IconSparkles } from '@tabler/icons-react';
+import { IconMessageCircle, IconPhoto, IconMovie, IconMicrophone, IconBook2, IconWorldSearch, IconLanguage, IconPencil, IconChevronDown, IconSparkles, IconBuildingCommunity } from '@tabler/icons-react';
 import AiVoiceLab, { FfmpegStatus } from './AiVoiceLab.jsx';
 
 const n0 = (v) => Number(v || 0).toLocaleString();
@@ -173,20 +173,46 @@ function Prices({ o, can, reload }) {
 function Workspaces({ o, can, reload }) {
   const toast = useToast();
   const [showAll, setShowAll] = useState(false);
+  const cur = o.display_currency;
   const hidden = o.workspaces.filter((w) => w.status && w.status !== 'active').length;
   const rows = showAll ? o.workspaces : o.workspaces.filter((w) => !w.status || w.status === 'active');
   const act = async (fn, msg) => { try { await fn(); toast(msg); reload(); } catch (e) { toast(e.message, 'err'); } };
   const topup = (w) => { const v = window.prompt(`Add credits to ${w.name} for this month:`, '100'); if (v) act(() => api.put(`${A}/ai/workspaces/${w.id}/credits`, { add_topup: v }), 'Credits added'); };
   const allowance = (w) => { const v = window.prompt(`Monthly credits for ${w.name}. Leave empty to use the default.`, w.credits.allowance ?? ''); if (v !== null) act(() => api.put(`${A}/ai/workspaces/${w.id}/credits`, { monthly_credits: v }), 'Credits saved'); };
   const limit = (w) => { const v = window.prompt(`Daily uses for ${w.name}. Leave empty to use the default.`, w.own_daily_limit ?? ''); if (v !== null) act(() => api.put(`${A}/ai/workspaces/${w.id}`, { platform_daily_limit: v }), 'Limit saved'); };
+  const toggle = (w) => act(() => api.put(`${A}/ai/workspaces/${w.id}`, { ai_enabled: !w.ai_enabled }), w.ai_enabled ? `AI is off for ${w.name}` : `AI is on for ${w.name}`);
+  const line = { borderTop: '1px solid var(--line, #e3e7e5)' };
   return (
-    <Card title="Workspaces (Agentify's own key)" flush actions={hidden > 0 && <label className="row" style={{ gap: 6, fontSize: 13 }}><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show cancelled and suspended ({hidden})</label>}>
-      <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th className="num">Cost this month</th><th className="num">Uses today</th><th className="num">Credits left</th><th>AI</th></tr></thead>
-        <tbody>{rows.map((w) => (
-          <tr key={w.id}><td>{w.name} <span className="muted">{w.slug}</span>{w.status && w.status !== 'active' && <> <StatusBadge status={w.status} /></>}<div className="muted" style={{ fontSize: 12 }}>Used today: {n0(w.uses_today)} of {n0(w.daily_limit)}{!w.usd && !w.uses_today ? <> <span className="pill grey">Inactive</span></> : null}</div></td><td className="num">{usd(w.usd)} <span className="muted">· {rs(w.pkr, o.display_currency)}</span></td>
-            <td className="num"><span className="cell-act">{n0(w.uses_today)} / {n0(w.daily_limit)} {can && <button className="btn sm" onClick={() => limit(w)}>Change</button>}</span></td>
-            <td className="num"><span className="cell-act">{w.credits.left == null ? 'No limit' : `${n0(w.credits.left)} of ${n0(w.credits.allowance)}`} {can && <><button className="btn sm" onClick={() => allowance(w)}>Set</button><button className="btn sm" onClick={() => topup(w)}>Top up</button></>}</span></td>
-            <td>{can ? <button className={`btn sm ${w.ai_enabled ? '' : 'danger'}`} onClick={() => act(() => api.put(`${A}/ai/workspaces/${w.id}`, { ai_enabled: !w.ai_enabled }), `${w.name}: saved`)}>{w.ai_enabled ? 'On' : 'Off'}</button> : (w.ai_enabled ? 'On' : 'Off')}</td></tr>))}</tbody></table></div>
+    <Card>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 16 }}>Each workspace</div>
+          <div className="muted" style={{ marginBottom: 12 }}>What each workspace's AI cost this month on Agentify's own key. Turn a workspace off to stop AI there only.</div>
+        </div>
+        {hidden > 0 && <label className="row" style={{ gap: 6, fontSize: 13 }}><input type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} /> Show cancelled and suspended ({hidden})</label>}
+      </div>
+      {!rows.length ? <p className="muted" style={{ margin: 0 }}>No workspaces yet.</p> : (
+        <div style={{ border: '1px solid var(--line, #e3e7e5)', borderRadius: 12, overflow: 'hidden' }}>
+          {rows.map((w, i) => {
+            const idle = !w.usd && !w.uses_today;
+            return (
+              <div key={w.id} style={{ ...(i ? line : {}), display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px', opacity: w.ai_enabled ? 1 : 0.7 }}>
+                <span style={{ width: 44, height: 44, borderRadius: 12, background: '#0e7c6b', color: '#fff', display: 'grid', placeItems: 'center', flex: 'none', opacity: w.ai_enabled ? 1 : 0.5 }}><IconBuildingCommunity size={22} stroke={1.75} aria-hidden="true" /></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.name}{w.status && w.status !== 'active' && <> <StatusBadge status={w.status} /></>}{idle && <span className="pill grey" style={{ marginLeft: 8 }}>Inactive</span>}</div>
+                  <div className="muted" style={{ fontSize: 13 }}>Used today: {n0(w.uses_today)} of {n0(w.daily_limit)}{can && <> · <button className="btn sm" onClick={() => limit(w)}>Change limit</button></>}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>Credits: {w.credits.left == null ? 'no limit' : `${n0(w.credits.left)} of ${n0(w.credits.allowance)} left`}{can && <> · <button className="btn sm" onClick={() => allowance(w)}>Set</button> <button className="btn sm" onClick={() => topup(w)}>Top up</button></>}</div>
+                </div>
+                <div style={{ textAlign: 'right', flex: 'none' }}>
+                  <div style={{ fontWeight: 600 }}>{rs(w.pkr, cur)}</div>
+                  <div className="muted" style={{ fontSize: 12 }}>this month · {usd(w.usd)}</div>
+                </div>
+                {can ? <label className="row" style={{ gap: 6, flex: 'none' }}><input type="checkbox" role="switch" checked={w.ai_enabled} onChange={() => toggle(w)} aria-label={`AI on or off for ${w.name}`} /></label> : <span className={`pill ${w.ai_enabled ? 'green' : 'grey'}`}>{w.ai_enabled ? 'On' : 'Off'}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 }
