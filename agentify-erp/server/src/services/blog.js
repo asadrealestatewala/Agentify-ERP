@@ -120,12 +120,16 @@ export const BLOG_POSTS = [...BASE_POSTS, ...loadExtra()];
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-export const listPosts = () => [...BLOG_POSTS].sort((a, b) => (a.date < b.date ? 1 : -1)).map(({ slug, title, description, date, read, tag }) => ({ slug, title, description, date, read, tag }));
+/** Image files for an article (made by scripts/gen-blog-images.mjs): WebP and JPEG at 1600x900, a 1200x630 link-preview JPEG, and alt text with the target keyword. */
+export const imageOf = (p) => ({ webp: `/blog-img/${p.slug}.webp`, jpg: `/blog-img/${p.slug}.jpg`, og: `/blog-img/${p.slug}-og.jpg`, width: 1600, height: 900, alt: `${p.keyword ? `${p.keyword[0].toUpperCase()}${p.keyword.slice(1)}: ` : ''}${p.title}` });
+export const BLOG_INDEX_OG = '/blog-img/blog-index-og.jpg';
+
+export const listPosts = () => [...BLOG_POSTS].sort((a, b) => (a.date < b.date ? 1 : -1)).map((p) => ({ slug: p.slug, title: p.title, description: p.description, date: p.date, read: p.read, tag: p.tag, image: imageOf(p) }));
 export const getPost = (slug) => BLOG_POSTS.find((p) => p.slug === slug) || null;
 /** Titles of the related articles that exist, for the links under an article. */
 export const relatedOf = (post) => (post.related || []).map((s) => BLOG_POSTS.find((p) => p.slug === s)).filter(Boolean).map(({ slug, title }) => ({ slug, title }));
 /** The article as the public page and API show it (adds the related-article titles). */
-export const publicPost = (post) => ({ ...post, related: relatedOf(post) });
+export const publicPost = (post) => ({ ...post, related: relatedOf(post), image: imageOf(post) });
 
 /** The article body as HTML (used for the crawler-readable copy that is placed in the page on the server). */
 export function bodyHtml(post) {
@@ -134,5 +138,7 @@ export function bodyHtml(post) {
   const rel = relatedOf(post);
   const related = rel.length ? `<h2>Related articles</h2><ul>${rel.map((r) => `<li><a href="/blog/${r.slug}">${esc(r.title)}</a></li>`).join('')}</ul>` : '';
   const tags = (post.tags || []).length ? `<p>${post.tags.map(esc).join(' ')}</p>` : '';
-  return `${main}${faq}${related}<p><a href="/real-estate">Real estate software</a> · <a href="/construction">Construction software</a> · <a href="/pricing">Pricing</a></p>${tags}`;
+  const img = imageOf(post);
+  const hero = `<img src="${img.jpg}" width="${img.width}" height="${img.height}" alt="${esc(img.alt)}" />`;
+  return `${hero}${main}${faq}${related}<p><a href="/real-estate">Real estate software</a> · <a href="/construction">Construction software</a> · <a href="/pricing">Pricing</a></p>${tags}`;
 }

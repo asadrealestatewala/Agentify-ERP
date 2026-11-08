@@ -8,7 +8,7 @@ import { bad, HttpError } from '../util.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { BLOG_POSTS, getPost, listPosts, bodyHtml } from './blog.js';
+import { BLOG_POSTS, getPost, listPosts, bodyHtml, imageOf, BLOG_INDEX_OG } from './blog.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -391,19 +391,23 @@ export function injectMeta(html, path, req) {
   if (page === 'blog') m = { title: `Blog: real estate and construction software guides | ${c.brand}`, description: 'Practical guides for real estate brokerages and construction companies: CRM, lead follow-up, installments, BOQ and cost control.' };
   if (post) m = { title: `${post.title} | ${c.brand}`, description: post.description };
   const url = `${origin}${path === '/' ? '/' : path}`;
+  const img = post ? imageOf(post) : null;
+  const shareImg = post ? `${origin}${img.og}` : page === 'blog' ? `${origin}${BLOG_INDEX_OG}` : `${origin}/icon-512.png`;
+  const big = !!post || page === 'blog';
   const ld = [];
   if (page === 'home') {
     ld.push({ '@context': 'https://schema.org', '@type': 'Organization', name: c.brand, url: `${origin}/`, logo: `${origin}/icon-512.png` });
     ld.push({ '@context': 'https://schema.org', '@type': 'SoftwareApplication', name: c.brand, applicationCategory: 'BusinessApplication', operatingSystem: 'Web, Android', url: `${origin}/`, description: m.description });
   }
   if (post?.faq?.length) ld.push({ '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: post.faq.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })) });
-  if (post) ld.push({ '@context': 'https://schema.org', '@type': 'BlogPosting', headline: post.title, description: post.description, datePublished: post.date, dateModified: post.date, mainEntityOfPage: url, author: { '@type': 'Organization', name: c.brand }, publisher: { '@type': 'Organization', name: c.brand, logo: { '@type': 'ImageObject', url: `${origin}/icon-512.png` } }, ...(post.keyword ? { keywords: [post.keyword, ...(post.tags || []).map((t) => t.replace(/^#/, ''))].join(', ') } : {}) });
+  if (post) ld.push({ '@context': 'https://schema.org', '@type': 'BlogPosting', headline: post.title, description: post.description, image: [`${origin}${img.jpg}`, `${origin}${img.og}`], datePublished: post.date, dateModified: post.date, mainEntityOfPage: url, author: { '@type': 'Organization', name: c.brand }, publisher: { '@type': 'Organization', name: c.brand, logo: { '@type': 'ImageObject', url: `${origin}/icon-512.png` } }, ...(post.keyword ? { keywords: [post.keyword, ...(post.tags || []).map((t) => t.replace(/^#/, ''))].join(', ') } : {}) });
   const tags = [
     `<title>${escHtml(m.title)}</title>`, `<meta name="description" content="${escHtml(m.description)}" />`, `<link rel="canonical" href="${escHtml(url)}" />`,
     `<meta property="og:type" content="${post ? 'article' : 'website'}" />`, `<meta property="og:site_name" content="${escHtml(c.brand)}" />`, `<meta property="og:title" content="${escHtml(m.title)}" />`,
-    `<meta property="og:description" content="${escHtml(m.description)}" />`, `<meta property="og:url" content="${escHtml(url)}" />`, `<meta property="og:image" content="${escHtml(origin)}/icon-512.png" />`,
-    `<meta name="twitter:card" content="summary" />`, `<meta name="twitter:title" content="${escHtml(m.title)}" />`, `<meta name="twitter:description" content="${escHtml(m.description)}" />`,
+    `<meta property="og:description" content="${escHtml(m.description)}" />`, `<meta property="og:url" content="${escHtml(url)}" />`, `<meta property="og:image" content="${escHtml(shareImg)}" />`, ...(big ? ['<meta property="og:image:width" content="1200" />', '<meta property="og:image:height" content="630" />', ...(post ? [`<meta property="og:image:alt" content="${escHtml(img.alt)}" />`] : [])] : []),
+    `<meta name="twitter:card" content="${big ? 'summary_large_image' : 'summary'}" />`, ...(big ? [`<meta name="twitter:image" content="${escHtml(shareImg)}" />`] : []), `<meta name="twitter:title" content="${escHtml(m.title)}" />`, `<meta name="twitter:description" content="${escHtml(m.description)}" />`,
     ...(post?.keyword ? [`<meta name="keywords" content="${escHtml([post.keyword, ...(post.tags || []).map((t) => t.replace(/^#/, ''))].join(', '))}" />`] : []),
+    ...(post ? [`<link rel="preload" as="image" href="${escHtml(img.webp)}" type="image/webp" />`] : []),
     ...ld.map(jsonLd),
   ].join('\n    ');
   // text for crawlers and slow connections; React replaces it as soon as the page loads
@@ -425,7 +429,7 @@ export function platformSitemap(req) {
   const o = siteOrigin(req);
   const built = builtOn();
   const urls = Object.keys(MARKETING_ROUTES).filter((p) => p !== '/signup').map((p) => `  <url><loc>${o}${p}</loc><lastmod>${built}</lastmod><changefreq>${p.startsWith('/legal') ? 'monthly' : 'weekly'}</changefreq></url>`);
-  BLOG_POSTS.forEach((p) => urls.push(`  <url><loc>${o}/blog/${p.slug}</loc><lastmod>${p.date}</lastmod><changefreq>monthly</changefreq></url>`));
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
+  BLOG_POSTS.forEach((p) => urls.push(`  <url><loc>${o}/blog/${p.slug}</loc><lastmod>${p.date}</lastmod><changefreq>monthly</changefreq><image:image><image:loc>${o}${imageOf(p).jpg}</image:loc></image:image></url>`));
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${urls.join('\n')}\n</urlset>\n`;
 }
 export const platformRobots = (req) => `User-agent: *\nAllow: /\nDisallow: /platform\nDisallow: /api/\nSitemap: ${siteOrigin(req)}/sitemap.xml\n`;
