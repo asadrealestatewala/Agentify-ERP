@@ -16,7 +16,7 @@ const fx = await import('../src/services/fxRate.js');
 const realFetch = globalThis.fetch; let n = 0; const urls = [];
 const long = (k) => Array.from({ length: 9 }, (_, i) => `Paragraph ${i} about ${k} with enough ordinary words to build a realistic article body for the check that counts words in the text. `.repeat(3));
 const article = (k) => ({ title: `A practical guide to ${k} for property dealers`, description: `How property dealers can handle ${k} step by step, with a simple checklist and common mistakes to avoid.`, tag: 'Real estate', keyword: k, tags: ['#realestate'],
-  body: ['# Why it matters', long(k)[0], '# Step one', long(k)[1], '* Check the file', '* Confirm the dues', '# Step two', long(k)[2], ...long(k).slice(3), '# Common mistakes', long(k)[4]], faq: [['Is it hard?', 'No.'], ['Is it slow?', 'Not really.'], ['Is it free?', 'Depends.']] });
+  body: ['# Why it matters', long(k)[0] + ' Agentify ERP keeps this in one place.', '# Step one', long(k)[1] + ' Agentify ERP shows the dues.', '* Check the file', '* Confirm the dues', '# Step two', long(k)[2], ...long(k).slice(3), '# Common mistakes', long(k)[4]], faq: [['Is it hard?', 'No.'], ['Is it slow?', 'Not really.'], ['Is it free?', 'Depends.']] });
 before(() => {
   fx.saveFxSettings({ live: false, manual_rate: 300 }, 'test');
   setSetting('platform_gemini_key', 'AIza' + 'x'.repeat(35), { secret: true });
@@ -90,6 +90,14 @@ test('quality checks reject thin, duplicate and boilerplate articles', () => {
   assert.ok(agent.similarity('real estate crm', 'real estate crm') === 1);
 });
 
+test('brand rules: articles must name Agentify ERP and avoid made-up claims', () => {
+  const ok = article('brand rule topic');
+  const bare = { ...ok, body: ok.body.map((b) => String(b).replace(/Agentify ERP/g, 'the tool')) };
+  assert.match(agent.checkArticle(bare, []).problems.join(), /Agentify ERP/);
+  const claim = { ...ok, body: [...ok.body, 'Trusted by 5000 agencies and ranked number 1 in Pakistan.'] };
+  assert.ok(agent.checkArticle(claim, []).problems.length > 0);
+});
+
 test('the writing engine can be Groq, and falls back to Gemini when Groq fails', async () => {
   setSetting('groq_api_key', 'gsk_' + 'a'.repeat(40), { secret: true });
   assert.throws(() => agent.saveSettings({ engine: 'openai' }), /Gemini or Groq/);
@@ -126,4 +134,46 @@ test('Google Search Console ownership file is served on the main site', async ()
     const t = await new Promise((resolve, reject) => http.get({ host: '127.0.0.1', port: srv.address().port, path: '/googlea752702b6eef04aa.html', headers: { Host: 'agentifyerp.co' } }, (r) => { let b = ''; r.on('data', (c) => { b += c; }); r.on('end', () => resolve({ status: r.statusCode, b })); }).on('error', reject));
     assert.equal(t.b, 'google-site-verification: googlea752702b6eef04aa.html'); assert.equal(t.status, 200);
   } finally { srv.close(); (await import('../src/db.js')).closeDbs(); }
+});
+
+test('Groq JSON-mode failure is retried without JSON mode, and a broken article answer is retried once', async () => {
+  agent.saveSettings({ engine: 'groq' });
+  const prev = globalThis.fetch; const modes = []; let bad = 1;
+  const art = JSON.stringify(article('retry subject gamma delta'));
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (!u.includes('api.groq.com')) return prev(url, opts);
+    const body = JSON.parse(opts.body); modes.push(Boolean(body.response_format));
+    if (body.response_format) return new Response(JSON.stringify({ error: { message: "Failed to generate JSON. Please adjust your prompt. See 'failed_generation' for more details." } }), { status: 400 });
+    const content = bad-- > 0 ? 'not json at all' : art; // first plain answer is garbage, second is fine
+    return new Response(JSON.stringify({ choices: [{ message: { content } }], usage: { prompt_tokens: 5, completion_tokens: 5 } }), { status: 200 });
+  };
+  try {
+    const a = await agent.writeArticle({ topic: 'x', keyword: 'y', query: 'z' }, []);
+    assert.ok(a.title.includes('retry subject'));
+    assert.deepEqual(modes, [true, false, true, false], 'strict JSON first, then plain, on each attempt');
+  } finally { globalThis.fetch = prev; agent.saveSettings({ engine: 'gemini' }); }
+});
+
+test('the console bell gets a review alert and a run alert, and the review alert clears when nothing is left', async () => {
+  const { platformDb } = await import('../src/platform.js');
+  const open = (k) => platformDb().prepare("SELECT * FROM platform_notifications WHERE kind=? AND resolved_at IS NULL").all(k);
+  agent.syncReviewAlert();
+  const pending = agent.listDrafts().filter((x) => x.status === 'draft').length;
+  assert.equal(open('blog_review').length, pending > 0 ? 1 : 0);
+  assert.ok(platformDb().prepare("SELECT COUNT(*) n FROM platform_notifications WHERE kind='blog_run'").get().n >= 0);
+  for (const d of agent.listDrafts().filter((x) => x.status === 'draft')) agent.decide(d.id, 'reject', 'admin@test');
+  assert.equal(open('blog_review').length, 0, 'cleared when no draft is waiting');
+  const row = agent.listDrafts()[0]; agent.decide(row.id, 'unpublish', 'admin@test');
+  assert.match(open('blog_review')[0].title, /1 blog draft to review/);
+});
+test('a run raises one alert that says how many articles were written', async () => {
+  const { platformDb } = await import('../src/platform.js');
+  platformDb().prepare("DELETE FROM blog_agent_posts WHERE substr(created_at,1,10)=?").run(new Date().toISOString().slice(0, 10));
+  const before = platformDb().prepare("SELECT COUNT(*) n FROM platform_notifications WHERE kind='blog_run'").get().n;
+  const r = await agent.runBlogAgent({ force: true });
+  assert.ok(r.made.length > 0, JSON.stringify(r));
+  const rows = platformDb().prepare("SELECT * FROM platform_notifications WHERE kind='blog_run' ORDER BY id DESC").all();
+  assert.equal(rows.length, before + 1);
+  assert.match(rows[0].title, new RegExp(`wrote ${r.made.length} article`));
 });

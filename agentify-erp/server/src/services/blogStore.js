@@ -9,7 +9,11 @@ const SCHEMA = `CREATE TABLE IF NOT EXISTS blog_agent_posts(
   created_at TEXT NOT NULL DEFAULT (datetime('now')), published_at TEXT, reviewed_by TEXT, updated_at TEXT);
 CREATE INDEX IF NOT EXISTS idx_blog_agent_status ON blog_agent_posts(status, created_at);`;
 let ready = false;
-export const store = () => { const d = platformDb(); if (!ready) { d.exec(SCHEMA); ready = true; } return d; };
+export const store = () => {
+  const d = platformDb();
+  if (!ready) { d.exec(SCHEMA); if (!d.prepare('PRAGMA table_info(blog_agent_posts)').all().some((c) => c.name === 'kind')) d.exec("ALTER TABLE blog_agent_posts ADD COLUMN kind TEXT NOT NULL DEFAULT 'guide'"); ready = true; }
+  return d;
+};
 export const resetStoreCache = () => { ready = false; cache = null; };
 
 const j = (s, d) => { try { return s ? JSON.parse(s) : d; } catch { return d; } };

@@ -9,7 +9,7 @@ import { askOrder, saveOrder } from './askOrder.js';
 import { bad } from '../util.js';
 
 const BASE = 'https://api.groq.com/openai/v1';
-export const DEFAULTS = { chat: 'llama-3.3-70b-versatile', vision: 'meta-llama/llama-4-scout-17b-16e-instruct', stt: 'whisper-large-v3-turbo' };
+export const DEFAULTS = { chat: 'openai/gpt-oss-120b', vision: 'meta-llama/llama-4-scout-17b-16e-instruct', stt: 'whisper-large-v3-turbo' };
 const MODEL_RE = /^[A-Za-z0-9._\-\/:]{2,80}$/;
 
 export const groqKey = () => getSetting('groq_api_key');
