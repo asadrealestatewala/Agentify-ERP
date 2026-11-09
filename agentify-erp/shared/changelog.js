@@ -6,11 +6,25 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
-    version: 'v1.85', date: '2026-11-09', title: 'Console: Groq model fix, Blog agent alerts',
+    version: 'v1.87', date: '2026-11-09', title: 'Console: Blog agent alerts, Groq fix and brand-building articles',
     items: [
       { text: 'Groq retired its old default chat model, so Groq answers failed with "model does not exist". The default is now openai/gpt-oss-120b. A model you typed yourself in the Groq settings is kept.', where: 'Console > AI > Groq and Ask engines', audience: 'platform' },
       { text: 'The Blog agent no longer gives up when Groq returns broken JSON for an article: it asks again in plain mode and retries the article once before reporting an error.', where: 'Console > Marketing > Blog agent', audience: 'platform' },
       { text: 'The alerts bell now tells you when the Blog agent has drafts waiting for review and after every run (how many articles it made and how many went live), so you no longer have to open the page to find out.', where: 'Console > Alerts', audience: 'platform' },
+    ],
+  },
+  {
+    version: 'v1.86', date: '2026-11-09', title: 'Ask can look up your records',
+    items: [
+      { text: 'Ask now answers questions about specific records, for example a customer, a plot, a sale, an instalment, a receipt, a vendor or a staff member, by looking them up in your workspace. It only sees what the person asking is allowed to open, and sales agents only see their own.', where: 'Ask (Data assistant)' },
+      { text: 'Admins can switch record look-up off.', where: 'Settings > System settings > Ask assistant' },
+    ],
+  },
+  {
+    version: 'v1.85', date: '2026-11-09', title: 'Ask understands spelling mistakes and knows the whole menu',
+    items: [
+      { text: 'Ask now repairs spelling slips (for example "whastapp") before searching, in English, Urdu and Roman Urdu.', where: 'Ask (Data assistant)' },
+      { text: 'When no guide matches a question, Ask now looks at the whole menu and tells you which screen fits, instead of saying it could not match.', where: 'Ask (Data assistant)' },
     ],
   },
   {
