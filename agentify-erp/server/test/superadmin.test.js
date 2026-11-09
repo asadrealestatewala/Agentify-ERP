@@ -159,7 +159,7 @@ test('global search finds workspaces, invoices and admins; short queries return 
 
 test('plans: editable, prices versioned, existing subscribers keep their price, retired plans cannot be bought', async () => {
   let p = (await adm('GET', '/plans')).data;
-  assert.deepEqual(p.plans.map((x) => x.id), ['starter', 'growth', 'enterprise', 'con_starter', 'con_professional', 'con_enterprise', 'tier1', 'tier2', 'tier3', 'lad_solo_agent', 'lad_agent_plus', 'lad_agency_starter', 'lad_agency_growth', 'lad_agency_pro', 'lad_developer', 'lad_enterprise'], 'seeded from the defaults (both product families, the three hidden content tiers, then the hidden 7-tier ladder)');
+  assert.deepEqual(p.plans.map((x) => x.id), ['starter', 'growth', 'enterprise', 'con_starter', 'con_professional', 'con_enterprise', 'tier1', 'tier2', 'tier3', 'lad_agent_plus', 'lad_agency_starter', 'lad_agency_growth', 'lad_agency_pro', 'lad_developer', 'lad_enterprise'], 'seeded from the defaults (both product families, the three hidden content tiers, then the hidden plan ladder)');
   assert.equal((await adm('PUT', '/plans/Bad-Id', { name: 'x' })).status, 400);
   assert.equal((await adm('PUT', '/plans/pro', { name: 'Pro' })).status, 400, 'a new plan needs PKR prices');
   const created = await adm('PUT', '/plans/pro', { name: 'Pro', seats: 10, projects: 10, modules: ['accounting', 'hrm'], price: { PKR: { month: 15000, year: 150000 } } });

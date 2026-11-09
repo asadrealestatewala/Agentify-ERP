@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.89', date: '2026-11-09', title: 'Plans now start at Agent Plus',
+    items: [
+      { text: 'The plan ladder now starts at Agent Plus (1,500 rupees a month) with installments, receipts, WhatsApp reminders and the Android and desktop app that keeps working offline for notes, tasks and leads. The Solo Agent plan is retired; its workspaces moved to Agent Plus at the price they pay.', where: 'Console > Plans', audience: 'platform' },
+      { text: 'Agency Starter is now 5,000 rupees a month and adds HRM (employees, attendance, leave, salary) and the free website. Meta (Facebook and Instagram) and the social media scheduler come with Agency Pro. The pricing page lists exactly what each plan includes.', where: 'Console > Plans', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.88', date: '2026-11-09', title: 'Console: photos on the new Agentify ERP articles',
     items: [
       { text: 'New PageSpeed card: pick the blog index or one of your newest articles and see its Google speed, SEO, accessibility and best-practice scores for phones, plus a short list of things to fix.', where: 'Console > Marketing > Blog agent > PageSpeed', audience: 'platform' },
