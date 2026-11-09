@@ -11,6 +11,8 @@ export const CHANGELOG = [
       { text: 'Groq retired its old default chat model, so Groq answers failed with "model does not exist". The default is now openai/gpt-oss-120b. A model you typed yourself in the Groq settings is kept.', where: 'Console > AI > Groq and Ask engines', audience: 'platform' },
       { text: 'The Blog agent no longer gives up when Groq returns broken JSON for an article: it asks again in plain mode and retries the article once before reporting an error.', where: 'Console > Marketing > Blog agent', audience: 'platform' },
       { text: 'The alerts bell now tells you when the Blog agent has drafts waiting for review and after every run (how many articles it made and how many went live), so you no longer have to open the page to find out.', where: 'Console > Alerts', audience: 'platform' },
+      { text: 'The public blog now says Agentify ERP clearly: every article has an Agentify ERP byline, a short "about Agentify ERP" closing with a link, and a question about it in the FAQ. Six new articles explain what Agentify ERP is and compare it honestly with spreadsheets and generic CRMs for Pakistan property dealers.', where: 'Public website > Blog', audience: 'platform' },
+      { text: 'The Blog agent now writes about one in three of its daily articles as an Agentify ERP or comparison piece, names the product in the title and text, and rejects drafts with made-up claims such as prices, rankings, customer counts or testimonials.', where: 'Console > Marketing > Blog agent', audience: 'platform' },
     ],
   },
   {

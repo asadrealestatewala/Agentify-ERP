@@ -16,7 +16,7 @@ const fx = await import('../src/services/fxRate.js');
 const realFetch = globalThis.fetch; let n = 0; const urls = [];
 const long = (k) => Array.from({ length: 9 }, (_, i) => `Paragraph ${i} about ${k} with enough ordinary words to build a realistic article body for the check that counts words in the text. `.repeat(3));
 const article = (k) => ({ title: `A practical guide to ${k} for property dealers`, description: `How property dealers can handle ${k} step by step, with a simple checklist and common mistakes to avoid.`, tag: 'Real estate', keyword: k, tags: ['#realestate'],
-  body: ['# Why it matters', long(k)[0], '# Step one', long(k)[1], '* Check the file', '* Confirm the dues', '# Step two', long(k)[2], ...long(k).slice(3), '# Common mistakes', long(k)[4]], faq: [['Is it hard?', 'No.'], ['Is it slow?', 'Not really.'], ['Is it free?', 'Depends.']] });
+  body: ['# Why it matters', long(k)[0] + ' Agentify ERP keeps this in one place.', '# Step one', long(k)[1] + ' Agentify ERP shows the dues.', '* Check the file', '* Confirm the dues', '# Step two', long(k)[2], ...long(k).slice(3), '# Common mistakes', long(k)[4]], faq: [['Is it hard?', 'No.'], ['Is it slow?', 'Not really.'], ['Is it free?', 'Depends.']] });
 before(() => {
   fx.saveFxSettings({ live: false, manual_rate: 300 }, 'test');
   setSetting('platform_gemini_key', 'AIza' + 'x'.repeat(35), { secret: true });
@@ -88,6 +88,14 @@ test('quality checks reject thin, duplicate and boilerplate articles', () => {
   assert.match(agent.checkArticle(ok, [ok.title]).problems.join(), /existing article/);
   assert.match(agent.checkArticle({ ...ok, body: [...ok.body, 'As an AI language model I cannot.'] }, []).problems.join(), /boilerplate/);
   assert.ok(agent.similarity('real estate crm', 'real estate crm') === 1);
+});
+
+test('brand rules: articles must name Agentify ERP and avoid made-up claims', () => {
+  const ok = article('brand rule topic');
+  const bare = { ...ok, body: ok.body.map((b) => String(b).replace(/Agentify ERP/g, 'the tool')) };
+  assert.match(agent.checkArticle(bare, []).problems.join(), /Agentify ERP/);
+  const claim = { ...ok, body: [...ok.body, 'Trusted by 5000 agencies and ranked number 1 in Pakistan.'] };
+  assert.ok(agent.checkArticle(claim, []).problems.length > 0);
 });
 
 test('the writing engine can be Groq, and falls back to Gemini when Groq fails', async () => {

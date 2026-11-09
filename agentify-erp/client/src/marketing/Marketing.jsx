@@ -1013,7 +1013,7 @@ function BlogPost({ info, slug }) {
     <section><div className="lwrap"><article className="ldoc">
       <p className="lmini"><Link to="/blog">Blog</Link> · {d.tag}</p>
       <h1 style={{ fontSize: 32, marginBottom: 6 }}>{d.title}</h1>
-      <p className="lmini">{d.date} · {d.read} min read</p>
+      <p className="lmini">{d.date} · {d.read} min read · By {info.content.brand}</p>
       <picture><source srcSet={d.image.webp} type="image/webp" /><img className="lpic" src={d.image.jpg} width={d.image.width} height={d.image.height} alt={d.image.alt} fetchPriority="high" decoding="async" /></picture>
       {d.image.credit && <p className="lmini lcredit">Photo by <a href={d.image.credit.profile} target="_blank" rel="noopener noreferrer">{d.image.credit.name}</a> on <a href="https://unsplash.com/?utm_source=agentify_erp&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></p>}
       {d.body.map((b, i) => (b.h ? <h2 key={i}>{b.h}</h2> : b.ul ? <ul key={i}>{b.ul.map((x, j) => <li key={j}>{x}</li>)}</ul> : <p key={i}>{b.p}</p>))}

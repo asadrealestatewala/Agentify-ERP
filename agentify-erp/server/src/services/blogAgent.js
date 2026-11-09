@@ -10,6 +10,7 @@ import { allPosts, parseBody, words } from './blog.js';
 import { store, invalidate, toPost } from './blogStore.js';
 import { bad, notFound } from '../util.js';
 import { platformDb } from '../platform.js';
+import { BRAND, DOMAIN, BRAND_RULES, FORBIDDEN_CLAIMS, BRAND_FAQ, closingFor } from './brandFacts.js';
 
 export const HARD_MAX_PER_DAY = 10;
 export const DEFAULTS = { cap: 5, focus: 'Real estate agencies, property dealers, developers and construction contractors in Pakistan (and general real-estate software buyers); practical how-to and buying-guide topics', min_words: 600 };
@@ -89,19 +90,23 @@ async function findPhoto(query) {
 }
 
 // ---- steps
-const TOPIC_SYSTEM = 'You are the SEO editor of the Agentify ERP blog (CRM and ERP for real estate and construction companies). Propose blog topics people actually search for. Reply with JSON only: {"topics": [{"topic": "working title", "keyword": "main search phrase", "query": "web search query to research it"}]}.';
-export async function proposeTopics(n, focus) {
-  const have = existingTitles().slice(-120).join('\n');
-  const d = await gem(TOPIC_SYSTEM, `Focus: ${focus}\nPropose ${n + 3} NEW topics. Do not repeat or closely overlap these existing articles:\n${have}`, 1500);
+const TOPIC_SYSTEM = `You are the SEO editor of the ${BRAND} blog (CRM and ERP for real estate and construction companies, mainly for Pakistan). Propose blog topics people actually search for. Each topic has a "kind": "guide" (a useful how-to or checklist for the audience; ${BRAND} may appear naturally) or "brand" (an article about ${BRAND} itself: what it is, a use case for one role such as sales manager, accountant or site engineer, a feature explained, how to move from Excel to ${BRAND}, or an honest comparison of ${BRAND} with an approach such as spreadsheets, a generic CRM or portal-bundled tools; never name competitor products). Brand topic titles must contain "${BRAND}". Reply with JSON only: {"topics": [{"topic": "working title", "kind": "guide" | "brand", "keyword": "main search phrase", "query": "web search query to research it"}]}.`;
+/** n topics, of which `brandN` are about the product itself (brand and comparison articles). */
+export async function proposeTopics(n, focus, brandN = 0) {
+  const have = existingTitles().slice(-150).join('\n');
+  const d = await gem(TOPIC_SYSTEM, `Focus: ${focus}\nPropose ${n + 4} NEW topics, at least ${Math.min(n, brandN) + 1} of kind "brand" and the rest "guide". Do not repeat or closely overlap these existing articles:\n${have}`, 2000);
   const raw = jsonOf(d); const arr = Array.isArray(raw) ? raw : raw?.topics; if (!Array.isArray(arr)) return [];
   const titles = existingTitles();
-  return arr.filter((t) => t?.topic && t?.query && !titles.some((x) => similarity(x, t.topic) > 0.5)).slice(0, n);
+  const ok = arr.filter((t) => t?.topic && t?.query && !titles.some((x) => similarity(x, t.topic) > 0.5)).map((t) => ({ ...t, kind: t.kind === 'brand' ? 'brand' : 'guide' }));
+  const brand = ok.filter((t) => t.kind === 'brand').slice(0, brandN), guide = ok.filter((t) => t.kind === 'guide').slice(0, n - brand.length);
+  return [...brand, ...guide].slice(0, n);
 }
 
-const WRITE_SYSTEM = `You write original blog articles for Agentify ERP, a CRM and ERP for real estate and construction companies. Rules: use ONLY facts supported by the supplied source snippets or plain common knowledge; never invent statistics, prices, laws, quotes, customer names or awards; if a figure is uncertain, say it varies and tell the reader to check. Do not copy sentences from the sources; write in your own words. Be practical, specific and honest, not salesy; mention Agentify ERP at most once, near the end, where it genuinely fits. Write in clear English. Reply with JSON only: {"title": "...", "description": "70-160 characters for search results", "tag": one of ${JSON.stringify(TAGS)}, "keyword": "main search phrase", "tags": ["#hashtag", ...up to 4], "body": ["line", ...], "faq": [["question","answer"], ...3 items]}. "body" lines: a line starting with "# " is a heading, a line starting with "* " is a bullet, any other line is a paragraph. Use 4-6 headings and at least ${DEFAULTS.min_words} words.`;
+const WRITE_SYSTEM = `You write original blog articles for Agentify ERP, a CRM and ERP for real estate and construction companies. Rules: use ONLY facts supported by the supplied source snippets or plain common knowledge; never invent statistics, prices, laws, quotes, customer names or awards; if a figure is uncertain, say it varies and tell the reader to check. Do not copy sentences from the sources; write in your own words. Be practical, specific and honest, not salesy. ${BRAND_RULES} Name \"${BRAND}\" in full (never just \"the software\") about 3 to 5 times in the article, naturally: in the introduction, where a point is illustrated by what the product does, and in a closing next step that points to ${DOMAIN}. For an article of kind \"brand\", put \"${BRAND}\" in the title and the description, explain the product honestly using only the facts above, and say when it is not the right choice. For a guide, the useful advice comes first and the product is one example of how to do it. Write in clear English. Reply with JSON only: {"title": "...", "description": "70-160 characters for search results", "tag": one of ${JSON.stringify(TAGS)}, "keyword": "main search phrase", "tags": ["#hashtag", ...up to 4], "body": ["line", ...], "faq": [["question","answer"], ...3 items]}. "body" lines: a line starting with "# " is a heading, a line starting with "* " is a bullet, any other line is a paragraph. Use 4-6 headings and at least ${DEFAULTS.min_words} words.`;
 
 /** Checks an article must pass before it reaches the review queue. Returns a list of problems (empty = passed). */
-export function checkArticle(a, others = existingTitles()) {
+const brandMentions = (t) => (String(t).match(/agentify erp|agentifyerp/gi) || []).length;
+export function checkArticle(a, others = existingTitles(), kind = 'guide') {
   const out = [];
   const body = parseBody(a.body || []);
   const w = words(body);
@@ -113,6 +118,11 @@ export function checkArticle(a, others = existingTitles()) {
   const text = (a.body || []).join(' ');
   if (/as an ai|language model|lorem ipsum|\[(?:source|link|insert)/i.test(text)) out.push('Contains AI boilerplate or placeholders');
   if (/\b(?:guaranteed|100% safe|get rich)\b/i.test(text)) out.push('Contains risky claims');
+  const all = `${a.title} ${a.description} ${text} ${JSON.stringify(a.faq || [])}`;
+  if (FORBIDDEN_CLAIMS.test(all)) out.push('Makes a ranking, award, customer-count, uptime or similar claim we cannot back up');
+  if (brandMentions(text) < 2) out.push(`Mentions ${BRAND} fewer than 2 times`);
+  if (kind === 'brand' && !/agentify erp/i.test(a.title || '')) out.push(`A brand article needs "${BRAND}" in the title`);
+  if (kind === 'brand' && brandMentions(text) < 4) out.push(`A brand article should name ${BRAND} at least 4 times`);
   return { problems: out, words: w };
 }
 
@@ -126,11 +136,20 @@ export async function writeArticle(t, sources) {
   throw bad('The AI did not return a usable article twice in a row');
 }
 
+/** Adds what a draft is missing about the product: a closing line when the body barely names it, and the "What is Agentify ERP?" FAQ answer. Facts come from brandFacts.js only. */
+export function ensureBrand(a) {
+  const out = { ...a, body: [...(a.body || [])], faq: [...(a.faq || [])] };
+  if (brandMentions(out.body.join(' ')) < 2) out.body.push(`# How ${BRAND} fits in`, closingFor(out.tag, 'x'));
+  if (!out.faq.some(([q, an]) => brandMentions(`${q} ${an}`))) out.faq.push(BRAND_FAQ);
+  return out;
+}
+
 /** Make one article for a topic and save it as a draft (or publish it when auto-publish is on and every check passed). */
 export async function makeOne(t, { auto = false } = {}) {
   const sources = await searchWeb(t.query);
-  const a = await writeArticle(t, sources);
-  const chk = checkArticle(a);
+  const a = ensureBrand(await writeArticle(t, sources));
+  const kind = t.kind === 'brand' ? 'brand' : 'guide';
+  const chk = checkArticle(a, existingTitles(), kind);
   let slug = slugify(a.title || t.topic); if (!slug) throw bad('No usable title');
   if (store().prepare('SELECT 1 FROM blog_agent_posts WHERE slug=?').get(slug) || allPosts().some((p) => p.slug === slug)) slug = `${slug.slice(0, 70)}-${Date.now().toString(36).slice(-4)}`;
   const blocks = parseBody(a.body);
@@ -138,13 +157,13 @@ export async function makeOne(t, { auto = false } = {}) {
   const passed = chk.problems.length === 0;
   const status = auto && passed ? 'published' : 'draft';
   const faq = (Array.isArray(a.faq) ? a.faq : []).filter((x) => Array.isArray(x) && x[0] && x[1]).slice(0, 4).map(([q, an]) => [String(q).slice(0, 200), String(an).slice(0, 700)]);
-  const info = store().prepare(`INSERT INTO blog_agent_posts(slug,title,description,tag,keyword,body,faq,tags,related,sources,photo,read_min,status,checks,published_at)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,${status === 'published' ? "datetime('now')" : 'NULL'})`)
+  const info = store().prepare(`INSERT INTO blog_agent_posts(slug,title,description,tag,keyword,body,faq,tags,related,sources,photo,read_min,status,checks,kind,published_at)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,${status === 'published' ? "datetime('now')" : 'NULL'})`)
     .run(slug, String(a.title).slice(0, 140), String(a.description || '').slice(0, 200), TAGS.includes(a.tag) ? a.tag : 'Real estate', String(a.keyword || t.keyword || '').slice(0, 80), JSON.stringify(blocks), JSON.stringify(faq),
       JSON.stringify((a.tags || []).slice(0, 4).map((x) => String(x).slice(0, 30))), JSON.stringify([]), JSON.stringify(sources.map(({ title, url }) => ({ title, url }))), photo ? JSON.stringify(photo) : null,
-      Math.max(2, Math.round(chk.words / 200)), status, JSON.stringify(chk.problems));
+      Math.max(2, Math.round(chk.words / 200)), status, JSON.stringify(chk.problems), kind);
   invalidate();
-  return { id: Number(info.lastInsertRowid), slug, status, problems: chk.problems };
+  return { id: Number(info.lastInsertRowid), slug, status, kind, problems: chk.problems };
 }
 
 let running = false;
@@ -159,7 +178,9 @@ export async function runBlogAgent({ force = false, by = null } = {}) {
   try {
     const left = s.cap - madeToday();
     if (left <= 0) return { ...res, skipped: `Today's limit of ${s.cap} is reached.` };
-    const topics = await proposeTopics(left, s.focus);
+    const brandToday = store().prepare("SELECT COUNT(*) n FROM blog_agent_posts WHERE substr(created_at,1,10)=? AND kind='brand' AND status!='rejected'").get(startOfDay()).n;
+    const brandN = Math.min(left, Math.max(0, Math.ceil(s.cap / 3) - brandToday)); // about a third of each day's articles are about the product itself
+    const topics = await proposeTopics(left, s.focus, brandN);
     for (const t of topics) {
       if (madeToday() >= s.cap) break;
       try { res.made.push(await makeOne(t, { auto: s.auto_publish })); } catch (e) { res.errors.push(`${t.topic}: ${e.message}`); if (e.extra?.code) break; }
@@ -191,7 +212,7 @@ function runAlert(res) {
 }
 
 // ---- review queue
-const COLS = 'id,slug,title,description,tag,keyword,status,checks,read_min,created_at,published_at,reviewed_by,sources';
+const COLS = 'id,slug,title,description,tag,keyword,kind,status,checks,read_min,created_at,published_at,reviewed_by,sources';
 export const listDrafts = () => store().prepare(`SELECT ${COLS} FROM blog_agent_posts ORDER BY CASE status WHEN 'draft' THEN 0 WHEN 'published' THEN 1 ELSE 2 END, id DESC LIMIT 300`).all()
   .map((r) => ({ ...r, checks: JSON.parse(r.checks || '[]'), sources: JSON.parse(r.sources || '[]') }));
 export function getDraft(id) {

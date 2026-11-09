@@ -110,15 +110,29 @@ function loadExtra() {
   for (const f of fs.readdirSync(contentDir).filter((x) => /^blog-pk-.*\.json$/.test(x)).sort()) {
     for (const a of JSON.parse(fs.readFileSync(path.join(contentDir, f), 'utf8'))) {
       const body = parseBody(a.body);
-      posts.push({ slug: a.slug, title: a.title, description: a.description, keyword: a.keyword, tag: a.tag, tags: a.tags || [], faq: a.faq || [], related: a.related || [], date: '2026-11-09', read: Math.max(2, Math.round(words(body) / 200)), body });
+      posts.push({ fresh: a.fresh === true, slug: a.slug, title: a.title, description: a.description, keyword: a.keyword, tag: a.tag, tags: a.tags || [], faq: a.faq || [], related: a.related || [], date: '2026-11-09', read: Math.max(2, Math.round(words(body) / 200)), body });
     }
   }
   return posts;
 }
 
 import { publishedPosts } from './blogStore.js';
+import { BRAND, closingFor, BRAND_FAQ, isRomanUrdu, CLOSE_UR, HEAD_UR, BRAND_FAQ_UR } from './brandFacts.js';
 
-const BUILT_IN = [...BASE_POSTS, ...loadExtra()];
+const mentions = (v) => (JSON.stringify(v).match(/agentify/gi) || []).length;
+/**
+ * Makes sure a built-in article names the product: a short closing section when the body barely mentions it, a "What is Agentify ERP?"
+ * answer in the FAQ (so it is in the FAQ schema too) and a brand tail on a short search description. Idempotent; the data files stay as written.
+ */
+export function brandify(p) {
+  const out = { ...p };
+  const ur = isRomanUrdu(p.slug);
+  if (mentions(p.body) < 3) out.body = [...p.body, { h: ur ? HEAD_UR : `How ${BRAND} fits in` }, { p: ur ? CLOSE_UR : closingFor(p.tag, p.slug) }];
+  if (!mentions(p.faq || [])) out.faq = [...(p.faq || []), ur ? BRAND_FAQ_UR : BRAND_FAQ];
+  if (!ur && !/agentify/i.test(p.description) && p.description.length <= 135) out.description = `${p.description.replace(/\s*$/, '')} From ${BRAND}.`;
+  return out;
+}
+const BUILT_IN = [...BASE_POSTS, ...loadExtra()].map(brandify);
 /** Built-in articles. Use allPosts() to include the ones the blog agent published. */
 export const BLOG_POSTS = BUILT_IN;
 export const allPosts = () => { const extra = publishedPosts(); return extra.length ? [...BUILT_IN, ...extra.filter((e) => !BUILT_IN.some((b) => b.slug === e.slug))] : BUILT_IN; };
@@ -136,7 +150,7 @@ const px = (raw, o) => `${raw}${raw.includes('?') ? '&' : '?'}auto=format&fit=cr
 export const imageOf = (p) => {
   const alt = `${p.keyword ? `${p.keyword[0].toUpperCase()}${p.keyword.slice(1)}: ` : ''}${p.title}`;
   const ph = p.photo || PHOTOS[p.slug];
-  if (!ph && p.agent) return { webp: BLOG_INDEX_OG, jpg: BLOG_INDEX_OG, og: BLOG_INDEX_OG, width: 1200, height: 630, alt };
+  if (!ph && (p.agent || p.fresh)) return { webp: BLOG_INDEX_OG, jpg: BLOG_INDEX_OG, og: BLOG_INDEX_OG, width: 1200, height: 630, alt };
   if (!ph) return { webp: `/blog-img/${p.slug}.webp`, jpg: `/blog-img/${p.slug}.jpg`, og: `/blog-img/${p.slug}-og.jpg`, width: 1600, height: 900, alt };
   return {
     webp: px(ph.raw, 'fm=webp&w=1600&h=900'), jpg: px(ph.raw, 'fm=jpg&w=1600&h=900'), og: px(ph.raw, 'fm=jpg&w=1200&h=630'),
@@ -162,5 +176,5 @@ export function bodyHtml(post) {
   const tags = (post.tags || []).length ? `<p>${post.tags.map(esc).join(' ')}</p>` : '';
   const img = imageOf(post);
   const hero = `<img src="${esc(img.jpg)}" width="${img.width}" height="${img.height}" alt="${esc(img.alt)}" />${img.credit ? `<p>Photo by <a href="${esc(img.credit.profile)}">${esc(img.credit.name)}</a> on <a href="https://unsplash.com/?utm_source=agentify_erp&utm_medium=referral">Unsplash</a></p>` : ''}`;
-  return `${hero}${main}${faq}${related}<p><a href="/real-estate">Real estate software</a> · <a href="/construction">Construction software</a> · <a href="/pricing">Pricing</a></p>${tags}`;
+  return `<p>By ${BRAND} (<a href="/">agentifyerp.co</a>)</p>${hero}${main}${faq}${related}<p><a href="/real-estate">Real estate software</a> · <a href="/construction">Construction software</a> · <a href="/pricing">Pricing</a></p>${tags}`;
 }
