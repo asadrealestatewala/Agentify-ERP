@@ -10,7 +10,7 @@
 //   on sale (active = 0)                             no new purchases; current subscribers can still renew
 //   product family                                   cannot be changed once a workspace is subscribed to the plan
 import { PLANS, DEFAULT_PLANS, DEFAULT_CONSTRUCTION_PLANS, DEFAULT_TIER_PLANS, PLAN_SETTINGS, MODULES, PRODUCT_CHOICES, INTERVAL_KEYS, FEATURE_GATES, setAddonLookup } from './plans.js';
-import { LADDER_PLANS, LADDER_ADDONS, ladderState, setLadder } from './planLadder.js';
+import { LADDER_PLANS, LADDER_ADDONS, LADDER_REGIONAL, ADDON_USD, ladderState, setLadder } from './planLadder.js';
 import { bad, HttpError } from '../util.js';
 import { cleanEmailLimits } from './emailLimits.js';
 import { cleanWhatsappLimits } from './whatsappLimits.js';
@@ -45,7 +45,7 @@ CREATE INDEX IF NOT EXISTS idx_coupon_redemptions ON coupon_redemptions(code);
 /** Columns added to plans for the SaaS release (product families, more limits, marketing content, setup fee). */
 const PLAN_COLUMNS = [['product', "TEXT NOT NULL DEFAULT 'real_estate'"], ['properties', 'INTEGER'], ['storage_mb', 'INTEGER'], ['api_access', 'INTEGER NOT NULL DEFAULT 1'],
   ['features', 'TEXT'], ['highlight', 'INTEGER NOT NULL DEFAULT 0'], ['trial_eligible', 'INTEGER NOT NULL DEFAULT 1'], ['setup_fee', 'TEXT'], ['email_limits', 'TEXT'], ['whatsapp_limits', 'TEXT'],
-  ['allowances', 'TEXT'], ['launch_offer', 'INTEGER NOT NULL DEFAULT 0']];
+  ['allowances', 'TEXT'], ['launch_offer', 'INTEGER NOT NULL DEFAULT 0'], ['regional', 'TEXT']];
 export const CURRENCIES = ['PKR', 'USD', 'GBP', 'CAD'];
 const ID_RE = /^[a-z][a-z0-9_]{1,30}$/;
 
@@ -140,6 +140,28 @@ export function initPlans(pdb) {
       db.exec('COMMIT');
     } catch (e) { db.exec('ROLLBACK'); throw e; }
   }
+  // USA launch: USD prices for the six ladder plans and their add-ons, plus USD wording (regional). Only fills gaps: a USD price or wording the owner already set is kept.
+  // Nothing goes on sale here; the ladder switch decides that, and customers who pay in USD are the only ones who see these prices.
+  if (!setting('seeded_ladder_us_v1')) {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      for (const [id, p] of Object.entries(LADDER_PLANS)) {
+        if (!db.prepare('SELECT 1 FROM plans WHERE id=?').get(id)) continue;
+        for (const [int, amount] of Object.entries(p.price.USD)) {
+          if (!db.prepare("SELECT 1 FROM plan_prices WHERE plan_id=? AND currency='USD' AND interval=?").get(id, int)) db.prepare("INSERT INTO plan_prices(plan_id,currency,interval,amount,effective_from,created_by) VALUES(?,'USD',?,?,'2000-01-01 00:00:00','system')").run(id, int, amount);
+        }
+        db.prepare('UPDATE plans SET regional=? WHERE id=? AND regional IS NULL').run(JSON.stringify(LADDER_REGIONAL[id]), id);
+      }
+      for (const [id, usd] of Object.entries(ADDON_USD)) {
+        const row = db.prepare('SELECT price FROM addons WHERE id=?').get(id);
+        if (!row) continue;
+        const price = parseJson(row.price, {});
+        if (!price.USD) db.prepare("UPDATE addons SET price=?, updated_at=datetime('now'), updated_by='system' WHERE id=?").run(JSON.stringify({ ...price, USD: usd }), id);
+      }
+      mark('seeded_ladder_us_v1');
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+  }
   setAddonLookup((tenant) => {
     if (!tenant?.id) return [];
     return db.prepare("SELECT a.entitlements, ta.quantity FROM tenant_addons ta JOIN addons a ON a.id=ta.addon_id WHERE ta.tenant_id=? AND ta.status='active'").all(tenant.id).map((r) => {
@@ -165,7 +187,7 @@ export function reloadPlans() {
     for (const p of prices.filter((x) => x.plan_id === r.id)) (price[p.currency] ||= {})[p.interval] = p.amount;
     PLANS[r.id] = { name: r.name, product: r.product || 'real_estate', description: r.description, seats: r.seats, projects: r.projects, properties: r.properties, storage_mb: r.storage_mb, api_access: !!r.api_access,
       grace_days: r.grace_days, modules: r.modules ? JSON.parse(r.modules) : null, visible: !!r.visible, active: !!r.active, features: parseJson(r.features, []), highlight: !!r.highlight,
-      trial_eligible: r.trial_eligible !== 0, setup_fee: parseJson(r.setup_fee, {}), email_limits: parseJson(r.email_limits, null), whatsapp_limits: parseJson(r.whatsapp_limits, null), allowances: parseJson(r.allowances, null), launch_offer: !!r.launch_offer, price };
+      trial_eligible: r.trial_eligible !== 0, setup_fee: parseJson(r.setup_fee, {}), email_limits: parseJson(r.email_limits, null), whatsapp_limits: parseJson(r.whatsapp_limits, null), allowances: parseJson(r.allowances, null), launch_offer: !!r.launch_offer, regional: parseJson(r.regional, null), price };
   }
   PLAN_SETTINGS.trial_plan = setting('trial_plan') || (PLANS.growth ? 'growth' : Object.keys(PLANS)[0] || 'growth');
   PLAN_SETTINGS.trial_plans = { real_estate: PLAN_SETTINGS.trial_plan, construction: setting('trial_plan_construction') || (PLANS.con_professional ? 'con_professional' : null) };
@@ -179,7 +201,7 @@ export function listPlans() {
   const subs = Object.fromEntries(db.prepare("SELECT plan, COUNT(*) n FROM tenants WHERE is_legacy=0 AND status='active' AND subscription_status NOT IN ('trialing','pending','expired') GROUP BY plan").all().map((r) => [r.plan, r.n]));
   return db.prepare('SELECT * FROM plans ORDER BY sort_order, id').all().map((r) => ({
     id: r.id, name: r.name, product: r.product, description: r.description, seats: r.seats, projects: r.projects, properties: r.properties, storage_mb: r.storage_mb, api_access: !!r.api_access,
-    grace_days: r.grace_days, modules: r.modules ? JSON.parse(r.modules) : null, features: parseJson(r.features, []), highlight: !!r.highlight, trial_eligible: r.trial_eligible !== 0, setup_fee: parseJson(r.setup_fee, {}), email_limits: parseJson(r.email_limits, null), whatsapp_limits: parseJson(r.whatsapp_limits, null), allowances: parseJson(r.allowances, null), launch_offer: !!r.launch_offer,
+    grace_days: r.grace_days, modules: r.modules ? JSON.parse(r.modules) : null, features: parseJson(r.features, []), highlight: !!r.highlight, trial_eligible: r.trial_eligible !== 0, setup_fee: parseJson(r.setup_fee, {}), email_limits: parseJson(r.email_limits, null), whatsapp_limits: parseJson(r.whatsapp_limits, null), allowances: parseJson(r.allowances, null), launch_offer: !!r.launch_offer, regional: parseJson(r.regional, null),
     visible: !!r.visible, active: !!r.active, sort_order: r.sort_order, updated_at: r.updated_at, updated_by: r.updated_by, subscribers: subs[r.id] || 0,
     price: PLANS[r.id]?.price || {},
     price_history: db.prepare('SELECT currency, interval, amount, effective_from, created_by FROM plan_prices WHERE plan_id=? ORDER BY effective_from DESC, id DESC LIMIT 40').all(r.id),
@@ -245,6 +267,20 @@ export function cleanMoneyMap(m, label) {
   return out;
 }
 
+/** Wording per currency: { USD: { description, features[] } }. Empty = every currency uses the plan's own wording. */
+export function cleanRegional(r) {
+  if (r === null || r === undefined || r === '') return null;
+  if (typeof r !== 'object' || Array.isArray(r)) throw bad('Regional wording must be an object per currency');
+  const out = {};
+  for (const [cur, v] of Object.entries(r)) {
+    if (!CURRENCIES.includes(cur)) throw bad(`Regional wording: unknown currency ${cur}`);
+    const description = v?.description === undefined || v?.description === null ? null : String(v.description).trim().slice(0, 300) || null;
+    const features = v?.features === undefined || v?.features === null ? null : cleanFeatures(v.features);
+    if (description || features?.length) out[cur] = { ...(description ? { description } : {}), ...(features?.length ? { features } : {}) };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /** Create or update a plan. Only prices that differ from the current ones get a new price row. */
 export function savePlan(id, b, actor) {
   const pid = String(id || '').trim().toLowerCase();
@@ -274,6 +310,7 @@ export function savePlan(id, b, actor) {
     whatsapp_limits: b.whatsapp_limits === undefined ? exists?.whatsapp_limits ?? null : (cleanWhatsappLimits(b.whatsapp_limits) ? JSON.stringify(cleanWhatsappLimits(b.whatsapp_limits)) : null),
     allowances: b.allowances === undefined ? exists?.allowances ?? null : (cleanAllowances(b.allowances) ? JSON.stringify(cleanAllowances(b.allowances)) : null),
     launch_offer: b.launch_offer === undefined ? exists?.launch_offer ?? 0 : (b.launch_offer ? 1 : 0),
+    regional: b.regional === undefined ? exists?.regional ?? null : (cleanRegional(b.regional) ? JSON.stringify(cleanRegional(b.regional)) : null),
     visible: b.visible === undefined ? exists?.visible ?? 1 : (b.visible ? 1 : 0),
     active: b.active === undefined ? exists?.active ?? 1 : (b.active ? 1 : 0),
     sort_order: b.sort_order === undefined ? exists?.sort_order ?? (db.prepare('SELECT COALESCE(MAX(sort_order),0)+1 n FROM plans').get().n) : Math.trunc(Number(b.sort_order)) || 0,

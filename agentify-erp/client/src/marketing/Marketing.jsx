@@ -22,6 +22,7 @@ import EmailCodeStep from '../components/EmailCodeStep.jsx';
 
 const PRODUCT_PATH = { real_estate: '/real-estate', construction: '/construction' };
 const METHOD = { raast: 'Raast', easypaisa: 'Easypaisa', jazzcash: 'JazzCash', sadapay: 'SadaPay', nayapay: 'NayaPay', bank: 'Bank transfer' };
+import { planText, pricedIn } from '../planCopy.js';
 const fmt = (amount, cur) => new Intl.NumberFormat('en', { style: 'currency', currency: cur, maximumFractionDigits: 0 }).format(amount);
 const limitLine = (v, one, many) => (v == null ? `Unlimited ${many}` : `Up to ${Number(v).toLocaleString()} ${v === 1 ? one : many}`);
 
@@ -587,7 +588,7 @@ function ProductPage({ info, product }) {
   const seo = info.content.seo[product];
   useTitle(seo.title, seo.description);
   useEffect(() => { track('product_page_view', { product }); }, [product]);
-  const plans = info.plans.filter((p) => p.product === product);
+  const plans = pricedIn(info.plans, cur).filter((p) => p.product === product);
   return (
     <>
       <div className="lwrap lhero">
@@ -606,7 +607,7 @@ function ProductPage({ info, product }) {
         <div className="lcard"><h3>Shared with every product</h3><ul className="lcheck"><li>Contacts and CRM</li><li>Users, roles and invitations</li><li>Accounting, invoices and receipts</li><li>Documents and notifications</li><li>Reports and exports</li><li>Customer / client portal</li></ul></div>
       </div></section>}
       {!!plans.length && <section><div className="lwrap"><div className="lsh"><h2>Plans</h2><p>Monthly prices. Yearly billing and all details on the pricing page.</p></div>
-        <div className="lgrid">{plans.map((p) => <div key={p.id} className={`lcard lplan ${p.highlight ? 'hot' : ''}`}>{p.highlight && <span className="ltag">Recommended</span>}<h3>{p.name}</h3><PriceBlock plan={p} cur={cur} int="month" info={info} /><p>{p.description || ''}</p><Link className={`lbtn ${p.highlight ? 'p' : ''}`} to={`/signup?product=${product}`}>Start free trial</Link></div>)}</div>
+        <div className="lgrid">{plans.map((p) => <div key={p.id} className={`lcard lplan ${p.highlight ? 'hot' : ''}`}>{p.highlight && <span className="ltag">Recommended</span>}<h3>{p.name}</h3><PriceBlock plan={p} cur={cur} int="month" info={info} /><p>{planText(p, cur).description || ''}</p><Link className={`lbtn ${p.highlight ? 'p' : ''}`} to={`/signup?product=${product}`}>Start free trial</Link></div>)}</div>
         <p className="lfine" style={{ textAlign: 'center' }}><Link to={`/pricing?product=${product}`}>Compare plans →</Link></p>
       </div></section>}
       <Band info={info} product={product} />
@@ -619,14 +620,14 @@ function Pricing({ info }) {
   useTitle(c.seo.pricing.title, c.seo.pricing.description);
   const loc = useLocation();
   const initial = new URLSearchParams(loc.search).get('product');
-  const hasBundle = info.plans.some((p) => p.product === 'bundle');
   const [prod, setProd] = useState(['real_estate', 'construction', 'bundle'].includes(initial) ? initial : 'real_estate');
   const [int, setInt] = useState('month');
   const { country } = useCountry();
   const cur = country.currency;
+  const hasBundle = pricedIn(info.plans, cur).some((p) => p.product === 'bundle');
   const setCur = () => {};
   useEffect(() => { track('pricing_view', { product: prod }); }, [prod]);
-  const plans = info.plans.filter((p) => p.product === prod);
+  const plans = pricedIn(info.plans, cur).filter((p) => p.product === prod);
   const currencies = [...new Set(info.plans.flatMap((p) => Object.keys(p.price)))].sort((a, b) => (a === 'PKR' ? -1 : b === 'PKR' ? 1 : a.localeCompare(b)));
   const addons = info.addons.filter((a) => a.product === 'any' || a.product === prod || prod === 'bundle');
   const pay = [...(info.cards ? ['Cards'] : []), ...info.local_methods.map((k) => METHOD[k] || k)];
@@ -655,12 +656,12 @@ function Pricing({ info }) {
               <PriceBlock plan={p} cur={cur} int={int} info={info} />
               {saving(p) > 0 && <div className="lmini">Save {saving(p)}% compared with monthly</div>}
               {p.setup_fee?.[cur] ? <div className="lmini">+ {fmt(p.setup_fee[cur], cur)} one-time setup</div> : null}
-              {p.description && <p>{p.description}</p>}
+              {planText(p, cur).description && <p>{planText(p, cur).description}</p>}
               <ul>
                 <li>{limitLine(p.seats, 'team member', 'team members')}</li>{p.allowances?.flags?.project_inventory !== false && <li>{limitLine(p.projects, 'project', 'projects')}</li>}
                 {p.product !== 'construction' && <li>{limitLine(p.properties, 'property', 'properties')}</li>}
                 {p.api_access && <li>Website / partner API</li>}
-                {(p.features || []).map((f) => <li key={f}>{f}</li>)}
+                {planText(p, cur).features.map((f) => <li key={f}>{f}</li>)}
               </ul>
               <Link className={`lbtn ${p.highlight ? 'p' : ''}`} to={`/signup?product=${p.product}&plan=${p.id}`}>{p.trial_eligible ? 'Start free trial' : 'Get started'}</Link>
             </div>

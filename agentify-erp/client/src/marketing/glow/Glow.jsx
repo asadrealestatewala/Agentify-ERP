@@ -2,6 +2,7 @@
 // "glow-dark interactive UI" design skills: rotating hero headline, cursor-reactive dot field, floating icons, a live
 // product tour, an interactive dashboard, a product film, a phone with install button, plans from the plan settings.
 // Every number and name in a mockup is sample data and says so. Real copy about features is limited to what the product does.
+import { planText } from '../../planCopy.js';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useCountry } from '../countryCtx.js';
@@ -333,8 +334,9 @@ const PLAN_C = ['var(--c2)', 'var(--c3)', 'var(--c4)', 'var(--c1)'];
 function Pricing({ info }) {
   const { country } = useCountry();
   const [int, setInt] = useState('month');
-  const plans = (info.plans || []).filter((p) => p.product === 'real_estate');
-  const cur = plans.some((p) => p.price?.[country.currency]) ? country.currency : 'USD';
+  const all = (info.plans || []).filter((p) => p.product === 'real_estate');
+  const cur = all.some((p) => p.price?.[country.currency]) ? country.currency : 'USD';
+  const plans = all.filter((p) => p.price?.[cur]?.month != null);
   if (!plans.length) return null;
   return (
     <section className="gx-sec" id="pricing" aria-labelledby="gx-pr-h">
@@ -352,7 +354,7 @@ function Pricing({ info }) {
               <h3>{p.name}</h3>
               <p className="gx-price"><span key={`${p.id}${int}`}>{price != null ? fmt(price, cur) : 'Contact us'}</span>{price != null && <small> / {int === 'month' ? 'month' : int === 'half' ? '6 months' : 'year'}</small>}</p>
               {p.setup_fee?.[cur] ? <p className="gx-fine">+ {fmt(p.setup_fee[cur], cur)} one-time setup</p> : null}
-              <ul className="gx-ticks col sm"><li>{lim(p.seats, 'team member', 'team members')}</li><li>{lim(p.properties, 'property', 'properties')}</li><li>{p.storage_mb == null ? 'Unlimited file storage' : `${Math.round((p.storage_mb / 1024) * 10) / 10} GB file storage`}</li>{p.api_access && <li>Website and partner API</li>}{(p.features || []).map((f) => <li key={f}>{f}</li>)}</ul>
+              <ul className="gx-ticks col sm"><li>{lim(p.seats, 'team member', 'team members')}</li><li>{lim(p.properties, 'property', 'properties')}</li><li>{p.storage_mb == null ? 'Unlimited file storage' : `${Math.round((p.storage_mb / 1024) * 10) / 10} GB file storage`}</li>{p.api_access && <li>Website and partner API</li>}{planText(p, cur).features.map((f) => <li key={f}>{f}</li>)}</ul>
               <Link to={`/signup?product=real_estate&plan=${p.id}`} className={`gx-btn ${p.highlight ? 'cream' : 'ring'}`} onClick={() => track('cta_start_trial', { where: `plan_${p.id}` })}>{p.trial_eligible ? 'Start free trial' : 'Get started'}</Link>
             </li>);
         })}</ul>

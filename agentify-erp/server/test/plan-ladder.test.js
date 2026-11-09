@@ -190,3 +190,39 @@ test('the old Solo Agent plan is retired: hidden, and its workspaces move to Age
   assert.equal(db.prepare("SELECT visible, active FROM plans WHERE id='lad_solo_agent'").get().visible, 0);
   assert.equal(t.slug, 'lsolo2');
 });
+
+test('USA: the ladder carries USD prices, USD wording, USD add-ons and currency-specific card slots', async () => {
+  const { planCatalog: catalog } = await import('../src/services/plans.js');
+  const { priceSlots } = await import('../src/services/platformConfig.js');
+  const stripe = await import('../src/services/stripe.js');
+  assert.deepEqual(LADDER_IDS.map((id) => PLANS[id].price.USD.month), [29, 79, 149, 249, 449, 999]);
+  for (const id of LADDER_IDS) {
+    const u = PLANS[id].price.USD;
+    assert.equal(u.half, Math.round(u.month * 6 * 0.9));
+    assert.equal(u.year, Math.round(u.month * 12 * 0.8));
+    assert.ok(PLANS[id].regional.USD.features.length, `${id} has USD wording`);
+    assert.ok(!/PKR|rupee|plot rebate/i.test(JSON.stringify(PLANS[id].regional.USD)), `${id} USD wording has no Pakistan terms`);
+  }
+  assert.match(PLANS.lad_enterprise.regional.USD.description, /\$999/);
+  // seats and limits are shared, so a USD buyer gets exactly the same plan
+  assert.deepEqual(catalog(null, null, 'USD').filter((p) => p.id.startsWith('lad_')).map((p) => p.id), []); // hidden until switched on
+  switchLadder(true, 'test');
+  const usd = catalog(null, null, 'USD').map((p) => p.id);
+  assert.ok(LADDER_IDS.every((id) => usd.includes(id)), 'all six ladder plans are offered to a USD buyer');
+  assert.ok(!catalog(null, null, 'GBP').some((p) => p.id.startsWith('lad_')), 'no GBP price, so not offered in GBP');
+  assert.ok(catalog(null, null, 'PKR').some((p) => p.id === 'lad_agent_plus'));
+  assert.ok(catalog(null, null, 'USD').find((p) => p.id === 'lad_agent_plus').regional.USD.features.some((f) => /Twilio/.test(f)));
+  // add-ons
+  const addons = Object.fromEntries(db.prepare('SELECT id, price FROM addons').all().map((a) => [a.id, JSON.parse(a.price)]));
+  assert.equal(addons.extra_user.USD.month, 12);
+  assert.equal(addons.ai_topup_300.USD.month, 39);
+  assert.equal(addons.extra_user.PKR.month, 700, 'PKR add-on prices untouched');
+  // a US quote
+  const q = quote({ id: 1, plan: 'trial' }, { plan: 'lad_agency_growth', interval: 'year', currency: 'USD' });
+  assert.equal(q.total, PLANS.lad_agency_growth.price.USD.year);
+  // Stripe: each ladder plan needs its own USD price slot, and a USD card never falls back to the PKR price
+  assert.ok(priceSlots().includes('lad_agency_growth_month_usd') && priceSlots().includes('lad_agency_growth_year_usd'));
+  assert.ok(!priceSlots().includes('lad_agency_growth_half_usd'));
+  assert.equal(stripe.priceId('lad_agency_growth', 'month', 'USD'), null);
+  switchLadder(false, 'test');
+});

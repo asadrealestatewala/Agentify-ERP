@@ -264,10 +264,11 @@ export function billingState(tenant, today = todayUtc(), nowMs = Date.now()) {
 }
 
 /** Plans a customer can choose: visible and on sale (optionally of one product), plus the plan they are already on. */
-export const planCatalog = (current, product = null) => Object.entries(PLANS)
-  .filter(([id, p]) => ((p.visible && p.active) || id === current) && (!product || p.product === product || p.product === 'bundle' || id === current))
+export const planCatalog = (current, product = null, currency = null) => Object.entries(PLANS)
+  .filter(([id, p]) => ((p.visible && p.active) || id === current) && (!product || p.product === product || p.product === 'bundle' || id === current)
+    && (!currency || id === current || p.price?.[currency]?.month != null))
   .map(([id, p]) => ({ id, name: p.name, product: p.product, description: p.description || null, seats: p.seats, projects: p.projects, properties: p.properties ?? null, storage_mb: p.storage_mb ?? null,
-    api_access: !!p.api_access, modules: p.modules, features: p.features || [], launch_offer: !!p.launch_offer, allowances: p.allowances || null, highlight: !!p.highlight, trial_eligible: p.trial_eligible !== false, setup_fee: p.setup_fee || {}, price: p.price }));
+    api_access: !!p.api_access, modules: p.modules, features: p.features || [], launch_offer: !!p.launch_offer, allowances: p.allowances || null, highlight: !!p.highlight, trial_eligible: p.trial_eligible !== false, setup_fee: p.setup_fee || {}, regional: p.regional || null, price: p.price }));
 /** A plan may be bought when it is on sale, or renewed when it is the workspace's current plan. */
 export function assertSellable(plan, tenant) {
   const p = PLANS[plan];

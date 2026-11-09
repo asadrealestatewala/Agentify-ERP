@@ -4,6 +4,7 @@
 // Stripe events are translated into the provider-neutral events that services/billing.js applies.
 import crypto from 'node:crypto';
 import { PLANS } from './plans.js';
+import { LADDER_IDS, LADDER_HOME_CURRENCY } from './planLadder.js';
 import { HttpError, bad } from '../util.js';
 import { stripeConfig } from './platformConfig.js';
 
@@ -11,11 +12,21 @@ import { stripeConfig } from './platformConfig.js';
 export const http = { fetch: (...a) => fetch(...a) };
 
 export const stripeConfigured = () => !!stripeConfig().secret_key;
-export const priceId = (plan, interval) => stripeConfig().prices[`${plan}_${interval}`] || null;
+/** Stripe price for a plan and billing period. Ladder plans sold in a currency other than the home currency use that currency's own price slot (no fallback to the home-currency one: a card must never be charged in the wrong currency). */
+export const priceId = (plan, interval, currency = null) => {
+  const cur = String(currency || '').toLowerCase();
+  if (cur && cur !== LADDER_HOME_CURRENCY.toLowerCase() && LADDER_IDS.includes(plan)) return stripeConfig().prices[`${plan}_${interval}_${cur}`] || null;
+  return stripeConfig().prices[`${plan}_${interval}`] || null;
+};
+/** Can a card pay for this plan in the workspace's currency? */
+export const cardAvailable = (plan, interval, currency) => !!priceId(plan, interval, currency);
 
 /** Reverse lookup, so a plan change made in Stripe's customer portal maps back to our plan. */
 export function planFromPrice(id) {
-  for (const plan of Object.keys(PLANS)) for (const interval of ['month', 'year']) if (id && priceId(plan, interval) === id) return { plan, interval };
+  for (const plan of Object.keys(PLANS)) for (const interval of ['month', 'year']) {
+    if (id && priceId(plan, interval) === id) return { plan, interval };
+    for (const cur of Object.keys(PLANS[plan].price || {})) if (cur !== LADDER_HOME_CURRENCY && id && LADDER_IDS.includes(plan) && priceId(plan, interval, cur) === id) return { plan, interval };
+  }
   return null;
 }
 
@@ -40,11 +51,11 @@ async function api(path, body) {
 
 /** Hosted Stripe Checkout for a subscription. The tenant id travels with the session and the subscription. */
 export async function createCheckout(tenant, { plan, interval, email, origin, firstPayment = false }) {
-  const price = priceId(plan, interval);
+  const price = priceId(plan, interval, tenant.currency);
   if (!price) throw new HttpError(503, 'Card payment is not configured for this plan yet');
   const meta = { tenant_id: String(tenant.id), plan, interval };
   const s = await api('checkout/sessions', {
-    mode: 'subscription', 'line_items': { 0: { price, quantity: 1 }, ...(firstPayment && priceId(plan, 'setup') ? { 1: { price: priceId(plan, 'setup'), quantity: 1 } } : {}) }, client_reference_id: String(tenant.id),
+    mode: 'subscription', 'line_items': { 0: { price, quantity: 1 }, ...(firstPayment && priceId(plan, 'setup', tenant.currency) ? { 1: { price: priceId(plan, 'setup', tenant.currency), quantity: 1 } } : {}) }, client_reference_id: String(tenant.id),
     ...(tenant.provider_customer_id && tenant.billing_provider === 'stripe' ? { customer: tenant.provider_customer_id } : { customer_email: email }),
     success_url: `${origin}/settings/billing?paid=1`, cancel_url: `${origin}/settings/billing`,
     metadata: meta, subscription_data: { metadata: meta }, allow_promotion_codes: 'true',

@@ -1,3 +1,4 @@
+import { planText } from '../planCopy.js';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Card, Empty, Field, Loading, Modal, PageHead, ProgressBar, StatusBadge } from '../components/ui.jsx';
@@ -300,7 +301,7 @@ function BillingPage() {
                     {p.product !== 'construction' && <li>{p.properties == null ? 'Unlimited' : `Up to ${p.properties.toLocaleString()}`} properties</li>}
                     <li>{p.storage_mb == null ? 'Unlimited' : `${Math.round(p.storage_mb / 1024 * 10) / 10} GB`} file storage</li>
                     {p.api_access && <li>Website / partner API</li>}
-                    {(p.features || []).map((f) => <li key={f}>{f}</li>)}
+                    {planText(p, data.currency).features.map((f) => <li key={f}>{f}</li>)}
                   </ul>
                   {can('settings', 'edit') ? <button className="btn primary" style={{ width: '100%' }} disabled={current || busy === p.id} onClick={() => choose(p.id)}>{current ? 'Current plan' : busy === p.id ? 'Opening…' : data.status === 'active' ? 'Switch to this plan' : 'Choose plan'}</button> : <div className="muted">Ask an admin to change plan.</div>}
                 </div>

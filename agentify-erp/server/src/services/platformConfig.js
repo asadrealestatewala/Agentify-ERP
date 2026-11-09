@@ -10,6 +10,7 @@ import { DATA_DIR } from '../db.js';
 import { platformDb } from '../platform.js';
 import { auditCtx } from './platformAccess.js';
 import { PLANS } from './plans.js';
+import { LADDER_IDS, LADDER_HOME_CURRENCY } from './planLadder.js';
 
 let key;
 export function secretsKey() {
@@ -72,7 +73,10 @@ export function audit(admin, action, detail, { outcome = 'success' } = {}) {
 export const STRIPE_MODES = ['test', 'live'];
 /** One Stripe price per plan and interval; follows the plans defined in the console. */
 // a plan with a setup fee also gets a one-time Stripe price slot (<plan>_setup) charged with the first checkout
-export const priceSlots = () => Object.keys(PLANS).flatMap((p) => [...['month', 'year'].map((i) => `${p}_${i}`), ...(Object.keys(PLANS[p].setup_fee || {}).length ? [`${p}_setup`] : [])]);
+// A Stripe price has one fixed currency, so the ladder plans (priced in several currencies) get one slot per extra currency: <plan>_<interval>_<currency>, e.g. lad_agency_growth_month_usd.
+// The plain <plan>_<interval> slot stays the home-currency price for the ladder; older plans keep their single slot as before.
+export const ladderCurrencySlots = (plan) => (LADDER_IDS.includes(plan) ? Object.keys(PLANS[plan]?.price || {}).filter((c) => c !== LADDER_HOME_CURRENCY).flatMap((c) => ['month', 'year'].filter((i) => PLANS[plan].price[c][i] != null).map((i) => `${plan}_${i}_${c.toLowerCase()}`)) : []);
+export const priceSlots = () => Object.keys(PLANS).flatMap((p) => [...['month', 'year'].map((i) => `${p}_${i}`), ...ladderCurrencySlots(p), ...(Object.keys(PLANS[p].setup_fee || {}).length ? [`${p}_setup`] : [])]);
 const KEY_RULES = {
   secret_key: { re: /^(sk|rk)_(test|live)_[A-Za-z0-9]+$/, label: 'Secret key (starts with sk_ or rk_)' },
   publishable_key: { re: /^pk_(test|live)_[A-Za-z0-9]+$/, label: 'Publishable key (starts with pk_)' },

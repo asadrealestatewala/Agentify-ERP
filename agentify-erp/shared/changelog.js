@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.90', date: '2026-11-09', title: 'USA pricing plans',
+    items: [
+      { text: 'Customers in the United States now see the plan ladder in US dollars: Agent Plus $29, Agency Starter $79, Agency Growth $149, Agency Pro $249, Developer $449 and Enterprise from $999 a month, with 6-month and yearly discounts and US-dollar add-ons. The wording for US customers drops Pakistan-only items. Plans with no price in a visitor\'s currency are no longer shown to them.', where: 'Public website > Pricing', audience: 'platform' },
+      { text: 'Card payments for the ladder in US dollars need their own Stripe prices. Create a USD price for each plan (monthly and yearly) in Stripe and paste the ids into the new "..._usd" slots on the Stripe page. Until then US customers can pay by bank transfer or online gateway.', where: 'Console > Billing > Stripe', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.89', date: '2026-11-09', title: 'Plans now start at Agent Plus',
     items: [
       { text: 'The plan ladder now starts at Agent Plus (1,500 rupees a month) with installments, receipts, WhatsApp reminders and the Android and desktop app that keeps working offline for notes, tasks and leads. The Solo Agent plan is retired; its workspaces moved to Agent Plus at the price they pay.', where: 'Console > Plans', audience: 'platform' },
