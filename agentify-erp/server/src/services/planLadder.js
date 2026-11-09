@@ -5,6 +5,8 @@
 // Each tier switches features on or off through plan.allowances.flags (see FEATURE_GATES in plans.js); the server refuses a switched-off area with 402 feature_not_in_plan.
 import { FEATURE_GATES } from './plans.js';
 
+/** The currency the plain (un-suffixed) Stripe price slots of the ladder are for; other currencies get their own slot. */
+export const LADDER_HOME_CURRENCY = 'PKR';
 export const HALF_YEAR_DISCOUNT = 10;
 export const YEAR_DISCOUNT = 20;
 /** Monthly price -> { month, half, year } with the ladder's period discounts. */
@@ -30,14 +32,14 @@ export const LADDER_PLANS = {
     description: 'Two users: listings, leads, installments, receipts and WhatsApp reminders, on your phone or desktop.',
     features: ['2 users', 'Property listings', 'Leads and CRM', 'Installment plans', 'Receipts', 'WhatsApp reminders', 'Android app and installable desktop app (works offline for notes, tasks and leads)'],
     allowances: { credits: credits(0), flags: flagsFor(2, noContent) },
-    price: { PKR: periodPrices(1500) },
+    price: { PKR: periodPrices(1500), USD: periodPrices(29) },
   },
   lad_agency_starter: {
     name: 'Agency Starter', product: 'real_estate', seats: 5, projects: null, properties: 1000, storage_mb: 5120, api_access: 0,
     description: 'A small agency: accounting, reports, HRM and a free website.',
     features: ['5 users', 'Everything in Agent Plus', 'Vouchers and accounting', 'Reports', 'HRM: employees, attendance, leave and salary', 'Free website'],
     allowances: { credits: credits(0), flags: flagsFor(3, noContent) },
-    price: { PKR: periodPrices(5000) },
+    price: { PKR: periodPrices(5000), USD: periodPrices(79) },
   },
   lad_agency_growth: {
     name: 'Agency Growth', product: 'real_estate', seats: 10, projects: null, properties: 2500, storage_mb: 10240, api_access: 0, highlight: 1,
@@ -45,7 +47,7 @@ export const LADDER_PLANS = {
     features: ['10 users', 'Everything in Agency Starter', 'Visual website with your own domain', 'Property visits', 'Field-location sharing', 'Tenant email', 'AI assistant and Creative Studio (small monthly quota)', 'Content calendar with approval for social posts'],
     allowances: { credits: credits(150), reel_seconds: 8, posts_per_day: null, posts_per_month: null, flags: flagsFor(4, { ...noContent, content_calendar: true }) },
     email_limits: mail(800, 1200),
-    price: { PKR: periodPrices(12000) },
+    price: { PKR: periodPrices(12000), USD: periodPrices(149) },
   },
   lad_agency_pro: {
     name: 'Agency Pro', product: 'real_estate', seats: 15, projects: null, properties: 5000, storage_mb: 20480, api_access: 0,
@@ -53,7 +55,7 @@ export const LADDER_PLANS = {
     features: ['15 users', 'Everything in Agency Growth', 'Larger AI and Creative Studio quota', 'Meta (Facebook and Instagram) connection', 'Social media scheduler and auto-posting with Zernio', 'Lead scoring', 'Follow-up reminder queue'],
     allowances: { credits: credits(500), reel_seconds: 16, posts_per_day: 6, posts_per_month: 120, flags: flagsFor(5, { ...noContent, content_calendar: true, bulk_generator: true, brand_kit: true, listing_to_post: true }) },
     email_limits: mail(1500, 2500),
-    price: { PKR: periodPrices(18000) },
+    price: { PKR: periodPrices(18000), USD: periodPrices(249) },
   },
   lad_developer: {
     name: 'Developer', product: 'bundle', seats: 40, projects: null, properties: null, storage_mb: 51200, api_access: 0,
@@ -61,7 +63,7 @@ export const LADDER_PLANS = {
     features: ['40 users', 'Everything in Agency Pro', 'Developer portal', 'Plot rebates', 'Projects and inventory', 'Construction management', 'Bigger AI quota', 'Assisted data migration'],
     allowances: { credits: credits(1200), reel_seconds: 16, posts_per_day: 10, posts_per_month: 200, flags: flagsFor(6, { ...noContent, content_calendar: true, bulk_generator: true, brand_kit: true, listing_to_post: true }) },
     email_limits: mail(3000, 5000),
-    price: { PKR: periodPrices(35000) },
+    price: { PKR: periodPrices(35000), USD: periodPrices(449) },
   },
   lad_enterprise: {
     name: 'Enterprise', product: 'bundle', seats: null, projects: null, properties: null, storage_mb: null, api_access: 1,
@@ -69,10 +71,41 @@ export const LADDER_PLANS = {
     features: ['From PKR 85,000 a month', 'Unlimited users', 'Branches', 'API and MLS feeds', 'White-label', 'Dedicated database', '2FA enforcement for all staff', 'Priority support'],
     allowances: { credits: credits(3000), reel_seconds: 24, posts_per_day: 20, posts_per_month: 600, flags: flagsFor(7, { content_calendar: true, bulk_generator: true, brand_kit: true, listing_to_post: true, priority_queue: true }) },
     email_limits: mail(8000, 12000),
-    price: { PKR: periodPrices(85000) },
+    price: { PKR: periodPrices(85000), USD: periodPrices(999) },
   },
 };
 export const LADDER_IDS = Object.keys(LADDER_PLANS);
+
+/**
+ * Per-currency wording for the ladder plans. The plan rows carry one description and feature list written for Pakistan; a buyer paying in another
+ * currency sees the `regional[currency]` version instead (same plans, same limits, same switches, wording that fits their market). Only features that
+ * exist in the product are listed. See docs/usa-pricing-research.md for the research behind the USD prices.
+ */
+export const LADDER_REGIONAL = {
+  lad_agent_plus: { USD: {
+    description: 'Two users: listings, leads, CRM, a click-to-call dialer and receipts, on your phone or desktop.',
+    features: ['2 users', 'Property listings', 'Leads and CRM', 'Dialer with your own Twilio number (calls, notes, call log)', 'Mortgage lender and loan application tracking', 'Receipts', 'WhatsApp reminders', 'Android app and installable desktop app (works offline for notes, tasks and leads)'] } },
+  lad_agency_starter: { USD: {
+    description: 'A small brokerage: accounting, reports, HRM and a free website.',
+    features: ['5 users', 'Everything in Agent Plus', 'Vouchers and accounting', 'Reports', 'HRM: employees, attendance, leave and payroll', 'Free website'] } },
+  lad_agency_growth: { USD: {
+    description: 'A growing brokerage: visual website with your own domain, property visits, field locations, email and the first AI credits.',
+    features: ['10 users', 'Everything in Agency Starter', 'Visual website with your own domain', 'Property visits', 'Field-location sharing', 'Tenant email', 'AI assistant and Creative Studio (small monthly quota)', 'Content calendar with approval for social posts'] } },
+  lad_agency_pro: { USD: {
+    description: 'A busy brokerage: bigger AI and Creative Studio quota, social posting, lead scoring and a follow-up reminder queue.',
+    features: ['15 users', 'Everything in Agency Growth', 'Larger AI and Creative Studio quota', 'Meta (Facebook and Instagram) connection', 'Social media scheduler and auto-posting with Zernio', 'Lead scoring', 'Follow-up reminder queue'] } },
+  lad_developer: { USD: {
+    description: 'Developers and builders: developer portal, projects and inventory, construction management and assisted migration.',
+    features: ['40 users', 'Everything in Agency Pro', 'Developer portal', 'Projects and inventory', 'Construction management', 'Bigger AI quota', 'Assisted data migration'] } },
+  lad_enterprise: { USD: {
+    description: 'From $999 a month. Unlimited users, branches, API and MLS feeds, white-label, a dedicated database, enforced 2FA and priority support. Final price is agreed with you.',
+    features: ['From $999 a month', 'Unlimited users', 'Branches', 'API and MLS feeds', 'White-label', 'Dedicated database', '2FA enforcement for all staff', 'Priority support'] } },
+};
+/** USD add-on prices (extra user, one-time AI top-up packs), merged into the add-on rows once. */
+export const ADDON_USD = {
+  extra_user: periodPrices(12),
+  ai_topup_100: { month: 15, half: 15, year: 15 }, ai_topup_300: { month: 39, half: 39, year: 39 }, ai_topup_700: { month: 79, half: 79, year: 79 },
+};
 
 /** Add-ons sold on top of a plan. `topup_credits` marks a one-time pack: its credits are added for the current month when the payment is approved (no recurring add-on is created). */
 export const LADDER_ADDONS = [

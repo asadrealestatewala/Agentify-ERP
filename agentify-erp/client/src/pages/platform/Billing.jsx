@@ -43,7 +43,7 @@ function LadderCard({ info, onChanged }) {
       {ask && (
         <Modal title="Put the plan ladder on sale?" onClose={() => setAsk(false)} footer={<><button className="btn" onClick={() => setAsk(false)}>Cancel</button><button className="btn primary" onClick={() => go(true)}>Switch on</button></>}>
           <p>The 7 ladder plans become visible and buyable on the pricing page and in Plan &amp; Billing. Every other public plan goes off sale: workspaces already on them keep them and can renew, nothing is deleted. You can switch back at any time.</p>
-          <p className="muted">Ladder prices are in PKR only. Customers paying in another currency will not see a price until you add one for each plan.</p>
+          <p className="muted">Ladder prices exist in PKR and USD. Customers paying in a currency with no price (for example GBP or CAD) do not see these plans until you add a price for each one.</p>
         </Modal>
       )}
     </FoldCard>

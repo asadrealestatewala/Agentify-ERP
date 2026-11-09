@@ -22,7 +22,8 @@ const r = Router();
 r.use(requireStaff);
 
 /** Plans this workspace can buy: its own product family (and bundles), or everything for a combined workspace. */
-const catalogFor = (t) => planCatalog(t.plan, t.product && t.product !== 'bundle' ? t.product : null);
+// only plans priced in the workspace's own currency are offered (plus the plan it is already on)
+const catalogFor = (t) => planCatalog(t.plan, t.product && t.product !== 'bundle' ? t.product : null, t.currency ? String(t.currency).toUpperCase() : null);
 const summary = (req) => {
   const st = billingState(req.tenant);
   return { ...st, message: st.locked ? lockMessage(st.reason) : null, usage: usage(), plans: catalogFor(req.tenant), provider: providerName(), methods: availableMethods(req.tenant), currency: req.tenant.currency, interval: req.tenant.billing_interval || null,
