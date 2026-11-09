@@ -168,6 +168,20 @@ export async function makeOne(t, { auto = false } = {}) {
   return { id: Number(info.lastInsertRowid), slug, status, kind, problems: chk.problems };
 }
 
+/** Give articles that have no photo yet one (rejected drafts excluded), a few per call to stay inside Unsplash's hourly limit. */
+export async function fillMissingPhotos(max = 8) {
+  if (!getSetting('unsplash_access_key')) return { filled: 0 };
+  const rows = store().prepare("SELECT id,title,keyword FROM blog_agent_posts WHERE photo IS NULL AND status IN ('draft','published') ORDER BY id DESC LIMIT ?").all(max);
+  let filled = 0;
+  for (const r of rows) {
+    const ph = (await findPhoto(r.keyword || r.title)) || (await findPhoto(/construction|boq|contractor|site/i.test(`${r.title} ${r.keyword}`) ? 'construction site' : 'real estate office'));
+    if (!ph) break; // key invalid or hourly limit reached: try again next hour
+    store().prepare('UPDATE blog_agent_posts SET photo=? WHERE id=?').run(JSON.stringify(ph), r.id); filled++;
+  }
+  if (filled) invalidate();
+  return { filled };
+}
+
 let running = false;
 /** Top up today's drafts to the daily cap. Safe to call often: it stops at the cap and never runs twice at once. */
 export async function runBlogAgent({ force = false, by = null } = {}) {

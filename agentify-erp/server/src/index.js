@@ -11,7 +11,7 @@ import { uploadDir, get } from './db.js';
 import { scheduleBackups } from './services/backup.js';
 import { tenantContext, bootstrapTenants, forEachTenant, forEachTenantAsync, isMultiTenant, resolveTenant, BASE_DOMAIN } from './platform.js';
 import { runDuePosts } from './integrations/social.js';
-import { runBlogAgent } from './services/blogAgent.js';
+import { runBlogAgent, fillMissingPhotos } from './services/blogAgent.js';
 import { injectMeta, platformSitemap, platformRobots, MARKETING_ROUTES, blogSlugOf } from './services/marketing.js';
 import { injectSiteMeta, websiteOnlyOnCustomDomain, freeSiteToSitesDomain } from './services/siteHost.js';
 import { ensureFirstAdmin } from './services/platformAuth.js';
@@ -320,7 +320,7 @@ if (isMain) {
   const platformTick = () => { refreshFxIfStale(); syncProviderUsage().catch(() => {}); runActivation().then(() => markJob('activation')).catch((e) => markJob('activation', e)); try { snapshot(); announcePlatformRelease(); generateNotifications(null, true); markJob('platform-jobs'); } catch (e) { console.error('[platform jobs]', e); markJob('platform-jobs', e); }
     // trial expiry, reminders and renewals (idempotent; safe to run as often as you like)
     runLifecycle().then((r) => markJob('lifecycle', r.errors.length ? new Error(`${r.errors.length} workspace(s) failed`) : null)).catch((e) => { console.error('[lifecycle]', e); markJob('lifecycle', e); sendAlert(`Lifecycle job failed: ${e.message}`); }); };
-  const blogAgentTick = () => runBlogAgent().then((r) => markJob('blog-agent', r.errors?.length && !r.made?.length ? new Error(r.errors[0]) : null)).catch((e) => markJob('blog-agent', e));
+  const blogAgentTick = () => fillMissingPhotos().catch(() => {}).then(() => runBlogAgent()).then((r) => markJob('blog-agent', r.errors?.length && !r.made?.length ? new Error(r.errors[0]) : null)).catch((e) => markJob('blog-agent', e));
   setInterval(blogAgentTick, 60 * 60 * 1000).unref();
   setTimeout(platformTick, 5000).unref();
   setInterval(platformTick, 60 * 60 * 1000).unref();

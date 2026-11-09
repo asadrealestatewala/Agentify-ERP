@@ -197,3 +197,18 @@ test('with an Unsplash key, new drafts get a credited photo (retrying with a sim
     assert.equal(JSON.parse(d.photo).name, 'Pat Photo');
   } finally { globalThis.fetch = prev; }
 });
+
+test('articles that have no photo get one automatically later', async () => {
+  const prev = globalThis.fetch;
+  setSetting('unsplash_access_key', '', { secret: true });
+  const r = await agent.makeOne({ topic: 'No photo topic yak', keyword: 'yak topic', query: 'yak' });
+  assert.equal(agent.getDraft(r.id).photo, null);
+  setSetting('unsplash_access_key', 'unsplash-test-key-1234567890', { secret: true });
+  globalThis.fetch = async (url, opts) => String(url).includes('api.unsplash.com')
+    ? new Response(JSON.stringify({ results: [{ urls: { raw: 'https://images.unsplash.com/photo-2' }, user: { name: 'Sam', links: { html: 'https://unsplash.com/@sam' } }, links: { html: 'https://unsplash.com/photos/y' } }] }), { status: 200 })
+    : prev(url, opts);
+  try {
+    assert.ok((await agent.fillMissingPhotos()).filled >= 1);
+    assert.equal(JSON.parse(agent.getDraft(r.id).photo).name, 'Sam');
+  } finally { globalThis.fetch = prev; }
+});
