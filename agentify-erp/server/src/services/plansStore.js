@@ -112,12 +112,33 @@ export function initPlans(pdb) {
     mark('seeded_content_tiers_v1');
   }
   // the 7-tier Pakistan ladder is added once as HIDDEN plans (and its add-ons); nothing is switched on, and old plans and subscribers are untouched.
-  // The owner reviews it in Console > Plans and uses "Switch to the 7-tier ladder" when ready.
+  // The owner reviews it in Console > Plans and uses "Switch to the plan ladder" when ready.
   if (!setting('seeded_ladder_v1')) {
     let i = (db.prepare('SELECT COALESCE(MAX(sort_order),0) n FROM plans').get().n || 0) + 1;
     for (const [id, p] of Object.entries(LADDER_PLANS)) { insertPlan(id, p, i++); db.prepare('UPDATE plans SET description=?, modules=NULL, trial_eligible=0 WHERE id=? AND description IS NULL').run(p.description || null, id); }
     for (const a of LADDER_ADDONS) db.prepare('INSERT OR IGNORE INTO addons(id,name,description,product,price,entitlements,active,sort_order,updated_by) VALUES(?,?,?,?,?,?,1,?,?)').run(a.id, a.name, a.description, a.product || 'any', JSON.stringify(a.price), JSON.stringify(a.entitlements), a.sort_order, 'system');
     mark('seeded_ladder_v1');
+  }
+  // v1.89: the ladder starts at Agent Plus (1,500 rupees). Retire the hidden/old Solo Agent plan (its workspaces move to Agent Plus at the same price they pay),
+  // and refresh the ladder's wording, prices (Agency Starter) and feature switches (HRM, social). Subscribers keep the price they pay.
+  if (!setting('seeded_ladder_v2')) {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      for (const [id, p] of Object.entries(LADDER_PLANS)) {
+        db.prepare("UPDATE plans SET name=?, description=?, seats=?, properties=?, storage_mb=?, features=?, allowances=?, email_limits=?, highlight=?, updated_at=datetime('now'), updated_by='system' WHERE id=?")
+          .run(p.name, p.description || null, p.seats, p.properties ?? null, p.storage_mb ?? null, JSON.stringify(p.features || []), JSON.stringify(p.allowances), p.email_limits ? JSON.stringify(p.email_limits) : null, p.highlight ? 1 : 0, id);
+        for (const [cur, byInt] of Object.entries(p.price)) for (const [int, amount] of Object.entries(byInt)) {
+          const now = db.prepare("SELECT amount FROM plan_prices WHERE plan_id=? AND currency=? AND interval=? AND effective_from<=datetime('now') ORDER BY effective_from DESC, id DESC LIMIT 1").get(id, cur, int);
+          if (now && now.amount !== amount) db.prepare("INSERT INTO plan_prices(plan_id,currency,interval,amount,effective_from,created_by) VALUES(?,?,?,?,datetime('now'),'system')").run(id, cur, int, amount);
+        }
+      }
+      if (db.prepare("SELECT 1 FROM plans WHERE id='lad_solo_agent'").get()) {
+        db.prepare("UPDATE tenants SET plan='lad_agent_plus', updated_at=datetime('now') WHERE plan='lad_solo_agent'").run();
+        db.prepare("UPDATE plans SET visible=0, active=0, updated_at=datetime('now'), updated_by='system' WHERE id='lad_solo_agent'").run();
+      }
+      mark('seeded_ladder_v2');
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
   }
   setAddonLookup((tenant) => {
     if (!tenant?.id) return [];

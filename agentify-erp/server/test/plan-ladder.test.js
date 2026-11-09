@@ -11,7 +11,7 @@ Object.assign(process.env, { ERP_DATA_DIR: dir, ERP_UPLOAD_DIR: path.join(dir, '
 
 const { platformDb, createTenant, getTenantBySlug, withTenant } = await import('../src/platform.js');
 const { PLANS, billingState, planCatalog, billingGuard, blockedFeature, intervalMonths } = await import('../src/services/plans.js');
-const { switchLadder, ladderInfo } = await import('../src/services/plansStore.js');
+const { switchLadder, ladderInfo, initPlans } = await import('../src/services/plansStore.js');
 const { LADDER_IDS, periodPrices } = await import('../src/services/planLadder.js');
 const { quote } = await import('../src/services/commerce.js');
 const { approveSubmission } = await import('../src/services/billing.js');
@@ -30,9 +30,9 @@ const mk = (slug, plan) => {
 const guard = (tenant, method, p) => { let err = null; billingGuard({ tenant, method, path: p, headers: {} }, {}, (e) => { err = e || null; }); return err; };
 
 test('the 7 ladder plans are seeded hidden, with the agreed prices, seats and the 10% / 20% period discounts', () => {
-  assert.deepEqual(LADDER_IDS, ['lad_solo_agent', 'lad_agent_plus', 'lad_agency_starter', 'lad_agency_growth', 'lad_agency_pro', 'lad_developer', 'lad_enterprise']);
-  assert.deepEqual(LADDER_IDS.map((id) => PLANS[id].price.PKR.month), [1500, 3500, 7500, 12000, 18000, 35000, 85000]);
-  assert.deepEqual(LADDER_IDS.map((id) => PLANS[id].seats), [1, 2, 5, 10, 15, 40, null]);
+  assert.deepEqual(LADDER_IDS, ['lad_agent_plus', 'lad_agency_starter', 'lad_agency_growth', 'lad_agency_pro', 'lad_developer', 'lad_enterprise']);
+  assert.deepEqual(LADDER_IDS.map((id) => PLANS[id].price.PKR.month), [1500, 5000, 12000, 18000, 35000, 85000]);
+  assert.deepEqual(LADDER_IDS.map((id) => PLANS[id].seats), [2, 5, 10, 15, 40, null]);
   for (const id of LADDER_IDS) {
     const p = PLANS[id].price.PKR;
     assert.equal(p.half, Math.round(p.month * 6 * 0.9), `${id} 6 months = 10% off`);
@@ -49,7 +49,7 @@ test('the 7 ladder plans are seeded hidden, with the agreed prices, seats and th
 test('the ladder adds each feature at its tier and never takes one away', () => {
   const on = (id) => Object.entries(PLANS[id].allowances.flags).filter(([, v]) => v).map(([k]) => k);
   const need = {
-    lad_solo_agent: [], lad_agent_plus: ['installments', 'receipts', 'whatsapp'], lad_agency_starter: ['vouchers', 'reports', 'website'],
+    lad_agent_plus: ['installments', 'receipts', 'whatsapp'], lad_agency_starter: ['vouchers', 'reports', 'website', 'hrm'],
     lad_agency_growth: ['visual_website', 'custom_domain', 'property_visits', 'field_location', 'tenant_email', 'ai'], lad_agency_pro: ['social_posting', 'lead_scoring'],
     lad_developer: ['developer_portal', 'plot_rebate', 'project_inventory', 'assisted_migration'], lad_enterprise: ['mls_feeds', 'branches', 'white_label', 'dedicated_database', 'enforce_2fa', 'priority_support'],
   };
@@ -61,15 +61,17 @@ test('the ladder adds each feature at its tier and never takes one away', () => 
   }
   assert.equal(PLANS.lad_agency_growth.allowances.credits.PKR, 150, 'the first AI quota is small');
   assert.ok(PLANS.lad_agency_pro.allowances.credits.PKR > PLANS.lad_agency_growth.allowances.credits.PKR);
-  assert.equal(PLANS.lad_solo_agent.allowances.credits.PKR, 0);
+  assert.equal(PLANS.lad_agent_plus.allowances.credits.PKR, 0);
 });
 
 test('the billing guard enforces the tier: 402 feature_not_in_plan below it, through at and above it', () => {
-  const solo = mk('lsolo', 'lad_solo_agent'), plus = mk('lplus', 'lad_agent_plus'), growth = mk('lgrowth', 'lad_agency_growth'), pro = mk('lpro', 'lad_agency_pro'), dev = mk('ldev', 'lad_developer'), old = mk('lold', 'growth');
+  const plus = mk('lplus', 'lad_agent_plus'), growth = mk('lgrowth', 'lad_agency_growth'), pro = mk('lpro', 'lad_agency_pro'), dev = mk('ldev', 'lad_developer'), old = mk('lold', 'growth');
   const code = (t, m, p) => guard(t, m, p)?.extra?.code ?? 'ok';
-  assert.equal(code(solo, 'GET', '/installments'), 'feature_not_in_plan');
-  assert.equal(code(solo, 'GET', '/contacts'), 'ok', 'basic CRM and listings are in every tier');
-  assert.equal(code(solo, 'GET', '/properties'), 'ok');
+  assert.equal(code(plus, 'GET', '/hrm/employees'), 'feature_not_in_plan', 'HRM starts at Agency Starter');
+  assert.equal(code(plus, 'GET', '/integrations/oauth/meta/start'), 'feature_not_in_plan', 'Meta connection starts at Agency Pro');
+  assert.equal(code(pro, 'GET', '/integrations/oauth/meta/start'), 'ok');
+  assert.equal(code(plus, 'GET', '/contacts'), 'ok', 'basic CRM and listings are in every tier');
+  assert.equal(code(plus, 'GET', '/properties'), 'ok');
   assert.equal(code(plus, 'GET', '/installments'), 'ok');
   assert.equal(code(plus, 'POST', '/receipts/record'), 'ok');
   assert.equal(code(plus, 'GET', '/whatsapp/threads'), 'ok');
@@ -100,8 +102,8 @@ test('the billing guard enforces the tier: 402 feature_not_in_plan below it, thr
   assert.equal(code(old, 'GET', '/installments'), 'ok', 'plans that never set a flag keep everything');
   assert.equal(code(old, 'GET', '/leadflow/scores'), 'ok');
   assert.deepEqual(blockedFeature(null, '/installments'), null);
-  const t = guard(solo, 'GET', '/installments');
-  assert.equal(t.status, 402); assert.match(t.message, /Installment plans is not included in your plan/);
+  const t = guard(plus, 'GET', '/hrm/employees');
+  assert.equal(t.status, 402); assert.match(t.message, /HRM is not included in your plan/);
 });
 
 test('quotes: 6-month and yearly prices, extra users, and AI top-up packs are one-time and not part of the recurring price', () => {
@@ -111,11 +113,11 @@ test('quotes: 6-month and yearly prices, extra users, and AI top-up packs are on
   assert.equal(quote(t, { plan: 'lad_agency_growth', interval: 'year', currency: 'PKR' }).total, 115200);
   assert.throws(() => quote(t, { plan: 'lad_agency_growth', interval: 'weekly', currency: 'PKR' }), /Interval/);
   const q = quote(t, { plan: 'lad_agent_plus', interval: 'half', currency: 'PKR', addons: [{ id: 'extra_user', quantity: 3 }] });
-  assert.equal(q.total, 18900 + 3 * 3780);
-  assert.equal(quote(t, { plan: 'lad_agent_plus', interval: 'month', currency: 'PKR', addons: [{ id: 'extra_user', quantity: 1 }] }).total, 3500 + 700);
+  assert.equal(q.total, 8100 + 3 * 3780);
+  assert.equal(quote(t, { plan: 'lad_agent_plus', interval: 'month', currency: 'PKR', addons: [{ id: 'extra_user', quantity: 1 }] }).total, 1500 + 700);
   const tp = quote(t, { plan: 'lad_agent_plus', interval: 'year', currency: 'PKR', addons: [{ id: 'ai_topup_100', quantity: 1 }] });
-  assert.equal(tp.total, 33600 + 3000);
-  assert.equal(tp.list_amount, 33600, 'the top-up is not recurring');
+  assert.equal(tp.total, 14400 + 3000);
+  assert.equal(tp.list_amount, 14400, 'the top-up is not recurring');
   assert.equal(tp.setup_fee, 3000, 'it is carried as a one-time amount so reports do not count it as monthly revenue');
 });
 
@@ -136,7 +138,7 @@ test('approving a 6-month payment extends 6 months, an extra user raises the sea
   assert.ok(!db.prepare("SELECT 1 FROM tenant_addons WHERE tenant_id=? AND addon_id='ai_topup_300'").get(t.id), 'no recurring add-on is left for a one-time pack');
 });
 
-test('switching the ladder on puts the 7 plans on sale and old ones off sale; switching off restores the previous sale page', () => {
+test('switching the ladder on puts the 6 plans on sale and old ones off sale; switching off restores the previous sale page', () => {
   const was = planCatalog().map((p) => p.id).sort();
   assert.equal(ladderInfo().on, false);
   switchLadder(true, 'test');
@@ -147,7 +149,6 @@ test('switching the ladder on puts the 7 plans on sale and old ones off sale; sw
   switchLadder(true, 'test');
   switchLadder(false, 'test');
   assert.deepEqual(planCatalog().map((p) => p.id).sort(), was, 'twice on then off restores exactly');
-  assert.equal(PLANS.lad_solo_agent.visible, false);
 });
 
 test('lead scoring: hot beats cold, reasons are given, and the follow-up queue lists overdue, due today and gone-quiet leads most urgent first', () => {
@@ -178,4 +179,14 @@ test('lead scoring: hot beats cold, reasons are given, and the follow-up queue l
     assert.equal(r.ok, true);
     assert.throws(() => scheduleFollowUp({ id: b }, { due_date: 'soon' }, { id: 1 }), /follow-up date/);
   });
+});
+
+test('the old Solo Agent plan is retired: hidden, and its workspaces move to Agent Plus (v1.89 migration)', () => {
+  db.prepare("INSERT OR IGNORE INTO plans(id,name,product,seats,sort_order) VALUES('lad_solo_agent','Solo Agent','real_estate',1,99)").run();
+  const t = mk('lsolo2', 'lad_solo_agent');
+  db.prepare("DELETE FROM platform_settings WHERE key='seeded_ladder_v2'").run();
+  initPlans(db);
+  assert.equal(db.prepare("SELECT plan FROM tenants WHERE slug='lsolo2'").get().plan, 'lad_agent_plus');
+  assert.equal(db.prepare("SELECT visible, active FROM plans WHERE id='lad_solo_agent'").get().visible, 0);
+  assert.equal(t.slug, 'lsolo2');
 });

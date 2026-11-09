@@ -1,5 +1,5 @@
-// The 7-tier Pakistan plan ladder (Solo Agent ... Enterprise) and its add-ons. Seeded once as HIDDEN plans by plansStore.initPlans; the platform owner
-// reviews them in Console > Plans and uses "Switch to the 7-tier ladder" to put them on sale. Every number here is a proposal the owner edits in the console.
+// The 6-tier Pakistan plan ladder (Agent Plus ... Enterprise; the old Solo Agent tier was retired in v1.89) and its add-ons. Seeded once as HIDDEN plans by plansStore.initPlans; the platform owner
+// reviews them in Console > Plans and uses "Switch to the plan ladder" to put them on sale. Every number here is a proposal the owner edits in the console.
 //
 // Prices are PKR, tax-inclusive like the rest of the billing code. 6-month = 6 months less 10%, yearly = 12 months less 20%.
 // Each tier switches features on or off through plan.allowances.flags (see FEATURE_GATES in plans.js); the server refuses a switched-off area with 402 feature_not_in_plan.
@@ -13,7 +13,7 @@ export const periodPrices = (month) => ({ month, half: Math.round(month * 6 * (1
 // feature -> the first tier that includes it (tiers 1..7); tiers above keep it
 const FIRST_TIER = {
   installments: 2, receipts: 2, whatsapp: 2,
-  vouchers: 3, reports: 3, website: 3,
+  vouchers: 3, reports: 3, website: 3, hrm: 3,
   visual_website: 4, custom_domain: 4, property_visits: 4, field_location: 4, tenant_email: 4, ai: 4,
   social_posting: 5, lead_scoring: 5,
   developer_portal: 6, plot_rebate: 6, project_inventory: 6, assisted_migration: 6,
@@ -25,31 +25,24 @@ const credits = (n) => ({ PKR: n, default: n });
 const noContent = { content_calendar: false, bulk_generator: false, brand_kit: false, listing_to_post: false, priority_queue: false };
 
 export const LADDER_PLANS = {
-  lad_solo_agent: {
-    name: 'Solo Agent', product: 'real_estate', seats: 1, projects: null, properties: 150, storage_mb: 1024, api_access: 0,
-    description: 'One agent: listings, leads and a basic CRM.',
-    features: ['1 user', 'Property listings', 'Leads and basic CRM'],
-    allowances: { credits: credits(0), flags: flagsFor(1, noContent) },
-    price: { PKR: periodPrices(1500) },
-  },
   lad_agent_plus: {
     name: 'Agent Plus', product: 'real_estate', seats: 2, projects: null, properties: 400, storage_mb: 2048, api_access: 0,
-    description: 'Two users with installments, receipts and WhatsApp reminders.',
-    features: ['2 users', 'Everything in Solo Agent', 'Installment plans', 'Receipts', 'WhatsApp reminders'],
+    description: 'Two users: listings, leads, installments, receipts and WhatsApp reminders, on your phone or desktop.',
+    features: ['2 users', 'Property listings', 'Leads and CRM', 'Installment plans', 'Receipts', 'WhatsApp reminders', 'Android app and installable desktop app (works offline for notes, tasks and leads)'],
     allowances: { credits: credits(0), flags: flagsFor(2, noContent) },
-    price: { PKR: periodPrices(3500) },
+    price: { PKR: periodPrices(1500) },
   },
   lad_agency_starter: {
     name: 'Agency Starter', product: 'real_estate', seats: 5, projects: null, properties: 1000, storage_mb: 5120, api_access: 0,
-    description: 'A small agency: vouchers, reports and a free website-only site.',
-    features: ['5 users', 'Everything in Agent Plus', 'Vouchers and accounting', 'Reports', 'Free website-only site'],
+    description: 'A small agency: accounting, reports, HRM and a free website.',
+    features: ['5 users', 'Everything in Agent Plus', 'Vouchers and accounting', 'Reports', 'HRM: employees, attendance, leave and salary', 'Free website'],
     allowances: { credits: credits(0), flags: flagsFor(3, noContent) },
-    price: { PKR: periodPrices(7500) },
+    price: { PKR: periodPrices(5000) },
   },
   lad_agency_growth: {
     name: 'Agency Growth', product: 'real_estate', seats: 10, projects: null, properties: 2500, storage_mb: 10240, api_access: 0, highlight: 1,
     description: 'A growing agency: visual website with your own domain, visits, field locations, email and the first AI credits.',
-    features: ['10 users', 'Everything in Agency Starter', 'Visual website with your own domain', 'Property visits', 'Field-location sharing', 'Tenant email', 'AI assistant and Creative Studio (small monthly quota)'],
+    features: ['10 users', 'Everything in Agency Starter', 'Visual website with your own domain', 'Property visits', 'Field-location sharing', 'Tenant email', 'AI assistant and Creative Studio (small monthly quota)', 'Content calendar with approval for social posts'],
     allowances: { credits: credits(150), reel_seconds: 8, posts_per_day: null, posts_per_month: null, flags: flagsFor(4, { ...noContent, content_calendar: true }) },
     email_limits: mail(800, 1200),
     price: { PKR: periodPrices(12000) },
@@ -57,7 +50,7 @@ export const LADDER_PLANS = {
   lad_agency_pro: {
     name: 'Agency Pro', product: 'real_estate', seats: 15, projects: null, properties: 5000, storage_mb: 20480, api_access: 0,
     description: 'A busy agency: bigger AI and Creative Studio quota, social posting, lead scoring and a follow-up reminder queue.',
-    features: ['15 users', 'Everything in Agency Growth', 'Larger AI and Creative Studio quota', 'Social posting with Zernio', 'Lead scoring', 'Follow-up reminder queue'],
+    features: ['15 users', 'Everything in Agency Growth', 'Larger AI and Creative Studio quota', 'Meta (Facebook and Instagram) connection', 'Social media scheduler and auto-posting with Zernio', 'Lead scoring', 'Follow-up reminder queue'],
     allowances: { credits: credits(500), reel_seconds: 16, posts_per_day: 6, posts_per_month: 120, flags: flagsFor(5, { ...noContent, content_calendar: true, bulk_generator: true, brand_kit: true, listing_to_post: true }) },
     email_limits: mail(1500, 2500),
     price: { PKR: periodPrices(18000) },
@@ -90,7 +83,7 @@ export const LADDER_ADDONS = [
 ];
 
 /**
- * Put the ladder on sale (or take it off). Switching ON shows and sells the 7 ladder plans and takes every other public plan off sale
+ * Put the ladder on sale (or take it off). Switching ON shows and sells the 6 ladder plans and takes every other public plan off sale
  * (subscribers keep them and can renew; nothing is deleted). The previous state is stored so switching OFF restores it exactly.
  */
 export function ladderState(db) {
@@ -101,7 +94,7 @@ export function ladderState(db) {
 export function setLadder(db, on, actor) {
   const set = (k, v) => db.prepare("INSERT INTO platform_settings(key,value,updated_by,updated_at) VALUES(?,?,?,datetime('now')) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_by=excluded.updated_by, updated_at=excluded.updated_at").run(k, v, actor);
   const ph = LADDER_IDS.map(() => '?').join(',');
-  if (db.prepare(`SELECT COUNT(*) n FROM plans WHERE id IN (${ph})`).get(...LADDER_IDS).n !== LADDER_IDS.length) throw new Error('The 7-tier ladder plans are not all present');
+  if (db.prepare(`SELECT COUNT(*) n FROM plans WHERE id IN (${ph})`).get(...LADDER_IDS).n !== LADDER_IDS.length) throw new Error('The plan ladder is not fully present');
   db.exec('BEGIN IMMEDIATE');
   try {
     if (on) {

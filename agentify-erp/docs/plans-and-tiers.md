@@ -32,18 +32,17 @@ Instagram stays at 25 posts per account per 24 hours.
 ## Zernio
 Default billing mode is now `workspace`: each workspace connects its own Zernio account and pays Zernio directly. Zernio is not in plan costs or the margin view and there are no per-tier account limits.
 
-## The 7-tier Pakistan ladder (v1.72)
+## The Pakistan plan ladder (v1.72, six tiers since v1.89)
 Seeded once as **hidden** plans (`seeded_ladder_v1`, `services/planLadder.js`). Nothing public changes until the owner uses **Console > Plans > Switch to the 7-tier ladder**, which puts the 7 plans on sale and takes every other public plan off sale (subscribers keep their plan and can renew; nothing is deleted). Switching off restores the previous sale page exactly.
 
 | Tier | Plan id | PKR / month | Users | Adds |
 |---|---|---|---|---|
-| 1 Solo Agent | `lad_solo_agent` | 1,500 | 1 | listings, leads, basic CRM, no AI, no website |
-| 2 Agent Plus | `lad_agent_plus` | 3,500 | 2 | installments, receipts, WhatsApp reminders |
-| 3 Agency Starter | `lad_agency_starter` | 7,500 | 5 | vouchers/accounting, reports, website-only site |
-| 4 Agency Growth | `lad_agency_growth` | 12,000 | 10 | visual website, custom domain, property visits, field-location sharing, tenant email, AI (150 credits/month) |
-| 5 Agency Pro | `lad_agency_pro` | 18,000 | 15 | AI 500 credits, Creative Studio reels to 16 s, Zernio social posting, **lead scoring + follow-up queue** |
-| 6 Developer | `lad_developer` | 35,000 | 40 | developer portal, plot rebates, projects/inventory, construction (bundle), 1,200 credits, assisted migration |
-| 7 Enterprise (from) | `lad_enterprise` | 85,000 | unlimited | branches, API + MLS/portal feeds, white-label, dedicated database, 2FA enforcement, priority support |
+| 1 Agent Plus (entry) | `lad_agent_plus` | 1,500 | 2 | listings, leads, CRM, installments, receipts, WhatsApp reminders, Android + installable desktop app (offline queue for notes, tasks, leads) |
+| 2 Agency Starter | `lad_agency_starter` | 5,000 | 5 | vouchers/accounting, reports, HRM, free website-only site |
+| 3 Agency Growth | `lad_agency_growth` | 12,000 | 10 | visual website, custom domain, property visits, field-location sharing, tenant email, AI (150 credits/month), content calendar |
+| 4 Agency Pro | `lad_agency_pro` | 18,000 | 15 | AI 500 credits, Creative Studio reels to 16 s, Meta (Facebook/Instagram) connection, social scheduler + Zernio posting, **lead scoring + follow-up queue** |
+| 5 Developer | `lad_developer` | 35,000 | 40 | developer portal, plot rebates, projects/inventory, construction (bundle), 1,200 credits, assisted migration |
+| 6 Enterprise (from) | `lad_enterprise` | 85,000 | unlimited | branches, API + MLS/portal feeds, white-label, dedicated database, 2FA enforcement, priority support |
 
 **Billing periods.** `month`, `half` (6 months, 10% off) and `year` (20% off). `INTERVALS` in `plans.js` is the one list; `plan_prices` was rebuilt once to allow `half`. Stripe card checkout still sells month and year only; the 6-month period is for bank, wallet and online-gateway payments.
 
@@ -54,3 +53,5 @@ Seeded once as **hidden** plans (`seeded_ladder_v1`, `services/planLadder.js`). 
 **Not built, promise only (flag + wording, no code behind it):** branches, white-label, dedicated database, 2FA enforcement for all staff, priority support, assisted migration. They are marked `service` in `FEATURE_GATES`.
 
 **Prices are PKR only.** Other currencies have no ladder price, so switch the ladder on for Pakistan first. Credits and the margin view are proposals the owner tunes (Console > Plan margins includes the ladder).
+
+**v1.89 migration (`seeded_ladder_v2`).** Solo Agent (`lad_solo_agent`) is retired: hidden and off sale, its workspaces move to Agent Plus (they keep the price they already pay). Agent Plus is now PKR 1,500 and Agency Starter PKR 5,000 (new price rows; subscribers keep their price). New feature switch `hrm` (Agency Starter and up); the `social_posting` switch now also covers the Meta/LinkedIn/TikTok connect paths. Apps: there is an Android app and an installable web app for desktop; no native desktop installer exists.

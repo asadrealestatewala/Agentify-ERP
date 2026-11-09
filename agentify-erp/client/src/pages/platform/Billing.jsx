@@ -27,21 +27,21 @@ const CURS = ['PKR', 'USD', 'GBP', 'CAD'];
 const FLAG_LABELS = { content_calendar: 'Content calendar', bulk_generator: 'Bulk monthly generator', brand_kit: 'Brand kit', listing_to_post: 'Listing to post', priority_queue: 'Priority queue' };
 const allowForm = (a) => ({ set: !!a, credits: Object.fromEntries(CURS.map((c) => [c, a?.credits?.[c] ?? ''])), posts_per_day: a?.posts_per_day ?? '', posts_per_month: a?.posts_per_month ?? '', reel_seconds: a?.reel_seconds ?? '', flags: { ...Object.fromEntries(Object.keys(FLAG_LABELS).map((k) => [k, false])), ...(a?.flags || {}) } });
 const allowBody = (f) => (!f?.set ? null : { credits: Object.fromEntries(CURS.map((c) => [c, f.credits[c] === '' ? null : Number(f.credits[c])])), posts_per_day: f.posts_per_day === '' ? null : Number(f.posts_per_day), posts_per_month: f.posts_per_month === '' ? null : Number(f.posts_per_month), reel_seconds: f.reel_seconds === '' ? null : Number(f.reel_seconds), flags: f.flags });
-/** The 7-tier Pakistan ladder: it is seeded hidden; this is the one switch that puts it on sale (and takes the old public plans off sale). */
+/** The Pakistan plan ladder: it is seeded hidden; this is the one switch that puts it on sale (and takes the old public plans off sale). */
 function LadderCard({ info, onChanged }) {
   const toast = useToast();
   const [ask, setAsk] = useState(false);
   if (!info?.present) return null;
   const go = async (on) => {
-    try { await api.post(`${A}/plans-ladder`, { on }); toast(on ? 'The 7-tier ladder is on sale' : 'Ladder switched off; the previous plans are back on sale'); setAsk(false); onChanged(); } catch (e) { toast(e.message, 'err'); }
+    try { await api.post(`${A}/plans-ladder`, { on }); toast(on ? 'The plan ladder is on sale' : 'Ladder switched off; the previous plans are back on sale'); setAsk(false); onChanged(); } catch (e) { toast(e.message, 'err'); }
   };
   return (
-    <FoldCard id="Billing-7-tier ladder (Solo Agent to Enterprise)" title="7-tier ladder (Solo Agent to Enterprise)" summary="Plans, prices and the switch for the new plan ladder"  actions={info.on ? <button className="btn sm" onClick={() => go(false)}>Switch off and restore the old plans</button> : <button className="btn primary sm" onClick={() => setAsk(true)}>Switch to the 7-tier ladder</button>}>
+    <FoldCard id="Billing-Plan ladder (Agent Plus to Enterprise)" title="Plan ladder (Agent Plus to Enterprise)" summary="Plans, prices and the switch for the new plan ladder"  actions={info.on ? <button className="btn sm" onClick={() => go(false)}>Switch off and restore the old plans</button> : <button className="btn primary sm" onClick={() => setAsk(true)}>Switch to the plan ladder</button>}>
       <p className="muted" style={{ margin: 0 }}>{info.on
         ? 'The ladder is on sale. Older public plans are off sale; their subscribers keep them and can renew.'
         : 'The 7 ladder plans exist but are hidden, so nothing public has changed. Review prices and features in the table (they are under Real Estate and Both products), then switch.'}</p>
       {ask && (
-        <Modal title="Put the 7-tier ladder on sale?" onClose={() => setAsk(false)} footer={<><button className="btn" onClick={() => setAsk(false)}>Cancel</button><button className="btn primary" onClick={() => go(true)}>Switch on</button></>}>
+        <Modal title="Put the plan ladder on sale?" onClose={() => setAsk(false)} footer={<><button className="btn" onClick={() => setAsk(false)}>Cancel</button><button className="btn primary" onClick={() => go(true)}>Switch on</button></>}>
           <p>The 7 ladder plans become visible and buyable on the pricing page and in Plan &amp; Billing. Every other public plan goes off sale: workspaces already on them keep them and can renew, nothing is deleted. You can switch back at any time.</p>
           <p className="muted">Ladder prices are in PKR only. Customers paying in another currency will not see a price until you add one for each plan.</p>
         </Modal>
