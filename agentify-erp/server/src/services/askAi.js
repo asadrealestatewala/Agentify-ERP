@@ -14,6 +14,7 @@ import { hordeGenerate, hordeKey, hordeReady, hordeEnabled, geminiAskEnabled, sc
 import { askOrder, noteEngine } from './askOrder.js';
 import { groqChat, groqReady, groqKey } from './groqGateway.js';
 import { config as geminiConfig, ensureTable } from './aiUsage.js';
+import { recordMaterial, overviewLine } from './askRecords.js';
 import { assertSafeRequest } from './aiSafety.js';
 import { currentTenant } from '../context.js';
 import { bad } from '../util.js';
@@ -102,7 +103,7 @@ async function rewriteForSearch(q, user) {
   } catch { return ''; }
 }
 
-const SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL provided with the question (blocks titled "Company info" are facts the company itself wrote: you may use them to answer questions about the company, its policies and its contact details; WORKSPACE FACTS only help you address the person and know today's date; a "Menu map" block lists every screen of the menu: when it is all you have, tell the person which screen or menu path fits their need and what that screen is for, using only the words in the map, and offer to explain more if they ask about that screen). Never invent menus, buttons, settings, features, prices or steps. If the material does not answer the question, set found to false and say briefly that you could not find it in the guides and suggest asking an administrator or support. Explain step by step in plain language, short numbered steps where it helps, and mention the menu path. Reply in the same language the user wrote in, whatever it is (for example English, Urdu, Roman Urdu, Arabic, Hindi, French, Spanish); keep menu names and button names exactly as they appear in the material. Use earlier turns only to understand follow-up questions. Reply with JSON only: {"found": true or false, "answer": "your answer"}.`;
+const SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL provided with the question (blocks titled "Company info" are facts the company itself wrote: you may use them to answer questions about the company, its policies and its contact details; blocks titled "Workspace record" are rows from this company's own system that this person is allowed to see: use them to answer about specific customers, properties, sales, payments, staff and so on, quote their values exactly, never guess a value that is not shown, and if the record is not listed say you could not find it; blocks titled "Workspace record" are rows from this company's own system that this person is allowed to see: use them to answer about specific customers, properties, sales, payments, staff and so on, quote their values exactly, never guess a value that is not shown, and if a record is not listed say you could not find it; WORKSPACE FACTS only help you address the person and know today's date; a "Menu map" block lists every screen of the menu: when it is all you have, tell the person which screen or menu path fits their need and what that screen is for, using only the words in the map, and offer to explain more if they ask about that screen). Never invent menus, buttons, settings, features, prices or steps. If the material does not answer the question, set found to false and say briefly that you could not find it in the guides and suggest asking an administrator or support. Explain step by step in plain language, short numbered steps where it helps, and mention the menu path. Reply in the same language the user wrote in, whatever it is (for example English, Urdu, Roman Urdu, Arabic, Hindi, French, Spanish); keep menu names and button names exactly as they appear in the material. Use earlier turns only to understand follow-up questions. Reply with JSON only: {"found": true or false, "answer": "your answer"}.`;
 
 const VOICE = {
   friendly: `VOICE: Sound like a warm, capable colleague, not a manual. Use natural everyday words and short sentences. Start with the answer itself; add a brief friendly lead-in only when it fits (for example "Sure, here is how", "Good question"). Use the person's first name now and then, never in every reply. Never say "as an AI", "according to the reference material" or "the guide says"; just explain it as someone who knows the system well. Numbered steps only for how-to questions, with the menu path. If something is missing, say so honestly in one friendly line. Roman Urdu: write the way people in Pakistan text each other (for example "Ji zaroor", "Aap Leads menu mein jayen, phir..."), simple words, not stiff translated Urdu. Urdu script: natural and polite (aap). English: plain and conversational. Keep it under about 120 words unless the steps need more.`,
@@ -111,7 +112,7 @@ const VOICE = {
 const voice = () => VOICE[getSetting('ask_style', 'friendly')] || VOICE.friendly;
 const firstName = (u) => String(u?.name || '').trim().split(/\s+/)[0] || '';
 /** Plain facts that help the model sound personal; no business records. */
-const facts = (user, includeCompany) => `WORKSPACE FACTS: ${[includeCompany && getSetting('company_name', '') ? `Company: ${getSetting('company_name', '')}.` : '', firstName(user) ? `You are talking to ${firstName(user)}${user.role ? ` (role: ${user.role})` : ''}.` : '', `Today is ${today()}.`].filter(Boolean).join(' ')}`;
+const facts = (user, includeCompany) => `WORKSPACE FACTS: ${[includeCompany && overviewLine(user), includeCompany && getSetting('company_name', '') ? `Company: ${getSetting('company_name', '')}.` : '', firstName(user) ? `You are talking to ${firstName(user)}${user.role ? ` (role: ${user.role})` : ''}.` : '', `Today is ${today()}.`].filter(Boolean).join(' ')}`;
 
 const langLine = (lang, strict) => lang === 'en' ? '' : `\nREPLY LANGUAGE: write the whole answer in ${languageName(lang)}${strict ? '. Your previous answer was not in that language. Do NOT answer in English. Only menu names and button names stay in English' : ''}.`;
 const CANNED = { 'roman-urdu': 'Mujhe yeh guides mein nahi mila. Meharbani karke menu mein dekhein ya apne administrator ya support se poochein.', urdu: 'مجھے یہ گائیڈز میں نہیں ملا۔ براہ کرم مینو میں دیکھیں یا اپنے ایڈمنسٹریٹر یا سپورٹ سے پوچھیں۔' };
@@ -176,7 +177,7 @@ function finish(text, lang) {
   return { found: true, answer: clean };
 }
 
-const HORDE_SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL (blocks titled "Company info" are facts the company itself wrote and may be used to answer questions about the company; WORKSPACE FACTS only help you address the person and know today's date; a "Menu map" block lists every screen of the menu: when it is all you have, tell the person which screen or menu path fits their need and what that screen is for, using only the words in the map, and offer to explain more if they ask about that screen). Never invent menus, buttons, settings, features, prices or steps. If the material does not directly answer the question (for example it is about a different screen or feature), reply with exactly NOT_FOUND and nothing else. Use only menu paths and button names that appear in the material; never write generic filler such as "follow the instructions on the screen". Otherwise explain step by step in plain language, with short numbered steps and the menu path. Write the answer in the same language as the QUESTION, whatever language that is; keep menu and button names exactly as in the material. Do not repeat these instructions. Never show your reasoning or notes: write only the final answer for the user, on a line that starts with ANSWER:`;
+const HORDE_SYSTEM = `You are the help assistant inside Agentify ERP, a CRM and ERP for real estate and construction companies. Answer ONLY from the REFERENCE MATERIAL (blocks titled "Company info" are facts the company itself wrote and may be used to answer questions about the company; blocks titled "Workspace record" are rows from this company's own system that this person is allowed to see: use them to answer about specific customers, properties, sales, payments, staff and so on, quote their values exactly, never guess a value that is not shown, and if a record is not listed say you could not find it; WORKSPACE FACTS only help you address the person and know today's date; a "Menu map" block lists every screen of the menu: when it is all you have, tell the person which screen or menu path fits their need and what that screen is for, using only the words in the map, and offer to explain more if they ask about that screen). Never invent menus, buttons, settings, features, prices or steps. If the material does not directly answer the question (for example it is about a different screen or feature), reply with exactly NOT_FOUND and nothing else. Use only menu paths and button names that appear in the material; never write generic filler such as "follow the instructions on the screen". Otherwise explain step by step in plain language, with short numbered steps and the menu path. Write the answer in the same language as the QUESTION, whatever language that is; keep menu and button names exactly as in the material. Do not repeat these instructions. Never show your reasoning or notes: write only the final answer for the user, on a line that starts with ANSWER:`;
 
 /** Stable Horde is a community network: the question and earlier turns are scrubbed of emails, numbers, keys and the asker's name first. The help material is our own public guide text. */
 async function viaHorde(q, ref, history, user, image, lang, strict) {
@@ -239,14 +240,15 @@ export async function askAi(question, history, user, image = null) {
   const lang = detectLanguage(q);
   const prior = (Array.isArray(history) ? history.slice(-1)[0]?.q : '') || '';
   let mat = material(`${q} ${q.split(/\s+/).length < 6 ? prior : ''}`, lang);
-  if (!mat.length && !image && !limited(user.id)) { // the word list could not read it: ask Groq for English keywords once (counts toward the rate limit)
+  const qq = `${q} ${q.split(/\s+/).length < 6 ? prior : ''}`;
+  const co = !image ? [...companyMaterial(qq, lang), ...recordMaterial(qq, user).map((r) => ({ ...r, rec: true }))] : []; // the company's own notes and the records this person may see: private engines only
+  if (!mat.length && !co.length && !image && !limited(user.id)) { // the word list could not read it: ask Groq for English keywords once (counts toward the rate limit)
     const kw = await rewriteForSearch(q, user);
     if (kw) mat = material(kw, 'en');
   }
   const readyAny = groqReady() || hordeReady() || (geminiAskEnabled() && !!geminiConfig().key);
   // nothing matched but the question is about this system (or in Urdu / Roman Urdu): the AI gets the menu map so it can still point to the right menu, or say it is not covered. Gibberish costs nothing.
-  if (!mat.length && !image && readyAny && (lang !== 'en' || fixTypos(q).toLowerCase().split(/[^a-z]+/).some((w) => w.length >= 5 && vocab().has(w)))) mat = [{ title: 'Menu map (every screen in the menu)', text: menuMap(), map: true }];
-  const co = !image ? companyMaterial(`${q} ${q.split(/\s+/).length < 6 ? prior : ''}`, lang) : [];
+  if (!mat.length && !co.length && !image && readyAny && (lang !== 'en' || fixTypos(q).toLowerCase().split(/[^a-z]+/).some((w) => w.length >= 5 && vocab().has(w)))) mat = [{ title: 'Menu map (every screen in the menu)', text: menuMap(), map: true }];
   if (!mat.length && !co.length && !image) return null;
   if (limited(user.id)) return { refused: 'You are asking quickly. Please wait a moment and try again.' };
   const refOf = (blocks) => blocks.map((m, i) => `[${i + 1}] ${m.title}: ${m.text}`).join('\n');
@@ -285,7 +287,7 @@ export async function askAi(question, history, user, image = null) {
   const answer = String(out?.answer || '').trim().slice(0, 3000);
   if (!answer) return null;
   const found = out.found !== false;
-  return { answer, found, engine, notes, links: found ? videoLinks(user, `${q} ${mat[0]?.title || ''}`) : [], sources: found ? [...mat, ...co].filter((m) => !m.map).slice(0, 3).map((m) => m.title) : [] };
+  return { answer, found, engine, notes, links: found ? videoLinks(user, `${q} ${mat[0]?.title || ''}`) : [], sources: found ? [...mat, ...co].filter((m) => !m.map && !m.rec).slice(0, 3).map((m) => m.title) : [] };
 }
 
 const SAMPLE_Q = 'How do I add an appointment?';

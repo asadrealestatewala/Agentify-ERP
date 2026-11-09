@@ -265,3 +265,29 @@ test('data answers get a friendly lead-in, but the exact answer stays and invent
   assert.equal(bad.data.answer, exact);
   groqText = '1. Open Creative Studio.\n2. Choose Video reels.';
 });
+
+test('Ask answers about a real record: only matching rows, only to private engines, off when switched off', async () => {
+  const owner = (await call('erp.test', 'POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  await as(owner, 'PUT', '/ai/groq', { key: GKEY, enabled: true });
+  const a = await login('groq', 'owner@groq.test');
+  resetRateLimit();
+  const made = await a('POST', '/api/contacts', { full_name: 'Bilal Ahmadzai', phone: '03211234567', city: 'Multan' });
+  assert.equal(made.status, 201, JSON.stringify(made.data));
+  await a('POST', '/api/contacts', { full_name: 'Sara Unrelated', phone: '03331112222', city: 'Quetta' });
+  groqText = 'Bilal Ahmadzai is in Multan.';
+  const n = groqCalls.length;
+  const r = await a('POST', '/api/assistant/ask', { question: 'tell me where Bilal Ahmadzai is based' });
+  assert.equal(r.data.intent, 'ai', JSON.stringify(r.data));
+  const sent = groqCalls[n].body.messages.at(-1).content; // no keyword-rewrite call first: a record already matched
+  assert.match(sent, /Workspace record \(Contact \/ lead\): name=Bilal Ahmadzai/); assert.match(sent, /city=Multan/);
+  assert.ok(!/Sara Unrelated|03331112222/.test(sent), 'unrelated records stay home');
+  assert.ok(!/Console@12345|admin@agentify|groq_api_key|gsk_/i.test(sent), 'nothing from the platform console or any key');
+  assert.ok(!(r.data.sources || []).some((s) => /Workspace record/.test(s)), 'records are not listed as sources');
+  await a('PUT', '/api/settings/system', { ask_use_records: '0' });
+  resetRateLimit();
+  const m = groqCalls.length;
+  await a('POST', '/api/assistant/ask', { question: 'tell me where Bilal Ahmadzai is based' });
+  assert.ok(m === groqCalls.length || !/Workspace record|Multan/.test(groqCalls[m].body.messages.at(-1).content), 'switched off: no records sent');
+  await a('PUT', '/api/settings/system', { ask_use_records: '1' });
+  groqText = '1. Open Creative Studio.\n2. Choose Video reels.';
+});

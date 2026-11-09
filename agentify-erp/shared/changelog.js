@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.86', date: '2026-11-09', title: 'Ask can look up your records',
+    items: [
+      { text: 'Ask now answers questions about specific records, for example a customer, a plot, a sale, an instalment, a receipt, a vendor or a staff member, by looking them up in your workspace. It only sees what the person asking is allowed to open, and sales agents only see their own.', where: 'Ask (Data assistant)' },
+      { text: 'Admins can switch record look-up off.', where: 'Settings > System settings > Ask assistant' },
+    ],
+  },
+  {
     version: 'v1.85', date: '2026-11-09', title: 'Ask understands spelling mistakes and knows the whole menu',
     items: [
       { text: 'Ask now repairs spelling slips (for example "whastapp") before searching, in English, Urdu and Roman Urdu.', where: 'Ask (Data assistant)' },
