@@ -177,3 +177,86 @@ test('a run raises one alert that says how many articles were written', async ()
   assert.equal(rows.length, before + 1);
   assert.match(rows[0].title, new RegExp(`wrote ${r.made.length} article`));
 });
+
+test('with an Unsplash key, new drafts get a credited photo (retrying with a simpler search), without one they use the default cover', async () => {
+  const prev = globalThis.fetch; const qs = [];
+  setSetting('unsplash_access_key', 'unsplash-test-key-1234567890', { secret: true });
+  globalThis.fetch = async (url, opts) => {
+    const u = String(url);
+    if (u.includes('api.unsplash.com')) {
+      qs.push(decodeURIComponent(u.split('query=')[1]));
+      if (qs.length === 1) return new Response(JSON.stringify({ results: [] }), { status: 200 });
+      return new Response(JSON.stringify({ results: [{ urls: { raw: 'https://images.unsplash.com/photo-1' }, user: { name: 'Pat Photo', links: { html: 'https://unsplash.com/@pat' } }, links: { html: 'https://unsplash.com/photos/x' } }] }), { status: 200 });
+    }
+    return prev(url, opts);
+  };
+  try {
+    const r = await agent.makeOne({ topic: 'Photo topic zebra', keyword: 'zebra photo', query: 'zebra' });
+    const d = agent.getDraft(r.id);
+    assert.equal(qs.length >= 2, true);
+    assert.equal(JSON.parse(d.photo).name, 'Pat Photo');
+  } finally { globalThis.fetch = prev; }
+});
+
+test('articles that have no photo get one automatically later', async () => {
+  const prev = globalThis.fetch;
+  setSetting('unsplash_access_key', '', { secret: true });
+  const r = await agent.makeOne({ topic: 'No photo topic yak', keyword: 'yak topic', query: 'yak' });
+  assert.equal(agent.getDraft(r.id).photo, null);
+  setSetting('unsplash_access_key', 'unsplash-test-key-1234567890', { secret: true });
+  globalThis.fetch = async (url, opts) => String(url).includes('api.unsplash.com')
+    ? new Response(JSON.stringify({ results: [{ urls: { raw: 'https://images.unsplash.com/photo-2' }, user: { name: 'Sam', links: { html: 'https://unsplash.com/@sam' } }, links: { html: 'https://unsplash.com/photos/y' } }] }), { status: 200 })
+    : prev(url, opts);
+  try {
+    assert.ok((await agent.fillMissingPhotos()).filled >= 1);
+    assert.equal(JSON.parse(agent.getDraft(r.id).photo).name, 'Sam');
+  } finally { globalThis.fetch = prev; }
+});
+
+test('Search Console: connect a service account, read the report, feed real searches to topic ideas', async () => {
+  const sc = await import('../src/services/searchConsole.js');
+  const crypto = await import('node:crypto');
+  const { privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048, privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } });
+  assert.throws(() => sc.save({ json: 'nope' }), /not the JSON/);
+  assert.throws(() => sc.save({ json: JSON.stringify({ type: 'authorized_user' }) }), /service-account/);
+  assert.throws(() => sc.save({ site: 'agentifyerp.co' }), /property must look like/);
+  const st = sc.save({ json: JSON.stringify({ type: 'service_account', client_email: 'seo@proj.iam.gserviceaccount.com', private_key: privateKey }), site: 'https://agentifyerp.co/' });
+  assert.equal(st.connected, true); assert.ok(!JSON.stringify(st).includes('PRIVATE'));
+  const prev = globalThis.fetch; let denied = false;
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (u.includes('oauth2.googleapis.com')) return new Response(JSON.stringify({ access_token: 'tok', expires_in: 3600 }), { status: 200 });
+    if (u.includes('searchAnalytics/query')) {
+      if (denied) return new Response('{}', { status: 403 });
+      const b = JSON.parse(opts.body);
+      return new Response(JSON.stringify({ rows: b.dimensions ? [{ keys: [b.dimensions[0] === 'query' ? 'agentify erp' : 'https://agentifyerp.co/blog'], clicks: 3, impressions: 90, ctr: 0.033, position: 12.34 }] : [{ clicks: 3, impressions: 90, ctr: 0.033, position: 12.3 }] }), { status: 200 });
+    }
+    return prev(url, opts);
+  };
+  try {
+    const r = await sc.report({ fresh: true });
+    assert.equal(r.totals.clicks, 3); assert.equal(r.queries[0].key, 'agentify erp'); assert.equal(r.queries[0].position, 12.3);
+    assert.deepEqual(await sc.topQueries(), ['agentify erp']);
+    denied = true;
+    await assert.rejects(sc.report({ fresh: true }), /add seo@proj/);
+    assert.deepEqual(await sc.topQueries(), ['agentify erp']); // cached
+  } finally { globalThis.fetch = prev; sc.save({ json: '' }); }
+  assert.equal(sc.status().connected, false);
+});
+
+test('PageSpeed: key is validated, only own pages are checked, scores are returned', async () => {
+  const ps = await import('../src/services/pageSpeed.js');
+  assert.throws(() => ps.saveKey('bad key'), /does not look right/);
+  assert.equal(ps.saveKey('AIza' + 'x'.repeat(35)).set, true);
+  await assert.rejects(ps.check('https://evil.example.com/'), /own website/);
+  const prev = globalThis.fetch;
+  globalThis.fetch = async (url) => String(url).includes('pagespeedonline')
+    ? new Response(JSON.stringify({ lighthouseResult: { categories: { performance: { score: 0.91 }, seo: { score: 1 }, accessibility: { score: 0.87, auditRefs: [{ id: 'contrast' }] }, 'best-practices': { score: 0.96 } },
+      audits: { 'largest-contentful-paint': { displayValue: '1.9 s' }, contrast: { score: 0, title: 'Colours need more contrast' } } } }), { status: 200 })
+    : prev(url);
+  try {
+    const first = ps.pages()[0].url; const r = await ps.check(first, { fresh: true });
+    assert.deepEqual(r.scores, { speed: 91, seo: 100, accessibility: 87, best_practices: 96 });
+    assert.deepEqual(r.fixes, ['Colours need more contrast']); assert.equal(r.metrics.lcp, '1.9 s');
+  } finally { globalThis.fetch = prev; ps.saveKey(''); }
+});

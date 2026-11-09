@@ -6,6 +6,7 @@ import { geminiGenerate } from './aiGateway.js';
 import { groqChat, groqReady } from './groqGateway.js';
 import { config as geminiConfig } from './aiUsage.js';
 import { getSetting, setSetting } from './platformConfig.js';
+import { topQueries } from './searchConsole.js';
 import { allPosts, parseBody, words } from './blog.js';
 import { store, invalidate, toPost } from './blogStore.js';
 import { bad, notFound } from '../util.js';
@@ -94,7 +95,8 @@ const TOPIC_SYSTEM = `You are the SEO editor of the ${BRAND} blog (CRM and ERP f
 /** n topics, of which `brandN` are about the product itself (brand and comparison articles). */
 export async function proposeTopics(n, focus, brandN = 0) {
   const have = existingTitles().slice(-150).join('\n');
-  const d = await gem(TOPIC_SYSTEM, `Focus: ${focus}\nPropose ${n + 4} NEW topics, at least ${Math.min(n, brandN) + 1} of kind "brand" and the rest "guide". Do not repeat or closely overlap these existing articles:\n${have}`, 2000);
+  const real = await topQueries();
+  const d = await gem(TOPIC_SYSTEM, `Focus: ${focus}\nPropose ${n + 4} NEW topics, at least ${Math.min(n, brandN) + 1} of kind "brand" and the rest "guide". Do not repeat or closely overlap these existing articles:\n${have}${real.length ? `\nReal searches that already bring visitors to the site (use them as inspiration for related topics, do not copy blindly): ${real.join('; ')}` : ''}`, 2000);
   const raw = jsonOf(d); const arr = Array.isArray(raw) ? raw : raw?.topics; if (!Array.isArray(arr)) return [];
   const titles = existingTitles();
   const ok = arr.filter((t) => t?.topic && t?.query && !titles.some((x) => similarity(x, t.topic) > 0.5)).map((t) => ({ ...t, kind: t.kind === 'brand' ? 'brand' : 'guide' }));
@@ -153,7 +155,9 @@ export async function makeOne(t, { auto = false } = {}) {
   let slug = slugify(a.title || t.topic); if (!slug) throw bad('No usable title');
   if (store().prepare('SELECT 1 FROM blog_agent_posts WHERE slug=?').get(slug) || allPosts().some((p) => p.slug === slug)) slug = `${slug.slice(0, 70)}-${Date.now().toString(36).slice(-4)}`;
   const blocks = parseBody(a.body);
-  const photo = await findPhoto(a.keyword || t.keyword || a.title);
+  const photo = (await findPhoto(a.keyword || t.keyword || a.title))
+    || (await findPhoto(/construction|boq|contractor|site/i.test(`${a.title} ${a.keyword}`) ? 'construction site' : 'real estate office'));
+  if (!photo && getSetting('unsplash_access_key')) chk.problems.push('No Unsplash photo found (check the Unsplash key and its hourly limit); the article shows the default cover.');
   const passed = chk.problems.length === 0;
   const status = auto && passed ? 'published' : 'draft';
   const faq = (Array.isArray(a.faq) ? a.faq : []).filter((x) => Array.isArray(x) && x[0] && x[1]).slice(0, 4).map(([q, an]) => [String(q).slice(0, 200), String(an).slice(0, 700)]);
@@ -164,6 +168,20 @@ export async function makeOne(t, { auto = false } = {}) {
       Math.max(2, Math.round(chk.words / 200)), status, JSON.stringify(chk.problems), kind);
   invalidate();
   return { id: Number(info.lastInsertRowid), slug, status, kind, problems: chk.problems };
+}
+
+/** Give articles that have no photo yet one (rejected drafts excluded), a few per call to stay inside Unsplash's hourly limit. */
+export async function fillMissingPhotos(max = 8) {
+  if (!getSetting('unsplash_access_key')) return { filled: 0 };
+  const rows = store().prepare("SELECT id,title,keyword FROM blog_agent_posts WHERE photo IS NULL AND status IN ('draft','published') ORDER BY id DESC LIMIT ?").all(max);
+  let filled = 0;
+  for (const r of rows) {
+    const ph = (await findPhoto(r.keyword || r.title)) || (await findPhoto(/construction|boq|contractor|site/i.test(`${r.title} ${r.keyword}`) ? 'construction site' : 'real estate office'));
+    if (!ph) break; // key invalid or hourly limit reached: try again next hour
+    store().prepare('UPDATE blog_agent_posts SET photo=? WHERE id=?').run(JSON.stringify(ph), r.id); filled++;
+  }
+  if (filled) invalidate();
+  return { filled };
 }
 
 let running = false;

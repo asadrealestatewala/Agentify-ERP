@@ -45,6 +45,73 @@ function Settings({ data, reload }) {
   );
 }
 
+function SearchConsole({ data }) {
+  const toast = useToast(); const [sc, setSc] = useState(null); const [json, setJson] = useState(''); const [site, setSite] = useState('');
+  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const load = useCallback((fresh) => api.get(`${A}/blog-agent/search-console${fresh ? '?fresh=1' : ''}`).then((x) => { setSc(x); setSite((v) => v || x.site); }).catch((e) => setErr(e.message)), []);
+  useEffect(() => { load(); }, [load]);
+  const save = async (body, msg) => { setBusy(true); setErr(''); try { await api.put(`${A}/blog-agent/search-console`, body); toast(msg); setJson(''); await load(true); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const r = sc?.report;
+  const table = (title, rows) => (
+    <div style={{ marginTop: 10 }}><strong>{title}</strong>
+      <table className="table"><thead><tr><th>{title === 'Top searches' ? 'Search' : 'Page'}</th><th>Clicks</th><th>Shown</th><th>Avg position</th></tr></thead>
+        <tbody>{rows.map((x) => <tr key={x.key}><td style={{ wordBreak: 'break-all' }}>{x.key.replace('https://agentifyerp.co', '') || '/'}</td><td>{x.clicks}</td><td>{x.impressions}</td><td>{x.position}</td></tr>)}{!rows.length && <tr><td colSpan="4">No data yet. New sites take a few days to appear.</td></tr>}</tbody></table></div>);
+  return (
+    <FoldCard id="BlogAgent-SearchConsole" title="Search Console" summary={sc?.connected ? 'Connected: real clicks and searches' : 'Not connected'}>
+      <ErrorBox error={err || sc?.error} />
+      {sc?.connected && r && (
+        <>
+          <p className="muted">Last 28 days ({r.range.from} to {r.range.to}) for {r.site}. Google data is about 2 days behind. The Blog agent uses these real searches as inspiration for new topics.</p>
+          <div className="grid-2"><div><strong>{r.totals.clicks}</strong> clicks</div><div><strong>{r.totals.impressions}</strong> times shown</div><div>Click rate <strong>{r.totals.ctr}%</strong></div><div>Average position <strong>{r.totals.position}</strong></div></div>
+          {table('Top searches', r.queries)}{table('Top pages', r.pages)}
+          <div style={{ marginTop: 10 }}><button className="btn" onClick={() => load(true)}>Refresh</button></div>
+        </>
+      )}
+      {data.can_edit_keys ? (
+        <div style={{ marginTop: 10 }}>
+          {!sc?.connected && <ol className="muted"><li>In Google Cloud Console create a project, enable the "Google Search Console API", then create a service account and download its JSON key.</li><li>In Search Console open Settings > Users and permissions > Add user, paste the service account email and choose Restricted.</li><li>Paste the whole JSON file below and save.</li></ol>}
+          {sc?.connected && <p className="muted">Connected as {sc.email}</p>}
+          <Field label="Service account JSON key" hint="Stored encrypted; never shown again."><textarea className="input" rows="4" autoComplete="off" value={json} onChange={(e) => setJson(e.target.value)} /></Field>
+          <Field label="Search Console property" hint="Exactly as in Search Console, for example https://agentifyerp.co/ (with the final slash)."><TextInput value={site} onChange={setSite} /></Field>
+          <button className="btn primary" disabled={busy} onClick={() => save({ site, ...(json ? { json } : {}) }, 'Saved')}>Save and test</button>
+          {sc?.connected && <button className="btn warn" style={{ marginLeft: 8 }} disabled={busy} onClick={() => save({ json: '' }, 'Disconnected')}>Disconnect</button>}
+        </div>
+      ) : <p className="muted">Only a Super Admin can connect Search Console.</p>}
+    </FoldCard>
+  );
+}
+
+function PageSpeed({ data }) {
+  const toast = useToast(); const [info, setInfo] = useState(null); const [url, setUrl] = useState(''); const [res, setRes] = useState(null); const [key, setKey] = useState('');
+  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const load = useCallback(() => api.get(`${A}/blog-agent/pagespeed`).then((x) => { setInfo(x); setUrl((v) => v || x.pages[0]?.url || ''); }).catch((e) => setErr(e.message)), []);
+  useEffect(() => { load(); }, [load]);
+  const check = async () => { setBusy(true); setErr(''); try { setRes(await api.post(`${A}/blog-agent/pagespeed/check`, { url, fresh: true })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const saveKey = async () => { setBusy(true); setErr(''); try { await api.put(`${A}/blog-agent/pagespeed`, { key }); toast('Saved'); setKey(''); load(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const tone = (n) => (n == null ? '' : n >= 90 ? 'var(--ok, #1a7f4b)' : n >= 50 ? '#b7791f' : '#c0392b');
+  const names = [['speed', 'Speed'], ['seo', 'SEO'], ['accessibility', 'Accessibility'], ['best_practices', 'Best practices']];
+  return (
+    <FoldCard id="BlogAgent-PageSpeed" title="PageSpeed" summary={info?.key.set ? 'Google PageSpeed scores for your blog pages' : 'Works without a key at a low limit; add your key for more'}>
+      <ErrorBox error={err} />
+      <Field label="Page"><select className="input" value={url} onChange={(e) => setUrl(e.target.value)}>{(info?.pages || []).map((p) => <option key={p.url} value={p.url}>{p.label}</option>)}</select></Field>
+      <button className="btn primary" disabled={busy || !url} onClick={check}>{busy ? 'Checking (up to a minute)…' : 'Check this page'}</button>
+      {res && (
+        <div style={{ marginTop: 12 }}>
+          <div className="grid-2">{names.map(([k, label]) => <div key={k}>{label}: <strong style={{ color: tone(res.scores[k]) }}>{res.scores[k] ?? '–'}</strong> / 100</div>)}</div>
+          <p className="muted">Phone test. Main content shown in {res.metrics.lcp || '–'}, layout shift {res.metrics.cls || '–'}, blocking time {res.metrics.tbt || '–'}.</p>
+          {res.fixes.length > 0 && <><strong>Things to fix</strong><ul>{res.fixes.map((f) => <li key={f}>{f}</li>)}</ul></>}
+        </div>
+      )}
+      {data.can_edit_keys && (
+        <div style={{ marginTop: 12 }}>
+          <Field label={`PageSpeed API key ${info?.key.set ? `· saved ${info.key.hint}` : '· not set'}`} hint="Stored encrypted; never shown again."><TextInput type="password" autoComplete="off" value={key} onChange={setKey} /></Field>
+          <button className="btn" disabled={busy || !key} onClick={saveKey}>Save key</button>
+        </div>
+      )}
+    </FoldCard>
+  );
+}
+
 function Review({ id, onClose, reload }) {
   const toast = useToast(); const [d, setD] = useState(null); const [f, setF] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   useEffect(() => { api.get(`${A}/blog-agent/posts/${id}`).then((x) => { setD(x); setF({ title: x.title, description: x.description, text: x.text }); }).catch((e) => setErr(e.message)); }, [id]);
@@ -103,6 +170,8 @@ export default function BlogAgentPage() {
         </div>
       </FoldCard>
       <Settings data={data} reload={load} />
+      <SearchConsole data={data} />
+      <PageSpeed data={data} />
       {open && <Review id={open} onClose={() => setOpen(null)} reload={load} />}
     </>
   );
