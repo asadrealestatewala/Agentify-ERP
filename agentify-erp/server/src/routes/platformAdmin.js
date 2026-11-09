@@ -48,6 +48,7 @@ import { listReviews, decideReview, deleteReview, reviewPhoto } from '../service
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
 import * as cal from '../services/contentCalendar.js';
 import * as blogAgent from '../services/blogAgent.js';
+import * as pageSpeed from '../services/pageSpeed.js';
 import * as searchConsole from '../services/searchConsole.js';
 import { addPromoDrafts, promoFileOf, downloadName } from '../services/promoDrafts.js';
 import * as aiu from '../services/aiUsage.js';
@@ -718,6 +719,11 @@ r.put('/blog-agent/search-console', requireOperator, need('system.manage'), asyn
   const b = req.body || {}; const out = searchConsole.save({ json: b.json, site: b.site }, req.operator.email);
   audit(req.operator.email, 'blog-agent-search-console', { connected: out.connected, site: out.site }); res.json(out);
 }));
+r.get('/blog-agent/pagespeed', requireOperator, need('content.manage'), (_req, res) => res.json({ key: pageSpeed.status(), pages: pageSpeed.pages() }));
+r.put('/blog-agent/pagespeed', requireOperator, need('system.manage'), asyncH((req, res) => {
+  const out = pageSpeed.saveKey((req.body || {}).key, req.operator.email); audit(req.operator.email, 'blog-agent-pagespeed-key', { set: out.set }); res.json(out);
+}));
+r.post('/blog-agent/pagespeed/check', requireOperator, need('content.manage'), asyncH(async (req, res) => res.json(await pageSpeed.check((req.body || {}).url, { fresh: !!(req.body || {}).fresh }))));
 r.post('/blog-agent/run', requireOperator, need('content.manage'), asyncH(async (req, res) => {
   const out = await blogAgent.runBlogAgent({ force: true, by: req.operator.email });
   audit(req.operator.email, 'blog-agent-run', { made: out.made?.length || 0, errors: out.errors?.length || 0 });

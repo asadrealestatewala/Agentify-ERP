@@ -243,3 +243,20 @@ test('Search Console: connect a service account, read the report, feed real sear
   } finally { globalThis.fetch = prev; sc.save({ json: '' }); }
   assert.equal(sc.status().connected, false);
 });
+
+test('PageSpeed: key is validated, only own pages are checked, scores are returned', async () => {
+  const ps = await import('../src/services/pageSpeed.js');
+  assert.throws(() => ps.saveKey('bad key'), /does not look right/);
+  assert.equal(ps.saveKey('AIza' + 'x'.repeat(35)).set, true);
+  await assert.rejects(ps.check('https://evil.example.com/'), /own website/);
+  const prev = globalThis.fetch;
+  globalThis.fetch = async (url) => String(url).includes('pagespeedonline')
+    ? new Response(JSON.stringify({ lighthouseResult: { categories: { performance: { score: 0.91 }, seo: { score: 1 }, accessibility: { score: 0.87, auditRefs: [{ id: 'contrast' }] }, 'best-practices': { score: 0.96 } },
+      audits: { 'largest-contentful-paint': { displayValue: '1.9 s' }, contrast: { score: 0, title: 'Colours need more contrast' } } } }), { status: 200 })
+    : prev(url);
+  try {
+    const first = ps.pages()[0].url; const r = await ps.check(first, { fresh: true });
+    assert.deepEqual(r.scores, { speed: 91, seo: 100, accessibility: 87, best_practices: 96 });
+    assert.deepEqual(r.fixes, ['Colours need more contrast']); assert.equal(r.metrics.lcp, '1.9 s');
+  } finally { globalThis.fetch = prev; ps.saveKey(''); }
+});

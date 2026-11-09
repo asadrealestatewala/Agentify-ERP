@@ -8,6 +8,7 @@ export const CHANGELOG = [
   {
     version: 'v1.88', date: '2026-11-09', title: 'Console: photos on the new Agentify ERP articles',
     items: [
+      { text: 'New PageSpeed card: pick the blog index or one of your newest articles and see its Google speed, SEO, accessibility and best-practice scores for phones, plus a short list of things to fix.', where: 'Console > Marketing > Blog agent > PageSpeed', audience: 'platform' },
       { text: 'The Blog agent can now connect to Google Search Console (read-only). The page shows the last 28 days of clicks, times shown, average position, your top searches and top pages, and the agent uses the real searches as inspiration for new topics.', where: 'Console > Marketing > Blog agent > Search Console', audience: 'platform' },
       { text: 'The six new Agentify ERP articles now show Unsplash photos with the photographer credit instead of the plain cover graphic.', where: 'Public website > Blog', audience: 'platform' },
       { text: 'If the Blog agent cannot find a photo for a new draft it tries a simpler search, and if it still finds none the draft shows a note (check the Unsplash key and its hourly limit) and is not auto-published. Every hour the agent also adds photos to articles that still have none, so they fix themselves once the Unsplash limit resets.', where: 'Console > Marketing > Blog agent', audience: 'platform' },

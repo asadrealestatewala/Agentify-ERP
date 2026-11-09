@@ -81,6 +81,37 @@ function SearchConsole({ data }) {
   );
 }
 
+function PageSpeed({ data }) {
+  const toast = useToast(); const [info, setInfo] = useState(null); const [url, setUrl] = useState(''); const [res, setRes] = useState(null); const [key, setKey] = useState('');
+  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const load = useCallback(() => api.get(`${A}/blog-agent/pagespeed`).then((x) => { setInfo(x); setUrl((v) => v || x.pages[0]?.url || ''); }).catch((e) => setErr(e.message)), []);
+  useEffect(() => { load(); }, [load]);
+  const check = async () => { setBusy(true); setErr(''); try { setRes(await api.post(`${A}/blog-agent/pagespeed/check`, { url, fresh: true })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const saveKey = async () => { setBusy(true); setErr(''); try { await api.put(`${A}/blog-agent/pagespeed`, { key }); toast('Saved'); setKey(''); load(); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const tone = (n) => (n == null ? '' : n >= 90 ? 'var(--ok, #1a7f4b)' : n >= 50 ? '#b7791f' : '#c0392b');
+  const names = [['speed', 'Speed'], ['seo', 'SEO'], ['accessibility', 'Accessibility'], ['best_practices', 'Best practices']];
+  return (
+    <FoldCard id="BlogAgent-PageSpeed" title="PageSpeed" summary={info?.key.set ? 'Google PageSpeed scores for your blog pages' : 'Works without a key at a low limit; add your key for more'}>
+      <ErrorBox error={err} />
+      <Field label="Page"><select className="input" value={url} onChange={(e) => setUrl(e.target.value)}>{(info?.pages || []).map((p) => <option key={p.url} value={p.url}>{p.label}</option>)}</select></Field>
+      <button className="btn primary" disabled={busy || !url} onClick={check}>{busy ? 'Checking (up to a minute)…' : 'Check this page'}</button>
+      {res && (
+        <div style={{ marginTop: 12 }}>
+          <div className="grid-2">{names.map(([k, label]) => <div key={k}>{label}: <strong style={{ color: tone(res.scores[k]) }}>{res.scores[k] ?? '–'}</strong> / 100</div>)}</div>
+          <p className="muted">Phone test. Main content shown in {res.metrics.lcp || '–'}, layout shift {res.metrics.cls || '–'}, blocking time {res.metrics.tbt || '–'}.</p>
+          {res.fixes.length > 0 && <><strong>Things to fix</strong><ul>{res.fixes.map((f) => <li key={f}>{f}</li>)}</ul></>}
+        </div>
+      )}
+      {data.can_edit_keys && (
+        <div style={{ marginTop: 12 }}>
+          <Field label={`PageSpeed API key ${info?.key.set ? `· saved ${info.key.hint}` : '· not set'}`} hint="Stored encrypted; never shown again."><TextInput type="password" autoComplete="off" value={key} onChange={setKey} /></Field>
+          <button className="btn" disabled={busy || !key} onClick={saveKey}>Save key</button>
+        </div>
+      )}
+    </FoldCard>
+  );
+}
+
 function Review({ id, onClose, reload }) {
   const toast = useToast(); const [d, setD] = useState(null); const [f, setF] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   useEffect(() => { api.get(`${A}/blog-agent/posts/${id}`).then((x) => { setD(x); setF({ title: x.title, description: x.description, text: x.text }); }).catch((e) => setErr(e.message)); }, [id]);
@@ -140,6 +171,7 @@ export default function BlogAgentPage() {
       </FoldCard>
       <Settings data={data} reload={load} />
       <SearchConsole data={data} />
+      <PageSpeed data={data} />
       {open && <Review id={open} onClose={() => setOpen(null)} reload={load} />}
     </>
   );
