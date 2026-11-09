@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.88', date: '2026-11-09', title: 'Console: photos on the new Agentify ERP articles',
+    items: [
+      { text: 'The six new Agentify ERP articles now show Unsplash photos with the photographer credit instead of the plain cover graphic.', where: 'Public website > Blog', audience: 'platform' },
+      { text: 'If the Blog agent cannot find a photo for a new draft it tries a simpler search, and if it still finds none the draft shows a note (check the Unsplash key and its hourly limit) and is not auto-published.', where: 'Console > Marketing > Blog agent', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.87', date: '2026-11-09', title: 'Console: Blog agent alerts, Groq fix and brand-building articles',
     items: [
       { text: 'Groq retired its old default chat model, so Groq answers failed with "model does not exist". The default is now openai/gpt-oss-120b. A model you typed yourself in the Groq settings is kept.', where: 'Console > AI > Groq and Ask engines', audience: 'platform' },

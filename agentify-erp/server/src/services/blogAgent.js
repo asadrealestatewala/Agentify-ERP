@@ -153,7 +153,9 @@ export async function makeOne(t, { auto = false } = {}) {
   let slug = slugify(a.title || t.topic); if (!slug) throw bad('No usable title');
   if (store().prepare('SELECT 1 FROM blog_agent_posts WHERE slug=?').get(slug) || allPosts().some((p) => p.slug === slug)) slug = `${slug.slice(0, 70)}-${Date.now().toString(36).slice(-4)}`;
   const blocks = parseBody(a.body);
-  const photo = await findPhoto(a.keyword || t.keyword || a.title);
+  const photo = (await findPhoto(a.keyword || t.keyword || a.title))
+    || (await findPhoto(/construction|boq|contractor|site/i.test(`${a.title} ${a.keyword}`) ? 'construction site' : 'real estate office'));
+  if (!photo && getSetting('unsplash_access_key')) chk.problems.push('No Unsplash photo found (check the Unsplash key and its hourly limit); the article shows the default cover.');
   const passed = chk.problems.length === 0;
   const status = auto && passed ? 'published' : 'draft';
   const faq = (Array.isArray(a.faq) ? a.faq : []).filter((x) => Array.isArray(x) && x[0] && x[1]).slice(0, 4).map(([q, an]) => [String(q).slice(0, 200), String(an).slice(0, 700)]);

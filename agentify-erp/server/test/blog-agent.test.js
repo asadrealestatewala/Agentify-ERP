@@ -177,3 +177,23 @@ test('a run raises one alert that says how many articles were written', async ()
   assert.equal(rows.length, before + 1);
   assert.match(rows[0].title, new RegExp(`wrote ${r.made.length} article`));
 });
+
+test('with an Unsplash key, new drafts get a credited photo (retrying with a simpler search), without one they use the default cover', async () => {
+  const prev = globalThis.fetch; const qs = [];
+  setSetting('unsplash_access_key', 'unsplash-test-key-1234567890', { secret: true });
+  globalThis.fetch = async (url, opts) => {
+    const u = String(url);
+    if (u.includes('api.unsplash.com')) {
+      qs.push(decodeURIComponent(u.split('query=')[1]));
+      if (qs.length === 1) return new Response(JSON.stringify({ results: [] }), { status: 200 });
+      return new Response(JSON.stringify({ results: [{ urls: { raw: 'https://images.unsplash.com/photo-1' }, user: { name: 'Pat Photo', links: { html: 'https://unsplash.com/@pat' } }, links: { html: 'https://unsplash.com/photos/x' } }] }), { status: 200 });
+    }
+    return prev(url, opts);
+  };
+  try {
+    const r = await agent.makeOne({ topic: 'Photo topic zebra', keyword: 'zebra photo', query: 'zebra' });
+    const d = agent.getDraft(r.id);
+    assert.equal(qs.length >= 2, true);
+    assert.equal(JSON.parse(d.photo).name, 'Pat Photo');
+  } finally { globalThis.fetch = prev; }
+});
