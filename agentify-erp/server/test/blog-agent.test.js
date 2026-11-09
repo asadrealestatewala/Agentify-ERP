@@ -212,3 +212,34 @@ test('articles that have no photo get one automatically later', async () => {
     assert.equal(JSON.parse(agent.getDraft(r.id).photo).name, 'Sam');
   } finally { globalThis.fetch = prev; }
 });
+
+test('Search Console: connect a service account, read the report, feed real searches to topic ideas', async () => {
+  const sc = await import('../src/services/searchConsole.js');
+  const crypto = await import('node:crypto');
+  const { privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048, privateKeyEncoding: { type: 'pkcs8', format: 'pem' }, publicKeyEncoding: { type: 'spki', format: 'pem' } });
+  assert.throws(() => sc.save({ json: 'nope' }), /not the JSON/);
+  assert.throws(() => sc.save({ json: JSON.stringify({ type: 'authorized_user' }) }), /service-account/);
+  assert.throws(() => sc.save({ site: 'agentifyerp.co' }), /property must look like/);
+  const st = sc.save({ json: JSON.stringify({ type: 'service_account', client_email: 'seo@proj.iam.gserviceaccount.com', private_key: privateKey }), site: 'https://agentifyerp.co/' });
+  assert.equal(st.connected, true); assert.ok(!JSON.stringify(st).includes('PRIVATE'));
+  const prev = globalThis.fetch; let denied = false;
+  globalThis.fetch = async (url, opts = {}) => {
+    const u = String(url);
+    if (u.includes('oauth2.googleapis.com')) return new Response(JSON.stringify({ access_token: 'tok', expires_in: 3600 }), { status: 200 });
+    if (u.includes('searchAnalytics/query')) {
+      if (denied) return new Response('{}', { status: 403 });
+      const b = JSON.parse(opts.body);
+      return new Response(JSON.stringify({ rows: b.dimensions ? [{ keys: [b.dimensions[0] === 'query' ? 'agentify erp' : 'https://agentifyerp.co/blog'], clicks: 3, impressions: 90, ctr: 0.033, position: 12.34 }] : [{ clicks: 3, impressions: 90, ctr: 0.033, position: 12.3 }] }), { status: 200 });
+    }
+    return prev(url, opts);
+  };
+  try {
+    const r = await sc.report({ fresh: true });
+    assert.equal(r.totals.clicks, 3); assert.equal(r.queries[0].key, 'agentify erp'); assert.equal(r.queries[0].position, 12.3);
+    assert.deepEqual(await sc.topQueries(), ['agentify erp']);
+    denied = true;
+    await assert.rejects(sc.report({ fresh: true }), /add seo@proj/);
+    assert.deepEqual(await sc.topQueries(), ['agentify erp']); // cached
+  } finally { globalThis.fetch = prev; sc.save({ json: '' }); }
+  assert.equal(sc.status().connected, false);
+});

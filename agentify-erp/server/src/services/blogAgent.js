@@ -6,6 +6,7 @@ import { geminiGenerate } from './aiGateway.js';
 import { groqChat, groqReady } from './groqGateway.js';
 import { config as geminiConfig } from './aiUsage.js';
 import { getSetting, setSetting } from './platformConfig.js';
+import { topQueries } from './searchConsole.js';
 import { allPosts, parseBody, words } from './blog.js';
 import { store, invalidate, toPost } from './blogStore.js';
 import { bad, notFound } from '../util.js';
@@ -94,7 +95,8 @@ const TOPIC_SYSTEM = `You are the SEO editor of the ${BRAND} blog (CRM and ERP f
 /** n topics, of which `brandN` are about the product itself (brand and comparison articles). */
 export async function proposeTopics(n, focus, brandN = 0) {
   const have = existingTitles().slice(-150).join('\n');
-  const d = await gem(TOPIC_SYSTEM, `Focus: ${focus}\nPropose ${n + 4} NEW topics, at least ${Math.min(n, brandN) + 1} of kind "brand" and the rest "guide". Do not repeat or closely overlap these existing articles:\n${have}`, 2000);
+  const real = await topQueries();
+  const d = await gem(TOPIC_SYSTEM, `Focus: ${focus}\nPropose ${n + 4} NEW topics, at least ${Math.min(n, brandN) + 1} of kind "brand" and the rest "guide". Do not repeat or closely overlap these existing articles:\n${have}${real.length ? `\nReal searches that already bring visitors to the site (use them as inspiration for related topics, do not copy blindly): ${real.join('; ')}` : ''}`, 2000);
   const raw = jsonOf(d); const arr = Array.isArray(raw) ? raw : raw?.topics; if (!Array.isArray(arr)) return [];
   const titles = existingTitles();
   const ok = arr.filter((t) => t?.topic && t?.query && !titles.some((x) => similarity(x, t.topic) > 0.5)).map((t) => ({ ...t, kind: t.kind === 'brand' ? 'brand' : 'guide' }));

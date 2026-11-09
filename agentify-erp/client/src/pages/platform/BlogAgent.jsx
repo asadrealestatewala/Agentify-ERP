@@ -45,6 +45,42 @@ function Settings({ data, reload }) {
   );
 }
 
+function SearchConsole({ data }) {
+  const toast = useToast(); const [sc, setSc] = useState(null); const [json, setJson] = useState(''); const [site, setSite] = useState('');
+  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const load = useCallback((fresh) => api.get(`${A}/blog-agent/search-console${fresh ? '?fresh=1' : ''}`).then((x) => { setSc(x); setSite((v) => v || x.site); }).catch((e) => setErr(e.message)), []);
+  useEffect(() => { load(); }, [load]);
+  const save = async (body, msg) => { setBusy(true); setErr(''); try { await api.put(`${A}/blog-agent/search-console`, body); toast(msg); setJson(''); await load(true); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  const r = sc?.report;
+  const table = (title, rows) => (
+    <div style={{ marginTop: 10 }}><strong>{title}</strong>
+      <table className="table"><thead><tr><th>{title === 'Top searches' ? 'Search' : 'Page'}</th><th>Clicks</th><th>Shown</th><th>Avg position</th></tr></thead>
+        <tbody>{rows.map((x) => <tr key={x.key}><td style={{ wordBreak: 'break-all' }}>{x.key.replace('https://agentifyerp.co', '') || '/'}</td><td>{x.clicks}</td><td>{x.impressions}</td><td>{x.position}</td></tr>)}{!rows.length && <tr><td colSpan="4">No data yet. New sites take a few days to appear.</td></tr>}</tbody></table></div>);
+  return (
+    <FoldCard id="BlogAgent-SearchConsole" title="Search Console" summary={sc?.connected ? 'Connected: real clicks and searches' : 'Not connected'}>
+      <ErrorBox error={err || sc?.error} />
+      {sc?.connected && r && (
+        <>
+          <p className="muted">Last 28 days ({r.range.from} to {r.range.to}) for {r.site}. Google data is about 2 days behind. The Blog agent uses these real searches as inspiration for new topics.</p>
+          <div className="grid-2"><div><strong>{r.totals.clicks}</strong> clicks</div><div><strong>{r.totals.impressions}</strong> times shown</div><div>Click rate <strong>{r.totals.ctr}%</strong></div><div>Average position <strong>{r.totals.position}</strong></div></div>
+          {table('Top searches', r.queries)}{table('Top pages', r.pages)}
+          <div style={{ marginTop: 10 }}><button className="btn" onClick={() => load(true)}>Refresh</button></div>
+        </>
+      )}
+      {data.can_edit_keys ? (
+        <div style={{ marginTop: 10 }}>
+          {!sc?.connected && <ol className="muted"><li>In Google Cloud Console create a project, enable the "Google Search Console API", then create a service account and download its JSON key.</li><li>In Search Console open Settings > Users and permissions > Add user, paste the service account email and choose Restricted.</li><li>Paste the whole JSON file below and save.</li></ol>}
+          {sc?.connected && <p className="muted">Connected as {sc.email}</p>}
+          <Field label="Service account JSON key" hint="Stored encrypted; never shown again."><textarea className="input" rows="4" autoComplete="off" value={json} onChange={(e) => setJson(e.target.value)} /></Field>
+          <Field label="Search Console property" hint="Exactly as in Search Console, for example https://agentifyerp.co/ (with the final slash)."><TextInput value={site} onChange={setSite} /></Field>
+          <button className="btn primary" disabled={busy} onClick={() => save({ site, ...(json ? { json } : {}) }, 'Saved')}>Save and test</button>
+          {sc?.connected && <button className="btn warn" style={{ marginLeft: 8 }} disabled={busy} onClick={() => save({ json: '' }, 'Disconnected')}>Disconnect</button>}
+        </div>
+      ) : <p className="muted">Only a Super Admin can connect Search Console.</p>}
+    </FoldCard>
+  );
+}
+
 function Review({ id, onClose, reload }) {
   const toast = useToast(); const [d, setD] = useState(null); const [f, setF] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   useEffect(() => { api.get(`${A}/blog-agent/posts/${id}`).then((x) => { setD(x); setF({ title: x.title, description: x.description, text: x.text }); }).catch((e) => setErr(e.message)); }, [id]);
@@ -103,6 +139,7 @@ export default function BlogAgentPage() {
         </div>
       </FoldCard>
       <Settings data={data} reload={load} />
+      <SearchConsole data={data} />
       {open && <Review id={open} onClose={() => setOpen(null)} reload={load} />}
     </>
   );

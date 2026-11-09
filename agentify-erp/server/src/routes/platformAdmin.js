@@ -48,6 +48,7 @@ import { listReviews, decideReview, deleteReview, reviewPhoto } from '../service
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
 import * as cal from '../services/contentCalendar.js';
 import * as blogAgent from '../services/blogAgent.js';
+import * as searchConsole from '../services/searchConsole.js';
 import { addPromoDrafts, promoFileOf, downloadName } from '../services/promoDrafts.js';
 import * as aiu from '../services/aiUsage.js';
 import * as aiRep from '../services/aiReport.js';
@@ -707,6 +708,15 @@ r.put('/blog-agent/settings', requireOperator, need('content.manage'), asyncH((r
   const out = blogAgent.saveSettings(b, req.operator.email);
   audit(req.operator.email, 'blog-agent-settings', { fields: Object.keys(b).filter((k) => !/key/.test(k)), keys_changed: Object.keys(b).filter((k) => /key/.test(k)) });
   res.json(out);
+}));
+r.get('/blog-agent/search-console', requireOperator, need('content.manage'), asyncH(async (req, res) => {
+  const st = searchConsole.status();
+  if (!st.connected) return res.json({ ...st });
+  try { res.json({ ...st, report: await searchConsole.report({ fresh: req.query.fresh === '1' }) }); } catch (e) { res.json({ ...st, error: e.message }); }
+}));
+r.put('/blog-agent/search-console', requireOperator, need('system.manage'), asyncH((req, res) => {
+  const b = req.body || {}; const out = searchConsole.save({ json: b.json, site: b.site }, req.operator.email);
+  audit(req.operator.email, 'blog-agent-search-console', { connected: out.connected, site: out.site }); res.json(out);
 }));
 r.post('/blog-agent/run', requireOperator, need('content.manage'), asyncH(async (req, res) => {
   const out = await blogAgent.runBlogAgent({ force: true, by: req.operator.email });
