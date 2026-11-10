@@ -6,7 +6,7 @@ import { createVendorPortalUser } from '../services/vendorAccount.js';
 import { audit } from '../audit.js';
 import { sendTable, crud } from './helpers.js';
 import { asyncH, bad, notFound, int, today, now, dateRange, moneyText, curCode } from '../util.js';
-import { postJournal, reverseJournal, accountBalance, trialBalance, treasuryAccounts, assertTreasury, assertFunds, postOpening, isDebitNature } from '../services/accounting.js';
+import { postJournal, reverseJournal, accountBalance, trialBalance, treasuryAccounts, assertTreasury, assertFunds, postOpening, isDebitNature, setOpening, currentOpening, CORE_CODES } from '../services/accounting.js';
 import { sendPdf } from '../services/pdf.js';
 import { expensePdf } from '../services/voucherPdf.js';
 import { createVoucher, submitVoucher, approveVoucher, rejectVoucher, payVoucher, payVendor, cleanAssetInfo } from '../services/expenses.js';
@@ -18,7 +18,7 @@ r.use(requireStaff);
 // ---------------- Chart of accounts
 r.get('/accounts', can('accounting', 'view'), asyncH((req, res) => {
   const tb = trialBalance({ to: req.query.to });
-  res.json(tb);
+  res.json(tb.map((a) => ({ ...a, protected: CORE_CODES.includes(a.code), opening_now: currentOpening(a.id) })));
 }));
 r.post('/accounts', can('accounting', 'create'), asyncH((req, res) => {
   const { code, name, type, subtype, parent_id, opening_balance } = req.body;
@@ -37,19 +37,33 @@ r.post('/accounts', can('accounting', 'create'), asyncH((req, res) => {
 r.put('/accounts/:id(\\d+)', can('accounting', 'edit'), asyncH((req, res) => {
   const a = get('SELECT * FROM accounts WHERE id=?', req.params.id);
   if (!a) throw notFound();
-  const d = { name: req.body.name, active: req.body.active === undefined ? undefined : req.body.active ? 1 : 0 };
-  if (a.is_system && d.active === 0) throw bad('System accounts cannot be deactivated');
-  update('accounts', a.id, d, ['name', 'active']);
+  const d = { name: req.body.name === undefined ? undefined : String(req.body.name).trim(), active: req.body.active === undefined ? undefined : req.body.active ? 1 : 0 };
+  if (d.name !== undefined && !d.name) throw bad('Account name is required');
+  if (d.active === 0 && CORE_CODES.includes(a.code)) throw bad('This account is used automatically by receipts, expenses or payroll, so it cannot be deactivated. You can rename it.');
+  tx(() => {
+    update('accounts', a.id, d, ['name', 'active']);
+    if (req.body.opening_balance !== undefined && req.body.opening_balance !== null && req.body.opening_balance !== '') {
+      if (get('SELECT 1 FROM accounts WHERE parent_id=?', a.id)) throw bad('Set opening balances on the sub-accounts, not on a group');
+      if (int(req.body.opening_balance) !== currentOpening(a.id)) { setOpening(a.id, int(req.body.opening_balance), req.user.id); audit(req, 'Changed opening balance', 'account', a.id, a.code); }
+    }
+  });
   audit(req, 'Edited account', 'account', a.id, a.code);
   res.json({ ok: true });
 }));
 r.delete('/accounts/:id(\\d+)', can('accounting', 'delete'), asyncH((req, res) => {
   const a = get('SELECT * FROM accounts WHERE id=?', req.params.id);
   if (!a) throw notFound();
-  if (a.is_system) throw bad('System accounts cannot be deleted');
-  if (get('SELECT 1 FROM journal_lines WHERE account_id=?', a.id)) throw bad('Account has transactions — deactivate it instead');
+  if (CORE_CODES.includes(a.code)) throw bad('This account is used automatically by receipts, expenses or payroll, so it cannot be deleted. You can rename it.');
+  const used = get("SELECT 1 FROM journal_lines l JOIN journals j ON j.id=l.journal_id WHERE l.account_id=? AND COALESCE(j.ref_type,'')<>'opening'", a.id);
+  if (used) throw bad('Account has transactions — deactivate it instead');
   if (get('SELECT 1 FROM accounts WHERE parent_id=?', a.id)) throw bad('Account has child accounts');
-  run('DELETE FROM accounts WHERE id=?', a.id);
+  tx(() => {
+    if (get('SELECT 1 FROM journal_lines WHERE account_id=?', a.id)) {
+      // only opening-balance entries remain: remove them with the account so the books stay balanced
+      run("DELETE FROM journals WHERE ref_type='opening' AND ref_id=?", a.id);
+    }
+    run('DELETE FROM accounts WHERE id=?', a.id);
+  });
   audit(req, 'Deleted account', 'account', a.id, a.code);
   res.json({ ok: true });
 }));

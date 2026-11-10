@@ -79,7 +79,7 @@ export function ChartOfAccounts() {
                     <td style={{ width: 80 }} className="mono muted">{a.code}</td>
                     <td style={{ paddingLeft: 12 + a.depth * 22 }}>{leaf ? <Link to={`/accounting/statement?account=${a.id}`}>{a.name}</Link> : a.name}{a.subtype && <span className="tag" style={{ marginLeft: 8 }}>{a.subtype}</span>}{!a.active && <span className="pill grey" style={{ marginLeft: 6 }}>inactive</span>}</td>
                     <td className="num mono" style={{ width: 160 }}>{money(leaf ? a.balance : totalOf(a))}</td>
-                    <td className="right nowrap" style={{ width: 150 }}>{can('accounting', 'edit') && !a.is_system && <button className="btn sm ghost" onClick={() => setEdit(a)}>Rename</button>}{can('accounting', 'delete') && !a.is_system && <button className="btn sm ghost danger" onClick={() => setDel(a)}>Delete</button>}</td>
+                    <td className="right nowrap" style={{ width: 150 }}>{can('accounting', 'edit') && <button className="btn sm ghost" onClick={() => setEdit({ ...a, opening_balance: a.opening_now, canOpen: leaf })}>Edit</button>}{can('accounting', 'delete') && !a.protected && <button className="btn sm ghost danger" onClick={() => setDel(a)}>Delete</button>}</td>
                   </tr>
                 );
               })}
@@ -87,10 +87,10 @@ export function ChartOfAccounts() {
           </div>
         ))}
       </Card>
-      {edit && <FormModal title={edit.id ? 'Rename account' : 'Add account'} size="sm" initial={edit}
-        fields={edit.id ? [{ name: 'name', label: 'Account name', required: true }] : [{ name: 'code', label: 'Code', required: true, hint: 'e.g. 5170' }, { name: 'name', label: 'Name', required: true }, { name: 'type', label: 'Type', type: 'select', options: TYPE_ORDER.map((t) => ({ value: t, label: TYPE_LABEL[t] })), allowEmpty: false },
+      {edit && <FormModal title={edit.id ? 'Edit account' : 'Add account'} size="sm" initial={edit}
+        fields={edit.id ? [{ name: 'name', label: 'Account name', required: true }, ...(edit.canOpen ? [{ name: 'opening_balance', label: 'Opening balance', type: 'money', hint: 'Changing it posts only the difference against Capital' }] : [])] : [{ name: 'code', label: 'Code', required: true, hint: 'e.g. 5170' }, { name: 'name', label: 'Name', required: true }, { name: 'type', label: 'Type', type: 'select', options: TYPE_ORDER.map((t) => ({ value: t, label: TYPE_LABEL[t] })), allowEmpty: false },
           { name: 'parent_id', label: 'Parent account', type: 'select', number: true, options: (f) => parents.filter((p) => p.type === f.type) }, { name: 'subtype', label: 'Subtype (treasury accounts)', type: 'select', options: ['', 'cash', 'bank', 'custody', 'online'] }, { name: 'opening_balance', label: 'Opening balance', type: 'money', hint: 'Posted against Capital' }]}
-        onClose={() => setEdit(null)} onSave={async (f) => { if (edit.id) await api.put(`/api/accounting/accounts/${edit.id}`, { name: f.name }); else await api.post('/api/accounting/accounts', f); setEdit(null); reload(); toast('Saved', 'ok'); }} />}
+        onClose={() => setEdit(null)} onSave={async (f) => { if (edit.id) await api.put(`/api/accounting/accounts/${edit.id}`, { name: f.name, ...(edit.canOpen ? { opening_balance: f.opening_balance || 0 } : {}) }); else await api.post('/api/accounting/accounts', f); setEdit(null); reload(); toast('Saved', 'ok'); }} />}
       {del && <ConfirmDialog danger title="Delete account" message={`Delete ${del.code} ${del.name}?`} confirmLabel="Delete" onCancel={() => setDel(null)} onConfirm={async () => { const acc = del; setDel(null); remove(acc.id, `${acc.code} ${acc.name} deleted`, () => api.del(`/api/accounting/accounts/${acc.id}`), { onDone: reload }); }} />}
     </div>
   );

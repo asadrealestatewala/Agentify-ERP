@@ -214,6 +214,20 @@ export const GUIDES = {
     faq: [],
     internal: [],
   },
+  'edit-bank-accounts': {
+    title: 'Edit bank, cash and other accounts', since: 'v1.92', module: 'Accounting',
+    who: 'Accounts staff and administrators',
+    keywords: ['edit bank account', 'rename bank account', 'opening balance', 'change opening balance', 'delete account', 'main bank account', 'chart of accounts'],
+    steps: [
+      'Open Accounting > Chart of Accounts.',
+      'Find the account (for example Main Bank Account) and press Edit.',
+      'Change the name and, if needed, the opening balance, then press Save. Only the difference is posted against Capital, so your books stay balanced.',
+      'To remove an account you never use, press Delete. It must have no transactions and no sub-accounts.',
+    ],
+    limits: ['Accounts that receipts, expenses and payroll post to automatically can be renamed but not deleted or deactivated.', 'You need Accounting edit or delete permission.'],
+    faq: [],
+    internal: ['Opening balance changes are journal entries with source "opening". Deleting an account removes its opening entry only.'],
+  },
   'lead-routing-conversion': {
     title: 'Lead routing and the Lead Conversion report', since: 'v1.15', module: 'Settings, CRM',
     who: 'Sales managers and administrators',
