@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.92', date: '2026-11-10', title: 'Edit your bank and cash accounts',
+    items: [
+      { text: 'The built-in accounts (Main Bank Account, Bank Account 2, Online Payment Account and the rest) can now be edited like any other account: rename them, change their opening balance, or delete the ones you never use. Accounts that receipts, expenses and payroll post to automatically can be renamed but not deleted.', where: 'Accounting > Chart of Accounts > Edit', guide: 'edit-bank-accounts' },
+    ],
+  },
+  {
     version: 'v1.91', date: '2026-11-10', title: 'UAE pricing plans',
     items: [
       { text: 'Customers in the United Arab Emirates now see the plan ladder in dirhams: Agent Plus AED 99, Agency Starter AED 299, Agency Growth AED 549, Agency Pro AED 899, Developer AED 1,649 and Enterprise from AED 3,699 a month, with 6-month and yearly discounts and dirham add-ons. The wording for UAE customers lists RERA permit and title deed fields, the Dubai transfer-cost calculator, off-plan and rentals, and leaves out Pakistan-only items.', where: 'Pricing page, Plan & Billing' },

@@ -61,8 +61,8 @@
  },
  "/api/accounting/accounts": {
   "status": 200,
-  "sha": "3dbb0e5415c5b0b7",
-  "bytes": 8757
+  "sha": "e176e101b4930cd5",
+  "bytes": 10422
  },
  "/api/accounting/journals?limit=200": {
   "status": 200,

@@ -113,3 +113,34 @@ export function postOpening(accountId, amount, userId) {
       : [{ account: '3100', debit: amount }, { account: accountId, credit: amount }],
   });
 }
+
+/** Accounts the posting engine looks up by code (receipts, expenses, payroll...). They can be renamed but not removed or deactivated. */
+export const CORE_CODES = ['1110', '1120', '1130', '1210', '1220', '1300', '1350', '2100', '2200', '2300', '2610', '3100', '4000', '4150', '4500', '5000', '5100', '5110', '5140', '5150', '5160', '5200', '5300', '5700', '5800'];
+
+/** Current opening balance (natural sign) = net of all "opening" journals for the account. */
+export function currentOpening(accountId) {
+  const a = get('SELECT type FROM accounts WHERE id=?', accountId);
+  const r = get(`SELECT COALESCE(SUM(l.debit),0) d, COALESCE(SUM(l.credit),0) c FROM journal_lines l JOIN journals j ON j.id=l.journal_id
+    WHERE j.ref_type='opening' AND j.ref_id=? AND l.account_id=?`, accountId, accountId);
+  return isDebitNature(a.type) ? r.d - r.c : r.c - r.d;
+}
+
+/** Change an opening balance by posting only the difference, so history stays journal-based. */
+export function setOpening(accountId, amount, userId) {
+  const a = get('SELECT * FROM accounts WHERE id=?', accountId);
+  const target = int(amount);
+  if (target < 0) throw bad('Opening balance cannot be negative');
+  const delta = target - currentOpening(accountId);
+  if (!delta) return null;
+  const debitNature = isDebitNature(a.type);
+  const up = delta > 0, n = Math.abs(delta);
+  const accountDebit = debitNature ? up : !up;
+  const first = get(`SELECT MIN(date) d FROM journals WHERE ref_type='opening' AND ref_id=?`, accountId)?.d
+    || get('SELECT MIN(date) d FROM journals')?.d;
+  return postJournal({
+    date: first || undefined, memo: `Opening balance changed — ${a.name}`, refType: 'opening', refId: accountId, userId,
+    lines: accountDebit
+      ? [{ account: accountId, debit: n }, { account: '3100', credit: n }]
+      : [{ account: '3100', debit: n }, { account: accountId, credit: n }],
+  });
+}
