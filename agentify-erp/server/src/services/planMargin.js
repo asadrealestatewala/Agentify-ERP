@@ -7,14 +7,14 @@ import { REEL_CREDITS, CREDIT_COST } from './creativeStudio.js';
 import { PLANS } from './plans.js';
 import { getOffer, OFFER_CURRENCIES } from './launchOffer.js';
 import { CURRENCIES } from './plansStore.js';
-// values listed in CURRENCIES order (home market, USD, GBP, CAD)
+// values listed in CURRENCIES order (home market, USD, GBP, CAD, AED)
 const byCur = (...v) => Object.fromEntries(CURRENCIES.map((c, i) => [c, v[i]]));
 import { bad } from '../util.js';
 
 export const DEFAULT_MARGIN = {
   vps_usd: 10, resend_usd: 20, resend_emails: 50000, storage_usd: 10, storage_gb: 350,
   paying_tenants: 25, typical_use_pct: 40, commission_pct: 4.5, sales_commission_pct: 20, payment_fee_pct: 3, target_multiple: 2, yearly_discount_pct: 15,
-  fx: byCur(280, 1, 0.79, 1.37), tax_pct: byCur(16, 0, 20, 5),
+  fx: byCur(280, 1, 0.79, 1.37, 3.67), tax_pct: byCur(16, 0, 20, 5, 5),
   mix: { video: 60, voice: 10, image: 30 },
 };
 const parse = (s) => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
