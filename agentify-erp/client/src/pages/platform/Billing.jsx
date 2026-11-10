@@ -23,7 +23,7 @@ const PRODUCT_LABEL = { real_estate: 'Real Estate Brokerage', construction: 'Con
 const moneyMap = (m) => (m && Object.keys(m).length ? Object.entries(m).map(([c, v]) => `${c} ${n0(v)}`).join(' · ') : '—');
 const days = (arr) => (Array.isArray(arr) ? arr.join(', ') : String(arr || ''));
 
-const CURS = ['PKR', 'USD', 'GBP', 'CAD'];
+const CURS = ['PKR', 'USD', 'GBP', 'CAD', 'AED'];
 const FLAG_LABELS = { content_calendar: 'Content calendar', bulk_generator: 'Bulk monthly generator', brand_kit: 'Brand kit', listing_to_post: 'Listing to post', priority_queue: 'Priority queue' };
 const allowForm = (a) => ({ set: !!a, credits: Object.fromEntries(CURS.map((c) => [c, a?.credits?.[c] ?? ''])), posts_per_day: a?.posts_per_day ?? '', posts_per_month: a?.posts_per_month ?? '', reel_seconds: a?.reel_seconds ?? '', flags: { ...Object.fromEntries(Object.keys(FLAG_LABELS).map((k) => [k, false])), ...(a?.flags || {}) } });
 const allowBody = (f) => (!f?.set ? null : { credits: Object.fromEntries(CURS.map((c) => [c, f.credits[c] === '' ? null : Number(f.credits[c])])), posts_per_day: f.posts_per_day === '' ? null : Number(f.posts_per_day), posts_per_month: f.posts_per_month === '' ? null : Number(f.posts_per_month), reel_seconds: f.reel_seconds === '' ? null : Number(f.reel_seconds), flags: f.flags });
@@ -43,7 +43,7 @@ function LadderCard({ info, onChanged }) {
       {ask && (
         <Modal title="Put the plan ladder on sale?" onClose={() => setAsk(false)} footer={<><button className="btn" onClick={() => setAsk(false)}>Cancel</button><button className="btn primary" onClick={() => go(true)}>Switch on</button></>}>
           <p>The 7 ladder plans become visible and buyable on the pricing page and in Plan &amp; Billing. Every other public plan goes off sale: workspaces already on them keep them and can renew, nothing is deleted. You can switch back at any time.</p>
-          <p className="muted">Ladder prices exist in PKR and USD. Customers paying in a currency with no price (for example GBP or CAD) do not see these plans until you add a price for each one.</p>
+          <p className="muted">Ladder prices exist in PKR, USD and AED. Customers paying in a currency with no price (for example GBP or CAD) do not see these plans until you add a price for each one.</p>
         </Modal>
       )}
     </FoldCard>

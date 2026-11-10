@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.91', date: '2026-11-10', title: 'UAE pricing plans',
+    items: [
+      { text: 'Customers in the United Arab Emirates now see the plan ladder in dirhams: Agent Plus AED 99, Agency Starter AED 299, Agency Growth AED 549, Agency Pro AED 899, Developer AED 1,649 and Enterprise from AED 3,699 a month, with 6-month and yearly discounts and dirham add-ons. The wording for UAE customers lists RERA permit and title deed fields, the Dubai transfer-cost calculator, off-plan and rentals, and leaves out Pakistan-only items.', where: 'Pricing page, Plan & Billing' },
+      { text: 'Card payments for the ladder in dirhams need their own Stripe prices. Create an AED price for each plan (monthly and yearly) in Stripe and paste the ids into the new "..._aed" slots on the Stripe page. Until then UAE customers can pay by bank transfer or online gateway. AED is now also available as a price currency in Plans, add-ons and the margin settings.', audience: 'platform', where: 'Console > Billing' },
+    ],
+  },
+  {
     version: 'v1.90', date: '2026-11-09', title: 'USA pricing plans',
     items: [
       { text: 'Customers in the United States now see the plan ladder in US dollars: Agent Plus $29, Agency Starter $79, Agency Growth $149, Agency Pro $249, Developer $449 and Enterprise from $999 a month, with 6-month and yearly discounts and US-dollar add-ons. The wording for US customers drops Pakistan-only items. Plans with no price in a visitor\'s currency are no longer shown to them.', where: 'Public website > Pricing', audience: 'platform' },

@@ -4,7 +4,7 @@ Extends the existing plans system (`plans`, `plan_prices`, `services/plansStore.
 
 ## What was added
 * `plans.allowances` (JSON) and `plans.launch_offer` (0/1): additive columns, safe for existing rows. `allowances` = `{ credits: {PKR,USD,GBP,CAD}, posts_per_day, posts_per_month, reel_seconds (8/16/24), flags {content_calendar, bulk_generator, brand_kit, listing_to_post, priority_queue} }`.
-* `CURRENCIES` now PKR, USD, GBP, CAD (the old GBP/CAD placeholder price rows are used as they are).
+* `CURRENCIES` now PKR, USD, GBP, CAD, AED (the old GBP/CAD placeholder price rows are used as they are).
 * Three hidden plans seeded once (`seeded_content_tiers_v1`): `tier1` Small realtor, `tier2` Growth, `tier3` Pro, with the approved demo prices. They are **hidden** until the owner turns on "Visible" in Console > Plans. Existing plans and workspaces are untouched.
 * Emails per month use the existing `email_limits` (tier caps 1,000 / 2,500 / 6,000 split 40% appointments, 60% campaigns). Storage uses the existing storage limit.
 
@@ -57,3 +57,5 @@ Seeded once as **hidden** plans (`seeded_ladder_v1`, `services/planLadder.js`). 
 **v1.89 migration (`seeded_ladder_v2`).** Solo Agent (`lad_solo_agent`) is retired: hidden and off sale, its workspaces move to Agent Plus (they keep the price they already pay). Agent Plus is now PKR 1,500 and Agency Starter PKR 5,000 (new price rows; subscribers keep their price). New feature switch `hrm` (Agency Starter and up); the `social_posting` switch now also covers the Meta/LinkedIn/TikTok connect paths. Apps: there is an Android app and an installable web app for desktop; no native desktop installer exists.
 
 **USD ladder (v1.90).** The same six plans carry USD prices (29 / 79 / 149 / 249 / 449 / from 999 a month), USD add-ons and USD wording (`plans.regional`). Plans with no price in a visitor's currency are hidden on the pricing page and in the in-app chooser. Ladder card payments use a Stripe price slot per currency (`<plan>_<month|year>_usd`). Research and rationale: `docs/usa-pricing-research.md`.
+
+**AED ladder (v1.91).** The same six plans carry AED prices (99 / 299 / 549 / 899 / 1,649 / from 3,699 a month), AED add-ons (extra user 45; AI top-ups 55 / 145 / 290) and AED wording in `plans.regional.AED`. `AED` is now in `CURRENCIES`. Stripe slots are `lad_<plan>_<month|year>_aed`. Research and rationale: `docs/uae-pricing-research.md`.

@@ -226,3 +226,30 @@ test('USA: the ladder carries USD prices, USD wording, USD add-ons and currency-
   assert.equal(stripe.priceId('lad_agency_growth', 'month', 'USD'), null);
   switchLadder(false, 'test');
 });
+
+test('UAE: the ladder carries AED prices, AED wording, AED add-ons and AED card slots', async () => {
+  const { planCatalog: catalog } = await import('../src/services/plans.js');
+  const { priceSlots } = await import('../src/services/platformConfig.js');
+  const stripe = await import('../src/services/stripe.js');
+  assert.deepEqual(LADDER_IDS.map((id) => PLANS[id].price.AED.month), [99, 299, 549, 899, 1649, 3699]);
+  for (const id of LADDER_IDS) {
+    const a = PLANS[id].price.AED;
+    assert.equal(a.half, Math.round(a.month * 6 * 0.9));
+    assert.equal(a.year, Math.round(a.month * 12 * 0.8));
+    assert.ok(PLANS[id].regional.AED.features.length, `${id} has AED wording`);
+    assert.ok(PLANS[id].regional.USD, `${id} keeps its USD wording`);
+    assert.ok(!/PKR|rupee|plot rebate|installment|Twilio|\$/i.test(JSON.stringify(PLANS[id].regional.AED)), `${id} AED wording has no Pakistan or US terms`);
+  }
+  assert.match(PLANS.lad_enterprise.regional.AED.description, /AED 3,699/);
+  switchLadder(true, 'test');
+  assert.ok(LADDER_IDS.every((id) => catalog(null, null, 'AED').map((p) => p.id).includes(id)), 'all six ladder plans are offered to an AED buyer');
+  const addons = Object.fromEntries(db.prepare('SELECT id, price FROM addons').all().map((a) => [a.id, JSON.parse(a.price)]));
+  assert.equal(addons.extra_user.AED.month, 45);
+  assert.equal(addons.ai_topup_300.AED.month, 145);
+  assert.equal(addons.extra_user.USD.month, 12, 'USD add-on prices untouched');
+  const q = quote({ id: 1, plan: 'trial' }, { plan: 'lad_agency_growth', interval: 'year', currency: 'AED' });
+  assert.equal(q.total, PLANS.lad_agency_growth.price.AED.year);
+  assert.ok(priceSlots().includes('lad_agency_growth_month_aed') && priceSlots().includes('lad_agency_growth_year_aed'));
+  assert.equal(stripe.priceId('lad_agency_growth', 'month', 'AED'), null, 'an AED card never falls back to the PKR price');
+  switchLadder(false, 'test');
+});

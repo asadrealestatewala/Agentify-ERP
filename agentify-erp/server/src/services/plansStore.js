@@ -10,7 +10,7 @@
 //   on sale (active = 0)                             no new purchases; current subscribers can still renew
 //   product family                                   cannot be changed once a workspace is subscribed to the plan
 import { PLANS, DEFAULT_PLANS, DEFAULT_CONSTRUCTION_PLANS, DEFAULT_TIER_PLANS, PLAN_SETTINGS, MODULES, PRODUCT_CHOICES, INTERVAL_KEYS, FEATURE_GATES, setAddonLookup } from './plans.js';
-import { LADDER_PLANS, LADDER_ADDONS, LADDER_REGIONAL, ADDON_USD, ladderState, setLadder } from './planLadder.js';
+import { LADDER_PLANS, LADDER_ADDONS, LADDER_REGIONAL, ADDON_USD, ADDON_AED, ladderState, setLadder } from './planLadder.js';
 import { bad, HttpError } from '../util.js';
 import { cleanEmailLimits } from './emailLimits.js';
 import { cleanWhatsappLimits } from './whatsappLimits.js';
@@ -46,7 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_coupon_redemptions ON coupon_redemptions(code);
 const PLAN_COLUMNS = [['product', "TEXT NOT NULL DEFAULT 'real_estate'"], ['properties', 'INTEGER'], ['storage_mb', 'INTEGER'], ['api_access', 'INTEGER NOT NULL DEFAULT 1'],
   ['features', 'TEXT'], ['highlight', 'INTEGER NOT NULL DEFAULT 0'], ['trial_eligible', 'INTEGER NOT NULL DEFAULT 1'], ['setup_fee', 'TEXT'], ['email_limits', 'TEXT'], ['whatsapp_limits', 'TEXT'],
   ['allowances', 'TEXT'], ['launch_offer', 'INTEGER NOT NULL DEFAULT 0'], ['regional', 'TEXT']];
-export const CURRENCIES = ['PKR', 'USD', 'GBP', 'CAD'];
+export const CURRENCIES = ['PKR', 'USD', 'GBP', 'CAD', 'AED'];
 const ID_RE = /^[a-z][a-z0-9_]{1,30}$/;
 
 let db = null;
@@ -159,6 +159,30 @@ export function initPlans(pdb) {
         if (!price.USD) db.prepare("UPDATE addons SET price=?, updated_at=datetime('now'), updated_by='system' WHERE id=?").run(JSON.stringify({ ...price, USD: usd }), id);
       }
       mark('seeded_ladder_us_v1');
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+  }
+  // UAE launch: AED prices for the six ladder plans and their add-ons, plus AED wording merged into `regional`. Fills gaps only: an AED price or wording the owner already set is kept.
+  // Nothing goes on sale here; the ladder switch decides that, and only customers who pay in AED see these prices.
+  if (!setting('seeded_ladder_ae_v1')) {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      for (const [id, p] of Object.entries(LADDER_PLANS)) {
+        const row = db.prepare('SELECT regional FROM plans WHERE id=?').get(id);
+        if (!row) continue;
+        for (const [int, amount] of Object.entries(p.price.AED)) {
+          if (!db.prepare("SELECT 1 FROM plan_prices WHERE plan_id=? AND currency='AED' AND interval=?").get(id, int)) db.prepare("INSERT INTO plan_prices(plan_id,currency,interval,amount,effective_from,created_by) VALUES(?,'AED',?,?,'2000-01-01 00:00:00','system')").run(id, int, amount);
+        }
+        const reg = parseJson(row.regional, {}) || {};
+        if (!reg.AED) db.prepare('UPDATE plans SET regional=? WHERE id=?').run(JSON.stringify({ ...reg, AED: LADDER_REGIONAL[id].AED }), id);
+      }
+      for (const [id, aed] of Object.entries(ADDON_AED)) {
+        const row = db.prepare('SELECT price FROM addons WHERE id=?').get(id);
+        if (!row) continue;
+        const price = parseJson(row.price, {});
+        if (!price.AED) db.prepare("UPDATE addons SET price=?, updated_at=datetime('now'), updated_by='system' WHERE id=?").run(JSON.stringify({ ...price, AED: aed }), id);
+      }
+      mark('seeded_ladder_ae_v1');
       db.exec('COMMIT');
     } catch (e) { db.exec('ROLLBACK'); throw e; }
   }
