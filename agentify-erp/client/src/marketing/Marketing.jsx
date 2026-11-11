@@ -631,7 +631,8 @@ function Pricing({ info }) {
   const currencies = [...new Set(info.plans.flatMap((p) => Object.keys(p.price)))].sort((a, b) => (a === 'PKR' ? -1 : b === 'PKR' ? 1 : a.localeCompare(b)));
   const addons = info.addons.filter((a) => a.product === 'any' || a.product === prod || prod === 'bundle');
   const pay = [...(info.cards ? ['Cards'] : []), ...info.local_methods.map((k) => METHOD[k] || k)];
-  const saving = (p) => (p.price[cur]?.month && p.price[cur]?.[int] && int !== 'month' && p.price[cur][int] < p.price[cur].month * (int === 'half' ? 6 : 12) ? Math.round((1 - p.price[cur][int] / (p.price[cur].month * (int === 'half' ? 6 : 12))) * 100) : 0);
+  const saving = (p, iv = int) => (p.price[cur]?.month && p.price[cur]?.[iv] && iv !== 'month' && p.price[cur][iv] < p.price[cur].month * (iv === 'half' ? 6 : 12) ? Math.round((1 - p.price[cur][iv] / (p.price[cur].month * (iv === 'half' ? 6 : 12))) * 100) : 0);
+  const tabSave = (i) => Math.max(0, ...plans.map((p) => saving(p, i)));
   const periods = ['month', 'half', 'year'].filter((i) => i === 'month' || plans.some((p) => p.price[cur]?.[i] != null));
   const rows = [
     ['Team members', (p) => (p.seats == null ? 'Unlimited' : p.seats)], ['Projects', (p) => (p.allowances?.flags?.project_inventory === false ? '—' : p.projects == null ? 'Unlimited' : p.projects)],
@@ -645,7 +646,7 @@ function Pricing({ info }) {
       <section style={{ paddingTop: 0 }}><div className="lwrap">
         <div className="ltog">
           <div role="tablist" aria-label="Product">{[['real_estate', 'Real Estate'], ['construction', 'Construction'], ...(hasBundle ? [['bundle', 'Both']] : [])].map(([k, l]) => <button key={k} role="tab" aria-selected={prod === k} className={prod === k ? 'on' : ''} onClick={() => setProd(k)}>{l}</button>)}</div>
-          <div role="tablist" aria-label="Billing">{periods.map((i) => <button key={i} role="tab" aria-selected={int === i} className={int === i ? 'on' : ''} onClick={() => setInt(i)}>{i === 'month' ? 'Monthly' : i === 'half' ? '6 months' : 'Yearly'}</button>)}</div>
+          <div role="tablist" aria-label="Billing">{periods.map((i) => <button key={i} role="tab" aria-selected={int === i} className={int === i ? 'on' : ''} onClick={() => setInt(i)}>{i === 'month' ? 'Monthly' : i === 'half' ? '6 months' : 'Yearly'}{i !== 'month' && tabSave(i) ? ` · save ${tabSave(i)}%` : ''}</button>)}</div>
           {false && <div role="tablist" aria-label="Currency">{currencies.map((k) => <button key={k} role="tab" aria-selected={cur === k} className={cur === k ? 'on' : ''} onClick={() => setCur(k)}>{k}</button>)}</div>}
         </div>
         {!plans.length ? <p className="lfine" style={{ textAlign: 'center' }}>Plans for this product are being prepared. <Link to="/contact">Contact us</Link>.</p> : (

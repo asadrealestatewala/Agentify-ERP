@@ -114,7 +114,7 @@ test('launch offer: off by default, no discount; on gives the launch price for t
   const q1 = quote(t, { plan: 'tier1', interval: 'month', currency: 'PKR' });
   assert.equal(q1.total, 2450);
   assert.ok(q1.lines.some((l) => l.kind === 'launch_offer'));
-  assert.equal(quote(t, { plan: 'tier1', interval: 'year', currency: 'PKR' }).total, 35700, 'yearly has no launch discount');
+  assert.equal(quote(t, { plan: 'tier1', interval: 'year', currency: 'PKR' }).total, PLANS.tier1.price.PKR.year, 'yearly has no launch discount');
   assert.equal(quote(t, { plan: 'starter', interval: 'month', currency: 'PKR' }).total, PLANS.starter.price.PKR.month, 'older plans are not part of the offer');
   // three paid months at the launch price, then the normal price from month 4
   const started = getOffer().started_at;

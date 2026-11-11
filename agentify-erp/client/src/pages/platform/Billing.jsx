@@ -143,7 +143,7 @@ export function PlansPage() {
             )))}
             {CURS.map((cur) => <Field key={`fee${cur}`} label={`One-time setup fee (${cur})`} hint="Charged with the first payment only. Empty = none."><TextInput type="number" value={edit.setup_fee?.[cur] ?? ''} onChange={(v) => setEdit({ ...edit, setup_fee: { ...edit.setup_fee, [cur]: v === '' ? undefined : Number(v) } })} /></Field>)}
           </div>
-          <p className="muted" style={{ marginTop: 0 }}>Period discounts: set the 6-month price lower than 6 x monthly and the yearly price lower than 12 x monthly (the 7-tier ladder uses 10% and 20% off). Leave a period empty to not offer it.</p>
+          <p className="muted" style={{ marginTop: 0 }}>Period discounts: set the 6-month price lower than 6 x monthly and the yearly price lower than 12 x monthly (the standard is 5% off for 6 months and 10% off for 12 months in every country; the percentages live in shared/termDiscounts.js). Leave a period empty to not offer it.</p>
           <h4 style={{ margin: '12px 0 6px' }}>Limits</h4>
           <div className="pa-grid3" style={{ marginBottom: 0 }}>
             <Field label="Users" hint="Empty = unlimited"><TextInput type="number" value={edit.seats ?? ''} onChange={(v) => setEdit({ ...edit, seats: v })} /></Field>

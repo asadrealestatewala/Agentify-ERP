@@ -11,6 +11,7 @@
 //   product family                                   cannot be changed once a workspace is subscribed to the plan
 import { PLANS, DEFAULT_PLANS, DEFAULT_CONSTRUCTION_PLANS, DEFAULT_TIER_PLANS, PLAN_SETTINGS, MODULES, PRODUCT_CHOICES, INTERVAL_KEYS, FEATURE_GATES, setAddonLookup } from './plans.js';
 import { LADDER_PLANS, LADDER_ADDONS, LADDER_REGIONAL, ADDON_USD, ADDON_AED, ladderState, setLadder } from './planLadder.js';
+import { termPrice } from '../../../shared/termDiscounts.js';
 import { bad, HttpError } from '../util.js';
 import { cleanEmailLimits } from './emailLimits.js';
 import { cleanWhatsappLimits } from './whatsappLimits.js';
@@ -183,6 +184,29 @@ export function initPlans(pdb) {
         if (!price.AED) db.prepare("UPDATE addons SET price=?, updated_at=datetime('now'), updated_by='system' WHERE id=?").run(JSON.stringify({ ...price, AED: aed }), id);
       }
       mark('seeded_ladder_ae_v1');
+      db.exec('COMMIT');
+    } catch (e) { db.exec('ROLLBACK'); throw e; }
+  }
+  // v1.93: billing-term discounts for every country: 5% off a 6-month plan and 10% off a 12-month plan (shared/termDiscounts.js). Every plan and recurring add-on
+  // price for those periods is re-derived from its monthly price. A changed price is a NEW dated price row (history kept); subscribers keep the price they pay
+  // until they renew. Prices the owner edits in the console later are respected (this runs once).
+  if (!setting('term_discounts_v1')) {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      const months = db.prepare("SELECT plan_id, currency, amount FROM plan_prices p WHERE interval='month' AND amount>0 AND effective_from<=datetime('now') AND id=(SELECT q.id FROM plan_prices q WHERE q.plan_id=p.plan_id AND q.currency=p.currency AND q.interval='month' AND q.effective_from<=datetime('now') ORDER BY q.effective_from DESC, q.id DESC LIMIT 1)").all();
+      for (const m of months) for (const int of ['half', 'year']) {
+        const want = termPrice(m.amount, int, m.currency);
+        const now = db.prepare("SELECT amount FROM plan_prices WHERE plan_id=? AND currency=? AND interval=? AND effective_from<=datetime('now') ORDER BY effective_from DESC, id DESC LIMIT 1").get(m.plan_id, m.currency, int);
+        if (!now || now.amount !== want) db.prepare("INSERT INTO plan_prices(plan_id,currency,interval,amount,effective_from,created_by) VALUES(?,?,?,?,datetime('now'),'system')").run(m.plan_id, m.currency, int, want);
+      }
+      for (const a of db.prepare('SELECT id, price, entitlements FROM addons').all()) {
+        if (parseJson(a.entitlements, {})?.topup_credits) continue; // one-time packs cost the same for every period
+        const price = parseJson(a.price, {}) || {};
+        let changed = false;
+        for (const [cur, v] of Object.entries(price)) if (v && v.month > 0) { const h = termPrice(v.month, 'half', cur), y = termPrice(v.month, 'year', cur); if (v.half !== h || v.year !== y) { price[cur] = { ...v, half: h, year: y }; changed = true; } }
+        if (changed) db.prepare("UPDATE addons SET price=?, updated_at=datetime('now'), updated_by='system' WHERE id=?").run(JSON.stringify(price), a.id);
+      }
+      mark('term_discounts_v1');
       db.exec('COMMIT');
     } catch (e) { db.exec('ROLLBACK'); throw e; }
   }
