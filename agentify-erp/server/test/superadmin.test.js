@@ -170,7 +170,7 @@ test('plans: editable, prices versioned, existing subscribers keep their price, 
   assert.equal(set.status, 200, set.text); assert.deepEqual(set.data.price, { amount: 22000, currency: 'PKR', interval: 'month' });
   assert.equal((await adm('POST', `/workspaces/${acme.id}/subscription`, { plan: 'growth', status: 'active' })).status, 400, 'reason required');
   const up = await adm('PUT', '/plans/growth', { price: { PKR: { month: 25000 } } });
-  assert.equal(up.data.price.PKR.month, 25000); assert.equal(up.data.price.PKR.year, 220000, 'untouched prices stay');
+  assert.equal(up.data.price.PKR.month, 25000); assert.equal(up.data.price.PKR.year, 237600, 'untouched prices stay (12 months = 10% off 22,000 x 12)');
   assert.ok(up.data.price_history.some((h) => h.amount === 22000) && up.data.price_history.some((h) => h.amount === 25000), 'old price kept on record');
   const d = (await adm('GET', '/dashboard?range=30d')).data;
   assert.equal(d.kpis.mrr.value, 22000, 'MRR uses the price the workspace pays, not the new list price');

@@ -24,7 +24,7 @@ export const PRODUCTS = {
 export const PRODUCT_CHOICES = [...Object.keys(PRODUCTS), 'bundle'];
 export const expandProduct = (p) => (p === 'bundle' ? Object.keys(PRODUCTS) : PRODUCTS[p] ? [p] : ['real_estate']);
 
-/** Billing periods. Prices are stored per interval, so a longer period carries its own discount (6-month = 10% off, yearly = 20% off on the Pakistan ladder). */
+/** Billing periods. Prices are stored per interval, so a longer period carries its own discount (6-month = 5% off, 12-month = 10% off, set in shared/termDiscounts.js). */
 export const INTERVALS = { month: { months: 1, label: 'monthly', unit: 'month' }, half: { months: 6, label: '6-monthly', unit: '6 months' }, year: { months: 12, label: 'yearly', unit: 'year' } };
 export const INTERVAL_KEYS = Object.keys(INTERVALS);
 export const isInterval = (i) => typeof i === 'string' && Object.hasOwn(INTERVALS, i);

@@ -1,16 +1,17 @@
 // The 6-tier Pakistan plan ladder (Agent Plus ... Enterprise; the old Solo Agent tier was retired in v1.89) and its add-ons. Seeded once as HIDDEN plans by plansStore.initPlans; the platform owner
 // reviews them in Console > Plans and uses "Switch to the plan ladder" to put them on sale. Every number here is a proposal the owner edits in the console.
 //
-// Prices are PKR, tax-inclusive like the rest of the billing code. 6-month = 6 months less 10%, yearly = 12 months less 20%.
+// Prices are PKR, tax-inclusive like the rest of the billing code. 6-month and yearly discounts come from shared/termDiscounts.js (5% and 10%).
 // Each tier switches features on or off through plan.allowances.flags (see FEATURE_GATES in plans.js); the server refuses a switched-off area with 402 feature_not_in_plan.
 import { FEATURE_GATES } from './plans.js';
+import { periodPricesFor, termDiscountPercent } from '../../../shared/termDiscounts.js';
 
 /** The currency the plain (un-suffixed) Stripe price slots of the ladder are for; other currencies get their own slot. */
 export const LADDER_HOME_CURRENCY = 'PKR';
-export const HALF_YEAR_DISCOUNT = 10;
-export const YEAR_DISCOUNT = 20;
-/** Monthly price -> { month, half, year } with the ladder's period discounts. */
-export const periodPrices = (month) => ({ month, half: Math.round(month * 6 * (1 - HALF_YEAR_DISCOUNT / 100)), year: Math.round(month * 12 * (1 - YEAR_DISCOUNT / 100)) });
+export const HALF_YEAR_DISCOUNT = termDiscountPercent('half');
+export const YEAR_DISCOUNT = termDiscountPercent('year');
+/** Monthly price -> { month, half, year } with the configured term discounts (shared/termDiscounts.js). */
+export const periodPrices = (month, currency = null) => periodPricesFor(month, currency);
 
 // feature -> the first tier that includes it (tiers 1..7); tiers above keep it
 const FIRST_TIER = {

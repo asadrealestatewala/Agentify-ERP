@@ -245,7 +245,7 @@ function BillingPage() {
   const label = statusLabel ? `${statusLabel}${data.plan && data.status !== 'trialing' ? ` · ${data.plans.find((p) => p.id === data.plan)?.name || data.plan}` : ''}` : lim.name;
   const bar = (used, max) => (max == null ? null : <ProgressBar value={Math.min(100, Math.round((used / max) * 100))} tone={used >= max ? 'red' : used / max > 0.8 ? 'amber' : 'green'} />);
   const usageRow = (name, used, max, unit = '') => <div><div className="row between"><span>{name}</span><span className="muted">{used}{unit}{max != null ? ` of ${max}${unit}` : ' · unlimited'}</span></div>{bar(used, max)}</div>;
-  const saves = (i) => data.plans.some((p) => p.price.PKR?.[i] && p.price.PKR[i] < p.price.PKR.month * ({ half: 6, year: 12 }[i]));
+  const saves = (i) => Math.max(0, ...data.plans.map((p) => { const pr = p.price[data.currency]?.month ? p.price[data.currency] : p.price.PKR; const f = { half: 6, year: 12 }[i]; return pr?.month && pr[i] && pr[i] < pr.month * f ? Math.round((1 - pr[i] / (pr.month * f)) * 100) : 0; }));
   const offered = ['month', 'half', 'year'].filter((i) => i === 'month' || data.plans.some((p) => p.price[data.currency]?.[i] != null || p.price.PKR?.[i] != null));
   return (
     <div>
@@ -285,7 +285,7 @@ function BillingPage() {
         </Card>
       </div>
       {data.plan !== 'legacy' && (
-        <div id="choose-plan"><Card title={`Choose a plan · ${PRODUCT_LABEL[data.product] || ''}`} actions={<div className="row" style={{ gap: 6 }}>{offered.map((i) => <button key={i} className={`btn sm ${interval === i ? 'primary' : ''}`} onClick={() => setInterval(i)}>{PERIOD_NAME[i]}{i !== 'month' && saves(i) ? ' (save)' : ''}</button>)}</div>}>
+        <div id="choose-plan"><Card title={`Choose a plan · ${PRODUCT_LABEL[data.product] || ''}`} actions={<div className="row" style={{ gap: 6 }}>{offered.map((i) => <button key={i} className={`btn sm ${interval === i ? 'primary' : ''}`} onClick={() => setInterval(i)}>{PERIOD_NAME[i]}{i !== 'month' && saves(i) ? ` (save ${saves(i)}%)` : ''}</button>)}</div>}>
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))' }}>
             {data.plans.map((p) => {
               const current = data.plan === p.id && data.status === 'active';

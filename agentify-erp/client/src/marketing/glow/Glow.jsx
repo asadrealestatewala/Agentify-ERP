@@ -344,7 +344,7 @@ function Pricing({ info }) {
         <p className="gx-eyebrow gx-rv"><i>06</i> <T k="pricing.eyebrow" /></p>
         <h2 id="gx-pr-h" className="gx-h2 gx-rv"><T k="pricing.h2a" />{' '}<span className="gx-grad"><T k="pricing.h2b" /></span></h2>
         <p className="gx-lead gx-rv">Every eligible new workspace starts with a {info.trial_days}-day free trial, no card needed. Prices in {cur}{cur !== country.currency ? ` (${country.name} prices are not set yet)` : ''}.</p>
-        <div className="gx-toggle gx-rv" role="group" aria-label="Billing period">{[['month', 'Monthly'], ['half', '6 months'], ['year', 'Yearly']].filter(([k]) => k === 'month' || plans.some((p) => p.price?.[cur]?.[k] != null)).map(([k, l]) => <button key={k} type="button" aria-pressed={int === k} className={int === k ? 'on' : ''} onClick={() => setInt(k)}>{l}</button>)}</div>
+        <div className="gx-toggle gx-rv" role="group" aria-label="Billing period">{[['month', 'Monthly'], ['half', '6 months'], ['year', 'Yearly']].filter(([k]) => k === 'month' || plans.some((p) => p.price?.[cur]?.[k] != null)).map(([k, l]) => { const pct = k === 'month' ? 0 : Math.max(0, ...plans.map((p) => { const pr = p.price?.[cur]; const f = k === 'half' ? 6 : 12; return pr?.month && pr[k] && pr[k] < pr.month * f ? Math.round((1 - pr[k] / (pr.month * f)) * 100) : 0; })); return <button key={k} type="button" aria-pressed={int === k} className={int === k ? 'on' : ''} onClick={() => setInt(k)}>{l}{pct ? ` · save ${pct}%` : ''}</button>; })}</div>
         <ul className="gx-plans">{plans.map((p, k) => {
           const price = p.price?.[cur]?.[int];
           return (

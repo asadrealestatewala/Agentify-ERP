@@ -6,6 +6,14 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.93', date: '2026-11-11', title: 'Save more on 6-month and yearly plans',
+    items: [
+      { text: 'Pay for 6 months at once and get 5% off, or pay for 12 months and get 10% off, on every plan and add-on, in every country and currency. The saving is worked out from the monthly price and shown on the pricing page, and under Plan & billing.', where: 'Pricing page, Plan & billing' },
+      { text: 'Your current plan does not change by itself. The new prices apply the next time you renew or switch to a 6-month or yearly period.', where: 'Plan & billing' },
+      { text: 'The discount percentages now live in one setting (shared/termDiscounts.js) and can differ per currency. After this release, re-create any yearly card prices in Stripe at the new amounts.', where: 'Console > Plans', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.92', date: '2026-11-10', title: 'Edit your bank and cash accounts',
     items: [
       { text: 'The built-in accounts (Main Bank Account, Bank Account 2, Online Payment Account and the rest) can now be edited like any other account: rename them, change their opening balance, or delete the ones you never use. Accounts that receipts, expenses and payroll post to automatically can be renamed but not deleted.', where: 'Accounting > Chart of Accounts > Edit', guide: 'edit-bank-accounts' },

@@ -29,17 +29,17 @@ const mk = (slug, plan) => {
 /** Run the billing guard for one request; returns the error it passed on, or null when the request goes through. */
 const guard = (tenant, method, p) => { let err = null; billingGuard({ tenant, method, path: p, headers: {} }, {}, (e) => { err = e || null; }); return err; };
 
-test('the 7 ladder plans are seeded hidden, with the agreed prices, seats and the 10% / 20% period discounts', () => {
+test('the 7 ladder plans are seeded hidden, with the agreed prices, seats and the 5% / 10% period discounts', () => {
   assert.deepEqual(LADDER_IDS, ['lad_agent_plus', 'lad_agency_starter', 'lad_agency_growth', 'lad_agency_pro', 'lad_developer', 'lad_enterprise']);
   assert.deepEqual(LADDER_IDS.map((id) => PLANS[id].price.PKR.month), [1500, 5000, 12000, 18000, 35000, 85000]);
   assert.deepEqual(LADDER_IDS.map((id) => PLANS[id].seats), [2, 5, 10, 15, 40, null]);
   for (const id of LADDER_IDS) {
     const p = PLANS[id].price.PKR;
-    assert.equal(p.half, Math.round(p.month * 6 * 0.9), `${id} 6 months = 10% off`);
-    assert.equal(p.year, Math.round(p.month * 12 * 0.8), `${id} yearly = 20% off`);
+    assert.equal(p.half, Math.round(p.month * 6 * 0.95), `${id} 6 months = 5% off`);
+    assert.equal(p.year, Math.round(p.month * 12 * 0.9), `${id} 12 months = 10% off`);
     assert.equal(PLANS[id].visible, false, `${id} hidden`);
   }
-  assert.deepEqual(periodPrices(1500), { month: 1500, half: 8100, year: 14400 });
+  assert.deepEqual(periodPrices(1500), { month: 1500, half: 8550, year: 16200 });
   assert.equal(PLANS.lad_developer.product, 'bundle');
   assert.equal(PLANS.lad_enterprise.api_access, true);
   assert.ok(!planCatalog().some((p) => p.id.startsWith('lad_')), 'nothing is on the public catalog until the owner switches it on');
@@ -109,15 +109,15 @@ test('the billing guard enforces the tier: 402 feature_not_in_plan below it, thr
 test('quotes: 6-month and yearly prices, extra users, and AI top-up packs are one-time and not part of the recurring price', () => {
   const t = mk('lquote', 'lad_agency_starter');
   assert.equal(intervalMonths('half'), 6);
-  assert.equal(quote(t, { plan: 'lad_agency_growth', interval: 'half', currency: 'PKR' }).total, 64800);
-  assert.equal(quote(t, { plan: 'lad_agency_growth', interval: 'year', currency: 'PKR' }).total, 115200);
+  assert.equal(quote(t, { plan: 'lad_agency_growth', interval: 'half', currency: 'PKR' }).total, 68400);
+  assert.equal(quote(t, { plan: 'lad_agency_growth', interval: 'year', currency: 'PKR' }).total, 129600);
   assert.throws(() => quote(t, { plan: 'lad_agency_growth', interval: 'weekly', currency: 'PKR' }), /Interval/);
   const q = quote(t, { plan: 'lad_agent_plus', interval: 'half', currency: 'PKR', addons: [{ id: 'extra_user', quantity: 3 }] });
-  assert.equal(q.total, 8100 + 3 * 3780);
+  assert.equal(q.total, 8550 + 3 * 3990);
   assert.equal(quote(t, { plan: 'lad_agent_plus', interval: 'month', currency: 'PKR', addons: [{ id: 'extra_user', quantity: 1 }] }).total, 1500 + 700);
   const tp = quote(t, { plan: 'lad_agent_plus', interval: 'year', currency: 'PKR', addons: [{ id: 'ai_topup_100', quantity: 1 }] });
-  assert.equal(tp.total, 14400 + 3000);
-  assert.equal(tp.list_amount, 14400, 'the top-up is not recurring');
+  assert.equal(tp.total, 16200 + 3000);
+  assert.equal(tp.list_amount, 16200, 'the top-up is not recurring');
   assert.equal(tp.setup_fee, 3000, 'it is carried as a one-time amount so reports do not count it as monthly revenue');
 });
 
@@ -132,7 +132,7 @@ test('approving a 6-month payment extends 6 months, an extra user raises the sea
   const today = new Date(); const want = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 6, today.getUTCDate()));
   assert.ok(Math.abs(Date.parse(out.current_period_end) - want.getTime()) <= 3 * 864e5, `period end ${out.current_period_end}`);
   assert.equal(out.billing_interval, 'half');
-  assert.equal(out.price_amount, 64800 + 2 * 3780, 'recurring price excludes the one-time pack');
+  assert.equal(out.price_amount, 68400 + 2 * 3990, 'recurring price excludes the one-time pack');
   assert.equal(billingState(getTenantBySlug('lpay')).limits.seats, 12);
   assert.equal(creditsAllowance(t.id), before + 300);
   assert.ok(!db.prepare("SELECT 1 FROM tenant_addons WHERE tenant_id=? AND addon_id='ai_topup_300'").get(t.id), 'no recurring add-on is left for a one-time pack');
@@ -198,8 +198,8 @@ test('USA: the ladder carries USD prices, USD wording, USD add-ons and currency-
   assert.deepEqual(LADDER_IDS.map((id) => PLANS[id].price.USD.month), [29, 79, 149, 249, 449, 999]);
   for (const id of LADDER_IDS) {
     const u = PLANS[id].price.USD;
-    assert.equal(u.half, Math.round(u.month * 6 * 0.9));
-    assert.equal(u.year, Math.round(u.month * 12 * 0.8));
+    assert.equal(u.half, Math.round(u.month * 6 * 0.95));
+    assert.equal(u.year, Math.round(u.month * 12 * 0.9));
     assert.ok(PLANS[id].regional.USD.features.length, `${id} has USD wording`);
     assert.ok(!/PKR|rupee|plot rebate/i.test(JSON.stringify(PLANS[id].regional.USD)), `${id} USD wording has no Pakistan terms`);
   }
@@ -234,8 +234,8 @@ test('UAE: the ladder carries AED prices, AED wording, AED add-ons and AED card 
   assert.deepEqual(LADDER_IDS.map((id) => PLANS[id].price.AED.month), [99, 299, 549, 899, 1649, 3699]);
   for (const id of LADDER_IDS) {
     const a = PLANS[id].price.AED;
-    assert.equal(a.half, Math.round(a.month * 6 * 0.9));
-    assert.equal(a.year, Math.round(a.month * 12 * 0.8));
+    assert.equal(a.half, Math.round(a.month * 6 * 0.95));
+    assert.equal(a.year, Math.round(a.month * 12 * 0.9));
     assert.ok(PLANS[id].regional.AED.features.length, `${id} has AED wording`);
     assert.ok(PLANS[id].regional.USD, `${id} keeps its USD wording`);
     assert.ok(!/PKR|rupee|plot rebate|installment|Twilio|\$/i.test(JSON.stringify(PLANS[id].regional.AED)), `${id} AED wording has no Pakistan or US terms`);
@@ -252,4 +252,26 @@ test('UAE: the ladder carries AED prices, AED wording, AED add-ons and AED card 
   assert.ok(priceSlots().includes('lad_agency_growth_month_aed') && priceSlots().includes('lad_agency_growth_year_aed'));
   assert.equal(stripe.priceId('lad_agency_growth', 'month', 'AED'), null, 'an AED card never falls back to the PKR price');
   switchLadder(false, 'test');
+});
+
+test('term discounts: 5% off 6 months and 10% off 12 months in every currency, config-driven, migration re-prices older plans once', async () => {
+  const { termDiscountPercent, termPrice, TERM_DISCOUNTS } = await import('../../shared/termDiscounts.js');
+  assert.deepEqual([termDiscountPercent('half'), termDiscountPercent('year'), termDiscountPercent('month')], [5, 10, 0]);
+  assert.equal(termPrice(1000, 'half'), 5700);
+  assert.equal(termPrice(1000, 'year'), 10800);
+  TERM_DISCOUNTS.byCurrency.XXX = { year: 20 };
+  assert.equal(termPrice(1000, 'year', 'XXX'), 9600, 'a currency can carry its own percentage');
+  assert.equal(termPrice(1000, 'half', 'XXX'), 5700, 'and falls back to the default for the other period');
+  delete TERM_DISCOUNTS.byCurrency.XXX;
+  // every plan with a monthly price in any currency carries the discounted 6-month and yearly prices
+  for (const [id, p] of Object.entries(PLANS)) for (const [cur, v] of Object.entries(p.price)) {
+    if (!v.month) continue;
+    assert.equal(v.half, Math.round(v.month * 6 * 0.95), `${id} ${cur} 6 months`);
+    assert.equal(v.year, Math.round(v.month * 12 * 0.9), `${id} ${cur} 12 months`);
+  }
+  // running the migration again changes nothing
+  const before = db.prepare('SELECT COUNT(*) n FROM plan_prices').get().n;
+  db.prepare("DELETE FROM platform_settings WHERE key='term_discounts_v1'").run();
+  initPlans(db);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM plan_prices').get().n, before);
 });
