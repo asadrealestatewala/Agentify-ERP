@@ -8,6 +8,26 @@ const EMAIL_RE = /^[^\s@<>()[\]\\,;:"]+@(?:[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9
 export const isPersonName = (v) => typeof v === 'string' && v.trim().length <= 100 && NAME_RE.test(v.trim());
 export const isEmail = (v) => typeof v === 'string' && v.length <= 254 && !v.includes('..') && EMAIL_RE.test(v.trim());
 
+// passwords that are tried first by anyone guessing; compared without case, spaces or a trailing ! . ?
+const COMMON_PASSWORDS = new Set(('password password1 password12 password123 password1234 passw0rd 12345678 123456789 1234567890 123123123 11111111 00000000 '
+  + '87654321 12341234 qwerty123 qwertyuiop qwerty12 asdfghjk asdf1234 abc12345 abcd1234 admin123 admin1234 administrator welcome1 welcome123 letmein1 '
+  + 'iloveyou iloveyou1 pakistan pakistan1 pakistan123 karachi123 lahore123 islamabad sunshine princess football baseball superman trustno1 '
+  + 'changeme changeme1 default1 test1234 testing1 agentify agentify1 agentify123 agentifyerp').split(' '));
+
+/** Why a new password is not acceptable, or null when it is fine. At least 8 characters, not a well-known password, not the e-mail or name. */
+export function passwordProblem(password, { email = '', name = '', label = 'Password' } = {}) {
+  const p = String(password ?? '');
+  if (p.length < 8) return `${label} must be at least 8 characters`;
+  if (p.length > 200) return `${label} can be at most 200 characters`;
+  const plain = p.toLowerCase().replace(/\s+/g, '').replace(/[!.?]+$/, '');
+  if (COMMON_PASSWORDS.has(plain) || /^(.)\1+$/.test(plain)) return `${label} is too easy to guess. Choose something less common.`;
+  const mail = String(email || '').trim().toLowerCase();
+  if (mail && (plain === mail || plain === mail.split('@')[0])) return `${label} must not be your e-mail address`;
+  const nm = String(name || '').toLowerCase().replace(/\s+/g, '');
+  if (nm.length >= 4 && plain === nm) return `${label} must not be your name`;
+  return null;
+}
+
 // keys that always hold a person's name
 const NAME_KEYS = new Set(['full_name', 'first_name', 'last_name', 'father_name', 'customer_name', 'agent_name', 'contact_name', 'owner_name',
   'client_name', 'employee_name', 'admin_name', 'candidate', 'spouse_name', 'guardian_name', 'nominee_name', 'emergency_contact_name']);

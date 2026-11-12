@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { guardedDispatcher } from './netGuard.js';
 import { get, all, run, getSetting, setSetting } from '../db.js';
 import { now, jparse } from '../util.js';
 import { progressSql } from './schedule.js';
@@ -95,7 +96,7 @@ export function fireWebhook(propertyId, event) {
   // checked at every delivery (not only when saved): only https, only public addresses, and redirects are not followed
   import('./integrations.js')
     .then(({ assertPublicHttps }) => assertPublicHttps(url))
-    .then((safe) => fetch(safe, { method: 'POST', headers, body, redirect: 'manual', signal: AbortSignal.timeout(8000) }))
+    .then((safe) => fetch(safe, { method: 'POST', headers, body, redirect: 'manual', dispatcher: guardedDispatcher(), signal: AbortSignal.timeout(8000) }))
     .then((r) => syncLog(propertyId, event, r.ok ? 'ok' : 'error', `HTTP ${r.status}`))
     .catch((e) => syncLog(propertyId, event, 'error', e.message));
 }

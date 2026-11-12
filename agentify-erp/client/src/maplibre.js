@@ -1,9 +1,15 @@
 // MapLibre GL helpers: the library is loaded on demand (its own chunk), every map is created the same way, and the same
 // phone-friendly settings apply to all of them (capped pixel ratio, compact attribution, no heavy extras).
 import { fetchMapsConfig } from './googleMaps.js';
+// the package does not export this file, so it is imported by path
+import workerUrl from '../node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'; // MapLibre's tile worker, built by Vite as its own file
 
 let libP = null;
-export const loadMapLibre = () => (libP ||= Promise.all([import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl.css')]).then(([m]) => m.default || m).catch((e) => { libP = null; throw e; }));
+export const loadMapLibre = () => (libP ||= Promise.all([import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl.css')]).then(([m]) => {
+  const ml = m.default || m;
+  ml.setWorkerUrl?.(workerUrl); // the library cannot find its worker file inside a bundle by itself
+  return ml;
+}).catch((e) => { libP = null; throw e; }));
 
 export const STYLE_KINDS = ['streets', 'satellite'];
 /** Style URL: OpenFreeMap streets by default; MapTiler hybrid satellite when a MapTiler key exists. */

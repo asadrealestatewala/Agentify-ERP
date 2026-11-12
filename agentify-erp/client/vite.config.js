@@ -10,4 +10,6 @@ export default defineConfig({
   // The proxy tells the API which address the browser used (hifi.localhost:5173), so workspace subdomains also work in dev.
   server: { port: 5173, proxy: Object.fromEntries(['/api', '/uploads'].map((p) => [p, { target: 'http://localhost:4000', configure: (proxy) => proxy.on('proxyReq', (pr, req) => pr.setHeader('x-forwarded-host', req.headers.host)) }])) },
   build: { chunkSizeWarningLimit: 1500 },
+  // MapLibre 6 runs its tile worker as a separate module file, which src/maplibre.js has Vite bundle (with its shared code)
+  worker: { format: 'es' },
 });

@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import { passwordProblem } from '../validation.js';
 import { assertUserEmailFree } from './uniqueEmail.js';
 import crypto from 'node:crypto';
 import { get, all, run, nextNo, val } from '../db.js';
@@ -98,7 +99,7 @@ export function createDeveloperPortalUser(developerId, password) {
   if (!d) throw bad('Developer not found');
   const email = String(d.email || '').trim().toLowerCase();
   if (!email) throw bad('Add the developer’s e-mail address first: it becomes their login');
-  if (password && String(password).length < 8) throw bad('Password must be at least 8 characters');
+  if (password) { const pp = passwordProblem(password, { email, name: d.name }); if (pp) throw bad(pp); }
   const pw = password ? String(password) : `${crypto.randomBytes(4).toString('hex')}-${crypto.randomInt(1000, 9999)}`;
   const hash = bcrypt.hashSync(pw, 10);
   const existing = get('SELECT id FROM users WHERE developer_id=?', developerId);

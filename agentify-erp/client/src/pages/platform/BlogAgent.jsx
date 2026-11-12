@@ -69,7 +69,7 @@ function SearchConsole({ data }) {
       )}
       {data.can_edit_keys ? (
         <div style={{ marginTop: 10 }}>
-          {!sc?.connected && <ol className="muted"><li>In Google Cloud Console create a project, enable the "Google Search Console API", then create a service account and download its JSON key.</li><li>In Search Console open Settings > Users and permissions > Add user, paste the service account email and choose Restricted.</li><li>Paste the whole JSON file below and save.</li></ol>}
+          {!sc?.connected && <ol className="muted"><li>In Google Cloud Console create a project, enable the "Google Search Console API", then create a service account and download its JSON key.</li><li>In Search Console open Settings {'>'} Users and permissions {'>'} Add user, paste the service account email and choose Restricted.</li><li>Paste the whole JSON file below and save.</li></ol>}
           {sc?.connected && <p className="muted">Connected as {sc.email}</p>}
           <Field label="Service account JSON key" hint="Stored encrypted; never shown again."><textarea className="input" rows="4" autoComplete="off" value={json} onChange={(e) => setJson(e.target.value)} /></Field>
           <Field label="Search Console property" hint="Exactly as in Search Console, for example https://agentifyerp.co/ (with the final slash)."><TextInput value={site} onChange={setSite} /></Field>

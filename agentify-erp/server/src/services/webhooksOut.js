@@ -2,6 +2,7 @@
 // Every delivery is signed (Agentify-Signature: t=<unix>,v1=<HMAC-SHA256 of "t.body"> with the subscription's secret), carries a
 // stable Agentify-Event-Id so the receiver can ignore repeats, goes only to public https addresses (checked again at every attempt,
 // redirects are not followed) and is retried about 1 min, 5 min, 30 min, 2 h and 12 h later before it is marked failed.
+import { guardedDispatcher } from './netGuard.js';
 import crypto from 'node:crypto';
 import { all, get, run } from '../db.js';
 import { HttpError, bad, jparse, now } from '../util.js';
@@ -64,7 +65,7 @@ export async function deliver(deliveryId) {
   try {
     const safe = await assertPublicHttps(d.url);
     const headers = { 'Content-Type': 'application/json', 'X-Agentify-Event': d.event, 'Agentify-Delivery-Attempt': String(attempt), ...signWebhook(d.payload, decrypt(d.secret_enc)), 'Agentify-Event-Id': d.event_id };
-    const res = await fetch(safe, { method: 'POST', headers, body: d.payload, redirect: 'manual', signal: AbortSignal.timeout(8000) });
+    const res = await fetch(safe, { method: 'POST', headers, body: d.payload, redirect: 'manual', dispatcher: guardedDispatcher(), signal: AbortSignal.timeout(8000) });
     status = res.status;
     if (!(res.status >= 200 && res.status < 300)) { error = `HTTP ${res.status}`; gone = res.status === 410; }
   } catch (e) { error = String(e.message || e).slice(0, 200); }

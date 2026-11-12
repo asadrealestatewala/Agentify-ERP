@@ -2,7 +2,7 @@
 // commissions, tasks, appointments, tenders, assets) to answer a question in words. Rules:
 //  - only THIS workspace's database (the Super Admin console lives in a separate platform database and is never reachable from here);
 //  - only what the asker's role may view (same permission as the screen), and own-records-only roles (sales agents) see only their own;
-//  - only rows that match words in the question, a few per table, listed columns only (no CNIC, bank details, passwords or tokens);
+//  - only rows that match words in the question, a few per table, listed columns only (no CNIC, bank details, salaries, passwords or tokens);
 //  - never sent to the Stable Horde community network (askAi keeps these blocks private); the admin can switch it off (ask_use_records).
 import { all, get, getSetting } from '../db.js';
 import { hasPerm as can } from '../rbac.js';
@@ -10,7 +10,7 @@ const hasPerm = (u, m, a) => !!u && (u.isSuper || u.perms instanceof Set) && can
 
 const U = (col, id) => `(SELECT name FROM users WHERE id=${id})`;
 export const SOURCES = [
-  { key: 'contacts', label: 'Contact / lead', mod: 'crm', from: 'contacts c', own: 'c.agent_id', search: ['c.full_name', 'c.phone', 'c.email', 'c.city', 'c.company', 'c.area'], order: 'c.id DESC',
+  { key: 'contacts', label: 'Contact / lead', mod: 'crm', from: 'contacts c', own: '(c.agent_id=? OR c.created_by=?)', search: ['c.full_name', 'c.phone', 'c.email', 'c.city', 'c.company', 'c.area'], order: 'c.id DESC',
     sel: `c.full_name AS name, c.phone, c.email, c.city, c.company, c.lead_source AS source, (SELECT value FROM lookups WHERE id=c.stage_id) AS stage, ${U('', 'c.agent_id')} AS agent, c.created_at AS created` },
   { key: 'properties', label: 'Property / listing', mod: 'properties', from: 'properties p', search: ['p.code', 'p.title', 'p.plot_no', 'p.city', 'p.area_name', 'p.block', 'p.sector', 'p.address'], order: 'p.id DESC',
     sel: 'p.code, p.title, p.purpose, p.property_type AS type, p.city, p.area_name AS area, p.plot_no, p.area_size AS size, p.unit, p.net_price AS price, p.status' },
@@ -26,7 +26,7 @@ export const SOURCES = [
   { key: 'vouchers', label: 'Expense voucher', mod: 'accounting', from: 'expense_vouchers e LEFT JOIN vendors v ON v.id=e.vendor_id', search: ['e.voucher_no', 'e.description', 'v.name'], order: 'e.id DESC',
     sel: 'e.voucher_no, e.date, e.description, e.amount, e.status, v.name AS vendor' },
   { key: 'employees', label: 'Employee', mod: 'hrm', from: 'employees e', search: ['e.name', 'e.emp_code', 'e.department', 'e.designation', 'e.phone'], order: 'e.id DESC',
-    sel: 'e.emp_code, e.name, e.department, e.designation, e.hire_date, e.employment_type, e.salary, e.status, e.phone' },
+    sel: 'e.emp_code, e.name, e.department, e.designation, e.hire_date, e.employment_type, e.status' }, // pay and personal phone numbers never go to an outside AI
   { key: 'leaves', label: 'Leave', mod: 'hrm', from: 'leaves l JOIN employees e ON e.id=l.employee_id', search: ['e.name', 'l.type', 'l.reason'], order: 'l.id DESC', sel: 'e.name AS employee, l.type, l.from_date, l.to_date, l.days, l.status' },
   { key: 'commissions', label: 'Commission', mod: 'commissions', from: 'commissions cm JOIN users u ON u.id=cm.agent_id JOIN sales s ON s.id=cm.sale_id', own: 'cm.agent_id', search: ['cm.commission_no', 'u.name', 's.sale_no'], order: 'cm.id DESC',
     sel: 'cm.commission_no, u.name AS agent, s.sale_no, cm.amount, cm.paid_amount AS paid, cm.status' },
@@ -56,9 +56,12 @@ export function recordMaterial(q, user) {
     const likes = kws.map(() => `(${src.search.map((c) => `LOWER(IFNULL(${c},'')) LIKE ?`).join(' OR ')})`);
     const score = likes.map((l) => `(CASE WHEN ${l} THEN 1 ELSE 0 END)`).join(' + ');
     const params = kws.flatMap((k) => src.search.map(() => `%${k.replace(/[%_]/g, '')}%`));
-    const own = src.own && user.own_scope ? ` AND ${src.own}=?` : '';
+    // `own` is a column (agent = me) or a ready condition with ? marks, all filled with the asker's id
+    const ownSql = src.own && user.own_scope ? (src.own.includes('?') ? src.own : `${src.own}=?`) : '';
+    const own = ownSql ? ` AND ${ownSql}` : '';
+    const ownParams = ownSql ? Array((ownSql.match(/\?/g) || []).length).fill(user.id) : [];
     try {
-      const rows = all(`SELECT ${src.sel}, (${score}) AS _score FROM ${src.from} WHERE (${likes.join(' OR ')})${own} ORDER BY _score DESC, ${src.order} LIMIT ${MAX_PER}`, ...params, ...params, ...(own ? [user.id] : []));
+      const rows = all(`SELECT ${src.sel}, (${score}) AS _score FROM ${src.from} WHERE (${likes.join(' OR ')})${own} ORDER BY _score DESC, ${src.order} LIMIT ${MAX_PER}`, ...params, ...params, ...ownParams);
       for (const r of rows) {
         const { _score, ...rest } = r;
         const t = line(src, rest);

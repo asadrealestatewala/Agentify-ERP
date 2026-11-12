@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { passwordProblem } from '../validation.js';
 import { assertUserEmailFree, assertRecordEmailFree } from '../services/uniqueEmail.js';
 import path from 'node:path';
 import { Router } from 'express';
@@ -142,7 +143,7 @@ r.post('/users', can('settings', 'create'), asyncH(async (req, res) => {
   const email = String(req.body.email || emp?.email || '').trim();
   if (!name || !email || !role_id) throw bad('Name, email and role are required');
   await assertEmailAllowed(email);
-  if (!password || String(password).length < 8) throw bad('Password must be at least 8 characters');
+  { const pp = passwordProblem(password, { email, name }); if (pp) throw bad(pp); }
   assertUserEmailFree(email);
   const role = get('SELECT * FROM roles WHERE id=?', role_id);
   if (!role) throw bad('Role not found');
@@ -206,8 +207,9 @@ r.put('/users/:id', can('settings', 'edit'), asyncH((req, res) => {
     run(`UPDATE users SET name=COALESCE(?,name), email=COALESCE(?,email), phone=COALESCE(?,phone), role_id=COALESCE(?,role_id), active=COALESCE(?,active) WHERE id=?`,
       name ?? null, email ?? null, phone ?? null, role_id ?? null, active === undefined ? null : active ? 1 : 0, u.id);
     if (password) {
-      if (String(password).length < 8) throw bad('Password must be at least 8 characters');
-      run('UPDATE users SET password_hash=? WHERE id=?', bcrypt.hashSync(String(password), 10), u.id);
+      { const pp = passwordProblem(password, { email: email ?? u.email, name: name ?? u.name }); if (pp) throw bad(pp); }
+      // a password set by an administrator ends the person's other sessions
+      run('UPDATE users SET password_hash=?, token_version=token_version+1 WHERE id=?', bcrypt.hashSync(String(password), 10), u.id);
     }
     // keep the linked employee record in step with the login's name, email and phone
     const linked = get('SELECT * FROM employees WHERE user_id=?', u.id);

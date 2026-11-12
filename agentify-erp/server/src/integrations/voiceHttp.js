@@ -2,6 +2,7 @@
 // services). The provider is reached over HTTPS with an API key: the workspace owner enters the provider's call endpoint,
 // the key and the caller number, and the CRM posts a small JSON body for each call. Providers differ, so the body field
 // names can be mapped; the provider's own documentation decides the values. Only public https endpoints are allowed.
+import { guardedDispatcher } from '../services/netGuard.js';
 import { bad } from '../util.js';
 import { assertPublicHttps } from '../services/integrations.js';
 
@@ -16,7 +17,7 @@ export function validateVoiceHttp(c) {
 
 async function call(c, body) {
   await assertPublicHttps(c.endpoint);
-  const res = await fetch(c.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', [c.auth_header]: `${c.auth_prefix}${c.api_key}` }, body: JSON.stringify(body), redirect: 'error' });
+  const res = await fetch(c.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', [c.auth_header]: `${c.auth_prefix}${c.api_key}` }, body: JSON.stringify(body), redirect: 'error', dispatcher: guardedDispatcher() });
   let data = null; try { data = await res.json(); } catch { /* provider may answer with text */ }
   if (!res.ok) throw new Error(data?.message || data?.error || `The provider answered ${res.status}`);
   return data || {};

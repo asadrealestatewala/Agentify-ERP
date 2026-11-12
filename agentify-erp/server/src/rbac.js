@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { get, all, DATA_DIR } from './db.js';
+import { get, all, run, DATA_DIR } from './db.js';
 import { HttpError, forbidden } from './util.js';
 import { currentTenant } from './context.js';
 
@@ -19,10 +19,24 @@ function secret() {
 const SECRET = secret();
 
 /** The token is bound to the tenant that issued it (`tid`), so it is useless on any other workspace. */
-export const signToken = (user) => jwt.sign({ uid: user.id, tv: user.token_version, tid: currentTenant()?.id ?? null }, SECRET, { expiresIn: '12h' });
+export const signToken = (user) => jwt.sign({ uid: user.id, tv: user.token_version, tid: currentTenant()?.id ?? null, jti: crypto.randomUUID() }, SECRET, { expiresIn: '12h' });
+
+/** Sign-in cookie options, the same everywhere a session is issued. */
+export const sessionCookie = () => ({ httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 12 * 3600 * 1000 });
+
+/** End this one session (Sign out) without signing the person out on their other devices. */
+export function revokeToken(tok) {
+  try {
+    const p = jwt.verify(String(tok || ''), SECRET);
+    if (!p.jti) return;
+    run('INSERT OR IGNORE INTO revoked_tokens(jti,expires_at) VALUES(?,?)', p.jti, p.exp);
+    run('DELETE FROM revoked_tokens WHERE expires_at<?', Math.floor(Date.now() / 1000));
+  } catch { /* an invalid token needs no revoking */ }
+}
+const isRevoked = (jti) => { try { return !!jti && !!get('SELECT 1 FROM revoked_tokens WHERE jti=?', jti); } catch { return false; } };
 
 /** Short-lived proof that the password step passed, for accounts that still owe a 2FA code. It is not a session: it carries no `tv`. */
-export const signMfaToken = (user) => jwt.sign({ uid: user.id, tid: currentTenant()?.id ?? null }, SECRET, { expiresIn: '5m', audience: 'mfa' });
+export const signMfaToken = (user) => jwt.sign({ uid: user.id, tid: currentTenant()?.id ?? null, jti: crypto.randomUUID() }, SECRET, { expiresIn: '5m', audience: 'mfa' });
 /** Between the password and the emailed code at sign-in (services/emailOtp.js). */
 export const signOtpToken = (user) => jwt.sign({ uid: user.id, tid: currentTenant()?.id ?? null }, SECRET, { expiresIn: '15m', audience: 'login-otp' });
 export function readOtpToken(tok) {
@@ -30,6 +44,10 @@ export function readOtpToken(tok) {
 }
 export function readMfaToken(tok) {
   try { const p = jwt.verify(String(tok || ''), SECRET, { audience: 'mfa' }); return p.tid === (currentTenant()?.id ?? null) ? p.uid : null; } catch { return null; }
+}
+/** The id of a 2FA step token, so wrong codes can be counted per token (routes/auth.js). */
+export function mfaTokenId(tok) {
+  try { return jwt.verify(String(tok || ''), SECRET, { audience: 'mfa' }).jti || null; } catch { return null; }
 }
 
 export function loadUser(id) {
@@ -50,7 +68,7 @@ export function authenticate(req, _res, next) {
       const p = jwt.verify(tok, SECRET);
       if ((p.tid ?? null) !== (currentTenant()?.id ?? null)) throw new Error('token belongs to another workspace');
       const u = loadUser(p.uid);
-      if (u && u.active && u.token_version === p.tv) req.user = u;
+      if (u && u.active && u.token_version === p.tv && !isRevoked(p.jti)) req.user = u;
     } catch { /* invalid token => anonymous */ }
   }
   next();

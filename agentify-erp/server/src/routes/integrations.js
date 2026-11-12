@@ -5,6 +5,7 @@
 //   GET  /api/integrations/dialer/queue     "Call next": leads ranked by who most needs a call
 //   POST /api/integrations/calls            start a call;  POST /calls/:id/outcome records how it went
 //   POST /api/integrations/sms              send a text message
+import { guardedDispatcher } from '../services/netGuard.js';
 import { recordingFilter } from '../services/recordingFilters.js';
 import express, { Router } from 'express';
 import { sendStored } from '../services/storage.js';
@@ -367,7 +368,7 @@ r.post('/portals/publish', can('properties', 'edit'), asyncH(async (req, res) =>
       const cfg = pt.api ? integrationConfig(`portal:${id}`) : null;
       if (cfg) {
         await assertPublicHttps(cfg.endpoint);
-        const resp = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.token}` }, body: JSON.stringify(l), redirect: 'error', signal: AbortSignal.timeout(20_000) });
+        const resp = await fetch(cfg.endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.token}` }, body: JSON.stringify(l), redirect: 'error', dispatcher: guardedDispatcher(), signal: AbortSignal.timeout(20_000) });
         if (!resp.ok) throw new Error(`The portal answered ${resp.status}`);
       }
       setPublication(p.id, id, 'published');

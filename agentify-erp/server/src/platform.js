@@ -8,7 +8,7 @@ import { als } from './context.js';
 import { bootstrap, upgradePermissions, seedDemo, ensureBootstrapped } from './seed.js';
 import { ensureSite } from './services/siteDefaults.js';
 import { HttpError, bad } from './util.js';
-import { isEmail, isPersonName } from './validation.js';
+import { isEmail, isPersonName, passwordProblem } from './validation.js';
 import { initPlans } from './services/plansStore.js';
 import { PLAN_SETTINGS, PLANS, PRODUCT_CHOICES } from './services/plans.js';
 import crypto from 'node:crypto';
@@ -370,7 +370,7 @@ export function createTenant({ slug, name, adminName, adminEmail, adminPassword,
   if (!String(name || '').trim()) throw bad('Company name is required');
   if (!isEmail(String(adminEmail || '').trim())) throw bad('A valid admin email is required');
   if (adminName && !isPersonName(String(adminName))) throw bad('Please enter a valid name: letters only, no numbers or symbols');
-  if (String(adminPassword || '').length < 8) throw bad('Admin password must be at least 8 characters');
+  { const pp = passwordProblem(adminPassword, { email: adminEmail, name: adminName, label: 'Admin password' }); if (pp) throw bad(pp); }
   const freeSite = product === 'website';
   if (!freeSite && !PRODUCT_CHOICES.includes(product)) throw bad('Choose Real Estate Brokerage or Construction Management');
   try { new Intl.DateTimeFormat('en', { timeZone: timezone }); } catch { throw bad(`Unknown timezone: ${timezone}`); }

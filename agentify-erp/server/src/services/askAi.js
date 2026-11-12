@@ -234,6 +234,9 @@ export function limited(userId) {
 export const resetRateLimit = () => hits.clear();
 
 /** Returns { answer, found, links, sources } or null when the AI should not be used (no material, rate limited) so the caller keeps its normal reply. Throws never: a refused or failed call returns { refused } with a plain note. */
+/** An engine's error as a workspace user may read it: anything about platform keys, budgets, the console or its staff becomes a plain "not available". */
+export const tenantSafe = (msg) => (/console|super admin|api key|\bkey\b|budget|switched off|platform/i.test(String(msg)) ? 'it is not available right now.' : String(msg).slice(0, 120));
+
 export async function askAi(question, history, user, image = null) {
   const q = clip(question, 500);
   try { assertSafeRequest(q); } catch (e) { return { refused: e.message }; }
@@ -264,8 +267,9 @@ export async function askAi(question, history, user, image = null) {
   }
   if (!order.length) return { refused: geminiAskEnabled() || hordeReady() || groqReady() ? 'The AI helper could not answer right now.' : 'The AI helper is not switched on yet. Please ask your administrator or support.' };
   let out = null, lastErr = null, engine = null;
-  const notes = []; // why an engine did not answer, shown under the answer
-  for (const p of askOrder()) if (!ready[p] && !(p === 'gemini')) notes.push(`${ENGINE_NAME[p]} was skipped: ${p === 'groq' ? (!!groqKey() ? 'it is switched off in the console' : 'no Groq key is saved in the console') : (hordeKey() ? 'it is switched off in the console' : 'no Stable Horde key is saved in the console')}.`);
+  const notes = []; // why an engine did not answer, shown under the answer (to workspace users: see tenantSafe)
+  // workspace users see these notes: they say an engine was not used, never how the platform is configured (keys, console switches)
+  for (const p of askOrder()) if (!ready[p] && !(p === 'gemini')) notes.push(`${ENGINE_NAME[p]} was skipped: it is not available right now.`);
   const run = (provider, strict) => (provider === 'groq' ? viaGroq : provider === 'gemini' ? viaGemini : viaHorde)(q, provider === 'horde' ? refPublic : ref, history, user, image, lang, strict);
   for (const provider of order) {
     try {
@@ -274,7 +278,7 @@ export async function askAi(question, history, user, image = null) {
       if (out?.answer && out.found !== false && !answerMatchesLanguage(lang, out.answer)) { const again = await run(provider, true).catch(() => null); if (again?.answer && answerMatchesLanguage(lang, again.answer)) out = again; }
       if (out?.answer) { engine = provider; noteEngine(provider, null); break; }
       if (out?.bad) { noteEngine(provider, new Error('it printed its reasoning instead of an answer')); notes.push(`${ENGINE_NAME[provider]} gave an unusable reply, so it was not shown.`); out = null; }
-    } catch (e) { lastErr = e; noteEngine(provider, e); notes.push(`${ENGINE_NAME[provider]} failed: ${String(e.message).slice(0, 120)}`); if (e.extra?.code && !['provider_error'].includes(e.extra.code)) break; } // a switch, limit or budget refusal applies to every engine
+    } catch (e) { lastErr = e; noteEngine(provider, e); notes.push(`${ENGINE_NAME[provider]} failed: ${tenantSafe(e.message)}`); if (e.extra?.code && !['provider_error'].includes(e.extra.code)) break; } // a switch, limit or budget refusal applies to every engine
   }
   // no engine produced a good answer (busy, failed, or only reasoning): answer from the guide text itself, never from a guess
   if (!out?.answer) {
