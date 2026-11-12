@@ -321,6 +321,8 @@ CREATE TABLE IF NOT EXISTS login_alerts(id INTEGER PRIMARY KEY, user_id INTEGER 
 -- wrong passwords against a real account, to warn its owner of a guessing attempt (services/loginAlerts.js)
 CREATE TABLE IF NOT EXISTS login_failures(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, ip TEXT, created_at TEXT NOT NULL, alerted INTEGER NOT NULL DEFAULT 0);
 CREATE INDEX IF NOT EXISTS idx_login_failures_user ON login_failures(user_id, created_at);
+-- sessions ended with Sign out: the token's id is kept until the token would have expired anyway (rbac.js)
+CREATE TABLE IF NOT EXISTS revoked_tokens(jti TEXT PRIMARY KEY, expires_at INTEGER NOT NULL);
 -- training videos: the library of finished videos and which roles may watch each one
 CREATE TABLE IF NOT EXISTS training_library(
   id INTEGER PRIMARY KEY, title TEXT NOT NULL, description TEXT, category TEXT NOT NULL DEFAULT 'System overview', path TEXT NOT NULL, mime TEXT, size INTEGER NOT NULL DEFAULT 0,

@@ -4,6 +4,7 @@
 // Outbound requests go only to https URLs on public addresses (no internal network targets).
 import dns from 'node:dns/promises';
 import net from 'node:net';
+import { isPrivateAddress, guardedDispatcher } from './netGuard.js';
 import { platformDb } from '../platform.js';
 import { getSetting, setSetting, mask } from './platformConfig.js';
 import { stripeView, stripeConfig } from './platformConfig.js';
@@ -49,8 +50,7 @@ export async function assertPublicHttps(url) {
   if (u.username || u.password) throw bad('URLs with credentials are not allowed');
   const host = u.hostname.replace(/^\[|\]$/g, '');
   const addrs = net.isIP(host) ? [{ address: host }] : await dns.lookup(host, { all: true }).catch(() => { throw bad('That host name could not be resolved'); });
-  const priv = (ip) => /^(10\.|127\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.)/.test(ip) || ip === '::1' || /^f[cd]|^fe80|^::ffff:(10|127|192\.168)\./i.test(ip);
-  if (addrs.some((a) => priv(a.address))) throw bad('Internal network addresses are not allowed');
+  if (!addrs.length || addrs.some((a) => isPrivateAddress(a.address))) throw bad('Internal network addresses are not allowed');
   return u.toString();
 }
 
@@ -177,7 +177,7 @@ export async function test(id, actor, { to, number } = {}) {
       const url = getSetting('alerts_webhook_url');
       if (!url) throw new Error('No webhook URL saved');
       await assertPublicHttps(url);
-      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: 'Agentify ERP: alerts webhook test' }), signal: AbortSignal.timeout(10_000), redirect: 'error' });
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: 'Agentify ERP: alerts webhook test' }), signal: AbortSignal.timeout(10_000), redirect: 'error', dispatcher: guardedDispatcher() });
       if (!res.ok) throw new Error(`The webhook answered ${res.status}`);
       outcome = 'success'; detail = `Webhook answered ${res.status}`;
     } else if (id.startsWith('oauth_') && OAUTH[id.slice(6)]) {
@@ -196,7 +196,7 @@ export async function sendAlert(text) {
     if (!url || Date.now() - lastAlert < 60_000) return false;
     lastAlert = Date.now();
     await assertPublicHttps(url);
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: `Agentify ERP: ${String(text).slice(0, 900)}` }), signal: AbortSignal.timeout(10_000), redirect: 'error' });
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: `Agentify ERP: ${String(text).slice(0, 900)}` }), signal: AbortSignal.timeout(10_000), redirect: 'error', dispatcher: guardedDispatcher() });
     logEvent('alerts', 'send', res.ok ? 'success' : 'error', res.ok ? String(text).slice(0, 200) : `Webhook answered ${res.status}`);
     return res.ok;
   } catch (e) { try { logEvent('alerts', 'send', 'error', e.message); } catch { /* db closed */ } return false; }

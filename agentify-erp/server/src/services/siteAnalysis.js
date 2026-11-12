@@ -2,6 +2,7 @@
 // Free for the workspace (no credits) but still metered in the AI ledger, limited per workspace per day. Nothing is saved here:
 // the page shows the suggestions and the user decides what to keep. Only public https sites are fetched (no internal addresses,
 // redirects re-checked, size and time capped), and page text is treated as data, never as instructions.
+import { guardedDispatcher } from './netGuard.js';
 import { currentTenant } from '../context.js';
 import { bad } from '../util.js';
 import { geminiGenerate } from './aiGateway.js';
@@ -24,7 +25,7 @@ export const normalizeUrl = (v) => {
 export async function fetchPage(url, fetcher = fetch) {
   let cur = await assertPublicHttps(url);
   for (let hop = 0; hop <= HOP_LIMIT; hop++) {
-    const res = await fetcher(cur, { redirect: 'manual', signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'AgentifyBrandReader/1.0', Accept: 'text/html' } });
+    const res = await fetcher(cur, { redirect: 'manual', dispatcher: guardedDispatcher(), signal: AbortSignal.timeout(8000), headers: { 'User-Agent': 'AgentifyBrandReader/1.0', Accept: 'text/html' } });
     if ([301, 302, 303, 307, 308].includes(res.status)) {
       const loc = res.headers.get('location');
       if (!loc) throw bad('The website redirected without saying where.');

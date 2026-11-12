@@ -103,7 +103,10 @@ export function createApp() {
   ensureFirstAdmin();
   console.log('[boot] createApp: tenants ready, wiring routes');
   const app = express();
-  app.set('trust proxy', 1);
+  // forwarded headers (client IP, https, host) are believed only from the reverse proxy on this machine (Caddy / nginx);
+  // a request sent straight to the app port cannot fake its IP to dodge the sign-in limits
+  const tp = process.env.TRUST_PROXY;
+  app.set('trust proxy', tp ? (/^\d+$/.test(tp) ? Number(tp) : tp) : 'loopback');
   app.disable('x-powered-by');
   app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], imgSrc: ["'self'", 'data:', 'blob:', 'https:'], mediaSrc: ["'self'", 'data:', 'blob:', 'https:'], styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
     fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'], // Google Analytics 4 is loaded only after a visitor consents and only when the platform owner configured it

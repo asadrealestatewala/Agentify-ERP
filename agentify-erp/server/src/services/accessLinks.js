@@ -1,5 +1,6 @@
 // One-time links for staff invitations and password resets. The token is shown once (in the email / to the inviting admin);
 // only its SHA-256 hash is stored, so a copy of the database cannot be used to take over an account.
+import { passwordProblem } from '../validation.js';
 import { assertUserEmailFree } from './uniqueEmail.js';
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
@@ -57,7 +58,7 @@ export function inviteInfo(token) {
 
 /** Create the user from an invitation. The caller signs them in. Returns the new user id. */
 export function acceptInvite(token, { name, password }, tenant) {
-  if (String(password || '').length < 8) throw bad('Password must be at least 8 characters');
+  { const pp = passwordProblem(password, { name }); if (pp) throw bad(pp); }
   return tx(() => {
     const t = lookup('invite', token);
     if (!t) throw new HttpError(404, 'This invitation is invalid or has expired. Ask your admin for a new one.');
@@ -92,7 +93,7 @@ export function adminResetLink(userId, email, hours = 24) {
 }
 
 export function resetPassword(token, password) {
-  if (String(password || '').length < 8) throw bad('New password must be at least 8 characters');
+  { const pp = passwordProblem(password, { label: 'New password' }); if (pp) throw bad(pp); }
   return tx(() => {
     const t = lookup('reset', token);
     if (!t) throw new HttpError(400, 'This reset link is invalid or has expired. Request a new one.');

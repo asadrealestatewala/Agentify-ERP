@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, useLocation } from 'react-router-dom';
 import App from './App.jsx';
 import { AppProviders } from './context.jsx';
 import './installApp.js';
@@ -16,6 +16,10 @@ import { seedHomeEntry } from './backNav.js';
 import { watchTables } from './mobileTables.js';
 import { startNativeShell } from './nativeShell.js';
 import AppUpdateGate from './components/AppUpdateGate.jsx';
+import ErrorBoundary from './components/ErrorBoundary.jsx';
+
+// a screen error shows a message instead of a blank page; opening another screen clears it
+function Guarded({ children }) { const { pathname } = useLocation(); return <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>; }
 
 registerSW();
 seedHomeEntry();
@@ -37,7 +41,7 @@ async function start() {
   <StrictMode>
     <BrowserRouter>
       <AppProviders>
-        <App />
+        <Guarded><App /></Guarded>
         <AppUpdateGate />
       </AppProviders>
     </BrowserRouter>

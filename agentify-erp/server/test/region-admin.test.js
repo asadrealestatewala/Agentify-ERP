@@ -81,14 +81,14 @@ test('a workspace can be created in an active region and takes its currency, uni
   const { createTenant, getTenant } = await import('../src/platform.js');
   const pdb = platformDb();
   admin.setRegionStatus(pdb, 'US', 'draft', 'tester');
-  assert.throws(() => createTenant({ slug: 'us-early', name: 'Early', adminName: 'A', adminEmail: 'a@b.co', adminPassword: 'password1', region: 'US' }), /not available/);
+  assert.throws(() => createTenant({ slug: 'us-early', name: 'Early', adminName: 'A', adminEmail: 'a@b.co', adminPassword: 'Lone#Star2026', region: 'US' }), /not available/);
   admin.setRegionStatus(pdb, 'US', 'active', 'tester');
-  assert.throws(() => createTenant({ slug: 'us-bad', name: 'Bad', adminName: 'A', adminEmail: 'a@b.co', adminPassword: 'password1', region: 'US', sub_region: 'Atlantis' }), /valid state/i);
-  const t = createTenant({ slug: 'us-ok', name: 'Lone Star Realty', adminName: 'A', adminEmail: 'owner@lonestar.test', adminPassword: 'password1', region: 'US', sub_region: 'Texas' });
+  assert.throws(() => createTenant({ slug: 'us-bad', name: 'Bad', adminName: 'A', adminEmail: 'a@b.co', adminPassword: 'Lone#Star2026', region: 'US', sub_region: 'Atlantis' }), /valid state/i);
+  const t = createTenant({ slug: 'us-ok', name: 'Lone Star Realty', adminName: 'A', adminEmail: 'owner@lonestar.test', adminPassword: 'Lone#Star2026', region: 'US', sub_region: 'Texas' });
   const row = getTenant(t.id);
   assert.equal(row.region, 'US'); assert.equal(row.currency, 'USD'); assert.equal(row.money_scale, 2); assert.equal(row.timezone, 'America/New_York'); assert.equal(row.sub_region, 'Texas');
   assert.equal(regionFor(row).money.format(123456), '$1,234.56');
-  const pk = createTenant({ slug: 'pk-ok', name: 'Karachi Homes', adminName: 'A', adminEmail: 'owner@khi.test', adminPassword: 'password1' });
+  const pk = createTenant({ slug: 'pk-ok', name: 'Karachi Homes', adminName: 'A', adminEmail: 'owner@khi.test', adminPassword: 'Lone#Star2026' });
   assert.equal(getTenant(pk.id).money_scale, 0); assert.equal(getTenant(pk.id).currency, 'PKR');
 });
 
@@ -96,7 +96,7 @@ test('demo data for another region uses its own currency, names and units, and n
   const { createTenant } = await import('../src/platform.js');
   const { withTenant } = await import('../src/platform.js');
   admin.setRegionStatus(platformDb(), 'UK', 'active', 'tester');
-  const t = createTenant({ slug: 'uk-demo', name: 'Thames Estates', adminName: 'A', adminEmail: 'owner@thames.test', adminPassword: 'password1', region: 'UK', sub_region: 'England', demo: true });
+  const t = createTenant({ slug: 'uk-demo', name: 'Thames Estates', adminName: 'A', adminEmail: 'owner@thames.test', adminPassword: 'Lone#Star2026', region: 'UK', sub_region: 'England', demo: true });
   withTenant(t, () => {
     const props = all('SELECT title, total_price, unit FROM properties');
     assert.ok(props.length >= 3);

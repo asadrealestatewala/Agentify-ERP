@@ -8,6 +8,25 @@ import { SCREENS } from '../screens.generated.js';
 import { SCREEN_NOTES } from '../screenNotes.js';
 
 export const GUIDES = {
+  'sign-in-security': {
+    title: 'Sign-in protection: account lock, 2FA codes and password rules', since: 'v1.94', module: 'Sign in',
+    who: 'Everyone who signs in to the workspace, the customer portal and the vendor and developer portals',
+    keywords: ['locked', 'lock', 'password', 'sign in', 'login', 'two-factor', '2fa', 'authenticator', 'sign out', 'logout', 'security'],
+    steps: [
+      'After 10 wrong passwords or authenticator codes in 15 minutes, the account is locked for 15 minutes, even for the right password. The sign-in page says so.',
+      'Wait 15 minutes, or use Forgot password on the sign-in page to choose a new password by e-mail.',
+      'On the authenticator code step, five wrong codes end that attempt. Enter your password again to get a fresh step.',
+      'Pressing Sign out now ends that session for good. Your other phones and computers stay signed in; use Sign out of every device under your profile to end them too.',
+      'New passwords must have at least 8 characters, must not be a very common password such as 12345678 or Password123, and must not be your e-mail address or name.',
+    ],
+    limits: ['The lock covers the account, not one browser, so a person guessing from many places is stopped too.', 'An administrator who sets a new password for someone also signs that person out everywhere.'],
+    faq: [
+      { q: 'I am locked out. What now?', a: 'Wait 15 minutes and try again, or reset your password with Forgot password. A successful sign-in clears the count.' },
+      { q: 'Why was my new password refused?', a: 'It is too short, too common, or the same as your e-mail or name. Choose a longer phrase that is not easy to guess.' },
+    ],
+    internal: ['Lock: 10 failures (login_failures, per user) in 15 minutes; LOGIN_LOCK_LIMIT can change the number. Failures older than 15 minutes stop counting.',
+      'Sign out stores the token id in revoked_tokens until it expires; other sessions keep working.'],
+  },
   'plan-credits-limits': {
     title: 'Your plan: credits, posting limits and the launch offer', since: 'v1.71', module: 'Plan & billing',
     who: 'People who can see Settings; changing plan needs permission to edit settings',

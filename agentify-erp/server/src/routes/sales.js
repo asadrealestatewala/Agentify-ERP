@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { passwordProblem } from '../validation.js';
 import bcrypt from 'bcryptjs';
 import { all, get, getSetting, run } from '../db.js';
 import { can, hasPerm, ownerId, requireStaff } from '../rbac.js';
@@ -163,7 +164,7 @@ r.post('/customers/:id(\\d+)/portal-access', can('customers', 'edit'), asyncH((r
   const { password } = req.body;
   const u = get('SELECT * FROM users WHERE contact_id=?', c.id);
   if (u) {
-    if (!password || String(password).length < 8) throw bad('Password must be at least 8 characters');
+    { const pp = passwordProblem(password, { email: c.email, name: c.full_name }); if (pp) throw bad(pp); }
     run('UPDATE users SET password_hash=?, token_version=token_version+1, active=1 WHERE id=?', bcrypt.hashSync(String(password), 10), u.id);
     audit(req, 'Reset portal password', 'contact', c.id, c.full_name);
     return res.json({ login: u.email || u.phone });
@@ -172,7 +173,7 @@ r.post('/customers/:id(\\d+)/portal-access', can('customers', 'edit'), asyncH((r
   const created = ensurePortalUser(c.id);
   if (!created) throw bad('The customer needs a unique email or phone to receive portal access');
   if (password) {
-    if (String(password).length < 8) throw bad('Password must be at least 8 characters');
+    { const pp = passwordProblem(password, { email: c.email, name: c.full_name }); if (pp) throw bad(pp); }
     run('UPDATE users SET password_hash=? WHERE contact_id=?', bcrypt.hashSync(String(password), 10), c.id);
     created.password = undefined;
   }
@@ -190,6 +191,7 @@ r.get('/receipts', can('payments', 'view'), asyncH(async (req, res) => {
   if (q.q) { where.push('(r.receipt_no LIKE ? OR c.full_name LIKE ? OR r.txn_id LIKE ? OR r.reference_no LIKE ? OR r.cheque_no LIKE ? OR c.customer_code LIKE ?)'); params.push(...Array(6).fill(`%${q.q}%`)); }
   for (const [k, col] of [['project_id', 'r.project_id'], ['contact_id', 'r.contact_id'], ['method', 'r.method'], ['payment_type', 'r.payment_type'], ['status', 'r.status'], ['account_id', 'r.account_id']]) if (q[k]) { where.push(`${col}=?`); params.push(q[k]); }
   if (q.sale_id) { where.push('EXISTS(SELECT 1 FROM receipt_sales x WHERE x.receipt_id=r.id AND x.sale_id=?)'); params.push(q.sale_id); }
+  if (ownerId(req)) { where.push(RC_OWN); params.push(ownerId(req), ownerId(req)); }
   if (q.from) { where.push('r.date>=?'); params.push(q.from); }
   if (q.to) { where.push('r.date<=?'); params.push(q.to); }
   const limit = ['csv', 'xlsx', 'pdf'].includes(q.format) ? 100000 : Math.min(int(q.limit, 25), 500), page = Math.max(int(q.page, 1), 1);
@@ -203,8 +205,11 @@ r.get('/receipts', can('payments', 'view'), asyncH(async (req, res) => {
   res.json({ rows, total, page, limit, net_total: sum });
 }));
 r.get('/receipts/options', can('payments', 'view'), (req, res) => res.json({ types: PAYMENT_TYPES, methods: PAYMENT_METHODS }));
-function loadReceipt(id) {
-  const rc = get(`${RC_BASE} WHERE r.id=?`, id);
+// own-records roles (sales agents) see a receipt only when the customer or one of the sales it pays is theirs
+const RC_OWN = '(c.agent_id=? OR EXISTS(SELECT 1 FROM receipt_sales ox JOIN sales os ON os.id=ox.sale_id WHERE ox.receipt_id=r.id AND os.agent_id=?))';
+function loadReceipt(id, req) {
+  const o = req ? ownerId(req) : null;
+  const rc = o ? get(`${RC_BASE} WHERE r.id=? AND ${RC_OWN}`, id, o, o) : get(`${RC_BASE} WHERE r.id=?`, id);
   if (!rc) throw notFound();
   rc.allocations = all(`SELECT ra.*, i.kind, i.due_date, i.seq FROM receipt_allocations ra JOIN installments i ON i.id=ra.installment_id WHERE ra.receipt_id=? ORDER BY i.due_date`, rc.id);
   rc.agent_name = rc.sale_id ? get('SELECT u.name FROM sales s JOIN users u ON u.id=s.agent_id WHERE s.id=?', rc.sale_id)?.name : get('SELECT u.name FROM receipt_sales rs JOIN sales s ON s.id=rs.sale_id JOIN users u ON u.id=s.agent_id WHERE rs.receipt_id=? LIMIT 1', rc.id)?.name;
@@ -217,10 +222,10 @@ function loadReceipt(id) {
 }
 /** Customer + plot/file details for a (customer, sale) — drives the live preview on the new-receipt form. */
 r.get('/receipts/record', can('payments', 'view'), asyncH((req, res) => res.json(receiptRecord(Number(req.query.contact_id), req.query.sale_id ? Number(req.query.sale_id) : null))));
-r.get('/receipts/:id(\\d+)', can('payments', 'view'), asyncH((req, res) => res.json(loadReceipt(req.params.id))));
+r.get('/receipts/:id(\\d+)', can('payments', 'view'), asyncH((req, res) => res.json(loadReceipt(req.params.id, req))));
 /** Receipt voucher as a real PDF (letterhead, logo, split, signatures; VOID watermark when voided). */
 r.get('/receipts/:id(\\d+)/pdf', can('payments', 'view'), asyncH(async (req, res) => {
-  const rc = loadReceipt(req.params.id);
+  const rc = loadReceipt(req.params.id, req);
   const wantQr = req.query.qr !== undefined ? req.query.qr === '1' : getSetting('receipt_qr', '1') !== '0';
   const qr = wantQr && rc.status === 'valid' ? await receiptQr(rc, req) : null; // generated the first time the voucher is saved as a digital copy
   audit(req, 'Downloaded receipt PDF', 'receipt', rc.id, rc.receipt_no);
@@ -228,19 +233,19 @@ r.get('/receipts/:id(\\d+)/pdf', can('payments', 'view'), asyncH(async (req, res
 }));
 /** QR code of a receipt: ledger summary (as of this receipt) + customer-portal link. Created on first use, kept, refreshable. */
 r.get('/receipts/:id(\\d+)/qr', can('payments', 'view'), asyncH(async (req, res) => {
-  const rc = loadReceipt(req.params.id);
+  const rc = loadReceipt(req.params.id, req);
   if (rc.status !== 'valid') throw bad('A voided receipt has no QR code');
   const { png, ...q } = await receiptQr(rc, req);
   res.json(q);
 }));
 r.get('/receipts/:id(\\d+)/qr.png', can('payments', 'view'), asyncH(async (req, res) => {
-  const rc = loadReceipt(req.params.id);
+  const rc = loadReceipt(req.params.id, req);
   if (rc.status !== 'valid') throw bad('A voided receipt has no QR code');
   const q = await receiptQr(rc, req);
   res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'private, max-age=60', 'X-Content-Type-Options': 'nosniff' }).send(q.png);
 }));
 r.post('/receipts/:id(\\d+)/qr/refresh', can('payments', 'edit'), asyncH(async (req, res) => {
-  const rc = loadReceipt(req.params.id);
+  const rc = loadReceipt(req.params.id, req);
   if (rc.status !== 'valid') throw bad('A voided receipt has no QR code');
   const { png, ...q } = await receiptQr(rc, req, { refresh: true });
   audit(req, 'Refreshed receipt QR', 'receipt', rc.id, rc.receipt_no);

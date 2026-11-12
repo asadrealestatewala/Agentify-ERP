@@ -268,6 +268,10 @@ test('five wrong passwords on a real account email its owner once an hour; unkno
   await wait(); assert.equal(warns().length, 1, 'at most one an hour');
   for (let i = 0; i < 6; i += 1) await bad('nobody@otpco.test');
   await wait(); assert.equal(warns().length, 1, 'no email for an address with no account');
+  // ten wrong passwords in 15 minutes lock the account, even for the right password
+  const locked = await call(H, 'POST', '/api/auth/login', { identifier: 'olive@otpco.test', password: 'Owner@12345' });
+  assert.equal(locked.status, 429); assert.equal(locked.data.code, 'account_locked');
+  withTenant(ten, () => run('DELETE FROM login_failures'));
 });
 
 test('the devices list shows each browser with its addresses, and sign-out-everywhere ends other sessions but not this one', async () => {

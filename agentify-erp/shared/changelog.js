@@ -6,6 +6,18 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.94', date: '2026-11-12', title: 'Stronger sign-in and safer screens',
+    items: [
+      { text: 'Accounts now lock for 15 minutes after 10 wrong passwords or authenticator codes, and five wrong codes end an authenticator step. Wait, or reset your password by e-mail.', where: 'Sign in', guide: 'sign-in-security' },
+      { text: 'Sign out now ends that session straight away, while your other devices stay signed in. When an administrator sets a new password for someone, that person is signed out everywhere.', where: 'Profile menu > Sign out', guide: 'sign-in-security' },
+      { text: 'New passwords must not be a very common password or your own e-mail address or name.', where: 'Change password, invitations, password reset', guide: 'sign-in-security' },
+      { text: 'If a screen fails to draw, you now see a short message with Reload and Home buttons instead of a blank page.', where: 'Every screen' },
+      { text: 'The Ask assistant no longer sends staff salaries or personal phone numbers to the AI service, and sales agents see the same contacts in Ask as in search.', where: 'Ask' },
+      { text: 'Sales agents with access to payments now see only the receipts of their own customers and sales.', where: 'Payments > Receipts' },
+      { text: 'Security update: web addresses saved for webhooks and integrations are checked more strictly and again when each request is made, the map and website editor libraries are updated, and engine messages in Ask no longer mention platform settings.', where: 'Server', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.93', date: '2026-11-11', title: 'Save more on 6-month and yearly plans',
     items: [
       { text: 'Pay for 6 months at once and get 5% off, or pay for 12 months and get 10% off, on every plan and add-on, in every country and currency. The saving is worked out from the monthly price and shown on the pricing page, and under Plan & billing.', where: 'Pricing page, Plan & billing' },

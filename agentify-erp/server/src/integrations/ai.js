@@ -3,6 +3,7 @@
 // writing promotional video scripts, and turning call and meeting recordings into transcripts (OpenAI speech to text).
 // A provider is "connected" only after a real request to it succeeded. Language models do not make video: they write the
 // script and captions, and the app renders the video from the listing's own photos.
+import { guardedDispatcher } from '../services/netGuard.js';
 import { bad } from '../util.js';
 import { assertPublicHttps } from '../services/integrations.js';
 import { saveIntegration, integrationConfig, integrationRow, markTested, mask } from './store.js';
@@ -29,7 +30,7 @@ export const setUsageGate = (fn) => { usageGate = fn; };
 const metered = (provider, model, d, purpose) => { try { usageSink?.({ provider, model, d, purpose }); } catch { /* metering never breaks a call */ } return d; };
 
 async function http(url, opts = {}) {
-  const res = await fetch(url, { ...opts, signal: AbortSignal.timeout(opts.timeout || 60_000) });
+  const res = await fetch(url, { ...opts, dispatcher: guardedDispatcher(), signal: AbortSignal.timeout(opts.timeout || 60_000) });
   let d = null; try { d = await res.json(); } catch { /* not json */ }
   if (!res.ok) throw new Error(d?.error?.message || d?.message || `The provider answered ${res.status}`);
   return d;

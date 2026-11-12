@@ -64,7 +64,7 @@ export function VisitForm({ initial = {}, fixed = {}, onClose, onSaved }) {
   const cfg = getRegion().config || {};
   const zones = [...new Set([cfg.timezone, ...(cfg.timezones || []), deviceTz(), initial.timezone].filter(Boolean))];
   const [f, setF] = useState(() => ({
-    title: '', kind: 'viewing', starts_at: '', ends_at: '', location: '', notes: '', contact_id: '', property_id: '', agent_id: user?.id || '', timezone: initial.tz || cfg.timezone,
+    title: '', kind: 'viewing', starts_at: '', ends_at: '', location: '', notes: '', contact_id: '', property_id: '', timezone: initial.tz || cfg.timezone,
     ...initial, ...fixed,
     ...(initial.starts_at ? { starts_at: initial.starts_at.slice(0, 16).replace(' ', 'T'), ends_at: (initial.ends_at || '').slice(0, 16).replace(' ', 'T') } : {}),
     agent_id: initial.user_id || initial.agent_id || user?.id || '',

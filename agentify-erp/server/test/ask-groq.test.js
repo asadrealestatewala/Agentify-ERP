@@ -158,7 +158,8 @@ test('Ask never shows a model\'s reasoning: it tries the next engine, then answe
   groqText = 'Open CRM > Appointments and press New.';
   await as(owner, 'PUT', '/ai/groq', { enabled: false }); resetRateLimit();
   const noGroq = (await a('POST', '/api/assistant/ask', { question })).data;
-  assert.ok(noGroq.notes.some((n) => /Groq was skipped: it is switched off/.test(n)), JSON.stringify(noGroq.notes));
+  assert.ok(noGroq.notes.some((n) => /Groq was skipped: it is not available right now/.test(n)), JSON.stringify(noGroq.notes));
+  assert.ok(!noGroq.notes.some((n) => /console|key/i.test(n)), 'workspace users are never told how the platform is configured');
 });
 
 test('console "Which model does what" lists each purpose with engine, model, state and last use', async () => {

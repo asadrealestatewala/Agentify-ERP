@@ -1,9 +1,11 @@
 import { stopSharing } from '../services/fieldLocation.js';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import rateLimit from 'express-rate-limit';
 import { all, get, run, getSetting, setSetting, currentDb } from '../db.js';
-import { signToken, signMfaToken, readMfaToken, signOtpToken, readOtpToken, loadUser, requireAuth, hasPerm } from '../rbac.js';
+import { signToken, signMfaToken, readMfaToken, mfaTokenId, signOtpToken, readOtpToken, loadUser, requireAuth, hasPerm, sessionCookie, revokeToken } from '../rbac.js';
+import { passwordProblem } from '../validation.js';
 import { sendCode, checkCode, canEmailCodes } from '../services/emailOtp.js';
 import { noteSignIn, noteFailedLogin, recognised, deviceList } from '../services/loginAlerts.js';
 import { encrypt, decrypt } from '../services/platformConfig.js';
@@ -31,12 +33,32 @@ export const sessionPayload = (u) => ({
   contact_id: u.contact_id, vendor_id: u.vendor_id || null, developer_id: u.developer_id || null, email_verified: u.email_verified !== 0, totp_enabled: !!u.totp_enabled, tour_seen: tourSeen(u), perms: u.isSuper ? ['*'] : [...u.perms],
 });
 
+// ---- guessing protection: the per-IP limiter above, plus a per-account lock after repeated wrong passwords or 2FA codes
+export const LOCK_LIMIT = Number(process.env.LOGIN_LOCK_LIMIT) || 10;
+export const LOCK_MINUTES = 15;
+const lockedOut = (userId) => get(`SELECT COUNT(*) n FROM login_failures WHERE user_id=? AND created_at>=datetime('now','-${LOCK_MINUTES} minutes')`, userId).n >= LOCK_LIMIT;
+const lockedError = () => new HttpError(429, `Too many wrong attempts on this account. Wait ${LOCK_MINUTES} minutes or reset your password.`, { code: 'account_locked' });
+// compared when no account matches, so a wrong e-mail takes as long as a wrong password (no hint about who has an account)
+const DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(16).toString('hex'), 10);
+// wrong codes per 2FA step token: after a few the token is spent and the password must be entered again
+const MFA_TRIES = 5;
+const mfaFails = new Map();
+const mfaSpent = (jti) => (mfaFails.get(jti)?.n || 0) >= MFA_TRIES;
+function mfaFail(jti) {
+  const now = Date.now();
+  for (const [k, v] of mfaFails) if (v.until < now) mfaFails.delete(k);
+  const e = mfaFails.get(jti) || { n: 0, until: now + 10 * 60_000 };
+  e.n += 1; mfaFails.set(jti, e);
+}
+
 r.post('/login', loginLimiter, asyncH((req, res) => {
   const { identifier, password } = req.body || {};
   if (!identifier || !password) throw bad('Email/phone and password are required');
   const id = String(identifier).trim();
   const row = get('SELECT * FROM users WHERE (lower(trim(email))=lower(?) OR trim(phone)=?) AND active=1', id, id);
-  if (!row || !bcrypt.compareSync(String(password), row.password_hash)) {
+  if (row && lockedOut(row.id)) { audit(req, 'Sign-in refused: account locked', 'user', row.id, id); throw lockedError(); }
+  const ok = bcrypt.compareSync(String(password), row ? row.password_hash : DUMMY_HASH);
+  if (!row || !ok) {
     audit(req, 'Failed login', 'user', null, id);
     if (row) noteFailedLogin(req, row);
     throw new HttpError(401, 'Invalid credentials');
@@ -91,7 +113,7 @@ r.post('/devices/sign-out-all', requireAuth, asyncH((req, res) => {
   run('UPDATE users SET token_version=token_version+1 WHERE id=?', req.user.id);
   audit(req, 'Signed out of every device', 'user', req.user.id);
   const u = loadUser(req.user.id);
-  res.cookie('erp_token', signToken(u), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 12 * 3600 * 1000 }); // this browser stays signed in
+  res.cookie('erp_token', signToken(u), sessionCookie()); // this browser stays signed in
   res.json({ ok: true });
 }));
 r.get('/login-otp', requireAuth, (req, res) => res.json({ mode: loginOtpMode(), can_send: canEmailCodes(), can_edit: hasPerm(req.user, 'settings', 'edit') }));
@@ -108,9 +130,10 @@ r.put('/login-otp', requireAuth, asyncH((req, res) => {
 
 function finishLogin(req, res, u) {
   run('UPDATE users SET last_login=? WHERE id=?', now(), u.id);
+  run('DELETE FROM login_failures WHERE user_id=? AND alerted=0', u.id); // a good sign-in clears the lock count
   req.user = u;
   audit(req, 'Login', 'user', u.id, u.email);
-  res.cookie('erp_token', signToken(u), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 12 * 3600 * 1000 });
+  res.cookie('erp_token', signToken(u), sessionCookie());
   noteSignIn(req, res, u);
   res.json(sessionPayload(u));
 }
@@ -118,17 +141,25 @@ function finishLogin(req, res, u) {
 /** Second step of sign-in: an authenticator code, or one of the one-time recovery codes. */
 r.post('/login/mfa', loginLimiter, asyncH((req, res) => {
   const uid = readMfaToken(req.body?.mfa_token);
+  const jti = mfaTokenId(req.body?.mfa_token);
   const row = uid && get('SELECT * FROM users WHERE id=? AND active=1 AND totp_enabled=1', uid);
-  if (!row) throw new HttpError(401, 'This sign-in expired. Enter your password again.');
+  if (!row || (jti && mfaSpent(jti))) throw new HttpError(401, 'This sign-in expired. Enter your password again.');
+  if (lockedOut(row.id)) throw lockedError();
   const code = String(req.body?.code || '').trim();
   const step = verifyCode(decrypt(row.totp_secret), code, row.totp_last_step);
   if (step) run('UPDATE users SET totp_last_step=? WHERE id=?', step, row.id);
   else {
     const left = useRecoveryCode(JSON.parse(row.recovery_codes || '[]'), code);
-    if (!left) { audit(req, 'Failed 2FA code', 'user', null, row.email); throw new HttpError(401, 'That code is not right'); }
+    if (!left) {
+      audit(req, 'Failed 2FA code', 'user', null, row.email);
+      if (jti) mfaFail(jti);
+      noteFailedLogin(req, row);
+      throw new HttpError(401, jti && mfaSpent(jti) ? 'Too many wrong codes. Enter your password again.' : 'That code is not right');
+    }
     run('UPDATE users SET recovery_codes=? WHERE id=?', JSON.stringify(left), row.id);
     audit(req, 'Signed in with a recovery code', 'user', row.id, row.email);
   }
+  if (jti) mfaFails.set(jti, { n: MFA_TRIES, until: Date.now() + 10 * 60_000 }); // a used step token cannot open a second session
   finishLogin(req, res, loadUser(row.id));
 }));
 
@@ -191,7 +222,7 @@ r.post('/invite/accept', linkLimiter, asyncH((req, res) => {
   const u = loadUser(id);
   req.user = u;
   audit(req, 'Accepted invitation', 'user', u.id, u.email);
-  res.cookie('erp_token', signToken(u), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 12 * 3600 * 1000 });
+  res.cookie('erp_token', signToken(u), sessionCookie());
   noteSignIn(req, res, u);
   res.status(201).json(sessionPayload(u));
 }));
@@ -210,6 +241,9 @@ r.put('/tour', requireAuth, asyncH((req, res) => {
 r.post('/logout', requireAuth, asyncH((req, res) => {
   audit(req, 'Logout', 'user', req.user.id);
   stopSharing(req.user.id); // signing out always ends location sharing
+  // this session's token stops working now (other devices stay signed in; "Sign out everywhere" ends those)
+  const hdr = req.headers.authorization;
+  revokeToken((hdr && hdr.startsWith('Bearer ') ? hdr.slice(7) : null) || req.cookies?.erp_token);
   res.clearCookie('erp_token');
   res.json({ ok: true });
 }));
@@ -265,11 +299,11 @@ r.post('/change-password', requireAuth, asyncH((req, res) => {
   const { current, next } = req.body || {};
   const row = get('SELECT * FROM users WHERE id=?', req.user.id);
   if (!bcrypt.compareSync(String(current || ''), row.password_hash)) throw bad('Current password is incorrect');
-  if (!next || String(next).length < 8) throw bad('New password must be at least 8 characters');
+  { const pp = passwordProblem(next, { email: req.user.email, name: req.user.name, label: 'New password' }); if (pp) throw bad(pp); }
   run('UPDATE users SET password_hash=?, token_version=token_version+1 WHERE id=?', bcrypt.hashSync(String(next), 10), req.user.id);
   audit(req, 'Changed password', 'user', req.user.id);
   const u = loadUser(req.user.id);
-  res.cookie('erp_token', signToken(u), { httpOnly: true, sameSite: 'lax', maxAge: 12 * 3600 * 1000 });
+  res.cookie('erp_token', signToken(u), sessionCookie());
   res.json({ ok: true });
 }));
 
