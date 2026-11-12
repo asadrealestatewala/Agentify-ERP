@@ -11,7 +11,7 @@ import { printPdf } from '../printPdf.js';
 import CustomerPicker from '../components/CustomerPicker.jsx';
 import { ReceiptPreview } from '../components/VoucherPreview.jsx';
 import { useAuth, useFetch, useLookups, useMeta, useToast } from '../context.jsx';
-import { date, money, todayPK } from '../format.js';
+import { date, money, todayPK, getRegion } from '../format.js';
 
 export const PAY_TYPES = ['Booking Payment', 'Advance Payment', 'Installment', 'Balloon Payment', 'Down Payment', 'Partial Payment', 'Full Payment', 'Refund', 'Adjustment', 'Other'];
 export const ONLINE = ['Bank Transfer', 'Online Transfer', 'JazzCash', 'Easypaisa'];
@@ -125,7 +125,7 @@ export function ReceiptForm() {
         <div className="stack">
           <Card title="Customer & property">
             <div className="form-grid">
-              <Field label="Customer" required className="full" hint="Start typing a name, customer ID (CUS-0001), phone or CNIC"><CustomerPicker customersOnly value={contactId} onResolved={setCustomer} onChange={(id, c) => { setContactId(id || ''); setCustomer(c); setSaleId(''); setSale(null); setP((x) => ({ ...x, amount: '' })); }} /></Field>
+              <Field label="Customer" required className="full" hint={`Start typing a name, customer ID (CUS-0001), phone${getRegion().isPK ? ' or CNIC' : ' or email'}`}><CustomerPicker customersOnly value={contactId} onResolved={setCustomer} onChange={(id, c) => { setContactId(id || ''); setCustomer(c); setSaleId(''); setSale(null); setP((x) => ({ ...x, amount: '' })); }} /></Field>
               <Field label="Property / sale" className="full"><Select allowEmpty={false} value={saleId} onChange={(v) => { setSaleId(v ? Number(v) : ''); setP((x) => ({ ...x, amount: '' })); }} options={[{ value: '', label: 'No sale (customer advance)' }, ...sales.map((s) => ({ value: s.id, label: `${s.kind === 'construction' ? '🏗 ' : ''}${s.property_title} · ${s.sale_no} — balance ${money(s.outstanding)}${s.bundle_id ? ' (combined plan)' : ''}` }))]} /></Field>
             </div>
             {sale?.bundle && !isRefund && (
@@ -277,7 +277,7 @@ export function ReceiptDetail() {
         {r.record && (
           <><div className="section-title">Customer & file details</div>
             <div className="grid g2" style={{ marginBottom: 14 }}>
-              <KV items={[['Customer ID', r.record.customer_code], ['CNIC no.', r.record.cnic], ['Contact no.', r.record.phone], ['Email', r.record.email], ['Booking date', r.record.booking_date ? date(r.record.booking_date) : null]]} />
+              <KV items={[['Customer ID', r.record.customer_code], [`${getRegion().idLabel} no.`, r.record.cnic], ['Contact no.', r.record.phone], ['Email', r.record.email], ['Booking date', r.record.booking_date ? date(r.record.booking_date) : null]]} />
               <KV items={[['Registration no.', r.record.registration_no], ['File #', r.record.file_no], ['File status', r.record.file_status ? <StatusBadge status={r.record.file_status} tone={{ Active: 'green', Inactive: 'grey', Paused: 'amber', Defaulted: 'red', Suspended: 'red' }[r.record.file_status]} /> : null], ['Type', r.record.property_type], ['Plot size', r.record.plot_size], ['Address', r.record.address]]} />
             </div></>
         )}

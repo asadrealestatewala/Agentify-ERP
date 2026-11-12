@@ -1,6 +1,6 @@
 import { DocFooter, DocHeader, useBrand } from './DocBrand.jsx';
 import { useMeta } from '../context.jsx';
-import { date, money } from '../format.js';
+import { date, money, getRegion } from '../format.js';
 
 /** Paper-style rows: label left, value right. Empty values are skipped, as on the printed voucher. */
 function Rows({ items }) {
@@ -35,7 +35,7 @@ export function ReceiptPreview({ p, customer, sale, record, bundleParts, shares,
       <Rows items={[
         ['Date', p.date ? date(p.date) : ''],
         ['Received from', customer ? `${customer.full_name}${customer.customer_code ? `  (${customer.customer_code})` : ''}` : <Todo>Select a customer</Todo>],
-        ['CNIC no.', customer?.cnic || rec.cnic], ['Contact no.', customer?.phone || rec.phone], ['Email', customer?.email || rec.email],
+        [`${getRegion().idLabel} no.`, customer?.cnic || rec.cnic], ['Contact no.', customer?.phone || rec.phone], ['Email', customer?.email || rec.email],
         ['Registration no.', rec.registration_no], ['File #', rec.file_no], ['File status', rec.file_status], ['Type', rec.property_type], ['Plot size', rec.plot_size],
         ['Booking date', rec.booking_date ? date(rec.booking_date) : ''], ['Address', rec.address],
         ['Property / contract', subject || (customer ? 'Customer advance (no sale)' : '')],

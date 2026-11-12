@@ -8,7 +8,7 @@ import { DocumentsPanel } from '../components/Uploaders.jsx';
 import { BackLink, Card, ConfirmDialog, CurrencyInput, Field, KV, Loading, PageHead, ProgressBar, Select, StatusBadge, Tabs } from '../components/ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useFetch, useLookups, useToast } from '../context.jsx';
-import { date, money, todayPK } from '../format.js';
+import { date, money, todayPK, getRegion } from '../format.js';
 import { celebrate } from '../celebrate.js';
 import { PaymentFields, emptyPayment } from './Receipts.jsx';
 import CustomerPicker from '../components/CustomerPicker.jsx';
@@ -170,7 +170,7 @@ export function SaleForm() {
         <div className="stack">
           <Card title="Customer">
             <div className="form-grid">
-              <Field label="Customer" required className="full" hint="Start typing a name, phone or CNIC — or add a new customer right here; they are saved to Contacts automatically.">
+              <Field label="Customer" required className="full" hint={`Start typing a name, phone${getRegion().isPK ? ' or CNIC' : ' or email'} — or add a new customer right here; they are saved to Contacts automatically.`}>
                 <CustomerPicker value={f.contact_id} onChange={(id, c) => { if (c) setContacts((x) => [c, ...x.filter((y) => y.id !== c.id)]); set('contact_id', id); set('linked_sale_id', ''); }} autoFocus={!f.contact_id} />
               </Field>
               {!isHouse && <Field label="Property" required className="full"><PropertyPicker value={f.property_id} statuses={['available', 'featured', 'reserved']} onChange={(id) => set('property_id', id ? Number(id) : '')} /></Field>}

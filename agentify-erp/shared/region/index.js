@@ -29,6 +29,10 @@ export function buildRegion(cfg = {}) {
     fmt: createFormat({ date_style: c.date_style, time_style: c.time_style, timezone: c.timezone }),
     price: createPrice({ price_style: c.price_style, currency: c.currency, locale: c.locale, money_scale: c.money_scale, rent_suffix: c.rent_suffix }),
     dir: direction(c.language || c.locale),
+    /** Name of the national ID in this country (CNIC, SSN, Emirates ID, ...), without the "(last 4 shown)" suffix. */
+    idLabel: String(c.identity?.national_id?.label || 'CNIC').replace(/\s*\(.*\)\s*$/, ''),
+    /** True for Pakistan, where the CNIC is stored on the contact itself. */
+    isPK: (c.region || 'PK') === 'PK',
     /** Terminology with a fallback to the given English default: term('agent', 'Sales Agent'). */
     term: (key, fallback) => c.terminology?.[key] ?? fallback ?? key,
   };

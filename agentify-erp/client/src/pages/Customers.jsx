@@ -8,7 +8,7 @@ import { Avatar, BackLink, Card, ConfirmDialog, Field, KV, Loading, Modal, PageH
 import { api, download } from '../api.js';
 import { useAuth, useFetch, useMeta, useToast } from '../context.jsx';
 import { DocFooter, DocHeader } from '../components/DocBrand.jsx';
-import { date, money } from '../format.js';
+import { date, money, getRegion } from '../format.js';
 
 const TITLES = { all: 'All customers', active: 'Active customers', buyers: 'Buyers', installment: 'Installment customers' };
 
@@ -82,7 +82,7 @@ export function CustomerStatement() {
           <button className="btn primary" onClick={() => dl('pdf')}><Icon name="download" size={14} />Download PDF</button><button className="btn" onClick={() => dl('xlsx')}>Excel</button><button className="btn" onClick={() => window.print()}><Icon name="print" size={14} />Print</button></PageHead></div>
       <div className="print-doc">
         <DocHeader kind="statement" title="ACCOUNT STATEMENT" extra={<div className="muted">Generated {date(data.generated_at)}</div>} />
-        <KV items={[['Customer', data.customer.full_name], ['Customer ID', data.customer.customer_code], ['Phone', data.customer.phone], ['CNIC', data.customer.cnic]]} />
+        <KV items={[['Customer', data.customer.full_name], ['Customer ID', data.customer.customer_code], ['Phone', data.customer.phone], [getRegion().idLabel, data.customer.cnic]]} />
         {data.entries.map(({ sale: s, receipts }) => (
           <div key={s.id} style={{ marginTop: 22 }}>
             <h3 style={{ marginBottom: 6 }}>{s.kind === 'construction' ? '🏗 ' : ''}{s.property_title} <span className="muted">· {s.project_name} · {s.sale_no}</span></h3>

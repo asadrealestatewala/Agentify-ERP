@@ -8,7 +8,7 @@ import { DocumentsPanel, FileUploader } from '../components/Uploaders.jsx';
 import { BackLink, Card, ConfirmDialog, Empty, Field, KV, LedgerSummary, Loading, PageHead, ProgressBar, Select, Stat, StatusBadge, Tabs } from '../components/ui.jsx';
 import { api, fileUrl } from '../api.js';
 import { useAuth, useFetch, useLookups, useToast } from '../context.jsx';
-import { date, money } from '../format.js';
+import { date, money, getRegion } from '../format.js';
 import { DateRangeFilter } from '../components/ui.jsx';
 import { ScheduleManager } from '../components/Schedule.jsx';
 
@@ -90,7 +90,7 @@ export function ProjectFinancials() {
 
 function UpdateForm({ project, onClose, onSaved }) {
   const toast = useToast();
-  const [f, setF] = useState({ title: '', description: '', progress: '', kind: 'Progress', update_date: new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Karachi' }), videos: [] });
+  const [f, setF] = useState({ title: '', description: '', progress: '', kind: 'Progress', update_date: new Date().toLocaleDateString('en-CA', { timeZone: getRegion().config.timezone }), videos: [] });
   const [files, setFiles] = useState([]);
   const [video, setVideo] = useState('');
   const [busy, setBusy] = useState(false);

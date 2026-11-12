@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Icon from './Icon.jsx';
 import { StatusBadge } from './ui.jsx';
 import { api } from '../api.js';
-import { date, money } from '../format.js';
+import { date, money, getRegion } from '../format.js';
 
 const FILE_TONE = { Active: 'green', Inactive: 'grey', Paused: 'amber', Defaulted: 'red', Suspended: 'red' };
 
@@ -22,7 +22,7 @@ export default function CustomerRecordLookup() {
     <div className="pcheck" style={{ marginBottom: 12 }}>
       <div className="row wrap" style={{ gap: 10 }}>
         <b style={{ whiteSpace: 'nowrap' }}><Icon name="search" size={14} /> Find a customer record</b>
-        <input className="input" style={{ maxWidth: 440, flex: 1 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Registered mobile number, email, CNIC, customer ID or name…" aria-label="Customer record lookup" />
+        <input className="input" style={{ maxWidth: 440, flex: 1 }} value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Registered mobile number, email, ${getRegion().isPK ? 'CNIC, ' : ''}customer ID or name…`} aria-label="Customer record lookup" />
         {q && <button className="btn sm ghost" onClick={() => setQ('')}>Clear</button>}
       </div>
       {busy && !rows && <div className="muted" style={{ marginTop: 8 }}>Searching…</div>}
@@ -32,7 +32,7 @@ export default function CustomerRecordLookup() {
           <div className="row wrap" style={{ gap: 14 }}>
             <div className="grow" style={{ minWidth: 240 }}>
               <Link to={`/contacts/${c.id}`}><b>{c.full_name}</b></Link> <span className="tag mono">{c.customer_code}</span>
-              <div className="muted" style={{ fontSize: 12.5 }}>CNIC {c.cnic || '—'} · {c.phone || 'no phone'} · {c.email || 'no email'}</div>
+              <div className="muted" style={{ fontSize: 12.5 }}>{getRegion().isPK ? `CNIC ${c.cnic || '—'} · ` : ''}{c.phone || 'no phone'} · {c.email || 'no email'}</div>
               <div className="muted" style={{ fontSize: 12.5 }}>{[c.address, c.city].filter(Boolean).join(', ')}{c.customer_since ? ` · customer since ${date(c.customer_since)}` : ''}</div>
             </div>
             <div style={{ textAlign: 'right' }}>

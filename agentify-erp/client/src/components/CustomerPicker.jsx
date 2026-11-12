@@ -4,13 +4,14 @@ import { Avatar } from './ui.jsx';
 import { api } from '../api.js';
 import { useAuth, useToast } from '../context.jsx';
 import ContactForm from '../pages/ContactForm.jsx';
+import { getRegion } from '../format.js';
 
 /**
  * Type-ahead customer search against the contacts module, with "Add new customer" in the same window.
  * A customer created here is a normal contact — it shows up in Contacts/Customers immediately, no re-entry.
  * onChange(id, contact)
  */
-export default function CustomerPicker({ value, onChange, onResolved, customersOnly = false, placeholder = customersOnly ? 'Type a customer name, customer ID, phone or CNIC…' : 'Type a name, customer ID, phone or CNIC…', autoFocus }) {
+export default function CustomerPicker({ value, onChange, onResolved, customersOnly = false, placeholder = customersOnly ? `Type a customer name, customer ID, phone${getRegion().isPK ? ' or CNIC' : ' or email'}…` : `Type a name, customer ID, phone${getRegion().isPK ? ' or CNIC' : ' or email'}…`, autoFocus }) {
   const { can } = useAuth();
   const toast = useToast();
   const [q, setQ] = useState('');

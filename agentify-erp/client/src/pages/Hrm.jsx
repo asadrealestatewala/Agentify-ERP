@@ -9,10 +9,10 @@ import { Avatar, BackLink, Card, Empty, Field, KV, Loading, Modal, PageHead, Sel
 import { api, fileUrl } from '../api.js';
 import { EmpTypePill } from './MySpace.jsx';
 import { useAuth, useFetch, useLookups, useToast } from '../context.jsx';
-import { date, money, todayPK } from '../format.js';
+import { date, money, todayPK, getRegion } from '../format.js';
 
 const empFields = (employees, users = []) => [
-  { name: 'name', label: 'Employee name', required: true, person: true }, { name: 'father_name', label: 'Father’s name' }, { name: 'cnic', label: 'CNIC' }, { name: 'dob', label: 'Date of birth', type: 'date' }, { name: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
+  { name: 'name', label: 'Employee name', required: true, person: true }, { name: 'father_name', label: 'Father’s name' }, { name: 'cnic', label: getRegion().idLabel }, { name: 'dob', label: 'Date of birth', type: 'date' }, { name: 'gender', label: 'Gender', type: 'select', options: ['Male', 'Female', 'Other'] },
   { name: 'phone', label: 'Contact number' }, { name: 'email', label: 'Email', type: 'email' }, { name: 'address', label: 'Address', full: true }, { name: 'emergency_contact', label: 'Emergency contact', full: true },
   { name: 'department', label: 'Department', type: 'select', lookup: 'department' }, { name: 'designation', label: 'Designation', type: 'select', lookup: 'designation' }, { name: 'hire_date', label: 'Recruitment date', type: 'date' },
   { name: 'employment_type', label: 'Employment status', type: 'select', lookup: 'employment_type', allowEmpty: false }, { name: 'salary', label: 'Salary (monthly)', type: 'money' }, { name: 'bonus', label: 'Standing bonus', type: 'money' },
@@ -66,9 +66,9 @@ export function EmployeeProfile() {
       <Card flush><Tabs value={tab} onChange={setTab} tabs={[{ key: 'info', label: 'Profile' }, { key: 'docs', label: 'Documents', count: data.documents.length }, { key: 'pay', label: 'Salary history' }, { key: 'leave', label: 'Leave' }, { key: 'att', label: 'Attendance' }, { key: 'assets', label: 'Assets', count: data.assets?.length || 0 }]} />
         <div className="card-b">
           {tab === 'info' && <div className="row" style={{ gap: 16, alignItems: 'flex-start', marginBottom: 14 }}>{e.photo ? <img src={fileUrl(e.photo)} alt={e.name} style={{ width: 84, height: 84, borderRadius: '50%', objectFit: 'cover' }} /> : <Avatar name={e.name} />}<div><b style={{ fontSize: 16 }}>{e.name}</b><div className="muted">{e.designation} · {e.department}</div><div style={{ marginTop: 6 }}><EmpTypePill type={e.employment_type} /></div></div></div>}
-          {tab === 'info' && <div className="grid g2"><KV items={[['Father’s name', e.father_name], ['CNIC', e.cnic], ['Date of birth', date(e.dob)], ['Gender', e.gender], ['Phone', e.phone], ['Email', e.email], ['Address', e.address], ['Emergency contact', e.emergency_contact], ['Login', e.login_email || <span className="muted">not linked</span>]]} />
+          {tab === 'info' && <div className="grid g2"><KV items={[['Father’s name', e.father_name], [getRegion().idLabel, e.cnic], ['Date of birth', date(e.dob)], ['Gender', e.gender], ['Phone', e.phone], ['Email', e.email], ['Address', e.address], ['Emergency contact', e.emergency_contact], ['Login', e.login_email || <span className="muted">not linked</span>]]} />
             <KV items={[['Department', e.department], ['Designation', e.designation], ['Recruitment date', date(e.hire_date)], ['Employment type', e.employment_type], ['Salary', money(e.salary)], ['Bonus', money(e.bonus)], ['Commission', e.commission_note], ['Branch', e.branch], ...(e.status === 'terminated' ? [['Terminated on', date(e.terminated_date)], ['Termination reason', e.termination_reason]] : [])]} /></div>}
-          {tab === 'docs' && <DocumentsPanel entityType="employee" entityId={e.id} canEdit={can('hrm', 'edit')} categories={['CNIC', 'Resume/CV', 'Educational', 'Experience Letter', 'Contract', 'Passport', 'Photo', 'Other']} />}
+          {tab === 'docs' && <DocumentsPanel entityType="employee" entityId={e.id} canEdit={can('hrm', 'edit')} categories={[getRegion().idLabel, 'Resume/CV', 'Educational', 'Experience Letter', 'Contract', 'Passport', 'Photo', 'Other']} />}
           {tab === 'pay' && (data.payroll.length ? <table className="t"><thead><tr><th>Period</th><th className="num">Basic</th><th className="num">Allowances</th><th className="num">Bonus</th><th className="num">Commission</th><th className="num">Deductions</th><th className="num">Net</th><th>Status</th></tr></thead><tbody>{data.payroll.map((p) => <tr key={p.id}><td>{p.period}</td><td className="num mono">{money(p.basic)}</td><td className="num mono">{money(p.allowances)}</td><td className="num mono">{money(p.bonus)}</td><td className="num mono">{money(p.commission)}</td><td className="num mono">{money(p.deductions + p.advances + p.loans)}</td><td className="num mono bold">{money(p.net)}</td><td><StatusBadge status={p.status} /></td></tr>)}</tbody></table> : <Empty>No payroll yet.</Empty>)}
           {tab === 'leave' && <div className="stack"><div className="grid g4">{data.balances.map((b) => <Stat key={b.type} label={`${b.type} leave`} value={b.quota ? `${b.balance} left` : `${b.used} used`} sub={b.quota ? `${b.used} of ${b.quota} used` : 'unlimited'} />)}</div>
             {data.leaves.length ? <table className="t"><tbody>{data.leaves.map((l) => <tr key={l.id}><td>{l.type}</td><td>{date(l.from_date)} → {date(l.to_date)}</td><td>{l.days}d</td><td>{l.reason}</td><td><StatusBadge status={l.status} /></td></tr>)}</tbody></table> : <Empty>No leave requests.</Empty>}</div>}
@@ -92,7 +92,7 @@ export function EmployeeDocuments() {
     <div>
       <PageHead title="Employee documents" sub="CNIC, CV, education, experience letters, contracts, passports, photos" />
       <Card><Field label="Employee"><Select value={emp} onChange={setEmp} options={(emps.data?.rows || []).map((e) => ({ value: e.id, label: `${e.name} (${e.emp_code})` }))} placeholder="Select an employee…" /></Field>
-        {emp && <div style={{ marginTop: 14 }}><DocumentsPanel key={emp} entityType="employee" entityId={emp} canEdit={can('hrm', 'edit')} categories={['CNIC', 'Resume/CV', 'Educational', 'Experience Letter', 'Contract', 'Passport', 'Photo', 'Other']} /></div>}</Card>
+        {emp && <div style={{ marginTop: 14 }}><DocumentsPanel key={emp} entityType="employee" entityId={emp} canEdit={can('hrm', 'edit')} categories={[getRegion().idLabel, 'Resume/CV', 'Educational', 'Experience Letter', 'Contract', 'Passport', 'Photo', 'Other']} /></div>}</Card>
     </div>
   );
 }
