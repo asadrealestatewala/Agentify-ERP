@@ -37,7 +37,7 @@ function MainGate({ fallback }) {
   const [info, setInfo] = useState(siteKnown);
   useEffect(() => { if (!info) loadSiteInfo().then((v) => { siteKnown = v; setInfo(v); }); }, [info]);
   if (!info) return <FirstView />;
-  return info.landing ? <Suspense fallback={<FirstView />}><Drawn><MarketingSite /></Drawn></Suspense> : <Drawn>{fallback}</Drawn>;
+  return info.landing ? <Suspense fallback={<FirstView />}><MarketingSite /></Suspense> : <Drawn>{fallback}</Drawn>;
 }
 
 export default function App() {
