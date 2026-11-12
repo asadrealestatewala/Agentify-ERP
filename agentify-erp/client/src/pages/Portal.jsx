@@ -14,7 +14,7 @@ import { ScheduleView } from '../components/Schedule.jsx';
 import { DocFooter, DocHeader } from '../components/DocBrand.jsx';
 import { useAuth, useFetch } from '../context.jsx';
 import { useBrand } from '../brand.js';
-import { date, money } from '../format.js';
+import { date, money, getRegion } from '../format.js';
 
 export function PortalLayout() {
   const { user, logout } = useAuth();
@@ -185,7 +185,7 @@ export function PortalPayments() {
         <tbody>{data.map((r) => <tr key={r.id}><td>{date(r.date)}</td><td>{r.receipt_no}</td><td>{r.property}</td><td>{r.payment_type}</td><td>{r.method}</td><td className="num mono">{money(r.amount)}</td><td className="right"><button className="btn sm" onClick={() => setOpen(open === r.id ? null : r.id)}>{open === r.id ? 'Hide' : 'View receipt'}</button></td></tr>)}</tbody></table>}</Card>
       {open && rc.data && (
         <div className="print-doc"><DocHeader kind="receipt" brand={brand.data || {}} title={(brand.data?.receipt_title) || 'RECEIPT'} number={rc.data.receipt_no} />
-          <KV items={[['Date', date(rc.data.date)], ['Received from', rc.data.record?.customer_code ? `${rc.data.customer} (${rc.data.record.customer_code})` : rc.data.customer], ['CNIC no.', rc.data.record?.cnic], ['Contact no.', rc.data.record?.phone], ['Registration no.', rc.data.record?.registration_no], ['File #', rc.data.record?.file_no], ['File status', rc.data.record?.file_status], ['Type', rc.data.record?.property_type], ['Plot size', rc.data.record?.plot_size], ['Booking date', rc.data.record?.booking_date ? date(rc.data.record.booking_date) : null], ['Address', rc.data.record?.address], ['Property / contract', rc.data.property], ['Project', rc.data.project], ['Payment type', rc.data.payment_type], ['Method', rc.data.method], ['Reference', rc.data.reference_no || rc.data.txn_id], ['Amount', <b>{money(rc.data.amount)}</b>]]} />
+          <KV items={[['Date', date(rc.data.date)], ['Received from', rc.data.record?.customer_code ? `${rc.data.customer} (${rc.data.record.customer_code})` : rc.data.customer], [`${getRegion().idLabel} no.`, rc.data.record?.cnic], ['Contact no.', rc.data.record?.phone], ['Registration no.', rc.data.record?.registration_no], ['File #', rc.data.record?.file_no], ['File status', rc.data.record?.file_status], ['Type', rc.data.record?.property_type], ['Plot size', rc.data.record?.plot_size], ['Booking date', rc.data.record?.booking_date ? date(rc.data.record.booking_date) : null], ['Address', rc.data.record?.address], ['Property / contract', rc.data.property], ['Project', rc.data.project], ['Payment type', rc.data.payment_type], ['Method', rc.data.method], ['Reference', rc.data.reference_no || rc.data.txn_id], ['Amount', <b>{money(rc.data.amount)}</b>]]} />
           {rc.data.parts?.length > 1 && <table className="t" style={{ marginTop: 10 }}><thead><tr><th>Applied to</th><th className="num">Share</th></tr></thead><tbody>{rc.data.parts.map((x) => <tr key={x.sale_no}><td>{x.kind === 'construction' ? 'House construction' : 'Plot'} — {x.title}</td><td className="num mono">{money(x.amount)}</td></tr>)}</tbody></table>}
           <DocFooter kind="receipt" brand={brand.data || {}} />
           <div className="no-print row" style={{ marginTop: 14, gap: 8 }}><button className="btn primary" onClick={() => download(`/api/portal/receipts/${open}/pdf`, {}, `receipt-${rc.data.receipt_no}.pdf`).catch(() => {})}>Download PDF</button><button className="btn" onClick={() => printPdf(`/api/portal/receipts/${open}/pdf`).catch(() => {})}>Print</button></div></div>
@@ -238,7 +238,7 @@ function HowToPay() {
 export function PortalOffers() {
   const { data } = useFetch('/api/portal/promos');
   if (!data) return <Loading />;
-  const priceText = (n) => (n >= 1e7 ? `PKR ${+(n / 1e7).toFixed(2)} Crore` : n >= 1e5 ? `PKR ${+(n / 1e5).toFixed(2)} Lakh` : `PKR ${n.toLocaleString('en-PK')}`);
+  const priceText = (n) => getRegion().price.priceText(n);
   return (
     <div className="stack">
       <h2 style={{ fontSize: 20, margin: 0 }}>Offers & new listings</h2>

@@ -4,7 +4,7 @@ import Icon from '../components/Icon.jsx';
 import { WA, WhatsAppButton, useCompanyName } from '../components/WhatsApp.jsx';
 import { Avatar, BackLink, Card, Empty, Loading, PageHead, ProgressBar, Stat, StatusBadge } from '../components/ui.jsx';
 import { useAuth, useFetch } from '../context.jsx';
-import { date, dateTime, money } from '../format.js';
+import { date, dateTime, money, getRegion } from '../format.js';
 
 const ICON = { receipt: 'receipt', sale: 'badge', note: 'note', activity: 'history', document: 'file', task: 'check', overdue: 'bolt', installment: 'calendar' };
 const FILTERS = [['all', 'Everything'], ['money', 'Payments'], ['notes', 'Notes & activity'], ['docs', 'Documents & tasks']];
@@ -64,7 +64,7 @@ export default function Customer360() {
             <div className="row" style={{ marginBottom: 10 }}><Avatar name={c.full_name} size="lg" /><div><b>{c.full_name}</b><div className="muted">{c.is_customer ? 'Customer' : 'Lead'}</div></div></div>
             <dl style={{ margin: 0 }}>
               {[['Phone', c.phone && <span className="row" style={{ gap: 6 }}>{c.phone}<a className="qa" href={`tel:${c.phone}`} aria-label="Call"><Icon name="phone" size={13} /></a><WhatsAppButton phone={c.whatsapp || c.phone} text={WA.hello(msgCtx, co)} size={13} /></span>],
-                ['Email', c.email], ['CNIC', c.cnic], ['Address', [c.address, c.city].filter(Boolean).join(', ')], ['Portal', data.portal ? (data.portal.last_login ? `Last login ${dateTime(data.portal.last_login)}` : 'Account created — never signed in') : 'No portal account']]
+                ['Email', c.email], [getRegion().idLabel, c.cnic], ['Address', [c.address, c.city].filter(Boolean).join(', ')], ['Portal', data.portal ? (data.portal.last_login ? `Last login ${dateTime(data.portal.last_login)}` : 'Account created — never signed in') : 'No portal account']]
                 .filter(([, v]) => v).map(([kk, v]) => <div className="kv" key={kk}><dt>{kk}</dt><dd>{v}</dd></div>)}
             </dl>
           </Card>

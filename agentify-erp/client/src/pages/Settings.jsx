@@ -8,7 +8,7 @@ import { api } from '../api.js';
 import { useAuth, useFetch, useLookups, useMeta, useToast } from '../context.jsx';
 import PushToggle from '../components/Push.jsx';
 import Icon from '../components/Icon.jsx';
-import { dateTime, titleCase, cur, money } from '../format.js';
+import { dateTime, titleCase, cur, money, getRegion } from '../format.js';
 
 // ---------------------------------------------------------------- Users
 export function Users() {
@@ -242,7 +242,7 @@ export function SystemSettings() {
           <Field label="Email"><input className="input" disabled={ro} value={f.company_email || ''} onChange={(e) => set('company_email', e.target.value)} /></Field>
           <Field label="Address" className="full"><input className="input" disabled={ro} value={f.company_address || ''} onChange={(e) => set('company_address', e.target.value)} /></Field>
           <Field label="Currency" hint="Set by the workspace region"><input className="input" disabled value={f.currency || cur()} /></Field>
-          <Field label="Date format"><input className="input" disabled value="DD-MMM-YYYY (Asia/Karachi)" /></Field>
+          <Field label="Date format"><input className="input" disabled value={`${getRegion().config.date_style} (${getRegion().config.timezone})`} /></Field>
         </div></Card>
         <Card title="Ask assistant"><div className="stack">
           <div className="muted">Teach Ask about your business. Write facts it may use when staff ask about the company: office hours, payment and refund rules, booking steps, FAQs. Separate topics with a blank line. Do not put passwords or private customer data here. Staff can see this text, and the relevant lines are sent to the AI provider with a question.</div>

@@ -6,7 +6,7 @@ import { Card, Empty, Loading, Modal, PageHead, Select, Stat, StatusBadge, Tabs 
 import { LeaveActionModal } from './MySpace.jsx';
 import { api, download } from '../api.js';
 import { useAuth, useFetch, useLookups, useToast } from '../context.jsx';
-import { date, money, todayPK } from '../format.js';
+import { date, money, todayPK, getRegion } from '../format.js';
 
 const STATUSES = [['present', 'P', 'Present'], ['late', 'L', 'Late'], ['half_day', 'HD', 'Half day'], ['absent', 'A', 'Absent'], ['leave', 'Lv', 'On leave']];
 
@@ -30,7 +30,7 @@ export function AttendanceBoard() {
       await api.post('/api/hrm/attendance', body); refresh();
     } catch (e) { toast(e.message, 'err'); } finally { setBusy(''); }
   };
-  const nowPK = () => new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit' });
+  const nowPK = () => new Date().toLocaleTimeString('en-GB', { timeZone: getRegion().config.timezone, hour: '2-digit', minute: '2-digit' });
   /** Manual clock in / clock out: late and early minutes and the status are worked out from the working hours. */
   const saveTimes = async (r, patch, el) => {
     const undo = () => { if (el) el.value = patch.check_in !== undefined ? (r.check_in || '') : (r.check_out || ''); };

@@ -8,7 +8,7 @@ import { Card, CurrencyInput, Empty, Field, KV, Loading, Modal, Stat, StatusBadg
 import { api, download } from '../api.js';
 import { useAuth, useFetch, useToast } from '../context.jsx';
 import { useBrand } from '../brand.js';
-import { date, money, todayPK } from '../format.js';
+import { date, money, todayPK, getRegion } from '../format.js';
 
 const BID_TONE = { submitted: 'blue', shortlisted: 'amber', awarded: 'green', rejected: 'red', withdrawn: 'grey' };
 const BidPill = ({ status }) => (status ? <StatusBadge status={status} tone={BID_TONE[status]} /> : <span className="muted">No bid</span>);
@@ -328,7 +328,7 @@ export function VendorProfile() {
       <div><h2 style={{ fontSize: 20 }}>Your registration with the company</h2><div className="muted">If anything here is wrong, please contact the accounts team to correct it.</div></div>
       <div className="grid g2">
         <Card title="Registration"><KV items={[['Vendor ID', <b className="mono">{r.vendor_code}</b>], ['Name', r.name], ['Company', r.company], ['Category', r.category], ['Status', <StatusBadge status={r.status} />], ['Registered on', date(r.registered_on)],
-          ['CNIC / NTN', r.cnic_tax], ['Phone', r.phone], ['E-mail', r.email], ['Address', r.address], ['Payment terms', r.payment_terms], ['Bank details', r.bank_details]]} /></Card>
+          [`${getRegion().idLabel} / Tax ID`, r.cnic_tax], ['Phone', r.phone], ['E-mail', r.email], ['Address', r.address], ['Payment terms', r.payment_terms], ['Bank details', r.bank_details]]} /></Card>
         <div className="stack">
           <Card title="Work with the company"><KV items={[['Projects supplied', p.worked_on.length ? p.worked_on.join(', ') : '—'], ['First approved voucher', p.first_voucher ? date(p.first_voucher) : '—'], ['Contracts won', p.contracts_won.length || '0']]} />
             {p.contracts_won.map((c) => <div key={c.tender_no} className="row between" style={{ padding: '4px 0' }}><span>{c.tender_no} · {c.title}</span><b className="mono">{money(c.total_amount)}</b></div>)}</Card>

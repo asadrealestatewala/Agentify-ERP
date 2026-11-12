@@ -9,14 +9,14 @@ import { BackLink, Card, Check, ConfirmDialog, CurrencyInput, DateRangeFilter, E
 import { api, download } from '../api.js';
 import { ExpensePreview } from '../components/VoucherPreview.jsx';
 import { useAuth, useFetch, useLookups, useMeta, useToast, useUndoDelete } from '../context.jsx';
-import { date, money, todayPK } from '../format.js';
+import { date, money, todayPK, getRegion } from '../format.js';
 import { DocFooter, DocHeader } from '../components/DocBrand.jsx';
 import { WA, useSharePdf, waLink, waNumber } from '../components/WhatsApp.jsx';
 import { Modal } from '../components/ui.jsx';
 
-const vendorFields = [
+const vendorFields = () => [
   { name: 'name', label: 'Vendor name', required: true }, { name: 'company', label: 'Company' }, { name: 'phone', label: 'Phone' }, { name: 'email', label: 'Email', type: 'email' },
-  { name: 'category', label: 'Vendor category', type: 'select', lookup: 'vendor_category' }, { name: 'cnic_tax', label: 'CNIC / Tax ID' }, { name: 'payment_terms', label: 'Payment terms', placeholder: 'e.g. Net 30' },
+  { name: 'category', label: 'Vendor category', type: 'select', lookup: 'vendor_category' }, { name: 'cnic_tax', label: `${getRegion().idLabel} / Tax ID` }, { name: 'payment_terms', label: 'Payment terms', placeholder: 'e.g. Net 30' },
   { name: 'address', label: 'Address', full: true }, { name: 'bank_details', label: 'Bank details', type: 'textarea' }, { name: 'notes', label: 'Notes', type: 'textarea' }, { name: 'active', label: 'Active', type: 'bool' },
 ];
 
@@ -24,7 +24,7 @@ export function VendorList() {
   const { list } = useLookups();
   return (
     <ResourcePage title="Vendors" sub="Suppliers, contractors and service providers" endpoint="/api/accounting/vendors" module="vendors" noun="vendor" tableId="vendors" exportName="vendors"
-      fields={vendorFields} defaults={{ active: 1 }} filterUI={(t) => <div style={{ width: 190 }}><Select value={t.extra.category || ''} onChange={(v) => t.setFilter({ category: v })} placeholder="All categories" options={list('vendor_category')} /></div>}
+      fields={vendorFields()} defaults={{ active: 1 }} filterUI={(t) => <div style={{ width: 190 }}><Select value={t.extra.category || ''} onChange={(v) => t.setFilter({ category: v })} placeholder="All categories" options={list('vendor_category')} /></div>}
       columns={[{ key: 'name', label: 'Vendor', render: (r) => <div><Link to={`/vendors/${r.id}`} className="cell-main">{r.name}</Link>{r.is_demo ? <span className="demo-chip">DEMO</span> : null}<div className="cell-sub">{[r.vendor_code, r.company].filter(Boolean).join(' · ')}</div></div> }, { key: 'category', label: 'Category' }, { key: 'phone', label: 'Phone' }, { key: 'payment_terms', label: 'Terms' },
         { key: 'balance', label: 'Payable', num: true, render: (r) => <span className={r.balance > 0 ? 'warn bold' : ''}>{money(r.balance)}</span> }, { key: 'active', label: 'Status', render: (r) => <StatusBadge status={r.active ? 'active' : 'inactive'} /> }]}
       rowActions={(r) => <Link to={`/vendors/${r.id}`}>Open ledger</Link>} canDeleteRow={() => true} />
@@ -64,7 +64,7 @@ export function VendorDetail() {
       </Card>
       <div style={{ height: 12 }} />
       <div className="grid g2">
-        <Card title="Details"><KV items={[['Company', v.company], ['Email', v.email], ['Address', v.address], ['CNIC / Tax ID', v.cnic_tax], ['Payment terms', v.payment_terms], ['Bank details', v.bank_details], ['Notes', v.notes]]} /></Card>
+        <Card title="Details"><KV items={[['Company', v.company], ['Email', v.email], ['Address', v.address], [`${getRegion().idLabel} / Tax ID`, v.cnic_tax], ['Payment terms', v.payment_terms], ['Bank details', v.bank_details], ['Notes', v.notes]]} /></Card>
         <Card title="Vendor portal">
           <div className="stack">
             {portal.data?.has_portal ? <div className="row between wrap"><span>Login <b>{portal.data.login}</b>{portal.data.last_login ? <span className="muted"> · last sign-in {date(portal.data.last_login)}</span> : <span className="muted"> · never signed in</span>}</span><span className="pill green">Active</span></div>
@@ -87,7 +87,7 @@ export function VendorDetail() {
             <KV items={[['Sign in at', `${window.location.origin}/vendor/login`], ['Login', access.login], ['Password', <b className="mono">{access.password}</b>]]} /></div>
         </Modal>
       )}
-      {editing && <FormModal title="Edit vendor" fields={vendorFields} initial={v} onClose={() => setEditing(false)} onSave={async (f) => { await api.put(`/api/accounting/vendors/${v.id}`, f); setEditing(false); reload(); toast('Saved', 'ok'); }} />}
+      {editing && <FormModal title="Edit vendor" fields={vendorFields()} initial={v} onClose={() => setEditing(false)} onSave={async (f) => { await api.put(`/api/accounting/vendors/${v.id}`, f); setEditing(false); reload(); toast('Saved', 'ok'); }} />}
     </div>
   );
 }
