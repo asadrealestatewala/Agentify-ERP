@@ -42,11 +42,8 @@ jobs:
           cache-dependency-path: agentify-erp/client/package-lock.json
       - run: npm --prefix client ci
       - run: npm --prefix client run build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: client-dist
-          path: agentify-erp/client/dist
-          retention-days: 1
+      # No artifact upload: the deploy job builds the client itself, so deploys
+      # don't depend on the GitHub artifact storage quota.
 
   test:
     if: ${{ !inputs.skip_tests }}
@@ -67,10 +64,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/download-artifact@v5
+      - uses: actions/setup-node@v4
         with:
-          name: client-dist
-          path: agentify-erp/client/dist
+          node-version: 22
+          cache: npm
+          cache-dependency-path: agentify-erp/client/package-lock.json
+      - name: Build client
+        run: npm --prefix agentify-erp/client ci && npm --prefix agentify-erp/client run build
 
       - name: Install sshpass
         run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
