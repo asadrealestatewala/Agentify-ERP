@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.97', date: '2026-11-12', title: 'Faster public website with a logo while it loads',
+    items: [
+      { text: 'The public website opens faster: the page data now arrives with the page itself, the page files and the headline font are fetched straight away, fonts come from our own server, and website pictures stay in the browser cache instead of being checked on every visit. Sign-in and sign-up screens load only when opened.', where: 'Public website (agentifyerp.co)', audience: 'platform' },
+      { text: 'While the public website loads, visitors see the teal Agentify logo instead of page text. The text stays in the page for search engines.', where: 'Public website (agentifyerp.co)', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.96', date: '2026-11-12', title: 'Public website loads in one step',
     items: [
       { text: 'The grey loading screen no longer appears on the public website while the page content is fetched: the tidy page text stays until the full page is drawn, the page content is requested as soon as the site opens, and moving between public pages draws straight away.', where: 'Public website (agentifyerp.co)', audience: 'platform' },

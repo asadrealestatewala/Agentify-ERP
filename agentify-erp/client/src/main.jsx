@@ -17,6 +17,7 @@ import { watchTables } from './mobileTables.js';
 import { startNativeShell } from './nativeShell.js';
 import AppUpdateGate from './components/AppUpdateGate.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
+import { onMainSite } from './boot.js';
 
 // a screen error shows a message instead of a blank page; opening another screen clears it
 function Guarded({ children }) { const { pathname } = useLocation(); return <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>; }
@@ -29,7 +30,7 @@ startNativeShell();
 // The workspace's region (formats, units, terms) is applied before anything renders an amount. Failing to load it
 // leaves the Pakistan defaults, which is what the app always used.
 async function start() {
-  try {
+  if (!onMainSite) try {
     const r = await fetch('/api/auth/region', { credentials: 'same-origin' });
     if (r.ok) {
       const cfg = await r.json();

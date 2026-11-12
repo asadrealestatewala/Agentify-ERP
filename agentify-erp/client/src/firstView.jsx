@@ -1,10 +1,11 @@
-// The server writes a short text version of a public page into #root (for search engines and for the first paint). React used
-// to replace it with a grey skeleton and only then draw the real page: two jumps in a row. Now that text stays on screen,
-// styled, until the page itself is ready, and the page's code and data start downloading the moment this file runs.
+// The server writes a short text version of a public page into #root for search engines; index.html hides it and shows the
+// teal logo instead. That first view is kept (instead of a grey skeleton) until the page itself is ready, and the page's code
+// starts downloading the moment this file runs. Its data normally arrives inside the HTML already (see boot.js).
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { api } from './api.js';
 import { Loading } from './components/ui.jsx';
+import { boot } from './boot.js';
 
 const root = typeof document !== 'undefined' ? document.getElementById('root') : null;
 const shell = root && root.firstElementChild ? root.innerHTML : '';
@@ -13,17 +14,19 @@ let retired = !shell; // set once the signed-in app has drawn; the text then nev
 
 // the main domain's public page is coming: fetch its code, the site switch and the page content now, in parallel
 export const marketingChunk = shell ? import('./marketing/Marketing.jsx') : null;
-let siteInfo = shell ? api.get('/api/platform/site').catch(() => ({ landing: false })) : null;
-let marketingInfo = shell ? api.get('/api/platform/marketing') : null;
+let siteInfo = boot?.site ? Promise.resolve(boot.site) : shell ? api.get('/api/platform/site').catch(() => ({ landing: false })) : null;
+let marketingInfo = boot?.marketing ? Promise.resolve(boot.marketing) : shell ? api.get('/api/platform/marketing') : null;
 if (marketingInfo) marketingInfo.catch(() => { /* the page asks again and shows the error itself */ });
 
+/** The site settings already in the page, or null. */
+export const siteKnownAtStart = boot?.site || null;
 /** /api/platform/site, fetched once per page load. */
 export function loadSiteInfo() {
   siteInfo ||= api.get('/api/platform/site').catch(() => ({ landing: false }));
   return siteInfo;
 }
 
-let marketingLast = null;
+let marketingLast = boot?.marketing || null;
 /** /api/platform/marketing: the early copy the first time, a fresh request after that. */
 export function loadMarketing() {
   const p = marketingInfo; marketingInfo = null;

@@ -18,7 +18,8 @@ import { ensureFirstAdmin } from './services/platformAuth.js';
 import { markJob, snapshot, generateNotifications } from './services/platformMetrics.js';
 import { maintenanceGate, recordError } from './services/maintenance.js';
 import { runLifecycle } from './services/lifecycle.js';
-import platformRoutes from './routes/platform.js';
+import platformRoutes, { siteInfo, marketingInfo } from './routes/platform.js';
+import { fastLanding } from './services/fastLanding.js';
 import billing from './routes/billing.js';
 import { billingGuard, apiAccessGuard } from './services/plans.js';
 import './services/storageAlerts.js'; // registers the 80% / 100% storage warnings that run after uploads
@@ -245,13 +246,16 @@ export function createApp() {
       m.start_url = APP_START_PATHS.has(start) ? `${start}?source=pwa` : '/?source=pwa';
       res.type('application/manifest+json').set('Cache-Control', 'no-cache').send(JSON.stringify(m));
     });
-    app.use(express.static(dist, { index: false })); // '/' must go through the handler below so the home page gets its tags
+    // website screenshots, blog photos and fonts keep their names when replaced, so browsers keep them a week and refresh in the background
+    const longLived = /[\\/](marketing|blog-img|fonts)[\\/][^\\/]+$/;
+    app.use(express.static(dist, { index: false, setHeaders: (r, f) => { if (longLived.test(f)) r.setHeader('Cache-Control', 'public, max-age=604800, stale-while-revalidate=2592000'); } })); // '/' must go through the handler below so the home page gets its tags
     // marketing pages on the main domain get their title, description, canonical and sharing tags on the server (crawlers)
     let shell = null;
     app.get(/^\/(?!api|uploads).*/, (req, res) => {
       if (onMain(req) && (MARKETING_ROUTES[req.path] || blogSlugOf(req.path))) {
         shell ||= fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
-        return res.type('html').send(injectMeta(shell, req.path, req));
+        const page = fastLanding(injectMeta(shell, req.path, req), { dist, site: () => siteInfo(req), marketing: () => marketingInfo() });
+        return res.set('Cache-Control', 'no-cache').type('html').send(page);
       }
       // the workspace website: its pages get their own title, description and sharing tags from the server
       if (req.tenant && (req.path === '/site' || req.path.startsWith('/site/'))) {
