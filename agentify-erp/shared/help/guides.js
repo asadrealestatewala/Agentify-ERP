@@ -8,6 +8,35 @@ import { SCREENS } from '../screens.generated.js';
 import { SCREEN_NOTES } from '../screenNotes.js';
 
 export const GUIDES = {
+  'support-desk': {
+    title: 'Help & Support: send a ticket and follow the replies', since: 'v1.98', module: 'Help & Support',
+    who: 'Everyone who works in the workspace',
+    keywords: ['support', 'help', 'ticket', 'complaint', 'problem', 'bug', 'contact', 'madad', 'سپورٹ', 'دعم', 'assistance'],
+    steps: [
+      'Open Help & Support in the menu. The page shows your tickets, newest change first.',
+      'Press New ticket. Write a short subject, pick a category and a priority, then describe what happened, what you were doing and which page you were on.',
+      'Attach up to 3 pictures or PDF files, 450 KB each, if a screenshot helps.',
+      'Press Send ticket. You get an e-mail with the ticket number and the time we aim to reply by.',
+      'Open the ticket any time to read our replies, add more details or files, and reply to us.',
+      'When the problem is gone, press Mark as solved. If it comes back, press Reopen and we pick it up again.',
+      'Use the Language box to read the page and get e-mails in your own language: English everywhere, Urdu in Pakistan, Arabic in the UAE and French in Canada.',
+    ],
+    limits: [
+      'Urgent is for work that has stopped. Everything else should be Normal or High so urgent tickets stay visible.',
+      'You can send 5 new tickets an hour; add to an open ticket instead of starting another.',
+      'Only pictures (PNG, JPG, WebP) and PDF files can be attached, 450 KB each.',
+      'A closed ticket cannot be replied to; start a new ticket instead.',
+      'You see your own tickets. An administrator in your workspace sees every ticket raised from it.',
+    ],
+    faq: [
+      { q: 'How quickly will I get a reply?', a: 'The ticket shows the time we aim to send the first reply by; urgent tickets are answered first.' },
+      { q: 'Can I write in Urdu or Arabic?', a: 'Yes. Pick your language at the top of the page and write in it; the page and your e-mails follow that choice.' },
+      { q: 'Is my message private?', a: 'It travels over a secure HTTPS connection and is read only by you, your workspace administrator and the Agentify support team.' },
+    ],
+    internal: ['Tickets live in the platform database (support_tickets/support_messages/support_files), so the console sees every workspace while each workspace sees only its own rows.',
+      'Console > Support > Support desk: reply, internal notes, priority, assignee, status and the reply targets per priority. First-reply and solve clocks are plain clock time from when the ticket was raised.',
+      'New-ticket and customer-reply alerts go to the address in Reply targets and alerts (support_notify_email), falling back to PLATFORM_SUPPORT_EMAIL.'],
+  },
   'sign-in-security': {
     title: 'Sign-in protection: account lock, 2FA codes and password rules', since: 'v1.94', module: 'Sign in',
     who: 'Everyone who signs in to the workspace, the customer portal and the vendor and developer portals',

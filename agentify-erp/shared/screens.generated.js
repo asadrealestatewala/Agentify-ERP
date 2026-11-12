@@ -33,6 +33,7 @@ export const SCREENS = [
   { "section": "AI Studio", "label": "AI Studio", "path": "/ai-studio" }, 
   { "section": "Creative Studio", "label": "Creative Studio", "path": "/creative" }, 
   { "section": "Training videos", "label": "Training videos", "path": "/training" }, 
+  { "section": "Help & Support", "label": "Help & Support", "path": "/support" }, 
   { "section": "Mortgage", "label": "Mortgage", "path": "/mortgage" }, 
   { "section": "Documents", "label": "Documents", "path": "/documents" }, 
   { "section": "Construction", "label": "Overview & projects", "path": "/construction" }, 

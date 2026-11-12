@@ -28,6 +28,7 @@ export const PERMISSIONS = {
   'admins.manage': 'Invite, change and remove console users and security rules',
   'content.calendar': 'Plan, schedule and record Agentify marketing posts in the Content calendar',
   'library.manage': 'Add, edit and retire items in the shared template library and see which workspaces replaced them',
+  'support.manage': 'Answer support tickets from workspaces and set the support targets',
   'mailbox.manage': 'Read, send and delete company e-mail (Mailbox) and see the sent log',
 };
 const ALL = Object.keys(PERMISSIONS);
@@ -42,9 +43,9 @@ export const ROLES = {
   platform_admin: { label: 'Platform Administrator', perms: ALL.filter((p) => p !== 'admins.manage' && p !== 'mailbox.manage') },
   billing_manager: { label: 'Billing Manager', perms: [...VIEW, 'billing.manage', 'trials.manage', 'workspaces.export'] },
   finance_admin: { label: 'Finance Administrator', perms: [...VIEW, 'billing.manage', 'billing.configure', 'trials.manage', 'workspaces.export'] },
-  support_manager: { label: 'Support Manager', perms: ['dashboard.view', 'workspaces.view', 'billing.view', 'system.view', 'workspaces.create', 'workspaces.edit', 'trials.manage', 'workspaces.support'] },
-  customer_success: { label: 'Customer Success Manager', perms: [...VIEW, 'workspaces.create', 'workspaces.edit', 'trials.manage', 'workspaces.support', 'workspaces.export'] },
-  technical_admin: { label: 'Technical Administrator', perms: [...VIEW, 'system.manage', 'integrations.manage', 'workspaces.support', 'audit.view'] },
+  support_manager: { label: 'Support Manager', perms: ['dashboard.view', 'workspaces.view', 'billing.view', 'system.view', 'workspaces.create', 'workspaces.edit', 'trials.manage', 'workspaces.support', 'support.manage'] },
+  customer_success: { label: 'Customer Success Manager', perms: [...VIEW, 'workspaces.create', 'workspaces.edit', 'trials.manage', 'workspaces.support', 'workspaces.export', 'support.manage'] },
+  technical_admin: { label: 'Technical Administrator', perms: [...VIEW, 'system.manage', 'integrations.manage', 'workspaces.support', 'audit.view', 'support.manage'] },
   security_auditor: { label: 'Security Auditor', perms: [...VIEW, 'audit.view', 'workspaces.export'] },
   analytics_viewer: { label: 'Analytics Viewer', perms: ['dashboard.view', 'finance.view', 'analytics.view'] },
   social_media_manager: { label: 'Social Media Manager', perms: ['content.calendar'] },

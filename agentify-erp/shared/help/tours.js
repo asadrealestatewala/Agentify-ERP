@@ -17,6 +17,15 @@ export const TOURS = {
       { target: 'take-tour', title: 'See this again any time', text: 'Press this button whenever you want the tour again.' },
     ],
   },
+  support: {
+    title: 'Help & Support tour', guide: 'support-desk', version: 1, autostart: true, path: '/support',
+    steps: [
+      { target: 'support-new', title: 'Ask us anything', text: 'Press New ticket to send a question or report a problem. Give the page you were on and what you expected.' },
+      { target: 'support-language', title: 'Your own language', text: 'Choose English or your country language. Our replies and the e-mails you get come in the language you pick.' },
+      { target: 'support-list', title: 'Follow your tickets', text: 'Open a ticket to read replies, add more details or files, and mark it solved when you are happy.' },
+      { target: 'take-tour', title: 'See this again', text: 'Press this button to replay the tour for the page you are on.' },
+    ],
+  },
   creative: {
     title: 'Creative Studio tour', guide: 'creative-studio', version: 3, autostart: true, path: '/creative',
     steps: [

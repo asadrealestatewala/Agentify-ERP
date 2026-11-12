@@ -40,6 +40,7 @@ const NAV = [
   { label: 'AI Studio', icon: 'star', to: '/ai-studio', module: 'crm' },
   { label: 'Creative Studio', icon: 'star', to: '/creative', module: 'content', creative: true },
   { label: 'Training videos', icon: 'video', to: '/training', always: true },
+  { label: 'Help & Support', icon: 'help', to: '/support', always: true },
   { label: 'Mortgage', icon: 'card', to: '/mortgage', module: 'crm', flag: 'mortgage' },
   { label: 'Documents', icon: 'file', to: '/documents', module: 'crm', flag: 'templates' },
   { label: 'Construction', icon: 'hardhat', module: 'construction', product: 'construction', children: [

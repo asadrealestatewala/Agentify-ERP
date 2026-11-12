@@ -6,6 +6,16 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.98', date: '2026-11-12', title: 'Help & Support: raise a ticket inside the app, in your own language',
+    items: [
+      { text: 'New Help & Support page in the menu: send a question or report a problem, attach a screenshot or PDF, read our replies in the same place and mark the ticket solved. You are e-mailed when we reply.', where: 'Menu > Help & Support', guide: 'support-desk' },
+      { text: 'Read the support page and get our e-mails in your own language: English everywhere, Urdu in Pakistan, Arabic in the United Arab Emirates and French in Canada. Urdu and Arabic read right to left.', where: 'Menu > Help & Support > Language', guide: 'support-desk' },
+      { text: 'Every ticket shows the time we aim to send the first reply by, so you know what to expect. Administrators in your workspace can see every ticket raised from it.', where: 'Menu > Help & Support', guide: 'support-desk' },
+      { text: 'Support desk for the team: the ticket queue with reply and solve clocks per priority, replies, internal notes, priority, assignee and status, plus editable reply targets and a new-ticket alert address.', where: 'Console > Support > Support desk', audience: 'platform' },
+      { text: 'New console permission "Answer support tickets", held by Platform Owner, Super Admin, Platform Administrator, Support Manager, Customer Success Manager and Technical Administrator.', where: 'Console > Security & Access > Console users & roles', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.97', date: '2026-11-12', title: 'Faster public website with a logo while it loads',
     items: [
       { text: 'The public website opens faster: the page data now arrives with the page itself, the page files and the headline font are fetched straight away, fonts come from our own server, and website pictures stay in the browser cache instead of being checked on every visit. Sign-in and sign-up screens load only when opened.', where: 'Public website (agentifyerp.co)', audience: 'platform' },

@@ -44,6 +44,7 @@ import { listInboxes, createInbox, resendConfigured } from '../services/mailbox.
 import emailRoutes from './platformEmail.js';
 import { whatsappAccess } from '../services/whatsappAccess.js';
 import { cleanWhatsappLimits } from '../services/whatsappLimits.js';
+import * as support from '../services/supportDesk.js';
 import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
 import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
 import * as cal from '../services/contentCalendar.js';
@@ -400,6 +401,28 @@ r.post('/legal/:slug/publish', requireOperator, need('content.manage'), asyncH((
   audit(req.operator.email, 'legal-published', { doc: out.slug, version: out.version, reviewed_by: out.reviewed_by });
   res.json(out);
 }));
+// ---- Support desk: tickets raised by workspace users
+const fileOut = (res, f) => res.set({ 'Content-Type': f.type, 'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(f.name)}`, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, max-age=300' }).send(f.buffer);
+r.get('/support/tickets', requireOperator, need('support.manage'), (req, res) => res.json(support.listAll(req.query)));
+r.get('/support/settings', requireOperator, need('support.manage'), (_req, res) => res.json({ sla: support.getSla(), notify_email: support.notifyAddress() }));
+r.put('/support/settings', requireOperator, need('support.manage'), asyncH((req, res) => {
+  const sla = support.saveSla(req.body?.sla, req.operator.email);
+  const notify_email = support.saveNotifyAddress(req.body?.notify_email, req.operator.email);
+  audit(req.operator.email, 'support-settings-saved', { sla });
+  res.json({ sla, notify_email });
+}));
+r.get('/support/tickets/:id(\\d+)', requireOperator, need('support.manage'), asyncH((req, res) => res.json(support.getAny(req.params.id))));
+r.post('/support/tickets/:id(\\d+)/reply', requireOperator, need('support.manage'), asyncH((req, res) => {
+  const out = support.staffReply(req.operator, req.params.id, req.body || {});
+  audit(req.operator.email, req.body?.internal ? 'support-note' : 'support-reply', { id: Number(req.params.id) });
+  res.status(201).json(out);
+}));
+r.put('/support/tickets/:id(\\d+)', requireOperator, need('support.manage'), asyncH((req, res) => {
+  const out = support.updateTicket(req.operator, req.params.id, req.body || {});
+  audit(req.operator.email, 'support-ticket-updated', { id: Number(req.params.id) });
+  res.json(out);
+}));
+r.get('/support/tickets/:id(\\d+)/files/:fid(\\d+)', requireOperator, need('support.manage'), asyncH((req, res) => fileOut(res, support.anyFile(req.params.id, req.params.fid))));
 // ---- Customer reviews sent from the website: approve before they appear, reject, or delete
 r.get('/reviews', requireOperator, need('content.manage'), (req, res) => res.json(listReviews({ status: req.query.status })));
 r.get('/reviews/:id/photo', requireOperator, need('content.manage'), asyncH((req, res) => {
