@@ -14,6 +14,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e7c6b'/%3E%3Cpath d='M7 24V13l9-6 9 6v11h-6v-7h-6v7z' fill='white'/%3E%3C/svg%3E" />
+    <style>
+      /* the short page text the server puts in #root is the first thing a visitor sees: give it a calm, centred layout */
+      #root > :is(h1, p, nav, article, ul), .seo-shell > :is(h1, p, nav, article, ul) { box-sizing: border-box; max-width: 760px; margin-left: auto; margin-right: auto; padding: 0 20px; font-family: 'Plus Jakarta Sans', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+      #root > h1, .seo-shell > h1 { margin-top: 22vh; margin-bottom: 0; font-size: clamp(28px, 4.4vw, 46px); line-height: 1.12; font-weight: 800; letter-spacing: -0.02em; text-align: center; }
+      #root > p, .seo-shell > p { margin-top: 16px; margin-bottom: 0; font-size: 18px; line-height: 1.6; opacity: .72; text-align: center; }
+      #root > nav, .seo-shell > nav { margin-top: 28px; display: flex; flex-wrap: wrap; gap: 10px 22px; justify-content: center; font-size: 15px; font-weight: 600; }
+      #root > :is(article, ul), .seo-shell > :is(article, ul) { margin-top: 10vh; line-height: 1.65; }
+      #root a, .seo-shell a { color: #0e7c6b; text-decoration: none; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

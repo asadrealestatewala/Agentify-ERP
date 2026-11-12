@@ -1,15 +1,15 @@
 // Thin shell: the public website, sign-in/sign-up pages, the console and the meeting room load on their own. The workspace itself
 // (dozens of screens) is a separate chunk that only signed-in users download, so the first visit stays small and quick.
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { api } from './api.js';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Loading } from './components/ui.jsx';
+import { Drawn, FirstView, loadSiteInfo, marketingChunk } from './firstView.jsx';
 import { useAuth } from './context.jsx';
 import { inNativeApp } from './installApp.js';
 import StaffGate from './pages/StaffGate.jsx';
 import Login from './pages/Login.jsx';
 import { AcceptInvite, ForgotPassword, ResetPassword, Signup, VerifyEmail } from './pages/AuthPages.jsx';
-const MarketingSite = lazy(() => import('./marketing/Marketing.jsx'));
+const MarketingSite = lazy(() => marketingChunk || import('./marketing/Marketing.jsx'));
 const PlatformConsole = lazy(() => import('./pages/PlatformConsole.jsx'));
 const MeetingRoom = lazy(() => import('./meet/MeetingRoom.jsx'));
 const SiteApp = lazy(() => import('./site/SiteApp.jsx'));
@@ -31,11 +31,13 @@ function useManifestStart(pathname) {
   }, [pathname]);
 }
 
+// the answer is kept for the whole visit, so moving between public pages never shows a loading screen again
+let siteKnown = null;
 function MainGate({ fallback }) {
-  const [info, setInfo] = useState(null);
-  useEffect(() => { api.get('/api/platform/site').then(setInfo).catch(() => setInfo({ landing: false })); }, []);
-  if (!info) return <Loading />;
-  return info.landing ? <MarketingSite /> : fallback;
+  const [info, setInfo] = useState(siteKnown);
+  useEffect(() => { if (!info) loadSiteInfo().then((v) => { siteKnown = v; setInfo(v); }); }, [info]);
+  if (!info) return <FirstView />;
+  return info.landing ? <Suspense fallback={<FirstView />}><Drawn><MarketingSite /></Drawn></Suspense> : <Drawn>{fallback}</Drawn>;
 }
 
 export default function App() {
@@ -46,7 +48,7 @@ export default function App() {
   if (loc.pathname === '/site' || loc.pathname.startsWith('/site/')) return <Suspense fallback={<Loading />}><Routes><Route path="/site/*" element={<SiteApp />} /></Routes></Suspense>;
   if (loc.pathname.startsWith('/verify-email/')) return <Routes><Route path="/verify-email/:token" element={<VerifyEmail />} /></Routes>;
   if (loc.pathname === '/platform' || loc.pathname.startsWith('/platform/')) return <Suspense fallback={<Loading />}><Routes><Route path="/platform/*" element={<PlatformConsole />} /></Routes></Suspense>;
-  if (user === undefined) return <Loading />;
+  if (user === undefined) return <FirstView />;
 
   if (!user) {
     return (
@@ -66,5 +68,5 @@ export default function App() {
       </Routes>
     );
   }
-  return <Suspense fallback={<Loading />}><WorkspaceApp /></Suspense>;
+  return <Suspense fallback={<Loading />}><Drawn><WorkspaceApp /></Drawn></Suspense>;
 }
