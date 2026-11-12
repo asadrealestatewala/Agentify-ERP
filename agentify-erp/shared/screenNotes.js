@@ -29,6 +29,7 @@ export const SCREEN_NOTES = {
   '/agents': 'Your sales agents with their performance and targets.',
   '/commissions': 'Commission earned by agents on sales, and what has been paid.',
   '/dialer': 'Call leads from the browser or phone with call notes and recording where enabled.',
+  '/support': 'Ask the Agentify support team a question or report a problem, in English or your own language, and follow the replies.',
   '/whatsapp': 'Chat with contacts on WhatsApp from inside the CRM.',
   '/meetings': 'Schedule and join video meetings with clients.',
   '/recordings': 'Listen to and filter recorded calls and meetings.',

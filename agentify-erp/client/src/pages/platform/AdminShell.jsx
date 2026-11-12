@@ -33,9 +33,10 @@ export const NAV = [
   { key: 'reports', label: 'Reports & Analytics', icon: 'chart', items: [['Revenue & subscriptions', '/platform/finance', 'finance.view'], ['AI', '/platform/ai-usage', 'finance.view'], ['Cost & profit', '/platform/profit', 'finance.view'], ['Website analytics', '/platform/analytics', 'analytics.view'], ['Reports & exports', '/platform/reports', 'dashboard.view']] },
   { key: 'marketing', label: 'Marketing', icon: 'task', items: [['Content calendar', '/platform/content', 'content.calendar'], ['Blog agent', '/platform/blog-agent', 'content.manage']] },
   { key: 'growth', label: 'Website builder', icon: 'globe', items: [['Landing page editor', '/platform/website/visual', 'content.manage'], ['Content, partners & legal', '/platform/website', 'content.manage'], ['Free websites', '/platform/free-sites', 'system.view'], ['Customer reviews', '/platform/reviews', 'content.manage'], ['Demo requests', '/platform/demo-requests', 'workspaces.view'], ['Announcements & releases', '/platform/announcements', 'dashboard.view']] },
+  { key: 'support', label: 'Support', icon: 'chat', items: [['Support desk', '/platform/support', 'support.manage'], ['Support knowledge', '/platform/support-knowledge', 'system.view']] },
   { key: 'mailbox', label: 'Mailbox', icon: 'mail', items: [['Inbox', '/platform/mailbox', 'mailbox.manage'], ['Sent log', '/platform/mailbox/sent', 'mailbox.manage'], ['Settings', '/platform/mailbox/settings', 'mailbox.manage'], ['Tenant email', '/platform/email', 'system.view']] },
   { key: 'security', label: 'Security & Access', icon: 'shield', items: [['Console users & roles', '/platform/admins', 'admins.manage'], ['Active sessions', '/platform/security/sessions', 'self'], ['Sign-in history', '/platform/security/logins', 'audit.view'], ['Two-factor sign-in', '/platform/security', 'self'], ['Email safety', '/platform/security/email', 'system.view']] },
-  { key: 'system', label: 'System', icon: 'settings', items: [['Platform setup', '/platform/setup', 'system.view'], ['Integrations', '/platform/integrations', 'system.view'], ['Social posting', '/platform/social-posting', 'finance.view'], ['Regions', '/platform/regions', 'regions.support'], ['Mobile app', '/platform/mobile-app', 'system.view'], ['Template library', '/platform/library', 'library.manage'], ['Training videos', '/platform/training-videos', 'system.view'], ['Support knowledge', '/platform/support-knowledge', 'system.view'], ['Maintenance & errors', '/platform/maintenance', 'system.view'], ['Backups', '/platform/backups', 'system.view']] },
+  { key: 'system', label: 'System', icon: 'settings', items: [['Platform setup', '/platform/setup', 'system.view'], ['Integrations', '/platform/integrations', 'system.view'], ['Social posting', '/platform/social-posting', 'finance.view'], ['Regions', '/platform/regions', 'regions.support'], ['Mobile app', '/platform/mobile-app', 'system.view'], ['Template library', '/platform/library', 'library.manage'], ['Training videos', '/platform/training-videos', 'system.view'], ['Maintenance & errors', '/platform/maintenance', 'system.view'], ['Backups', '/platform/backups', 'system.view']] },
   { key: 'audit', label: 'Audit', icon: 'history', items: [['Audit log', '/platform/audit', 'audit.view']] },
 ];
 
@@ -43,7 +44,7 @@ const isActive = (loc, to) => {
   const [p, q] = to.split('?');
   if (q) return loc.pathname === p && loc.search === `?${q}`;
   if (p === '/platform') return loc.pathname === '/platform' || loc.pathname === '/platform/';
-  if (p === '/platform/security' || p === '/platform/mailbox' || p === '/platform/website') return loc.pathname === p || loc.pathname === `${p}/`;
+  if (p === '/platform/security' || p === '/platform/mailbox' || p === '/platform/website' || p === '/platform/support') return loc.pathname === p || loc.pathname === `${p}/`;
   return p === '/platform/workspaces' ? loc.pathname.startsWith(p) && !loc.search.includes('status=') : loc.pathname.startsWith(p);
 };
 

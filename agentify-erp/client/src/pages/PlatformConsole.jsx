@@ -11,6 +11,7 @@ import { fmtDay, fmtWhen } from './platform/dates.js';
 import MobileAppPage from './platform/MobileApp.jsx';
 import TrainingVideosPage from './platform/TrainingVideos.jsx';
 import SupportKnowledge from './platform/SupportKnowledge.jsx';
+import SupportDesk from './platform/SupportDesk.jsx';
 import CostProfitPage from './platform/CostProfit.jsx';
 import AiUsagePage from './platform/AiUsage.jsx';
 import SocialPostingPage from './platform/SocialPosting.jsx';
@@ -475,6 +476,7 @@ function ConsoleRoutes() {
         <Route path="security/email" element={<Allowed perm="system.view"><EmailSafetyPage /></Allowed>} />
         <Route path="security/logins" element={<Allowed perm="audit.view"><LoginsPage /></Allowed>} />
         <Route path="support-knowledge" element={<Allowed perm="system.view"><SupportKnowledge /></Allowed>} />
+        <Route path="support" element={<Allowed perm="support.manage"><SupportDesk /></Allowed>} />
         <Route path="training-videos" element={<Allowed perm="system.view"><TrainingVideosPage /></Allowed>} />
         <Route path="mobile-app" element={<Allowed perm="system.view"><MobileAppPage /></Allowed>} />
         <Route path="maintenance" element={<Allowed perm="system.view"><MaintenancePage /></Allowed>} />

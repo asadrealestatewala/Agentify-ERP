@@ -139,6 +139,7 @@ const EmailSettings = lazy(() => import('./pages/EmailSettings.jsx'));
 const LeadRouting = lazy(() => import('./pages/LeadRouting.jsx'));
 const Sequences = lazy(() => import('./pages/Sequences.jsx'));
 const WhatsApp = lazy(() => import('./pages/WhatsApp.jsx'));
+const Support = lazy(() => import('./pages/Support.jsx'));
 const WhatsAppSettings = lazy(() => import('./pages/WhatsAppSettings.jsx'));
 const Conversion = lazy(() => import('./pages/Conversion.jsx'));
 const LeadScoring = lazy(() => import('./pages/LeadScoring.jsx'));
@@ -310,6 +311,7 @@ export default function App() {
         <Route path="settings/email" element={G('settings', <EmailSettings />)} />
         <Route path="settings/whatsapp" element={G('settings', <WhatsAppSettings />)} />
         <Route path="whatsapp" element={G('crm', <WhatsApp />)} />
+        <Route path="support" element={<Suspense fallback={<Loading />}><Support /></Suspense>} />
         <Route path="settings/lead-routing" element={G('crm', <LeadRouting />)} />
         <Route path="sequences" element={G('crm', <Sequences />)} />
         <Route path="leads/conversion" element={G('crm', <Conversion />)} />

@@ -83,6 +83,7 @@ import gateways from './routes/gateways.js';
 import emailRoutes from './routes/email.js';
 import leadflowRoutes from './routes/leadflow.js';
 import whatsappRoutes from './routes/whatsapp.js';
+import supportRoutes from './routes/support.js';
 import { runLeadSla } from './services/leadFlow.js';
 import { runSequences } from './services/sequences.js';
 import emailPublic from './routes/emailPublic.js';
@@ -212,6 +213,7 @@ export function createApp() {
   app.use('/api/email', emailRoutes);
   app.use('/api/leadflow', leadflowRoutes);
   app.use('/api/whatsapp', whatsappRoutes);
+  app.use('/api/support', supportRoutes);
   app.use('/api/portal', portal);
   app.use('/api/settings', settings);
   app.use('/api/agents', agents);
