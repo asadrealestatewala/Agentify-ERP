@@ -70,12 +70,14 @@ r.get('/maps-config', (_req, res) => {
   res.json(publicMapsConfig(process.env, choice));
 });
 
-r.get('/site', (req, res) => {
+/** The site switch and sign-up options for the main domain (also written into the public pages' HTML, see index.js). */
+export function siteInfo(req) {
   const landing = isMultiTenant() && onPlatformHost(req);
-  if (!landing) return res.json({ landing: false, multi_tenant: isMultiTenant() });
+  if (!landing) return { landing: false, multi_tenant: isMultiTenant() };
   const methods = [...new Set(platformDb().prepare('SELECT method FROM payment_accounts WHERE active=1 ORDER BY sort_order, id').all().map((a) => a.method))];
-  res.json({ landing: true, regions: [...selectableRegions(platformDb()).values()].map((p) => ({ code: p.code, name: p.name, currency: p.currency, sub_region_label: p.sub_region_label, sub_regions: p.sub_regions, languages: p.languages })), countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, base_domain: BASE_DOMAIN, free_sites: { open: freeSitesOpen(), domain: freeSitesOpen() ? sitesDomain() : null }, trial_days: PLAN_SETTINGS.default_trial_days, plans: planCatalog(), products: PRODUCTS, addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })), local_methods: methods, cards: stripe.stripeConfigured(), signup_email_code: signupCodeNeeded() });
-});
+  return { landing: true, regions: [...selectableRegions(platformDb()).values()].map((p) => ({ code: p.code, name: p.name, currency: p.currency, sub_region_label: p.sub_region_label, sub_regions: p.sub_regions, languages: p.languages })), countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, base_domain: BASE_DOMAIN, free_sites: { open: freeSitesOpen(), domain: freeSitesOpen() ? sitesDomain() : null }, trial_days: PLAN_SETTINGS.default_trial_days, plans: planCatalog(), products: PRODUCTS, addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })), local_methods: methods, cards: stripe.stripeConfigured(), signup_email_code: signupCodeNeeded() };
+}
+r.get('/site', (req, res) => res.json(siteInfo(req)));
 
 /** Approximate country and city of the visitor, for the marketing headline only (see services/geo.js). Never blocks the page. */
 const geoLimiter = rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests' } });
@@ -283,15 +285,16 @@ r.get('/reserved', (_req, res) => res.json([...RESERVED_SLUGS]));
 const publicLimiter = rateLimit({ windowMs: 60 * 60_000, limit: Number(process.env.PUBLIC_FORM_LIMIT) || 20, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests from this address. Try again later.' } });
 const mainOnly = (req) => { if (!isMultiTenant() || !onPlatformHost(req)) throw new HttpError(404, 'Not found'); };
 /** Everything the marketing pages show: editable content, plans by product, add-ons, trial terms and payment options. */
-r.get('/marketing', asyncH((req, res) => {
-  mainOnly(req);
+/** Everything the marketing pages show (also written into the public pages' HTML, see index.js). */
+export function marketingInfo() {
   const methods = [...new Set(platformDb().prepare('SELECT method FROM payment_accounts WHERE active=1 ORDER BY sort_order, id').all().map((a) => a.method))];
   const regions = [...selectableRegions(platformDb()).values()].map((p) => ({ code: p.code, name: p.name, currency: p.currency, sub_region_label: p.sub_region_label, sub_regions: p.sub_regions, languages: p.languages }));
-  res.json({ content: { ...publicContent(), reviews: publicReviews() }, base_domain: BASE_DOMAIN, free_sites: { open: freeSitesOpen(), domain: freeSitesOpen() ? sitesDomain() : null }, regions, countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, trial_days: PLAN_SETTINGS.default_trial_days, one_trial_per_email: PLAN_SETTINGS.one_trial_per_email, products: PRODUCTS,
+  return { content: { ...publicContent(), reviews: publicReviews() }, base_domain: BASE_DOMAIN, free_sites: { open: freeSitesOpen(), domain: freeSitesOpen() ? sitesDomain() : null }, regions, countries: listCountries(platformDb()), crm_global: GLOBAL_CRM_COPY, trial_days: PLAN_SETTINGS.default_trial_days, one_trial_per_email: PLAN_SETTINGS.one_trial_per_email, products: PRODUCTS,
     offer: publicOffer(),
     plans: planCatalog().filter((p) => PLANS[p.id]?.visible), addons: listAddons({ activeOnly: true }).map(({ id, name, description, product, price, entitlements }) => ({ id, name, description, product, price, entitlements })),
-    google_signup: !!appCreds('google'), local_methods: methods, cards: stripe.stripeConfigured(), signup_email_code: signupCodeNeeded(), terms_version: termsVersion(), ga4_id: getSetting('ga4_measurement_id') || null });
-}));
+    google_signup: !!appCreds('google'), local_methods: methods, cards: stripe.stripeConfigured(), signup_email_code: signupCodeNeeded(), terms_version: termsVersion(), ga4_id: getSetting('ga4_measurement_id') || null };
+}
+r.get('/marketing', asyncH((req, res) => { mainOnly(req); res.json(marketingInfo()); }));
 r.get('/blog', asyncH((req, res) => { mainOnly(req); res.json({ posts: listPosts() }); }));
 r.get('/blog/:slug', asyncH((req, res) => { mainOnly(req); const p = getPost(req.params.slug); if (!p) throw new HttpError(404, 'Article not found'); res.json(publicPost(p)); }));
 r.get('/announcements', asyncH((req, res) => { mainOnly(req); res.json(publicAnnouncements()); }));

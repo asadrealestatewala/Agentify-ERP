@@ -1,13 +1,14 @@
 import { bindUser } from './fieldLocation.js';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, setQueueOwner } from './api.js';
+import { onMainSite } from './boot.js';
 
 const AuthCtx = createContext(null);
 const MetaCtx = createContext(null);
 const ToastCtx = createContext(null);
 
 export function AppProviders({ children }) {
-  const [user, setUser] = useState(undefined); // undefined = loading, null = anonymous
+  const [user, setUser] = useState(onMainSite ? null : undefined); // undefined = loading, null = anonymous (the main domain has no workspace sign-in)
   const [meta, setMeta] = useState(null);
   const [toasts, setToasts] = useState([]);
 
@@ -50,7 +51,7 @@ export function AppProviders({ children }) {
     try { const u = await api.get('/api/auth/me'); setUser(u); if (!u.portal) await loadMeta(); } catch { setUser(null); setMeta(null); }
   }, [loadMeta]);
 
-  useEffect(() => { refreshUser(); }, [refreshUser]);
+  useEffect(() => { if (!onMainSite) refreshUser(); }, [refreshUser]);
   // offline queue: only the signed-in user's own saved actions are replayed
   useEffect(() => { setQueueOwner(user || null); }, [user?.id, user?.portal]);
   useEffect(() => {

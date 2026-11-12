@@ -3,12 +3,14 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Loading } from './components/ui.jsx';
-import { Drawn, FirstView, loadSiteInfo, marketingChunk } from './firstView.jsx';
+import { Drawn, FirstView, loadSiteInfo, marketingChunk, siteKnownAtStart } from './firstView.jsx';
 import { useAuth } from './context.jsx';
 import { inNativeApp } from './installApp.js';
-import StaffGate from './pages/StaffGate.jsx';
-import Login from './pages/Login.jsx';
-import { AcceptInvite, ForgotPassword, ResetPassword, Signup, VerifyEmail } from './pages/AuthPages.jsx';
+// sign-in and sign-up screens load when opened, so the public website's first visit skips their code
+const StaffGate = lazy(() => import('./pages/StaffGate.jsx'));
+const Login = lazy(() => import('./pages/Login.jsx'));
+const auth = (name) => lazy(() => import('./pages/AuthPages.jsx').then((m) => ({ default: m[name] })));
+const AcceptInvite = auth('AcceptInvite'), ForgotPassword = auth('ForgotPassword'), ResetPassword = auth('ResetPassword'), Signup = auth('Signup'), VerifyEmail = auth('VerifyEmail');
 const MarketingSite = lazy(() => marketingChunk || import('./marketing/Marketing.jsx'));
 const PlatformConsole = lazy(() => import('./pages/PlatformConsole.jsx'));
 const MeetingRoom = lazy(() => import('./meet/MeetingRoom.jsx'));
@@ -32,7 +34,7 @@ function useManifestStart(pathname) {
 }
 
 // the answer is kept for the whole visit, so moving between public pages never shows a loading screen again
-let siteKnown = null;
+let siteKnown = siteKnownAtStart;
 function MainGate({ fallback }) {
   const [info, setInfo] = useState(siteKnown);
   useEffect(() => { if (!info) loadSiteInfo().then((v) => { siteKnown = v; setInfo(v); }); }, [info]);
@@ -46,13 +48,13 @@ export default function App() {
   useManifestStart(loc.pathname);
   if (loc.pathname.startsWith('/meet/')) return <Suspense fallback={<Loading />}><Routes><Route path="/meet/:code" element={<MeetingRoom />} /></Routes></Suspense>;
   if (loc.pathname === '/site' || loc.pathname.startsWith('/site/')) return <Suspense fallback={<Loading />}><Routes><Route path="/site/*" element={<SiteApp />} /></Routes></Suspense>;
-  if (loc.pathname.startsWith('/verify-email/')) return <Routes><Route path="/verify-email/:token" element={<VerifyEmail />} /></Routes>;
+  if (loc.pathname.startsWith('/verify-email/')) return <Suspense fallback={<Loading />}><Routes><Route path="/verify-email/:token" element={<VerifyEmail />} /></Routes></Suspense>;
   if (loc.pathname === '/platform' || loc.pathname.startsWith('/platform/')) return <Suspense fallback={<Loading />}><Routes><Route path="/platform/*" element={<PlatformConsole />} /></Routes></Suspense>;
   if (user === undefined) return <FirstView />;
 
   if (!user) {
     return (
-      <Routes>
+      <Suspense fallback={<FirstView />}><Routes>
         <Route path="/" element={<MainGate fallback={<Navigate to={inNativeApp() || installedApp() ? '/login' : '/site'} replace />} />} />
         {['/real-estate', '/construction', '/preview', '/pricing', '/contact', '/delete-account', '/download-app', '/legal/:slug', '/blog', '/blog/:slug'].map((p) => <Route key={p} path={p} element={<MainGate fallback={<Navigate to="/login" replace />} />} />)}
         <Route path="/portal/login" element={<Login portal />} />
@@ -65,7 +67,7 @@ export default function App() {
         <Route path="/invite/:token" element={<MainGate fallback={<AcceptInvite />} />} />
         <Route path="/:slug" element={<StaffGate />} />
         <Route path="*" element={<Navigate to={loc.pathname.startsWith('/portal') ? `/portal/login?next=${encodeURIComponent(loc.pathname)}` : loc.pathname.startsWith('/vendor') ? `/vendor/login?next=${encodeURIComponent(loc.pathname)}` : loc.pathname.startsWith('/developer') ? `/developer/login?next=${encodeURIComponent(loc.pathname)}` : '/login'} replace />} />
-      </Routes>
+      </Routes></Suspense>
     );
   }
   return <Suspense fallback={<Loading />}><Drawn><WorkspaceApp /></Drawn></Suspense>;
