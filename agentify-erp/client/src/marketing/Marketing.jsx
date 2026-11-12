@@ -6,7 +6,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { Link, NavLink, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { api } from '../api.js';
 import { CountryCtx, useCountry } from './countryCtx.js';
-import { Loading } from '../components/ui.jsx';
+import { FirstView, loadMarketing, marketingCached } from '../firstView.jsx';
 import Flag from '../components/Flag.jsx';
 import { BRANDS } from './brandIcons.js';
 import LogoMark from '../components/LogoMark.jsx';
@@ -780,7 +780,7 @@ function Legal({ info, slug }) {
   useEffect(() => { setD(null); api.get(`/api/platform/legal/${encodeURIComponent(slug)}`).then(setD).catch((e) => setErr(e.message)); }, [slug]);
   useTitle(d ? `${d.title} | ${info.content.brand}` : null, d?.title);
   if (err) return <section><div className="lwrap"><div className="lerr">{err}</div></div></section>;
-  if (!d) return <Loading />;
+  if (!d) return <FirstView />;
   return (
     <section><div className="lwrap"><article className="ldoc">
       {d.status !== 'published' && <div className="ldraft" role="note">This document is a template that has not been reviewed and published yet. It is shown for transparency and may change.</div>}
@@ -983,7 +983,7 @@ function BlogList({ info }) {
   useTitle(`Blog: real estate and construction software guides | ${info.content.brand}`, 'Practical guides for real estate brokerages and construction companies: CRM, lead follow-up, installments, BOQ and cost control.');
   useEffect(() => { api.get('/api/platform/blog').then((d) => setPosts(d.posts)).catch((e) => setErr(e.message)); }, []);
   if (err) return <section><div className="lwrap"><div className="lerr">{err}</div></div></section>;
-  if (!posts) return <Loading />;
+  if (!posts) return <FirstView />;
   return (
     <section><div className="lwrap">
       <h1 style={{ fontSize: 34, marginBottom: 6 }}>Blog</h1>
@@ -1010,7 +1010,7 @@ function BlogPost({ info, slug }) {
   useEffect(() => { setD(null); api.get(`/api/platform/blog/${encodeURIComponent(slug)}`).then(setD).catch((e) => setErr(e.message)); }, [slug]);
   useTitle(d ? `${d.title} | ${info.content.brand}` : null, d?.description);
   if (err) return <section><div className="lwrap"><div className="lerr">{err}</div><p><Link to="/blog">Back to the blog</Link></p></div></section>;
-  if (!d) return <Loading />;
+  if (!d) return <FirstView />;
   return (
     <section><div className="lwrap"><article className="ldoc">
       <p className="lmini"><Link to="/blog">Blog</Link> · {d.tag}</p>
@@ -1048,7 +1048,7 @@ function page(path, info) {
 }
 
 export default function MarketingSite() {
-  const [info, setInfo] = useState(null);
+  const [info, setInfo] = useState(marketingCached);
   const [err, setErr] = useState('');
   const [banner, setBanner] = useState(false);
   const loc = useLocation();
@@ -1062,11 +1062,11 @@ export default function MarketingSite() {
     window.addEventListener('message', h); window.parent.postMessage({ t: 'landing-ready' }, window.location.origin);
     return () => window.removeEventListener('message', h);
   }, [editor]);
-  useEffect(() => { api.get('/api/platform/marketing').then((d) => { setInfo(d); setPlayUrl(d.content.android_store_url); configureGa4(d.ga4_id); }).catch((e) => setErr(e.message)); }, []);
+  useEffect(() => { loadMarketing().then((d) => { setInfo(d); setPlayUrl(d.content.android_store_url); configureGa4(d.ga4_id); }).catch((e) => setErr(e.message)); }, []);
   useEffect(() => { if (!browserOptOut() && !consent()) setBanner(true); return onConsentChange(() => {}); }, []);
   useEffect(() => { if (editor) return; window.scrollTo(0, 0); track('page_view'); }, [loc.pathname]); // eslint-disable-line react-hooks/exhaustive-deps
   if (err) return <div className="lp"><div className="lwrap" style={{ padding: 40 }}><div className="lerr">{err}</div><button className="lbtn" onClick={() => nav(0)}>Try again</button></div></div>;
-  if (!info) return <Loading />;
+  if (!info) return <FirstView />;
   // The store app is for signing in: the sales pages and prices stay on the website (subscriptions are not sold inside the app)
   if (inNativeApp() && ['/', '/preview', '/pricing', '/real-estate', '/construction'].includes(loc.pathname)) return <Navigate to="/login" replace />;
   // The glow-dark interactive home page ('/', also kept at /preview). It brings its own header and footer.

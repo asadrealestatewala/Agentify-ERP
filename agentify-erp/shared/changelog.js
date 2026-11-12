@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.96', date: '2026-11-12', title: 'Public website loads in one step',
+    items: [
+      { text: 'The grey loading screen no longer appears on the public website while the page content is fetched: the tidy page text stays until the full page is drawn, the page content is requested as soon as the site opens, and moving between public pages draws straight away.', where: 'Public website (agentifyerp.co)', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.95', date: '2026-11-12', title: 'Smoother first load of the public website',
     items: [
       { text: 'The public website no longer flashes plain text and then a grey loading screen before the home page appears. A tidy version of the page text shows straight away and stays until the full page is ready, and the page code now starts downloading earlier, so it appears sooner.', where: 'Public website (agentifyerp.co)', audience: 'platform' },
