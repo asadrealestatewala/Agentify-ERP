@@ -148,10 +148,10 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
             {g.children ? (
               <>
                 <button className={`nav-item ${g.children.some((c) => c[1] === activePath) ? 'active' : ''}`} onClick={() => { if (collapsed) setCollapsed(false); setOpen((o) => ({ ...o, [g.label]: !o[g.label] })); }} title={g.label} aria-expanded={!!open[g.label]}>
-                  <Icon name={g.icon} /><span className="nav-label">{t('nav.' + g.label.toLowerCase().replace(/[^a-z]+/g, '_'), g.label)}</span><Icon name="chevR" size={13} className={`nav-caret ${open[g.label] ? 'open' : ''}`} />
+                  <Icon name={g.icon} /><span className="nav-label">{getRegion().localize(t('nav.' + g.label.toLowerCase().replace(/[^a-z]+/g, '_'), g.label))}</span><Icon name="chevR" size={13} className={`nav-caret ${open[g.label] ? 'open' : ''}`} />
                 </button>
                 {open[g.label] && !collapsed && (
-                  <div className="sub">{g.children.map((c) => <Link key={c[0] + c[1]} to={c[1]} className={`nav-item ${activePath === c[1] ? 'active' : ''}`}>{c[0]}</Link>)}</div>
+                  <div className="sub">{g.children.map((c) => <Link key={c[0] + c[1]} to={c[1]} className={`nav-item ${activePath === c[1] ? 'active' : ''}`}>{getRegion().localize(c[0])}</Link>)}</div>
                 )}
               </>
             ) : (

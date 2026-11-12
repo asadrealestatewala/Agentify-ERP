@@ -19,6 +19,19 @@ export const PK_DEFAULTS = Object.freeze({
   language: 'en', terminology: {}, flags: {}, price_style: 'south_asian', rent_suffix: ' / month',
 });
 
+const TERM_WORDS = [['sales_agent', 'Sales Agent'], ['customer', 'Customer'], ['buyer', 'Buyer'], ['seller', 'Seller']];
+function localizeTerms(text, terms) {
+  if (typeof text !== 'string' || !terms) return text;
+  let out = text;
+  for (const [key, word] of TERM_WORDS) {
+    const to = terms[key];
+    if (!to || to === word) continue;
+    out = out.replace(new RegExp(`\\b${word}(s?)\\b`, 'g'), (_m, pl) => to + pl)
+      .replace(new RegExp(`\\b${word.toLowerCase()}(s?)\\b`, 'g'), (_m, pl) => to.toLowerCase() + pl);
+  }
+  return out;
+}
+
 export function buildRegion(cfg = {}) {
   const c = { ...PK_DEFAULTS, ...cfg, phone: { ...PK_DEFAULTS.phone, ...(cfg.phone || {}) } };
   return {
@@ -33,6 +46,8 @@ export function buildRegion(cfg = {}) {
     idLabel: String(c.identity?.national_id?.label || 'CNIC').replace(/\s*\(.*\)\s*$/, ''),
     /** True for Pakistan, where the CNIC is stored on the contact itself. */
     isPK: (c.region || 'PK') === 'PK',
+    /** Rewrites generic English labels with this country's own words ("Customers" -> "Clients"). Pakistan has no terms, so text is returned unchanged. */
+    localize: (text) => localizeTerms(text, c.terminology),
     /** Terminology with a fallback to the given English default: term('agent', 'Sales Agent'). */
     term: (key, fallback) => c.terminology?.[key] ?? fallback ?? key,
   };
