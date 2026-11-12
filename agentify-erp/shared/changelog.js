@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.95', date: '2026-11-12', title: 'Smoother first load of the public website',
+    items: [
+      { text: 'The public website no longer flashes plain text and then a grey loading screen before the home page appears. A tidy version of the page text shows straight away and stays until the full page is ready, and the page code now starts downloading earlier, so it appears sooner.', where: 'Public website (agentifyerp.co)', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.94', date: '2026-11-12', title: 'Stronger sign-in and safer screens',
     items: [
       { text: 'Accounts now lock for 15 minutes after 10 wrong passwords or authenticator codes, and five wrong codes end an authenticator step. Wait, or reset your password by e-mail.', where: 'Sign in', guide: 'sign-in-security' },
