@@ -59,7 +59,7 @@ export function PageHead({ title, sub, crumbs, children }) {
     <div>
       {crumbs && <div className="crumbs">{crumbs}</div>}
       <div className="page-head">
-        <div className="grow"><h1>{title}</h1>{sub && <div className="sub-title">{sub}</div>}</div>
+        <div className="grow"><h1>{getRegion().localize(title)}</h1>{sub && <div className="sub-title">{getRegion().localize(sub)}</div>}</div>
         <div className="row wrap">{children}</div>
       </div>
     </div>
