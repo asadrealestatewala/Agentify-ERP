@@ -285,10 +285,12 @@ function Freellm({ can }) {
   const [ask, setAsk] = useState(null); // { ws, confirm }
   const load = useCallback(() => api.get(`${A}/ai/freellm`).then((x) => { setV(x); setF((p) => ({ ...p, base_url: x.base_url })); }).catch(() => {}), []);
   useEffect(() => { load(); }, [load]);
-  if (!v) return null;
+  const [tryP, setTryP] = useState('a modern apartment building at sunset'), [tryOut, setTryOut] = useState(null), [trying, setTrying] = useState('');
   const put = async (body, msg) => { try { const r = await api.put(`${A}/ai/freellm`, body); setV((p) => ({ ...p, ...r })); toast(msg); load(); } catch (e) { toast(e.message, 'err'); } };
   const test = async () => { setBusy(true); try { const r = await api.post(`${A}/ai/freellm/test`, {}); toast(`FreeLLMAPI answered (${r.models} models, ${r.ms} ms)`); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
   const remove = async () => { if (!window.confirm('Remove the saved FreeLLMAPI key? The .env key (if any) is used instead.')) return; try { await api.del(`${A}/ai/freellm/key`); toast('Key removed'); load(); } catch (e) { toast(e.message, 'err'); } };
+  const tryIt = async (kind) => { setTrying(kind); setTryOut(null); try { setTryOut(await api.post(`${A}/ai/freellm/try`, { kind, prompt: tryP })); } catch (e) { toast(e.message, 'err'); } finally { setTrying(''); } };
+  if (!v) return null;
   const setWs = async (ws, on, confirm) => { try { await api.put(`${A}/ai/freellm/workspaces/${ws.id}`, { on, confirm }); toast(on ? `Workspace data allowed for ${ws.name}` : `Workspace data blocked for ${ws.name}`); setAsk(null); load(); } catch (e) { toast(e.message, 'err'); } };
   return (
     <FoldCard title="FreeLLMAPI (extra AI provider)" summary={<Dot tone={v.ready ? 'ok' : 'warn'}>{v.ready ? 'FreeLLMAPI on' : v.enabled ? 'No key yet' : 'FreeLLMAPI off'}</Dot>} tone={v.ready ? 'ok' : 'warn'}>
@@ -309,6 +311,11 @@ function Freellm({ can }) {
           {v.key_from === 'console' && <button className="btn danger" onClick={remove}>Remove saved key</button>}
         </div>
       </>}
+      {can && <div style={{ marginTop: 14 }}><b>Try it</b>
+        <div className="row" style={{ gap: 8, marginTop: 6, flexWrap: 'wrap' }}><TextInput value={tryP} onChange={setTryP} /><button className="btn info" disabled={!!trying || !v.ready} onClick={() => tryIt('image')}>{trying === 'image' ? 'Making…' : 'Make a test image'}</button><button className="btn info" disabled={!!trying || !v.ready} onClick={() => tryIt('video')}>{trying === 'video' ? 'Making (can take minutes)…' : 'Make a test video'}</button></div>
+        {tryOut?.kind === 'image' && <img alt="Test" style={{ maxWidth: 260, marginTop: 8, borderRadius: 8 }} src={`data:${tryOut.mime};base64,${tryOut.data}`} />}
+        {tryOut?.kind === 'video' && <video controls style={{ maxWidth: 260, marginTop: 8 }} src={`data:${tryOut.mime};base64,${tryOut.data}`} />}
+      </div>}
       <div style={{ marginTop: 16 }}>
         <b>Allow workspace data through FreeLLMAPI</b>
         <p className="muted" style={{ margin: '4px 0 8px' }}>{v.warning} Off for every workspace by default. {v.tenants_with_data_on} workspace(s) on now.</p>

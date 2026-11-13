@@ -820,6 +820,13 @@ r.get('/ai/freellm', requireOperator, need('finance.view'), (_req, res) => res.j
 r.put('/ai/freellm', requireOperator, need('integrations.manage'), asyncH((req, res) => { const v = freellm.saveFreellm(req.body || {}, req.operator.email); audit(req.operator.email, 'ai-freellm-changed', { key_changed: !!req.body?.key && !/^•/.test(req.body.key), enabled: v.enabled, master_off: v.tenant_data_master_off, features: v.features }); res.json(v); }));
 r.post('/ai/freellm/test', requireOperator, need('integrations.manage'), asyncH(async (req, res) => { const v = await freellm.freellmTest(); audit(req.operator.email, 'ai-freellm-tested', {}); res.json(v); }));
 r.delete('/ai/freellm/key', requireOperator, need('integrations.manage'), (req, res) => { freellm.removeFreellmKey(); audit(req.operator.email, 'ai-freellm-key-removed', {}); res.json(freellm.freellmStatus()); });
+r.post('/ai/freellm/try', requireOperator, need('integrations.manage'), asyncH(async (req, res) => {
+  const kind = String(req.body?.kind || ''), prompt = String(req.body?.prompt || '').trim().slice(0, 500);
+  if (!prompt) throw bad('Write a short description first.');
+  if (kind === 'image') { const r = await freellm.freellmImage({ prompt, feature: 'creative_post' }); audit(req.operator.email, 'ai-freellm-try-image', {}); return res.json({ kind, mime: r.mime, data: r.data }); }
+  if (kind === 'video') { const r = await freellm.freellmVideo({ prompt, seconds: 6, feature: 'creative_video' }); if (r.buf.length > 25 * 1024 * 1024) throw bad('The test clip was too large to show here.'); audit(req.operator.email, 'ai-freellm-try-video', {}); return res.json({ kind, mime: 'video/mp4', data: r.buf.toString('base64'), routed: r.routed }); }
+  throw bad('Choose image or video.');
+}));
 r.get('/ai/freellm/workspaces/:id(\\d+)', requireOperator, need('finance.view'), (req, res) => res.json(freellm.tenantDataStatus(req.params.id)));
 r.put('/ai/freellm/workspaces/:id(\\d+)', requireOperator, need('integrations.manage'), asyncH((req, res) => res.json(freellm.setTenantData(req.params.id, { on: !!req.body?.on, confirm: req.body?.confirm === true }, req.operator.email))));
 r.get('/ai/voices', requireOperator, need('finance.view'), (_req, res) => res.json(aiRep.voicesView()));

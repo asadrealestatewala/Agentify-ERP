@@ -9,6 +9,7 @@ import { assertPlatformAllowed } from './aiGate.js';
 import { getRate, refreshIfStale } from './fxRate.js';
 import { bad } from '../util.js';
 import { getSetting } from './platformConfig.js';
+import { freellmSpeech, featureOn as freellmOn } from './freellmGateway.js';
 
 const GEMINI = 'https://generativelanguage.googleapis.com/v1beta';
 
@@ -162,6 +163,8 @@ export async function azureSpeak({ lang, text, voice, tenantId = null, userId = 
     if (!isMp3) throw new Error(`Azure sent back something that is not audio${buf.length ? `: ${buf.toString('utf8', 0, 150).replace(/\s+/g, ' ').trim()}` : ''}`);
   } catch (e) {
     record({ keyOwner: 'platform', provider: 'azure', model: v, purpose: feature, ok: false, tenantId, userId, feature });
+    // Azure stays the main voice; the free extra provider is only a backup when Azure fails (the text is the person's own script, no records)
+    if (freellmOn('speech')) { try { const alt = await freellmSpeech({ text: t, feature, tenantId, userId }); return alt; } catch { /* fall through to the friendly error */ } }
     throw bad(`The voice could not be made (${e.message}). Please try again in a moment.`, { code: 'provider_error' });
   }
   record({ keyOwner: 'platform', provider: 'azure', model: v, purpose: feature, tenantId, userId, feature, unit: 'character', units: t.length, usd: costUsd({ feature, unit: 'character', units: t.length }), usdPkr: fx, credits: credits || null });

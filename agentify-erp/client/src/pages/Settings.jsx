@@ -11,6 +11,13 @@ import Icon from '../components/Icon.jsx';
 import { dateTime, titleCase, cur, money, getRegion } from '../format.js';
 
 // ---------------------------------------------------------------- Users
+/** Tells the workspace admin when their own data may also go to the extra free AI helper (set by Agentify with the workspace's agreement). */
+function ExtraAiNotice() {
+  const { data } = useFetch('/api/assistant/extra-ai');
+  if (!data?.on) return null;
+  return <div className="muted" style={{ background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 8, padding: 10 }}><b>Extra free AI helper is enabled for your workspace.</b> When the main AI engines cannot answer, Ask may send your questions and the matching records it is allowed to read to a free AI service. Free AI providers may store or use this data for training. This was switched on by Agentify{data.since ? ` on ${String(data.since).slice(0, 10)}` : ''} with your agreement. Ask Agentify support if you want it switched off.</div>;
+}
+
 export function Users() {
   const { can, user } = useAuth();
   const toast = useToast();
@@ -245,6 +252,7 @@ export function SystemSettings() {
           <Field label="Date format"><input className="input" disabled value={`${getRegion().config.date_style} (${getRegion().config.timezone})`} /></Field>
         </div></Card>
         <Card title="Ask assistant"><div className="stack">
+          <ExtraAiNotice />
           <div className="muted">Teach Ask about your business. Write facts it may use when staff ask about the company: office hours, payment and refund rules, booking steps, FAQs. Separate topics with a blank line. Do not put passwords or private customer data here. Staff can see this text, and the relevant lines are sent to the AI provider with a question.</div>
           <Field label="Business notes for Ask" hint={`${(f.ask_business_notes || '').length} / 4000 characters`}><textarea className="textarea" rows={7} disabled={ro} maxLength={4000} value={f.ask_business_notes || ''} onChange={(e) => set('ask_business_notes', e.target.value)} placeholder={'Office hours: Monday to Saturday, 10am to 7pm.\n\nBooking: a plot is booked with 20% down payment, the rest in 24 monthly installments.'} /></Field>
           <Field label="How Ask talks"><select className="input" disabled={ro} value={f.ask_style || 'friendly'} onChange={(e) => set('ask_style', e.target.value)}><option value="friendly">Friendly (like a helpful colleague)</option><option value="formal">Formal and brief</option></select></Field>

@@ -29,6 +29,8 @@ before(() => new Promise((res) => {
       if (flMode === 'down') throw new Error('connect ECONNREFUSED');
       return new Response(JSON.stringify({ choices: [{ message: { content: 'Open Settings > Company and press Save. (free)' } }], usage: { prompt_tokens: 5, completion_tokens: 7 } }), { status: 200, headers: { 'x-routed-via': 'groq/llama-free' } });
     }
+    if (u.includes('localhost:3001/v1/images/generations')) return new Response(JSON.stringify({ data: [{ b64_json: Buffer.from('img').toString('base64') }] }), { status: 200, headers: { 'x-routed-via': 'img/free' } });
+    if (u.includes('localhost:3001/v1/videos/generations')) return new Response(Buffer.alloc(2000, 1), { status: 200, headers: { 'content-type': 'video/mp4', 'x-model': 'vid/free' } });
     if (u.includes(':generateContent')) { gemCalls++; if (geminiMode === 'fail') return new Response(JSON.stringify({ error: { message: 'quota' } }), { status: 429 }); return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: JSON.stringify({ found: true, answer: 'Booking money is refundable within 14 days (gemini).' }) }] } }], usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 5 } }), { status: 200 }); }
     throw new Error(`unexpected fetch ${u}`);
   };
@@ -121,6 +123,14 @@ test('FreeLLMAPI: workspace data switches, fallback rules, metering and friendly
   // metering: each call is a row with the model that answered and zero cost
   const rows = platformDb().prepare("SELECT model, usd, pkr FROM ai_usage WHERE provider='freellmapi' AND ok=1").all();
   assert.ok(rows.length >= 2); assert.ok(rows.every((x) => x.model === 'groq/llama-free' && x.usd === 0 && (x.pkr == null || x.pkr === 0)));
+
+  // images and video (console try-out); the ledger keeps the model and a zero cost
+  await as(owner, 'PUT', '/ai/freellm', { enabled: true });
+  const im = await as(owner, 'POST', '/ai/freellm/try', { kind: 'image', prompt: 'a house' }); assert.equal(im.status, 200); assert.ok(im.data.data);
+  const vd = await as(owner, 'POST', '/ai/freellm/try', { kind: 'video', prompt: 'a house' }); assert.equal(vd.status, 200); assert.equal(vd.data.routed, 'vid/free');
+  assert.ok(platformDb().prepare("SELECT 1 FROM ai_usage WHERE provider='freellmapi' AND purpose='freellm_video' AND usd=0").get());
+  await as(owner, 'PUT', '/ai/freellm', { features: { images: false } });
+  assert.equal((await as(owner, 'POST', '/ai/freellm/try', { kind: 'image', prompt: 'a house' })).status, 400); // friendly refusal, not a crash
 
   // master FreeLLMAPI off: not called at all
   await as(owner, 'PUT', '/ai/freellm', { enabled: false });

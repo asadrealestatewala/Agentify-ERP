@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { all, get, run, getSetting, uploadDir } from '../db.js';
 import { currentTenant } from '../context.js';
 import { bad, notFound, now } from '../util.js';
+import { freellmImage, featureOn as freellmOn } from './freellmGateway.js';
 import { geminiGenerate, geminiImage, ASPECTS, imageModel, REEL_SECONDS } from './aiGateway.js';
 import { azureStatus } from './aiReport.js';
 import { assertSafeRequest } from './aiSafety.js';
@@ -201,10 +202,15 @@ export async function makePosts({ description, size, count = 2, language }, user
   const options = []; let lastErr = null;
   for (let i = 0; i < n; i += 1) {
     try { const img = await geminiImage({ feature: 'creative_post', prompt: `${prompt}\nVariation ${i + 1}: use a different composition.`, aspect: size, tenantId: tenantId(), userId: user?.id, credits: CREDIT_COST.creative_post }); options.push({ mime: img.mime, data: img.data, id: await keepGenerated(img, { title: desc.slice(0, 60), prompt: desc, size, user }) }); }
-    catch (e) { lastErr = e; if (['daily_limit', 'no_credits', 'budget_reached', 'ai_off', 'feature_off', 'tenant_off'].includes(e.extra?.code)) break; }
+    catch (e) {
+      lastErr = e;
+      if (['daily_limit', 'no_credits', 'budget_reached', 'ai_off', 'feature_off', 'tenant_off'].includes(e.extra?.code)) break;
+      // Gemini could not make it: the free extra provider tries once. A free image costs the workspace no credits (the prompt holds no workspace records).
+      if (freellmOn('images')) { try { const img = await freellmImage({ prompt: `${prompt}\nVariation ${i + 1}: use a different composition.`, feature: 'creative_post', tenantId: tenantId(), userId: user?.id }); options.push({ mime: img.mime, data: img.data, id: await keepGenerated(img, { title: desc.slice(0, 80), prompt: desc, size, user }), free: true }); lastErr = null; } catch (e2) { lastErr = e2; } }
+    }
   }
   if (!options.length) throw lastErr || bad('No image came back. Please try again.');
-  return { options, size, credits_used: options.length * CREDIT_COST.creative_post, credits_left: creditsLeft(tenantId()), partial: options.length < n ? (lastErr?.message || 'Some options could not be created.') : null };
+  return { options, size, credits_used: options.filter((o) => !o.free).length * CREDIT_COST.creative_post, credits_left: creditsLeft(tenantId()), partial: options.length < n ? (lastErr?.message || 'Some options could not be created.') : null };
 }
 
 /** Every image that was paid for is kept in My creations at once (never lost because the page was closed). A storage problem must not hide an image that was already charged. */
