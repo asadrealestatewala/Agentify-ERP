@@ -149,7 +149,8 @@ export function markPosted(id, b, by, { override = false } = {}) {
   return { post: getPost(id), warnings: override ? [] : why };
 }
 export function cancelPost(id) { const p = getPost(id); if (p.status === 'posted') throw bad('A post that went out cannot be canceled.'); db().prepare("UPDATE content_posts SET status='canceled', updated_at=datetime('now') WHERE id=?").run(p.id); return getPost(id); }
-export function deletePost(id) { const p = getPost(id); if (p.status === 'posted' || p.status === 'scheduled') throw bad('Cancel the post first. Posted items are kept as a record.'); db().prepare('DELETE FROM content_posts WHERE id=?').run(p.id); }
+/** Removes a post in any state (draft, scheduled, posted or canceled): the manager can clear a reel with one tap once it is published. */
+export function deletePost(id) { const p = getPost(id); db().prepare('DELETE FROM content_posts WHERE id=?').run(p.id); return p; }
 
 /** Everything the calendar page needs in one answer. */
 export function overview(now = new Date()) {

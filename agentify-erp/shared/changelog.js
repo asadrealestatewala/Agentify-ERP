@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.100', date: '2026-11-13', title: 'Content calendar: 40 Instagram reels ready to schedule, and a Delete button on every post',
+    items: [
+      { text: 'Add 40 Instagram reels with one button: vertical videos with Urdu, English or Arabic voiceover, each with its caption, hashtags and planned posting time (20:30 Pakistan time, 19:30 UAE time), scheduled over a month. Reels that do not fit the posting limits stay as drafts. Nothing is posted for you.', where: 'Console > Marketing > Content calendar > Add 40 Instagram reels', audience: 'platform' },
+      { text: 'Delete now works on every post, including scheduled and posted ones, so the social media manager can clear a reel with one tap once it is published.', where: 'Console > Marketing > Content calendar > Posts', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.99', date: '2026-11-13', title: 'FreeLLMAPI: an extra free AI provider for Ask, images and backup voice',
     items: [
       { text: 'FreeLLMAPI card on the AI page: key (saved encrypted, .env as a fallback), address, switches for chat, images, video and speech, a test button and a try-it box for a test image or video. Free calls show in the usage list with the model that answered and cost 0.', where: 'Console > Reports & Analytics > AI > FreeLLMAPI', audience: 'platform' },
