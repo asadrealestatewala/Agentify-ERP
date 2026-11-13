@@ -140,7 +140,7 @@ fi
 # internet). Best effort: any failure here is reported and ignored, so it can never stop a deploy. It is skipped when it already runs.
 install_freellmapi() {
   local dir=/opt/freellmapi
-  if have docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q freellmapi; then echo "freellmapi already running"; return 0; fi
+  if have docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q freellmapi; then echo "freellmapi already running"; configure_freellmapi; return 0; fi
   if ! have docker; then echo "installing docker for freellmapi"; curl -fsSL https://get.docker.com | sh || return 1; fi
   mkdir -p "$dir"
   if [ ! -d "$dir/.git" ]; then git clone --depth 1 https://github.com/asadrealestatewala/freellmapi.git "$dir" || return 1; fi
@@ -152,7 +152,44 @@ install_freellmapi() {
   sleep 8
   if curl -fsS --max-time 8 http://127.0.0.1:3001/api/ping >/dev/null; then echo "freellmapi running on 127.0.0.1:3001"; else echo "freellmapi started but did not answer yet"; fi
   ss -ltn 2>/dev/null | grep -q '0.0.0.0:3001' && echo "WARNING: freellmapi is listening on all interfaces; check HOST_BIND"
+  configure_freellmapi
   return 0
+}
+
+# First-run setup without a person: claim the dashboard (from inside the container, which counts as "this machine"), add the
+# providers that need no key, and copy the unified key into Agentify's server/.env. The dashboard login is kept in a root-only
+# file on the server (/opt/freellmapi/dashboard-login.txt), never in the deploy log. Safe to run again: it only fills what is missing.
+configure_freellmapi() {
+  local dir=/opt/freellmapi login="$dir/dashboard-login.txt" envf="$APP_DIR/server/.env"
+  for i in $(seq 1 30); do curl -fsS --max-time 4 http://127.0.0.1:3001/api/ping >/dev/null 2>&1 && break; sleep 3; done
+  if [ ! -f "$login" ]; then
+    umask 077
+    printf 'email=admin@agentify.local\npassword=%s\n' "$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 24)" > "$login"
+  fi
+  local email pass
+  email="$(sed -n 's/^email=//p' "$login")"; pass="$(sed -n 's/^password=//p' "$login")"
+  local key
+  key="$(cd "$dir" && docker compose exec -T -e FL_EMAIL="$email" -e FL_PASS="$pass" freellmapi node -e '
+    const B = "http://127.0.0.1:3001", j = (r) => r.json().catch(() => ({}));
+    const post = (p, b, t) => fetch(B + p, { method: "POST", headers: { "Content-Type": "application/json", ...(t ? { Authorization: "Bearer " + t } : {}) }, body: JSON.stringify(b) });
+    (async () => {
+      const st = await j(await fetch(B + "/api/auth/status"));
+      const body = { email: process.env.FL_EMAIL, password: process.env.FL_PASS };
+      const s = await j(await post(st.needsSetup ? "/api/auth/setup" : "/api/auth/login", body));
+      if (!s.token) { console.error("freellmapi: could not sign in to the dashboard"); process.exit(2); }
+      for (const platform of ["kilo", "ovh", "aihorde"]) { await post("/api/keys", { platform, label: "keyless (added by Agentify deploy)" }, s.token).catch(() => {}); }
+      const k = await j(await fetch(B + "/api/settings/api-key", { headers: { Authorization: "Bearer " + s.token } }));
+      if (!k.apiKey) { console.error("freellmapi: no unified key"); process.exit(3); }
+      process.stdout.write(k.apiKey);
+    })().catch((e) => { console.error("freellmapi:", e.message); process.exit(1); });
+  ' 2>/dev/null)" || { echo "freellmapi: automatic setup did not finish (Agentify keeps working without it)"; return 0; }
+  [ -n "$key" ] || return 0
+  [ -f "$envf" ] || return 0
+  # set our three values, keep everything else in server/.env as it is
+  { grep -v -E '^FREELLMAPI_(API_KEY|BASE_URL|ENABLED)=' "$envf" || true
+    printf 'FREELLMAPI_API_KEY=%s\nFREELLMAPI_BASE_URL=http://127.0.0.1:3001/v1\nFREELLMAPI_ENABLED=1\n' "$key"; } > "$envf.tmp"
+  chmod 600 "$envf.tmp" && mv "$envf.tmp" "$envf"
+  echo "freellmapi configured: keyless providers added, unified key written to server/.env (key not shown)"
 }
 ( install_freellmapi ) || echo "freellmapi install skipped or failed (deploy continues): see docs/freellmapi-setup.md"
 
