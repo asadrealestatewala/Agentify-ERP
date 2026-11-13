@@ -174,15 +174,16 @@ configure_freellmapi() {
     const post = (p, b, t) => fetch(B + p, { method: "POST", headers: { "Content-Type": "application/json", ...(t ? { Authorization: "Bearer " + t } : {}) }, body: JSON.stringify(b) });
     (async () => {
       const st = await j(await fetch(B + "/api/auth/status"));
+      console.error("status", JSON.stringify({ needsSetup: st.needsSetup }));
       const body = { email: process.env.FL_EMAIL, password: process.env.FL_PASS };
       const s = await j(await post(st.needsSetup ? "/api/auth/setup" : "/api/auth/login", body));
-      if (!s.token) { console.error("freellmapi: could not sign in to the dashboard"); process.exit(2); }
+      if (!s.token) { console.error("freellmapi: could not sign in to the dashboard: " + String(s?.error?.message || "").slice(0, 120)); process.exit(2); }
       for (const platform of ["kilo", "ovh", "aihorde"]) { await post("/api/keys", { platform, label: "keyless (added by Agentify deploy)" }, s.token).catch(() => {}); }
       const k = await j(await fetch(B + "/api/settings/api-key", { headers: { Authorization: "Bearer " + s.token } }));
       if (!k.apiKey) { console.error("freellmapi: no unified key"); process.exit(3); }
       process.stdout.write(k.apiKey);
     })().catch((e) => { console.error("freellmapi:", e.message); process.exit(1); });
-  ' 2>/dev/null)" || { echo "freellmapi: automatic setup did not finish (Agentify keeps working without it)"; return 0; }
+  ' 2>"$dir/.setup-err")" || { echo "freellmapi: automatic setup did not finish (Agentify keeps working without it): $(tr -d '\r' < "$dir/.setup-err" | tail -3 | cut -c1-200)"; docker ps -a --filter name=freellmapi --format 'freellmapi container: {{.Status}}'; curl -sS -o /dev/null -w 'freellmapi ping from host: %{http_code}\n' --max-time 5 http://127.0.0.1:3001/api/ping || true; return 0; }
   [ -n "$key" ] || return 0
   [ -f "$envf" ] || return 0
   # set our three values, keep everything else in server/.env as it is
