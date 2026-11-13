@@ -172,7 +172,7 @@ function PostList({ rows, empty, onEdit, onPosted, act }) {
           {p.status !== 'posted' && p.status !== 'canceled' && <><button className="btn sm" onClick={() => onEdit(p)}>Edit</button><button className="btn sm primary" onClick={() => onPosted(p)}>Mark as posted</button></>}
           {p.status === 'scheduled' && <button className="btn sm" onClick={() => act(`${p.id}/unschedule`, 'Moved back to drafts')}>Unschedule</button>}
           {(p.status === 'draft' || p.status === 'scheduled') && <button className="btn sm" onClick={() => act(`${p.id}/cancel`, 'Canceled')}>Cancel</button>}
-          {(p.status === 'draft' || p.status === 'canceled') && <button className="btn sm" onClick={() => { if (window.confirm(`Delete “${p.title}”?`)) act(p.id, 'Deleted', 'del'); }}>Delete</button>}
+          <button className="btn sm danger" onClick={() => { if (window.confirm(`Delete “${p.title}”?${p.status === 'posted' ? ' It will no longer be counted as posted.' : ''}`)) act(p.id, 'Deleted', 'del'); }}>Delete</button>
         </div>
       </div>
     );
@@ -200,6 +200,7 @@ export default function ContentCalendarPage() {
       <PageTitle title="Content calendar" sub="Plan, schedule and record Agentify's own social posts, with the posting limits and the next time a post can go out." >
         {data.ai?.connected && <button className="btn" disabled={!data.ai.drafts_left_today} onClick={() => setAi(true)}>Draft with AI</button>}
         <button className="btn" onClick={async () => { try { const r = await api.post(`${A}/content/promo-drafts`); toast(r.added.length ? `Added ${r.added.length} promo video drafts` : 'Promo video drafts are already there'); load(); } catch (e) { toast(e.message, 'err'); } }}>Add promo video drafts</button>
+        <button className="btn" onClick={async () => { try { const r = await api.post(`${A}/content/reel-drafts`); toast(r.added.length ? `Added ${r.added.length} Instagram reels${r.unscheduled.length ? `, ${r.unscheduled.length} left as drafts (${r.unscheduled[0].reason})` : ' and scheduled them'}` : 'The 40 Instagram reels are already there'); load(); } catch (e) { toast(e.message, 'err'); } }}>Add 40 Instagram reels</button>
         <button className="btn primary" onClick={() => setForm({ post: null })}>New post</button>
       </PageTitle>
       <ErrorBox error={err} />

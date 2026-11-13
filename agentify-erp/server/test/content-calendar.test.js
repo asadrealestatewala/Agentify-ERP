@@ -67,7 +67,6 @@ test('a Social Media Manager plans, schedules and records posts, and nothing els
   const done = await as(smm, 'POST', `/content/posts/${p1.data.id}/posted`, { post_url: 'https://facebook.com/x/1' });
   assert.equal(done.status, 200, JSON.stringify(done.data)); assert.equal(done.data.post.status, 'posted');
   assert.equal((await as(smm, 'POST', `/content/posts/${p1.data.id}/posted`, {})).status, 400, 'recorded once');
-  assert.equal((await as(smm, 'DELETE', `/content/posts/${p1.data.id}`)).status, 400, 'posted items are a record');
   assert.equal((await as(smm, 'PUT', `/content/posts/${p1.data.id}`, { title: 'changed' })).status, 400);
 
   const ov = (await as(smm, 'GET', '/content')).data;
@@ -77,6 +76,9 @@ test('a Social Media Manager plans, schedules and records posts, and nothing els
   assert.ok(ov.next_slot.facebook);
   assert.equal((await as(smm, 'POST', `/content/posts/${p2.data.id}/cancel`)).data.status, 'canceled');
   assert.equal((await as(smm, 'DELETE', `/content/posts/${p2.data.id}`)).status, 200);
+  assert.equal((await as(smm, 'DELETE', `/content/posts/${p1.data.id}`)).status, 200, 'a posted item can be deleted with one tap');
+  assert.equal((await as(smm, 'GET', '/content')).data.counts.posted, 0);
+  assert.equal((await as(smm, 'DELETE', `/content/posts/${p1.data.id}`)).status, 404, 'already gone');
 });
 
 test('promo video drafts: one draft per channel, repeatable, and the videos are publicly served', async () => {
@@ -98,4 +100,25 @@ test('promo video drafts: one draft per channel, repeatable, and the videos are 
   assert.equal(dl.statusCode, 200);
   assert.match(dl.headers['content-disposition'], /attachment; filename="promo-video-2-fast-[a-z0-9-]+-9x16\.mp4"/);
   const other = await call('GET', '/promo-media/other.mp4'); assert.ok(typeof other.data === 'string' && !other.data.startsWith('\u0000'), 'only the two promo files are served');
+});
+
+test('Instagram reels: 40 scheduled drafts, repeatable, served publicly, and any of them can be deleted', async () => {
+  const owner = (await call('POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  const a = await as(owner, 'POST', '/content/reel-drafts');
+  assert.equal(a.status, 201, JSON.stringify(a.data));
+  assert.equal(a.data.added.length, 40);
+  assert.ok(a.data.added.every((p) => p.channel === 'instagram' && /\/promo-media\/reels\/reel-\d\d-[a-z0-9-]+\.mp4$/.test(p.media_url) && /^Reel \d\d: /.test(p.title)));
+  assert.ok(a.data.added.every((p) => !/DO NOT POST|ON HOLD/.test(p.notes)), 'no partner footage in the reels');
+  assert.equal(a.data.added.filter((p) => p.status === 'scheduled').length + a.data.unscheduled.length, 40, 'each reel is scheduled or explained');
+  assert.ok(a.data.added.some((p) => p.status === 'scheduled'), 'the planned times fit the default limits');
+  const b = await as(owner, 'POST', '/content/reel-drafts');
+  assert.equal(b.data.added.length, 0); assert.equal(b.data.skipped.length, 40);
+  assert.equal((await call('GET', `/promo-media/${a.data.added[0].media_url.split('/promo-media/')[1]}`)).status, 200);
+  const first = a.data.added[0];
+  assert.equal((await call('GET', `${A}/content/posts/${first.id}/media`)).status, 401, 'download needs a console login');
+  const gone = await as(owner, 'DELETE', `/content/posts/${first.id}`);
+  assert.equal(gone.status, 200);
+  const sched = a.data.added.find((p) => p.status === 'scheduled' && p.id !== first.id);
+  assert.equal((await as(owner, 'DELETE', `/content/posts/${sched.id}`)).status, 200, 'a scheduled reel can be deleted without canceling first');
+  assert.equal((await as(owner, 'POST', '/content/reel-drafts')).data.added.length, 2, 'deleted reels can be added back');
 });

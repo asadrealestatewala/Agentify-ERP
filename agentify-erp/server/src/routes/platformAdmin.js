@@ -52,6 +52,7 @@ import * as blogAgent from '../services/blogAgent.js';
 import * as pageSpeed from '../services/pageSpeed.js';
 import * as searchConsole from '../services/searchConsole.js';
 import { addPromoDrafts, promoFileOf, downloadName } from '../services/promoDrafts.js';
+import { addReelDrafts } from '../services/reelDrafts.js';
 import * as aiu from '../services/aiUsage.js';
 import * as aiRep from '../services/aiReport.js';
 import * as aiLab from '../services/aiVoiceLab.js';
@@ -773,7 +774,7 @@ r.post('/content/posts/:id/posted', requireOperator, need('content.calendar'), a
   audit(req.operator.email, 'content-post-recorded-posted', { id: out.post.id, channel: out.post.channel }); res.json(out);
 }));
 r.post('/content/posts/:id/cancel', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.cancelPost(req.params.id); audit(req.operator.email, 'content-post-canceled', { id: p.id }); res.json(p); }));
-r.delete('/content/posts/:id', requireOperator, need('content.calendar'), asyncH((req, res) => { cal.deletePost(req.params.id); audit(req.operator.email, 'content-post-deleted', { id: Number(req.params.id) }); res.json({ ok: true }); }));
+r.delete('/content/posts/:id', requireOperator, need('content.calendar'), asyncH((req, res) => { const gone = cal.deletePost(req.params.id); audit(req.operator.email, 'content-post-deleted', { id: gone.id, status: gone.status, channel: gone.channel }); res.json({ ok: true }); }));
 r.get('/content/posts/:id/media', requireOperator, need('content.calendar'), asyncH((req, res) => {
   const p = cal.getPost(req.params.id);
   if (!p.media_url) throw bad('This post has no image or video');
@@ -789,6 +790,10 @@ r.get('/content/posts/:id/media', requireOperator, need('content.calendar'), asy
 r.post('/content/promo-drafts', requireOperator, need('content.calendar'), asyncH((req, res) => {
   const out = addPromoDrafts(`${req.protocol}://${req.get('host')}`, req.operator.email);
   audit(req.operator.email, 'content-promo-drafts-added', { added: out.added.length, skipped: out.skipped.length }); res.status(201).json(out);
+}));
+r.post('/content/reel-drafts', requireOperator, need('content.calendar'), asyncH((req, res) => {
+  const out = addReelDrafts(`${req.protocol}://${req.get('host')}`, req.operator.email);
+  audit(req.operator.email, 'content-reel-drafts-added', { added: out.added.length, skipped: out.skipped.length, unscheduled: out.unscheduled.length }); res.status(201).json(out);
 }));
 r.post('/content/ai-draft', requireOperator, need('content.calendar'), asyncH(async (req, res) => {
   const b = req.body || {};
