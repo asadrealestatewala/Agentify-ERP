@@ -276,6 +276,58 @@ function Voices({ o, can, voices, selected, setSelected, reload }) {
   );
 }
 
+/** FreeLLMAPI: an extra AI provider (free tiers behind one address). Key, switches per feature, and which workspaces may send their own data. */
+function Freellm({ can }) {
+  const toast = useToast();
+  const [v, setV] = useState(null);
+  const [f, setF] = useState({ key: '', base_url: '' });
+  const [busy, setBusy] = useState(false);
+  const [ask, setAsk] = useState(null); // { ws, confirm }
+  const load = useCallback(() => api.get(`${A}/ai/freellm`).then((x) => { setV(x); setF((p) => ({ ...p, base_url: x.base_url })); }).catch(() => {}), []);
+  useEffect(() => { load(); }, [load]);
+  if (!v) return null;
+  const put = async (body, msg) => { try { const r = await api.put(`${A}/ai/freellm`, body); setV((p) => ({ ...p, ...r })); toast(msg); load(); } catch (e) { toast(e.message, 'err'); } };
+  const test = async () => { setBusy(true); try { const r = await api.post(`${A}/ai/freellm/test`, {}); toast(`FreeLLMAPI answered (${r.models} models, ${r.ms} ms)`); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
+  const remove = async () => { if (!window.confirm('Remove the saved FreeLLMAPI key? The .env key (if any) is used instead.')) return; try { await api.del(`${A}/ai/freellm/key`); toast('Key removed'); load(); } catch (e) { toast(e.message, 'err'); } };
+  const setWs = async (ws, on, confirm) => { try { await api.put(`${A}/ai/freellm/workspaces/${ws.id}`, { on, confirm }); toast(on ? `Workspace data allowed for ${ws.name}` : `Workspace data blocked for ${ws.name}`); setAsk(null); load(); } catch (e) { toast(e.message, 'err'); } };
+  return (
+    <FoldCard title="FreeLLMAPI (extra AI provider)" summary={<Dot tone={v.ready ? 'ok' : 'warn'}>{v.ready ? 'FreeLLMAPI on' : v.enabled ? 'No key yet' : 'FreeLLMAPI off'}</Dot>} tone={v.ready ? 'ok' : 'warn'}>
+      <p className="muted" style={{ marginTop: 0 }}>FreeLLMAPI runs on the same server and routes to free AI providers. It never replaces your other engines: it answers help questions that hold no workspace data, and it is the last backup when the other engines fail. Workspace data only goes to it for workspaces you allow below. Free calls cost 0 and show in the usage list as provider freellmapi with the model that answered.</p>
+      <p className="muted">Key: {v.key_added ? <span className="pill green">Added {v.key_hint} ({v.key_from === 'env' ? 'from .env' : 'saved here'})</span> : <span className="pill grey">Not added</span>}</p>
+      {can && <>
+        <div style={grid}>
+          <Field label={v.key_added ? 'Replace key (optional)' : 'FreeLLMAPI unified key'} hint="Looks like freellmapi-… . Stored encrypted."><TextInput type="password" value={f.key} onChange={(x) => setF({ ...f, key: x })} autoComplete="off" /></Field>
+          <Field label="Address" hint="Default http://localhost:3001/v1"><TextInput value={f.base_url} onChange={(x) => setF({ ...f, base_url: x })} /></Field>
+        </div>
+        <div className="row" style={{ gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
+          <label><input type="checkbox" checked={v.enabled} onChange={(e) => put({ enabled: e.target.checked }, e.target.checked ? 'FreeLLMAPI switched on' : 'FreeLLMAPI switched off')} /> <b>Use FreeLLMAPI</b></label>
+          {Object.entries(v.feature_labels).map(([k, label]) => <label key={k}><input type="checkbox" checked={v.features[k]} onChange={(e) => put({ features: { [k]: e.target.checked } }, `${label}: ${e.target.checked ? 'on' : 'off'}`)} /> {label}</label>)}
+        </div>
+        <div className="row" style={{ gap: 8, marginTop: 12 }}>
+          <button className="btn primary" onClick={() => put({ ...(f.key ? { key: f.key } : {}), base_url: f.base_url }, 'FreeLLMAPI settings saved').then(() => setF((p) => ({ ...p, key: '' })))}>Save</button>
+          <button className="btn info" disabled={busy} onClick={test}>{busy ? 'Testing…' : 'Test the connection'}</button>
+          {v.key_from === 'console' && <button className="btn danger" onClick={remove}>Remove saved key</button>}
+        </div>
+      </>}
+      <div style={{ marginTop: 16 }}>
+        <b>Allow workspace data through FreeLLMAPI</b>
+        <p className="muted" style={{ margin: '4px 0 8px' }}>{v.warning} Off for every workspace by default. {v.tenants_with_data_on} workspace(s) on now.</p>
+        {can && <label style={{ display: 'block', marginBottom: 8 }}><input type="checkbox" checked={v.tenant_data_master_off} onChange={(e) => put({ tenant_data_master_off: e.target.checked }, e.target.checked ? 'Emergency off: no workspace data goes to FreeLLMAPI' : 'Emergency off lifted')} /> <b style={{ color: '#b91c1c' }}>Emergency off for ALL workspaces</b> (overrides every switch below)</label>}
+        <div className="table-wrap"><table className="t"><thead><tr><th>Workspace</th><th>Status</th><th>Set by</th><th /></tr></thead><tbody>
+          {v.workspaces.map((w) => <tr key={w.id}><td>{w.name}</td><td>{w.on ? <span className="pill green">Allowed{v.tenant_data_master_off ? ' (blocked by emergency off)' : ''}</span> : <span className="pill grey">Off</span>}</td><td>{w.on ? `${w.by || ''} ${ago(w.at ? `${w.at.replace(' ', 'T')}Z` : null)}` : ''}</td>
+            <td>{can && (w.on ? <button className="btn" onClick={() => setWs(w, false)}>Turn off</button> : <button className="btn" onClick={() => setAsk({ ws: w, confirm: false })}>Turn on…</button>)}</td></tr>)}
+        </tbody></table></div>
+        {ask && <div className="card" style={{ marginTop: 10, padding: 12, border: '1px solid #b45309' }}>
+          <b>Allow {ask.ws.name}'s data through FreeLLMAPI?</b>
+          <p style={{ margin: '6px 0' }}>{v.warning}</p>
+          <label><input type="checkbox" checked={ask.confirm} onChange={(e) => setAsk({ ...ask, confirm: e.target.checked })} /> I confirm this workspace has agreed.</label>
+          <div className="row" style={{ gap: 8, marginTop: 8 }}><button className="btn primary" disabled={!ask.confirm} onClick={() => setWs(ask.ws, true, true)}>Allow</button><button className="btn" onClick={() => setAsk(null)}>Cancel</button></div>
+        </div>}
+      </div>
+    </FoldCard>
+  );
+}
+
 const ENGINE_LABEL = { groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini' };
 /** Groq: fast chat, picture understanding and speech-to-text for Ask; plus the order Ask tries its engines in. */
 function Groq({ t, can, reload }) {
@@ -377,6 +429,7 @@ function Technical({ o, can, reload, voices, onTested }) {
     </FoldCard>
     <Groq t={t} can={can} reload={reload} />
     <Horde t={t} can={can} reload={reload} />
+    <Freellm can={can} />
     </>
   );
 }

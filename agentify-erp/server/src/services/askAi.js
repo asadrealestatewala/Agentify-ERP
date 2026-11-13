@@ -13,6 +13,7 @@ import { geminiGenerate } from './aiGateway.js';
 import { hordeGenerate, hordeKey, hordeReady, hordeEnabled, geminiAskEnabled, scrubForHorde } from './hordeGateway.js';
 import { askOrder, noteEngine } from './askOrder.js';
 import { groqChat, groqReady, groqKey } from './groqGateway.js';
+import { freellmChat, featureOn as freellmOn, tenantDataAllowed } from './freellmGateway.js';
 import { config as geminiConfig, ensureTable } from './aiUsage.js';
 import { recordMaterial, overviewLine } from './askRecords.js';
 import { assertSafeRequest } from './aiSafety.js';
@@ -198,6 +199,18 @@ async function viaGroq(q, ref, history, user, image, lang, strict) {
   return finish(text, lang);
 }
 
+/**
+ * FreeLLMAPI (extra provider). `withData` says the reference holds this workspace's own notes/records: the gateway refuses that unless this
+ * workspace's switch is on (and the master is not pulled). Without it only public guide text and the scrubbed question are sent.
+ */
+async function viaFreellm(q, ref, history, user, image, lang, strict, withData = false) {
+  const names = String(user.name || '').split(/\s+/);
+  const turns = (Array.isArray(history) ? history : []).slice(-3).flatMap((h) => { const hq = clip(h?.q, 300), ha = clip(h?.a, 500); return hq && ha ? [{ role: 'user', content: scrubForHorde(hq, names).text }, { role: 'assistant', content: scrubForHorde(ha, names).text }] : []; });
+  const text = await freellmChat({ feature: 'ask_assistant', purpose: 'ask_assistant', tenantId: currentTenant()?.id ?? null, userId: user.id, tenantData: withData, messages: [{ role: 'system', content: `${HORDE_SYSTEM}\n${voice()}` }, ...turns,
+    { role: 'user', content: `${facts(withData ? user : {}, withData)}\n\nREFERENCE MATERIAL:\n${ref || '(none found for this question)'}\n\nQUESTION: ${scrubForHorde(q, names).text}${langLine(lang, strict)}` }] });
+  return finish(text, lang);
+}
+
 const NUM = /\d[\d,]*(?:\.\d+)?/g;
 const nums = (t) => new Set((String(t).match(NUM) || []).map((x) => x.replace(/,/g, '').replace(/\.0+$/, '')));
 const SKIP_FRIENDLY = new Set(['help', 'howto', 'denied', 'empty', 'unknown', 'ai']);
@@ -249,7 +262,7 @@ export async function askAi(question, history, user, image = null) {
     const kw = await rewriteForSearch(q, user);
     if (kw) mat = material(kw, 'en');
   }
-  const readyAny = groqReady() || hordeReady() || (geminiAskEnabled() && !!geminiConfig().key);
+  const readyAny = groqReady() || hordeReady() || freellmOn('chat') || (geminiAskEnabled() && !!geminiConfig().key);
   // nothing matched but the question is about this system (or in Urdu / Roman Urdu): the AI gets the menu map so it can still point to the right menu, or say it is not covered. Gibberish costs nothing.
   if (!mat.length && !co.length && !image && readyAny && (lang !== 'en' || fixTypos(q).toLowerCase().split(/[^a-z]+/).some((w) => w.length >= 5 && vocab().has(w)))) mat = [{ title: 'Menu map (every screen in the menu)', text: menuMap(), map: true }];
   if (!mat.length && !co.length && !image) return null;
@@ -260,18 +273,23 @@ export async function askAi(question, history, user, image = null) {
   // a picture can only be read by a Groq vision model
   if (image && !ready.groq) return { refused: 'Questions about a picture need Groq to be connected. Please type your question instead.' };
   const order = image ? ['groq'] : askOrder().filter((p) => ready[p]);
-  if (!order.length) {
+  if (!order.length && !freellmOn('chat')) {
     // every engine is off or has no key: the guide text itself still answers (never a guess)
     const t = !image ? templatedAnswer(mat, lang) : null;
     if (t) return { ...t, engine: 'guide', links: videoLinks(user, `${q} ${mat[0]?.title || ''}`), notes: ['No AI engine is switched on, so this answer is the help-guide text.'] };
   }
-  if (!order.length) return { refused: geminiAskEnabled() || hordeReady() || groqReady() ? 'The AI helper could not answer right now.' : 'The AI helper is not switched on yet. Please ask your administrator or support.' };
+  if (!order.length && !freellmOn('chat')) return { refused: geminiAskEnabled() || hordeReady() || groqReady() ? 'The AI helper could not answer right now.' : 'The AI helper is not switched on yet. Please ask your administrator or support.' };
   let out = null, lastErr = null, engine = null;
   const notes = []; // why an engine did not answer, shown under the answer (to workspace users: see tenantSafe)
   // workspace users see these notes: they say an engine was not used, never how the platform is configured (keys, console switches)
   for (const p of askOrder()) if (!ready[p] && !(p === 'gemini')) notes.push(`${ENGINE_NAME[p]} was skipped: it is not available right now.`);
+  const tid = currentTenant()?.id ?? null, hasData = co.length > 0;
+  const freeOk = !image && freellmOn('chat') && !limited(`fl-${user.id}`);
+  const runFree = async (withData) => { const o = await viaFreellm(q, withData ? ref : refPublic, history, user, null, lang, false, withData); if (o?.answer && o.found !== false && !answerMatchesLanguage(lang, o.answer)) { const again = await viaFreellm(q, withData ? ref : refPublic, history, user, null, lang, true, withData).catch(() => null); if (again?.answer && answerMatchesLanguage(lang, again.answer)) return again; } return o; };
+  // help and walkthrough questions that hold no workspace data may use FreeLLMAPI first; a failure just moves on to the normal engines
+  if (freeOk && !hasData) { try { const o = await runFree(false); if (o?.answer) { out = o; engine = 'freellmapi'; } } catch { notes.push('The extra AI helper did not answer, so another engine was used.'); } }
   const run = (provider, strict) => (provider === 'groq' ? viaGroq : provider === 'gemini' ? viaGemini : viaHorde)(q, provider === 'horde' ? refPublic : ref, history, user, image, lang, strict);
-  for (const provider of order) {
+  for (const provider of (engine ? [] : order)) {
     try {
       out = await run(provider, false);
       // asked in Urdu / Roman Urdu / Arabic / Hindi but answered in English: one stricter retry on the same engine
@@ -280,6 +298,8 @@ export async function askAi(question, history, user, image = null) {
       if (out?.bad) { noteEngine(provider, new Error('it printed its reasoning instead of an answer')); notes.push(`${ENGINE_NAME[provider]} gave an unusable reply, so it was not shown.`); out = null; }
     } catch (e) { lastErr = e; noteEngine(provider, e); notes.push(`${ENGINE_NAME[provider]} failed: ${tenantSafe(e.message)}`); if (e.extra?.code && !['provider_error'].includes(e.extra.code)) break; } // a switch, limit or budget refusal applies to every engine
   }
+  // last resort: FreeLLMAPI as a fallback. Workspace data goes along only when this workspace's own switch is on; otherwise it sees public guide text only.
+  if (!out?.answer && freeOk && !(lastErr?.extra?.code && lastErr.extra.code !== 'provider_error')) { try { const o = await runFree(hasData && tenantDataAllowed(tid)); if (o?.answer) { out = o; engine = 'freellmapi'; } } catch { notes.push('The extra AI helper did not answer either.'); } }
   // no engine produced a good answer (busy, failed, or only reasoning): answer from the guide text itself, never from a guess
   if (!out?.answer) {
     const refusal = lastErr?.extra?.code && lastErr.extra.code !== 'provider_error';
