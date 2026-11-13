@@ -153,7 +153,7 @@ export function templatedAnswer(mat, lang) {
   return { found: true, answer: lines.join('\n'), sources: [g?.title || sc?.title].filter(Boolean) };
 }
 
-const ENGINE_NAME = { groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini' };
+const ENGINE_NAME = { groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini', freellmapi: 'FreeLLMAPI' };
 
 const lastTurns = (history) => (Array.isArray(history) ? history : []).slice(-3).flatMap((h) => {
   const q = clip(h?.q, 400), a = clip(h?.a, 700);
@@ -269,27 +269,25 @@ export async function askAi(question, history, user, image = null) {
   if (limited(user.id)) return { refused: 'You are asking quickly. Please wait a moment and try again.' };
   const refOf = (blocks) => blocks.map((m, i) => `[${i + 1}] ${m.title}: ${m.text}`).join('\n');
   const ref = refOf([...mat, ...co]), refPublic = refOf(mat); // company info never goes to the Stable Horde community network
-  const ready = { groq: groqReady(), horde: hordeReady(), gemini: geminiAskEnabled() && !!geminiConfig().key };
+  const ready = { groq: groqReady(), horde: hordeReady(), gemini: geminiAskEnabled() && !!geminiConfig().key, freellmapi: freellmOn('chat') };
+  // FreeLLMAPI gets this workspace's own notes and records only when this workspace's switch is on (and the master is not pulled); otherwise public guide text only
+  const freeWithData = co.length > 0 && tenantDataAllowed(currentTenant()?.id ?? null);
   // a picture can only be read by a Groq vision model
   if (image && !ready.groq) return { refused: 'Questions about a picture need Groq to be connected. Please type your question instead.' };
   const order = image ? ['groq'] : askOrder().filter((p) => ready[p]);
-  if (!order.length && !freellmOn('chat')) {
+  if (!order.length) {
     // every engine is off or has no key: the guide text itself still answers (never a guess)
     const t = !image ? templatedAnswer(mat, lang) : null;
     if (t) return { ...t, engine: 'guide', links: videoLinks(user, `${q} ${mat[0]?.title || ''}`), notes: ['No AI engine is switched on, so this answer is the help-guide text.'] };
   }
-  if (!order.length && !freellmOn('chat')) return { refused: geminiAskEnabled() || hordeReady() || groqReady() ? 'The AI helper could not answer right now.' : 'The AI helper is not switched on yet. Please ask your administrator or support.' };
+  if (!order.length) return { refused: geminiAskEnabled() || hordeReady() || groqReady() ? 'The AI helper could not answer right now.' : 'The AI helper is not switched on yet. Please ask your administrator or support.' };
   let out = null, lastErr = null, engine = null;
   const notes = []; // why an engine did not answer, shown under the answer (to workspace users: see tenantSafe)
   // workspace users see these notes: they say an engine was not used, never how the platform is configured (keys, console switches)
-  for (const p of askOrder()) if (!ready[p] && !(p === 'gemini')) notes.push(`${ENGINE_NAME[p]} was skipped: it is not available right now.`);
-  const tid = currentTenant()?.id ?? null, hasData = co.length > 0;
-  const freeOk = !image && freellmOn('chat') && !limited(`fl-${user.id}`);
-  const runFree = async (withData) => { const o = await viaFreellm(q, withData ? ref : refPublic, history, user, null, lang, false, withData); if (o?.answer && o.found !== false && !answerMatchesLanguage(lang, o.answer)) { const again = await viaFreellm(q, withData ? ref : refPublic, history, user, null, lang, true, withData).catch(() => null); if (again?.answer && answerMatchesLanguage(lang, again.answer)) return again; } return o; };
-  // help and walkthrough questions that hold no workspace data may use FreeLLMAPI first; a failure just moves on to the normal engines
-  if (freeOk && !hasData) { try { const o = await runFree(false); if (o?.answer) { out = o; engine = 'freellmapi'; } } catch { notes.push('The extra AI helper did not answer, so another engine was used.'); } }
-  const run = (provider, strict) => (provider === 'groq' ? viaGroq : provider === 'gemini' ? viaGemini : viaHorde)(q, provider === 'horde' ? refPublic : ref, history, user, image, lang, strict);
-  for (const provider of (engine ? [] : order)) {
+  for (const p of askOrder()) if (!ready[p] && !(p === 'gemini' || p === 'freellmapi')) notes.push(`${ENGINE_NAME[p]} was skipped: it is not available right now.`);
+  const run = (provider, strict) => (provider === 'freellmapi' ? viaFreellm(q, freeWithData ? ref : refPublic, history, user, null, lang, strict, freeWithData)
+    : (provider === 'groq' ? viaGroq : provider === 'gemini' ? viaGemini : viaHorde)(q, provider === 'horde' ? refPublic : ref, history, user, image, lang, strict));
+  for (const provider of order) {
     try {
       out = await run(provider, false);
       // asked in Urdu / Roman Urdu / Arabic / Hindi but answered in English: one stricter retry on the same engine
@@ -298,8 +296,6 @@ export async function askAi(question, history, user, image = null) {
       if (out?.bad) { noteEngine(provider, new Error('it printed its reasoning instead of an answer')); notes.push(`${ENGINE_NAME[provider]} gave an unusable reply, so it was not shown.`); out = null; }
     } catch (e) { lastErr = e; noteEngine(provider, e); notes.push(`${ENGINE_NAME[provider]} failed: ${tenantSafe(e.message)}`); if (e.extra?.code && !['provider_error'].includes(e.extra.code)) break; } // a switch, limit or budget refusal applies to every engine
   }
-  // last resort: FreeLLMAPI as a fallback. Workspace data goes along only when this workspace's own switch is on; otherwise it sees public guide text only.
-  if (!out?.answer && freeOk && !(lastErr?.extra?.code && lastErr.extra.code !== 'provider_error')) { try { const o = await runFree(hasData && tenantDataAllowed(tid)); if (o?.answer) { out = o; engine = 'freellmapi'; } } catch { notes.push('The extra AI helper did not answer either.'); } }
   // no engine produced a good answer (busy, failed, or only reasoning): answer from the guide text itself, never from a guess
   if (!out?.answer) {
     const refusal = lastErr?.extra?.code && lastErr.extra.code !== 'provider_error';
@@ -320,10 +316,10 @@ const SAMPLE_Q = 'How do I add an appointment?';
  * recorded, how long it took and the error. Goes through the same gateways as real questions, so switches, ledger and scrubbing all apply.
  */
 export async function testAskEngine(engine) {
-  if (!['groq', 'horde', 'gemini'].includes(engine)) throw bad('Choose Groq, Stable Horde or Gemini.');
+  if (!['groq', 'horde', 'gemini', 'freellmapi'].includes(engine)) throw bad('Choose Groq, Stable Horde, Gemini or FreeLLMAPI.');
   const out = { engine, name: ENGINE_NAME[engine], question: SAMPLE_Q, ok: false, answer: null, model: null, ms: null, error: null, note: null };
-  const keyed = { groq: groqReady(), horde: hordeReady(), gemini: !!geminiConfig().key }[engine];
-  if (!keyed) { out.error = engine === 'groq' ? (groqKey() ? 'Groq is switched off ("Use Groq in Ask" is unticked).' : 'No Groq key is saved yet.') : engine === 'horde' ? (hordeKey() && !hordeEnabled() ? 'Stable Horde is switched off.' : 'No Stable Horde key is saved yet.') : 'No Gemini key is saved yet.'; return out; }
+  const keyed = { groq: groqReady(), horde: hordeReady(), gemini: !!geminiConfig().key, freellmapi: freellmOn('chat') }[engine];
+  if (!keyed) { out.error = engine === 'freellmapi' ? 'FreeLLMAPI is switched off, has no key, or its chat switch is off.' : engine === 'groq' ? (groqKey() ? 'Groq is switched off ("Use Groq in Ask" is unticked).' : 'No Groq key is saved yet.') : engine === 'horde' ? (hordeKey() && !hordeEnabled() ? 'Stable Horde is switched off.' : 'No Stable Horde key is saved yet.') : 'No Gemini key is saved yet.'; return out; }
   if (engine === 'gemini' && !geminiAskEnabled()) out.note = 'Gemini is switched off for Ask ("Allow Gemini for Ask"), so real questions never reach it. This test calls it anyway.';
   const mat = material(SAMPLE_Q, 'en');
   const ref = mat.map((m, i) => `[${i + 1}] ${m.title}: ${m.text}`).join('\n');
@@ -332,7 +328,7 @@ export async function testAskEngine(engine) {
   const before = ensureTable().prepare('SELECT COALESCE(MAX(id),0) n FROM ai_usage').get().n;
   const t0 = Date.now();
   try {
-    const r = await (engine === 'groq' ? viaGroq : engine === 'gemini' ? viaGemini : viaHorde)(SAMPLE_Q, ref, [], user, null, 'en', false);
+    const r = engine === 'freellmapi' ? await viaFreellm(SAMPLE_Q, ref, [], user, null, 'en', false, false) : await (engine === 'groq' ? viaGroq : engine === 'gemini' ? viaGemini : viaHorde)(SAMPLE_Q, ref, [], user, null, 'en', false);
     out.ms = Date.now() - t0;
     if (r?.bad) out.error = `It printed its reasoning instead of an answer: "${r.raw}"`;
     else if (r?.answer) { out.ok = true; out.answer = String(r.answer).slice(0, 1500); }

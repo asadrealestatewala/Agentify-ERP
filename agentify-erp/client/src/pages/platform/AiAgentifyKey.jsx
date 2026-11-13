@@ -335,7 +335,7 @@ function Freellm({ can }) {
   );
 }
 
-const ENGINE_LABEL = { groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini' };
+const ENGINE_LABEL = { groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini', freellmapi: 'FreeLLMAPI' };
 /** Groq: fast chat, picture understanding and speech-to-text for Ask; plus the order Ask tries its engines in. */
 function Groq({ t, can, reload }) {
   const toast = useToast();
@@ -350,8 +350,8 @@ function Groq({ t, can, reload }) {
   const test = async () => { setBusy(true); try { const r = await api.post(`${A}/ai/groq/test`, {}); toast(`Groq connected (${r.models} models available)`); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
   const remove = async () => { if (!window.confirm('Remove the Groq key? Ask voice and picture questions stop until a key is added again.')) return; try { await api.del(`${A}/ai/groq/key`); toast('Groq key removed'); reload(); } catch (e) { toast(e.message, 'err'); } };
   const move = (i, d) => { const o = [...order]; const j = i + d; if (j < 0 || j >= o.length) return; [o[i], o[j]] = [o[j], o[i]]; setOrder(o); };
-  const on = { groq: g.key_added && g.enabled, horde: t.stablehorde.key_added && t.stablehorde.enabled, gemini: t.stablehorde.gemini_enabled && t.gemini.added };
-  const sw = { groq: g.enabled, horde: t.stablehorde.enabled, gemini: t.stablehorde.gemini_enabled };
+  const on = { groq: g.key_added && g.enabled, horde: t.stablehorde.key_added && t.stablehorde.enabled, gemini: t.stablehorde.gemini_enabled && t.gemini.added, freellmapi: !!(t.freellm?.ready && t.freellm.features?.chat) };
+  const sw = { groq: g.enabled, horde: t.stablehorde.enabled, gemini: t.stablehorde.gemini_enabled, freellmapi: !!t.freellm?.enabled };
   const flip = async (body, msg) => { try { await api.put(`${A}/ai/ask-engines`, body); toast(msg); reload(); } catch (err) { toast(err.message, 'err'); } };
   return (
     <FoldCard title="Groq and Ask engines" summary={g.key_added ? <Dot tone={g.enabled ? 'ok' : 'warn'}>{g.enabled ? 'Groq connected' : 'Groq off'}</Dot> : <Dot tone="warn">Groq key not added</Dot>} tone={g.key_added && g.enabled ? 'ok' : 'warn'}>
