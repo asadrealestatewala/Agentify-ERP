@@ -136,7 +136,7 @@ export const GUIDES = {
     steps: [
       'Open Ask (the button at the bottom right, or the Ask button on your phone) and type your question in your own words.',
       'Questions about your numbers are answered from your live data as before. Questions about how to do something are answered from our guides.',
-      'If a guide covers your question, Ask writes the steps in plain language, in the language you used. An AI-written answer says so and lists the guides it used.',
+      'If a guide covers your question, Ask writes the steps in plain language, in the language you used. The answer lists the guides it used.',
       'Ask a follow-up in the same chat, such as "and how do I do that for a customer?". Ask remembers the last few questions.',
       'If an AI-written answer is wrong or confusing, press Report under it.',
     ],
