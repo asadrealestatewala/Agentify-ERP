@@ -87,3 +87,13 @@ Free providers change their limits often, so check the dashboard now and then.
 ## Automatic install on deploy
 
 `.github/scripts/remote-bootstrap.sh` runs `install_freellmapi` on every deploy. It installs Docker only if missing, clones the FreeLLMAPI fork to `/opt/freellmapi`, starts it with `HOST_BIND=127.0.0.1`, and does nothing when it already runs. Any failure is printed and ignored, so a deploy never stops because of it. The deploy log tells you the result ("freellmapi running on 127.0.0.1:3001"). You still do steps 3 to 5 yourself (open the dashboard through the SSH tunnel, set its password, add provider keys, paste the unified key into the console card).
+
+## Fully automatic first run
+
+After FreeLLMAPI starts, the deploy also runs `configure_freellmapi`:
+
+* claims the dashboard from inside the container with a random password, kept only in `/opt/freellmapi/dashboard-login.txt` (root only, never in the log). Read it with `sudo cat /opt/freellmapi/dashboard-login.txt` when you open the dashboard through the SSH tunnel;
+* adds the providers that need no key (Kilo gateway, OVH AI Endpoints, AI Horde), so chat works at once. These free services may log prompts, which is why workspace data stays off unless you allow it per workspace;
+* writes `FREELLMAPI_API_KEY`, `FREELLMAPI_BASE_URL=http://127.0.0.1:3001/v1` and `FREELLMAPI_ENABLED=1` into `server/.env` (other lines are kept).
+
+Images and video need provider keys (for example Pollinations, Cloudflare, Hugging Face); add them in the dashboard when you want them. Until then Creative Studio keeps using Gemini. To switch FreeLLMAPI off at any time, untick "Use FreeLLMAPI" in the console card (the console setting wins over `.env`).
