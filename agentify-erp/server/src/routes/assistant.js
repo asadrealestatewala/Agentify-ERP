@@ -7,6 +7,7 @@ import { askAi, limited, friendlyLead } from '../services/askAi.js';
 import { groqReady, groqTranscribe } from '../services/groqGateway.js';
 import { createReport } from '../services/aiReports.js';
 import { currentTenant } from '../context.js';
+import { tenantDataStatus } from '../services/freellmGateway.js';
 import { sendPdf } from '../services/pdf.js';
 import { asyncH, bad, now } from '../util.js';
 
@@ -36,6 +37,8 @@ r.post('/ask', asyncH(async (req, res) => {
 
 /** What voice and picture features this server offers (the microphone uses Groq speech-to-text when it is connected). */
 r.get('/capabilities', (_req, res) => res.json({ stt: groqReady(), image: groqReady() }));
+/** Does this workspace's own switch let its data go to the extra AI provider? Shown to the workspace admin in Settings. */
+r.get('/extra-ai', (_req, res) => { const s = tenantDataStatus(currentTenant()?.id); res.json({ on: s.effective, since: s.on ? s.at : null }); });
 
 /** Speech to text for the microphone: { audio: base64, mime, lang } -> { text }. Needs Groq. */
 r.post('/transcribe', asyncH(async (req, res) => {

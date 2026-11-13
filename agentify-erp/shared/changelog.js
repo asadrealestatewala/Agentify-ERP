@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.99', date: '2026-11-13', title: 'FreeLLMAPI: an extra free AI provider for Ask, images and backup voice',
+    items: [
+      { text: 'FreeLLMAPI card on the AI page: key (saved encrypted, .env as a fallback), address, switches for chat, images, video and speech, a test button and a try-it box for a test image or video. Free calls show in the usage list with the model that answered and cost 0.', where: 'Console > Reports & Analytics > AI > FreeLLMAPI', audience: 'platform' },
+      { text: 'Allow workspace data through FreeLLMAPI: off for every workspace by default, turned on one workspace at a time after a warning and a confirm tick, recorded in the audit log, with one emergency switch that turns it off for all workspaces at once.', where: 'Console > Reports & Analytics > AI > FreeLLMAPI', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.98', date: '2026-11-12', title: 'Help & Support: raise a ticket inside the app, in your own language',
     items: [
       { text: 'New Help & Support page in the menu: send a question or report a problem, attach a screenshot or PDF, read our replies in the same place and mark the ticket solved. You are e-mailed when we reply.', where: 'Menu > Help & Support', guide: 'support-desk' },
