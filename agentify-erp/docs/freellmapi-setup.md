@@ -83,3 +83,7 @@ cd /opt/freellmapi && sudo git pull && sudo docker compose up -d --build
 ```
 
 Free providers change their limits often, so check the dashboard now and then.
+
+## Automatic install on deploy
+
+`.github/scripts/remote-bootstrap.sh` runs `install_freellmapi` on every deploy. It installs Docker only if missing, clones the FreeLLMAPI fork to `/opt/freellmapi`, starts it with `HOST_BIND=127.0.0.1`, and does nothing when it already runs. Any failure is printed and ignored, so a deploy never stops because of it. The deploy log tells you the result ("freellmapi running on 127.0.0.1:3001"). You still do steps 3 to 5 yourself (open the dashboard through the SSH tunnel, set its password, add provider keys, paste the unified key into the console card).

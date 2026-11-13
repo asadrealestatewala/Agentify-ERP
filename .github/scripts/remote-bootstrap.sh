@@ -136,4 +136,24 @@ fi
 if [ -n "${ERP_BASE_DOMAIN:-}" ]; then
   echo "NOTE: workspaces at https://<slug>.$DOMAIN need a wildcard certificate (certbot --manual --preferred-challenges dns -d '*.$DOMAIN'); until then they work over http only."
 fi
+# FreeLLMAPI (extra free AI provider, docs/freellmapi-setup.md): installed once with Docker, published on 127.0.0.1:3001 ONLY (never on the
+# internet). Best effort: any failure here is reported and ignored, so it can never stop a deploy. It is skipped when it already runs.
+install_freellmapi() {
+  local dir=/opt/freellmapi
+  if have docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q freellmapi; then echo "freellmapi already running"; return 0; fi
+  if ! have docker; then echo "installing docker for freellmapi"; curl -fsSL https://get.docker.com | sh || return 1; fi
+  mkdir -p "$dir"
+  if [ ! -d "$dir/.git" ]; then git clone --depth 1 https://github.com/asadrealestatewala/freellmapi.git "$dir" || return 1; fi
+  cd "$dir"
+  [ -f .env ] || { : > .env; chmod 600 .env; }
+  grep -q '^HOST_BIND=' .env || echo 'HOST_BIND=127.0.0.1' >> .env
+  docker compose pull || return 1
+  docker compose up -d || return 1
+  sleep 8
+  if curl -fsS --max-time 8 http://127.0.0.1:3001/api/ping >/dev/null; then echo "freellmapi running on 127.0.0.1:3001"; else echo "freellmapi started but did not answer yet"; fi
+  ss -ltn 2>/dev/null | grep -q '0.0.0.0:3001' && echo "WARNING: freellmapi is listening on all interfaces; check HOST_BIND"
+  return 0
+}
+( install_freellmapi ) || echo "freellmapi install skipped or failed (deploy continues): see docs/freellmapi-setup.md"
+
 echo "bootstrap ok"
