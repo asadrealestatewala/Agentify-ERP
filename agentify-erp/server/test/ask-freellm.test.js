@@ -132,6 +132,12 @@ test('FreeLLMAPI: workspace data switches, fallback rules, metering and friendly
   await as(owner, 'PUT', '/ai/freellm', { features: { images: false } });
   assert.equal((await as(owner, 'POST', '/ai/freellm/try', { kind: 'image', prompt: 'a house' })).status, 400); // friendly refusal, not a crash
 
+  // a general Roman Urdu help question ("how do I get training for the whole portal") reaches FreeLLMAPI with the training guide
+  flMode = 'ok'; geminiMode = 'fail'; flCalls = [];
+  r = (await ask(b, 'mujhy pory portal ki training kese milegi')).data;
+  assert.equal(r.engine, 'freellmapi', JSON.stringify(r));
+  assert.ok(JSON.stringify(flCalls).includes('Training videos'), 'the training guide is sent as reference');
+
   // master FreeLLMAPI off: not called at all
   await as(owner, 'PUT', '/ai/freellm', { enabled: false });
   flCalls = []; await ask(a); assert.equal(flCalls.length, 0);

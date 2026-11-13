@@ -8,6 +8,23 @@ import { SCREENS } from '../screens.generated.js';
 import { SCREEN_NOTES } from '../screenNotes.js';
 
 export const GUIDES = {
+  'learn-the-system': {
+    title: 'Training: learn the whole system', since: 'v1.99', module: 'Training videos',
+    who: 'Everyone who works in the workspace, especially new staff',
+    keywords: ['training', 'train', 'learn', 'learning', 'tutorial', 'tutorials', 'video', 'videos', 'onboarding', 'tour', 'course', 'whole system', 'portal', 'beginner', 'seekhna', 'tarbiyat', 'ٹریننگ', 'تربیت', 'تدريب'],
+    steps: [
+      'Open Training videos in the menu. It lists the short videos for your role; watch them in order to learn each part of the system.',
+      'Press the question-mark button (Take the tour) at the top of any page. A guided tour points out the main parts of the screen you are on.',
+      'Ask any "how do I ..." question in Ask (the lightning button at the top), in English, Urdu or Roman Urdu. It answers from our help guides with the menu path and steps.',
+      'Still stuck? Open Help & Support in the menu and press New ticket; our team replies there.',
+    ],
+    limits: ['You see the training videos meant for your role. Administrators can assign videos to roles.', 'Tours only show the parts of a screen your role can use.'],
+    faq: [
+      { q: 'How do I get training for the whole system?', a: 'Open Training videos in the menu and watch the videos for your role, then use Take the tour (question-mark button at the top) on each screen.' },
+      { q: 'Can I see the tour again?', a: 'Yes. Press the question-mark button (Take the tour) at the top of the page any time.' },
+    ],
+    internal: ['Added so Ask can answer general "how do I learn the system / training" questions, including Roman Urdu ones.'],
+  },
   'support-desk': {
     title: 'Help & Support: send a ticket and follow the replies', since: 'v1.98', module: 'Help & Support',
     who: 'Everyone who works in the workspace',

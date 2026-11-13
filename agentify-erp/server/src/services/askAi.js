@@ -58,12 +58,18 @@ export function menuMap() {
 /** The most relevant help text for a question, as { title, text } blocks (about 6,000 characters in all). Roman Urdu / Urdu questions are searched by their English meaning. Only text that really covers the question is returned. */
 export function material(q, lang = detectLanguage(q)) {
   const bare = fixTypos(String(q).replace(/\S+@\S+|https?:\/\/\S+|\+?\d[\d\s-]{5,}\d/g, ' ')); // addresses and numbers say nothing about the topic
-  const search = lang === 'en' ? bare : `${englishSearchText(bare).query} ${bare}`;
-  let hits = searchKnowledge(search).slice(0, 8);
+  const en = lang === 'en' ? null : englishSearchText(bare);
+  let search = !en ? bare : `${en.query} ${bare}`;
   // drop weak matches: a hit must cover at least a fifth of the meaningful words and be near the best hit's coverage
-  const cov = hits.filter((h) => h.coverage != null).map((h) => h.coverage);
-  const best = cov.length ? Math.max(...cov) : 0;
-  hits = hits.filter((h) => h.coverage == null ? (!cov.length || best >= 0.5) : h.coverage >= Math.max(0.2, best - 0.2)).slice(0, 4);
+  const strong = (s) => {
+    const all = searchKnowledge(s).slice(0, 8);
+    const cov = all.filter((h) => h.coverage != null).map((h) => h.coverage);
+    const best = cov.length ? Math.max(...cov) : 0;
+    return all.filter((h) => h.coverage == null ? (!cov.length || best >= 0.5) : h.coverage >= Math.max(0.2, best - 0.2)).slice(0, 4);
+  };
+  let hits = strong(search);
+  // nothing strong enough: try the translated words alone, since untranslated Roman Urdu filler counts as unmatched words
+  if (!hits.length && en?.translated && en.query.trim()) { search = en.query; hits = strong(search); }
   const out = [];
   for (const h of hits) {
     if (h.type === 'guide') { const g = h.guide; out.push({ title: g.title, steps: g.steps, limits: g.limits || [], text: `${g.steps.map((t, i) => `${i + 1}. ${t}`).join(' ')} ${g.limits?.length ? `Good to know: ${g.limits.join(' ')}` : ''} ${g.faq.map((f) => `Q: ${f.q} A: ${f.a}`).join(' ')}` }); }
@@ -301,7 +307,7 @@ export async function askAi(question, history, user, image = null) {
     const refusal = lastErr?.extra?.code && lastErr.extra.code !== 'provider_error';
     const t = !refusal && !image ? templatedAnswer(mat, lang) : null;
     if (t) return { ...t, engine: 'guide', links: videoLinks(user, `${q} ${mat[0]?.title || ''}`), notes };
-    if (lastErr) return { refused: refusal ? lastErr.message : 'The AI helper could not answer right now.' };
+    if (lastErr || notes.length) return { refused: refusal ? lastErr.message : 'The AI helper could not answer right now. Please try again in a moment.' };
     return null;
   }
   const answer = String(out?.answer || '').trim().slice(0, 3000);
