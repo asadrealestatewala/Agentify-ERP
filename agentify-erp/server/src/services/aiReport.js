@@ -7,6 +7,7 @@ import { imageModel, videoModel, voiceFor, azureTest, azureSpeak, DEFAULT_VOICES
 import { hordeStatus, hordeReady, geminiAskEnabled } from './hordeGateway.js';
 import { groqStatus, groqReady } from './groqGateway.js';
 import { askOrder, engineErrors } from './askOrder.js';
+import { freellmStatus, featureOn as freellmOn } from './freellmGateway.js';
 import { config, monthStartOf, ensureTable, featuresOff, flag, killSwitchLastChange } from './aiUsage.js';
 import { FEATURES, priceList, textPrices } from './aiPricing.js';
 import { getRate, displayCurrency } from './fxRate.js';
@@ -48,9 +49,9 @@ export function askEngineActivity(now = new Date()) {
  */
 export function modelMap() {
   const c = config(), g = groqStatus(), h = hordeStatus(), off = new Set(featuresOff());
-  const ready = { groq: groqReady(), horde: hordeReady(), gemini: geminiAskEnabled() && !!c.key };
-  const name = { groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini' };
-  const modelOf = { groq: g.chat_model, horde: h.models.length ? h.models.join(', ') : 'chosen by the Horde', gemini: c.model };
+  const ready = { groq: groqReady(), horde: hordeReady(), gemini: geminiAskEnabled() && !!c.key, freellmapi: freellmOn('chat') };
+  const name = { groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini', freellmapi: 'FreeLLMAPI' };
+  const modelOf = { groq: g.chat_model, horde: h.models.length ? h.models.join(', ') : 'chosen by the Horde', gemini: c.model, freellmapi: 'auto (FreeLLMAPI picks a free model)' };
   const chain = askOrder().filter((p) => ready[p]);
   const last = (feature, purpose = null) => db().prepare(`SELECT provider, model, ok, at FROM ai_usage WHERE key_owner='platform' AND feature=? ${purpose ? 'AND purpose=?' : ''} ORDER BY id DESC LIMIT 1`).get(...(purpose ? [feature, purpose] : [feature])) || null;
   const row = (key, purpose, engine, model, on, lastRow, note = '') => ({ key, purpose, engine, model, on: !!on, note, last: lastRow ? { at: lastRow.at, ok: !!lastRow.ok, engine: lastRow.provider, model: lastRow.model } : null });
@@ -99,6 +100,7 @@ export function overview(now = new Date()) {
       azure: azureStatus(),
       stablehorde: hordeStatus(),
       groq: groqStatus(),
+      freellm: freellmStatus(),
       ask_order: askOrder(),
       model_map: modelMap(),
       ask_activity: { ...askEngineActivity(now), last_errors: engineErrors() },

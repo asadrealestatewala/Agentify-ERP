@@ -66,7 +66,7 @@ test('Groq: key, order, privacy, 429 fallback, pictures, voice and activity', as
   const saved = await as(owner, 'PUT', '/ai/groq', { key: GKEY });
   assert.equal(saved.status, 200); assert.equal(saved.data.key_added, true); assert.equal(saved.data.enabled, true);
   const ov = (await as(owner, 'GET', '/ai/overview')).data;
-  assert.ok(!JSON.stringify(ov).includes(GKEY), 'key never returned'); assert.deepEqual(ov.technical.ask_order, ['groq', 'horde', 'gemini']);
+  assert.ok(!JSON.stringify(ov).includes(GKEY), 'key never returned'); assert.deepEqual(ov.technical.ask_order, ['groq', 'horde', 'gemini', 'freellmapi']);
   assert.equal(ov.technical.ask_activity.last, null);
   assert.equal((await as(owner, 'POST', '/ai/groq/test')).data.models, 2);
   assert.equal((await as(owner, 'PUT', '/ai/groq', { chat_model: 'bad model!' })).status, 400);
