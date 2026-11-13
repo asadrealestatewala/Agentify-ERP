@@ -140,13 +140,21 @@ fi
 # internet). Best effort: any failure here is reported and ignored, so it can never stop a deploy. It is skipped when it already runs.
 install_freellmapi() {
   local dir=/opt/freellmapi
-  if have docker && docker ps --format '{{.Names}}' 2>/dev/null | grep -q freellmapi; then echo "freellmapi already running"; configure_freellmapi; return 0; fi
+  # FreeLLMAPI refuses to start in production without ENCRYPTION_KEY (it encrypts the provider keys it stores): make one once and keep it
+  if [ -f "$dir/.env" ] && ! grep -q '^ENCRYPTION_KEY=[0-9a-f]\{64\}$' "$dir/.env"; then
+    { grep -v '^ENCRYPTION_KEY=' "$dir/.env" || true; printf 'ENCRYPTION_KEY=%s\n' "$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"; } > "$dir/.env.tmp" && chmod 600 "$dir/.env.tmp" && mv "$dir/.env.tmp" "$dir/.env"
+    echo "freellmapi: encryption key created"
+    (cd "$dir" && docker compose up -d --force-recreate) || return 1
+    sleep 8
+  fi
+  if have docker && docker ps --filter status=running --format '{{.Names}}' 2>/dev/null | grep -q freellmapi; then echo "freellmapi already running"; configure_freellmapi; return 0; fi
   if ! have docker; then echo "installing docker for freellmapi"; curl -fsSL https://get.docker.com | sh || return 1; fi
   mkdir -p "$dir"
   if [ ! -d "$dir/.git" ]; then git clone --depth 1 https://github.com/asadrealestatewala/freellmapi.git "$dir" || return 1; fi
   cd "$dir"
   [ -f .env ] || { : > .env; chmod 600 .env; }
   grep -q '^HOST_BIND=' .env || echo 'HOST_BIND=127.0.0.1' >> .env
+  grep -q '^ENCRYPTION_KEY=[0-9a-f]\{64\}$' .env || printf 'ENCRYPTION_KEY=%s\n' "$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')" >> .env
   docker compose pull || return 1
   docker compose up -d || return 1
   sleep 8
@@ -183,7 +191,7 @@ configure_freellmapi() {
       if (!k.apiKey) { console.error("freellmapi: no unified key"); process.exit(3); }
       process.stdout.write(k.apiKey);
     })().catch((e) => { console.error("freellmapi:", e.message); process.exit(1); });
-  ' 2>"$dir/.setup-err")" || { echo "freellmapi: automatic setup did not finish (Agentify keeps working without it): $(tr -d '\r' < "$dir/.setup-err" | tail -3 | cut -c1-200)"; docker ps -a --filter name=freellmapi --format 'freellmapi container: {{.Status}}'; curl -sS -o /dev/null -w 'freellmapi ping from host: %{http_code}\n' --max-time 5 http://127.0.0.1:3001/api/ping || true; return 0; }
+  ' 2>"$dir/.setup-err")" || { echo "freellmapi: automatic setup did not finish (Agentify keeps working without it): $(tr -d '\r' < "$dir/.setup-err" | tail -3 | cut -c1-200)"; docker ps -a --filter name=freellmapi --format 'freellmapi container: {{.Status}}'; (cd "$dir" && docker compose logs --tail 8 freellmapi 2>&1 | grep -v -i 'setup code\|code:' | cut -c1-200 | sed 's/^/freellmapi log: /') || true; curl -sS -o /dev/null -w 'freellmapi ping from host: %{http_code}\n' --max-time 5 http://127.0.0.1:3001/api/ping || true; return 0; }
   [ -n "$key" ] || return 0
   [ -f "$envf" ] || return 0
   # set our three values, keep everything else in server/.env as it is
