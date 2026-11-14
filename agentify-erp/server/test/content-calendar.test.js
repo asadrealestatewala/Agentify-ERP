@@ -138,3 +138,19 @@ test('Training videos: 78 YouTube drafts with downloadable videos, added once', 
   assert.equal((await as(owner, 'GET', '/content')).data.ready_made.training, true, 'the button hides once the drafts exist');
   assert.equal((await as(owner, 'POST', '/content/training-drafts')).data.added.length, 0, 'never added twice');
 });
+
+test('second set of 50 Instagram reels: its own button, added once, follows the first 40', async () => {
+  const owner = (await call('POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  assert.equal((await as(owner, 'GET', '/content')).data.ready_made.reels2, false, 'the button shows before these reels exist');
+  const a = await as(owner, 'POST', '/content/reel-drafts-2');
+  assert.equal(a.status, 201, JSON.stringify(a.data));
+  assert.equal(a.data.added.length, 50);
+  assert.ok(a.data.added.every((p) => p.channel === 'instagram' && /\/promo-media\/reels\/reel-(4[1-9]|[5-8]\d|90)-[a-z0-9-]+\.mp4$/.test(p.media_url) && /^Reel (4[1-9]|[5-8]\d|90): /.test(p.title)));
+  assert.equal(a.data.added.filter((p) => p.status === 'scheduled').length + a.data.unscheduled.length, 50, 'each reel is scheduled or explained');
+  assert.ok(a.data.added.every((p) => !p.scheduled_at || p.scheduled_at >= '2026-12-16'), 'planned after the first 40');
+  for (const p of a.data.added.slice(0, 3)) assert.equal((await call('GET', `/promo-media/${p.media_url.split('/promo-media/')[1]}`)).status, 200);
+  assert.equal((await as(owner, 'GET', '/content')).data.ready_made.reels2, true, 'the button hides once used');
+  assert.equal((await as(owner, 'POST', '/content/reel-drafts-2')).data.added.length, 0, 'never added twice');
+  for (const p of a.data.added) await as(owner, 'DELETE', `/content/posts/${p.id}`);
+  assert.equal((await as(owner, 'POST', '/content/reel-drafts-2')).data.added.length, 0, 'deleted (posted) reels never come back');
+});
