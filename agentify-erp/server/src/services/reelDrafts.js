@@ -1,16 +1,18 @@
 // Ready-made Instagram reels (vertical 9:16, Urdu/English/Arabic voiceover) as content calendar posts. The MP4s ship with the app
-// (server/assets/promo/reels) and are served publicly at /promo-media/reels/<file>. Each set (the first 40, then 50 more) is added
+// (server/assets/promo/reels) and are served publicly at /promo-media/reels/<file>. Each set (the first 40, then 50 more, then 100 more) is added
 // with its own button: every reel becomes a draft that is scheduled at its planned time when the posting limits allow it. Nothing
 // is posted: the social media manager publishes each one on Instagram and records it, and can delete it with one tap afterwards.
 import { listPosts, createPost, schedulePost, getPost } from './contentCalendar.js';
 import { REELS } from './reelDraftsData.js';
 import { REELS_2 } from './reelDraftsData2.js';
+import { REELS_3 } from './reelDraftsData3.js';
 import { getSetting, setSetting } from './platformConfig.js';
 
 /** Each set is added once. `key` remembers that, so deleting reels after they are posted never brings the button (or the reels) back. */
 export const REEL_SETS = {
   first: { reels: REELS, key: 'content_reels_added' },
   second: { reels: REELS_2, key: 'content_reels2_added' },
+  third: { reels: REELS_3, key: 'content_reels3_added' },
 };
 export const REEL_FILE_NAMES = Object.values(REEL_SETS).flatMap((s) => s.reels.map((r) => `reels/${r.file}`));
 const SITE = 'https://agentifyerp.co';
