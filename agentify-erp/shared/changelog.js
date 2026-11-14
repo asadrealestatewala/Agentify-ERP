@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.103', date: '2026-11-14', title: 'Content calendar: 50 more Instagram reels, ready to schedule',
+    items: [
+      { text: 'Add 50 more Instagram reels with one button: new screen-recorded walkthroughs of features the first 40 did not cover, with Urdu, English or Arabic voiceover that explains each step, plus caption, hashtags and planned posting time. They are planned from 16 December, after the first 40, so the two sets never clash. The button hides once used and never adds the same reels twice. Nothing is posted for you.', where: 'Console > Marketing > Content calendar > Add 50 more Instagram reels', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.102', date: '2026-11-14', title: 'Content calendar: training video drafts for YouTube',
     items: [
       { text: 'Add training videos puts 78 YouTube drafts in the calendar (the full course and 25 lessons in English, Urdu and Arabic), each with the video attached plus title, description and chapters. Download the video, upload it in YouTube Studio, then delete the draft. The button hides once used.', where: 'Console > Marketing > Content calendar', audience: 'platform' },

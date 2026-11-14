@@ -762,7 +762,7 @@ r.post('/blog-agent/posts/:id/:action(publish|unpublish|reject)', requireOperato
 }));
 r.delete('/blog-agent/posts/:id', requireOperator, need('content.manage'), asyncH((req, res) => { blogAgent.removeDraft(req.params.id); audit(req.operator.email, 'blog-agent-deleted', { id: Number(req.params.id) }); res.json({ ok: true }); }));
 // ---- Content calendar (Agentify's own marketing posts); the Social Media Manager role works only here
-r.get('/content', requireOperator, need('content.calendar'), (_req, res) => res.json({ ...cal.overview(), can_edit_limits: can(_req.operator, 'system.manage'), ai: aiu.aiStatus(), ready_made: { promo: promoAdded(), reels: reelsAdded(), training: trainingAdded() } }));
+r.get('/content', requireOperator, need('content.calendar'), (_req, res) => res.json({ ...cal.overview(), can_edit_limits: can(_req.operator, 'system.manage'), ai: aiu.aiStatus(), ready_made: { promo: promoAdded(), reels: reelsAdded('first'), reels2: reelsAdded('second'), training: trainingAdded() } }));
 r.post('/content/posts', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.createPost(req.body || {}, req.operator.email); audit(req.operator.email, 'content-post-created', { id: p.id, channel: p.channel }); res.status(201).json(p); }));
 r.put('/content/posts/:id', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.updatePost(req.params.id, req.body || {}, req.operator.email); audit(req.operator.email, 'content-post-edited', { id: p.id }); res.json(p); }));
 r.post('/content/posts/:id/schedule', requireOperator, need('content.calendar'), asyncH((req, res) => {
@@ -799,6 +799,10 @@ r.post('/content/training-drafts', requireOperator, need('content.calendar'), as
 r.post('/content/reel-drafts', requireOperator, need('content.calendar'), asyncH((req, res) => {
   const out = addReelDrafts(`${req.protocol}://${req.get('host')}`, req.operator.email);
   audit(req.operator.email, 'content-reel-drafts-added', { added: out.added.length, skipped: out.skipped.length, unscheduled: out.unscheduled.length }); res.status(201).json(out);
+}));
+r.post('/content/reel-drafts-2', requireOperator, need('content.calendar'), asyncH((req, res) => {
+  const out = addReelDrafts(`${req.protocol}://${req.get('host')}`, req.operator.email, 'second');
+  audit(req.operator.email, 'content-reel-drafts-2-added', { added: out.added.length, skipped: out.skipped.length, unscheduled: out.unscheduled.length }); res.status(201).json(out);
 }));
 r.post('/content/ai-draft', requireOperator, need('content.calendar'), asyncH(async (req, res) => {
   const b = req.body || {};
