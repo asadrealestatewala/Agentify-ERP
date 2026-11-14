@@ -51,8 +51,8 @@ import * as cal from '../services/contentCalendar.js';
 import * as blogAgent from '../services/blogAgent.js';
 import * as pageSpeed from '../services/pageSpeed.js';
 import * as searchConsole from '../services/searchConsole.js';
-import { addPromoDrafts, promoFileOf, downloadName } from '../services/promoDrafts.js';
-import { addReelDrafts } from '../services/reelDrafts.js';
+import { addPromoDrafts, promoAdded, promoFileOf, downloadName } from '../services/promoDrafts.js';
+import { addReelDrafts, reelsAdded } from '../services/reelDrafts.js';
 import * as aiu from '../services/aiUsage.js';
 import * as aiRep from '../services/aiReport.js';
 import * as aiLab from '../services/aiVoiceLab.js';
@@ -761,7 +761,7 @@ r.post('/blog-agent/posts/:id/:action(publish|unpublish|reject)', requireOperato
 }));
 r.delete('/blog-agent/posts/:id', requireOperator, need('content.manage'), asyncH((req, res) => { blogAgent.removeDraft(req.params.id); audit(req.operator.email, 'blog-agent-deleted', { id: Number(req.params.id) }); res.json({ ok: true }); }));
 // ---- Content calendar (Agentify's own marketing posts); the Social Media Manager role works only here
-r.get('/content', requireOperator, need('content.calendar'), (_req, res) => res.json({ ...cal.overview(), can_edit_limits: can(_req.operator, 'system.manage'), ai: aiu.aiStatus() }));
+r.get('/content', requireOperator, need('content.calendar'), (_req, res) => res.json({ ...cal.overview(), can_edit_limits: can(_req.operator, 'system.manage'), ai: aiu.aiStatus(), ready_made: { promo: promoAdded(), reels: reelsAdded() } }));
 r.post('/content/posts', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.createPost(req.body || {}, req.operator.email); audit(req.operator.email, 'content-post-created', { id: p.id, channel: p.channel }); res.status(201).json(p); }));
 r.put('/content/posts/:id', requireOperator, need('content.calendar'), asyncH((req, res) => { const p = cal.updatePost(req.params.id, req.body || {}, req.operator.email); audit(req.operator.email, 'content-post-edited', { id: p.id }); res.json(p); }));
 r.post('/content/posts/:id/schedule', requireOperator, need('content.calendar'), asyncH((req, res) => {

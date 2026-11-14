@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.101', date: '2026-11-14', title: 'Content calendar: the ready-made video buttons hide once used',
+    items: [
+      { text: 'Add 40 Instagram reels and Add promo video drafts now disappear once the videos are in the calendar, and they never add the same videos again, even after the posted ones are deleted.', where: 'Console > Marketing > Content calendar', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.100', date: '2026-11-13', title: 'Content calendar: 40 Instagram reels ready to schedule, and a Delete button on every post',
     items: [
       { text: 'Add 40 Instagram reels with one button: vertical videos with Urdu, English or Arabic voiceover, each with its caption, hashtags and planned posting time (20:30 Pakistan time, 19:30 UAE time), scheduled over a month. Reels that do not fit the posting limits stay as drafts. Nothing is posted for you.', where: 'Console > Marketing > Content calendar > Add 40 Instagram reels', audience: 'platform' },
