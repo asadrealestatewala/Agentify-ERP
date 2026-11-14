@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { listPosts, createPost } from './contentCalendar.js';
 import { REEL_FILE_NAMES } from './reelDrafts.js';
+import { TRAINING_FILE_NAMES } from './trainingDrafts.js';
 import { getSetting, setSetting } from './platformConfig.js';
 
 const PROMO_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'assets', 'promo');
@@ -17,7 +18,7 @@ export const PROMO_FILES = {
   synq: { vertical: 'synq-promo-9x16.mp4', horizontal: 'synq-promo-16x9.mp4' },
   global: { vertical: 'global-promo-9x16.mp4', horizontal: 'global-promo-16x9.mp4' },
 };
-export const PROMO_FILE_NAMES = [...Object.values(PROMO_FILES).flatMap((v) => Object.values(v)), ...REEL_FILE_NAMES];
+export const PROMO_FILE_NAMES = [...Object.values(PROMO_FILES).flatMap((v) => Object.values(v)), ...REEL_FILE_NAMES, ...TRAINING_FILE_NAMES];
 const SITE = 'https://agentifyerp.co';
 const TAGS = '#AgentifyERP #RealEstate #Construction #PropTech #ERP';
 
@@ -93,7 +94,7 @@ export function downloadName(title, file) {
 
 /** The shipped promo file behind a post's media address, or null when the address points somewhere else. */
 export function promoFileOf(post) {
-  const m = /\/promo-media\/((?:reels\/)?[A-Za-z0-9._-]+)$/.exec(String(post?.media_url || '').split(/[?#]/)[0]);
+  const m = /\/promo-media\/((?:(?:reels|training)\/)?[A-Za-z0-9._-]+)$/.exec(String(post?.media_url || '').split(/[?#]/)[0]);
   if (!m || !PROMO_FILE_NAMES.includes(m[1])) return null;
   const f = path.join(PROMO_DIR, m[1]);
   return fs.existsSync(f) ? f : null;

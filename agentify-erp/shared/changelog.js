@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.102', date: '2026-11-14', title: 'Content calendar: training video drafts for YouTube',
+    items: [
+      { text: 'Add training videos puts 78 YouTube drafts in the calendar (the full course and 25 lessons in English, Urdu and Arabic), each with the video attached plus title, description and chapters. Download the video, upload it in YouTube Studio, then delete the draft. The button hides once used.', where: 'Console > Marketing > Content calendar', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.101', date: '2026-11-14', title: 'Content calendar: the ready-made video buttons hide once used',
     items: [
       { text: 'Add 40 Instagram reels and Add promo video drafts now disappear once the videos are in the calendar, and they never add the same videos again, even after the posted ones are deleted.', where: 'Console > Marketing > Content calendar', audience: 'platform' },
