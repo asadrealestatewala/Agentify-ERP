@@ -14,7 +14,12 @@ fi
 mkdir -p "$BACKUPS"
 stamp="$(date +%Y%m%d-%H%M%S)"
 if [ -d "$APP_DIR/server/data" ]; then
-  tar -czf "$BACKUPS/data-$stamp.tgz" -C "$APP_DIR/server" data
+  # The app keeps running while this copies, so a live SQLite file (e.g. platform.db-wal) can change mid-read. GNU tar then
+  # exits 1 ("file changed as we read it") even though the archive was written; only exit 2+ is a real failure.
+  rc=0
+  tar --warning=no-file-changed -czf "$BACKUPS/data-$stamp.tgz" -C "$APP_DIR/server" data || rc=$?
+  if [ "$rc" -gt 1 ]; then echo "data backup failed (tar exit $rc)"; exit "$rc"; fi
+  [ "$rc" -eq 1 ] && echo "note: some data files changed while being copied (app is live); backup kept"
   echo "data backup: $BACKUPS/data-$stamp.tgz"
   # keep the 10 newest
   ls -1t "$BACKUPS"/data-*.tgz 2>/dev/null | tail -n +11 | xargs -r rm -f
