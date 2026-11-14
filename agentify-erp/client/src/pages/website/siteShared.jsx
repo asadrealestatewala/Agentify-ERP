@@ -91,7 +91,7 @@ export function FieldRow({ f, value, onChange, ctx }) {
                   <button type="button" className="btn sm ghost danger" onClick={() => onChange(v.filter((_, j) => j !== i))} aria-label="Remove">×</button>
                 </div>
               </div>
-              <FieldEditor fields={f.item} values={item} ctx={ctx} onChange={(k, val) => onChange(v.map((x, j) => (j === i ? { ...x, [k]: val } : x)))} />
+              <div className="stack" style={{ gap: 8 }}>{f.item.map((sf) => <FieldRow key={sf.key} f={sf} value={item?.[sf.key]} ctx={ctx} onChange={(val) => onChange(v.map((x, j) => (j === i ? { ...x, [sf.key]: val } : x)))} />)}</div>
             </div>
           ))}
           <button type="button" className="btn sm" style={{ width: 'fit-content' }} onClick={() => onChange([...v, JSON.parse(JSON.stringify(f.blank || {}))])}><Icon name="plus" size={13} />Add</button>
