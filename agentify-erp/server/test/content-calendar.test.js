@@ -128,13 +128,13 @@ test('Instagram reels: 40 scheduled drafts, added once, served publicly, and any
   assert.equal((await as(owner, 'GET', '/content')).data.ready_made.reels, true, 'the button stays hidden after every reel was deleted');
   assert.equal((await as(owner, 'POST', '/content/reel-drafts')).data.added.length, 0, 'deleted (posted) reels never come back as duplicates');
 });
-test('Training videos: 78 YouTube drafts without video files, added once', async () => {
+test('Training videos: 78 YouTube drafts with downloadable videos, added once', async () => {
   const owner = (await call("POST", `${A}/login`, { email: "admin@agentify.test", password: "Console@12345" })).cookie;
   assert.equal((await as(owner, 'GET', '/content')).data.ready_made.training, false, 'the button shows before the drafts exist');
   const a = await as(owner, 'POST', '/content/training-drafts');
   assert.equal(a.status, 201);
   assert.equal(a.data.added.length, 78, '3 full courses + 25 lessons x 3 languages');
-  assert.ok(a.data.added.every((p) => p.channel === 'youtube' && !p.media_url && p.status === 'draft' && /^Training /.test(p.title)));
+  assert.ok(a.data.added.every((p) => p.channel === 'youtube' && /\/promo-media\/training\/[a-z0-9-]+\.mp4$/.test(p.media_url) && p.status === 'draft' && /^Training /.test(p.title)));
   assert.equal((await as(owner, 'GET', '/content')).data.ready_made.training, true, 'the button hides once the drafts exist');
   assert.equal((await as(owner, 'POST', '/content/training-drafts')).data.added.length, 0, 'never added twice');
 });

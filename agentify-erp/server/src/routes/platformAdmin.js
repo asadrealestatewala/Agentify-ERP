@@ -793,7 +793,7 @@ r.post('/content/promo-drafts', requireOperator, need('content.calendar'), async
   audit(req.operator.email, 'content-promo-drafts-added', { added: out.added.length, skipped: out.skipped.length }); res.status(201).json(out);
 }));
 r.post('/content/training-drafts', requireOperator, need('content.calendar'), asyncH((req, res) => {
-  const out = addTrainingDrafts(req.operator.email);
+  const out = addTrainingDrafts(`${req.protocol}://${req.get('host')}`, req.operator.email);
   audit(req.operator.email, 'content-training-drafts-added', { added: out.added.length, skipped: out.skipped.length }); res.status(201).json(out);
 }));
 r.post('/content/reel-drafts', requireOperator, need('content.calendar'), asyncH((req, res) => {
