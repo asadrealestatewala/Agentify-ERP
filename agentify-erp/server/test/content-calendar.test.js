@@ -81,8 +81,9 @@ test('a Social Media Manager plans, schedules and records posts, and nothing els
   assert.equal((await as(smm, 'DELETE', `/content/posts/${p1.data.id}`)).status, 404, 'already gone');
 });
 
-test('promo video drafts: one draft per channel, repeatable, and the videos are publicly served', async () => {
+test('promo video drafts: one draft per channel, added once, and the videos are publicly served', async () => {
   const owner = (await call('POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  assert.equal((await as(owner, 'GET', '/content')).data.ready_made.promo, false, 'the button shows before the drafts exist');
   const a = await as(owner, 'POST', '/content/promo-drafts');
   assert.equal(a.status, 201, JSON.stringify(a.data));
   assert.equal(a.data.added.length, 40);
@@ -93,6 +94,7 @@ test('promo video drafts: one draft per channel, repeatable, and the videos are 
   assert.ok(hold.every((p) => p.status === 'draft' && /^ON HOLD/.test(p.title) && /DO NOT POST/.test(p.notes)), 'partner drafts are flagged');
   const b = await as(owner, 'POST', '/content/promo-drafts');
   assert.equal(b.data.added.length, 0); assert.equal(b.data.skipped.length, 40);
+  assert.equal((await as(owner, 'GET', '/content')).data.ready_made.promo, true, 'the button hides once the drafts exist');
   for (const f of ['characters-promo-9x16.mp4', 'kinetic-promo-16x9.mp4', 'receipt-promo-9x16.mp4', 'synq-promo-16x9.mp4', 'global-promo-9x16.mp4']) assert.equal((await call('GET', `/promo-media/${f}`)).status, 200);
   const post = a.data.added.find((p) => p.media_url.includes('kinetic-promo-9x16'));
   assert.equal((await call('GET', `${A}/content/posts/${post.id}/media`)).status, 401, 'download needs a console login');
@@ -102,8 +104,9 @@ test('promo video drafts: one draft per channel, repeatable, and the videos are 
   const other = await call('GET', '/promo-media/other.mp4'); assert.ok(typeof other.data === 'string' && !other.data.startsWith('\u0000'), 'only the two promo files are served');
 });
 
-test('Instagram reels: 40 scheduled drafts, repeatable, served publicly, and any of them can be deleted', async () => {
+test('Instagram reels: 40 scheduled drafts, added once, served publicly, and any of them can be deleted', async () => {
   const owner = (await call('POST', `${A}/login`, { email: 'admin@agentify.test', password: 'Console@12345' })).cookie;
+  assert.equal((await as(owner, 'GET', '/content')).data.ready_made.reels, false, 'the button shows before the reels exist');
   const a = await as(owner, 'POST', '/content/reel-drafts');
   assert.equal(a.status, 201, JSON.stringify(a.data));
   assert.equal(a.data.added.length, 40);
@@ -113,6 +116,7 @@ test('Instagram reels: 40 scheduled drafts, repeatable, served publicly, and any
   assert.ok(a.data.added.some((p) => p.status === 'scheduled'), 'the planned times fit the default limits');
   const b = await as(owner, 'POST', '/content/reel-drafts');
   assert.equal(b.data.added.length, 0); assert.equal(b.data.skipped.length, 40);
+  assert.equal((await as(owner, 'GET', '/content')).data.ready_made.reels, true, 'the button hides once the reels exist');
   assert.equal((await call('GET', `/promo-media/${a.data.added[0].media_url.split('/promo-media/')[1]}`)).status, 200);
   const first = a.data.added[0];
   assert.equal((await call('GET', `${A}/content/posts/${first.id}/media`)).status, 401, 'download needs a console login');
@@ -120,5 +124,7 @@ test('Instagram reels: 40 scheduled drafts, repeatable, served publicly, and any
   assert.equal(gone.status, 200);
   const sched = a.data.added.find((p) => p.status === 'scheduled' && p.id !== first.id);
   assert.equal((await as(owner, 'DELETE', `/content/posts/${sched.id}`)).status, 200, 'a scheduled reel can be deleted without canceling first');
-  assert.equal((await as(owner, 'POST', '/content/reel-drafts')).data.added.length, 2, 'deleted reels can be added back');
+  for (const p of a.data.added) if (p.id !== first.id && p.id !== sched.id) await as(owner, 'DELETE', `/content/posts/${p.id}`);
+  assert.equal((await as(owner, 'GET', '/content')).data.ready_made.reels, true, 'the button stays hidden after every reel was deleted');
+  assert.equal((await as(owner, 'POST', '/content/reel-drafts')).data.added.length, 0, 'deleted (posted) reels never come back as duplicates');
 });

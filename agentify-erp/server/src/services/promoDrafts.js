@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { listPosts, createPost } from './contentCalendar.js';
 import { REEL_FILE_NAMES } from './reelDrafts.js';
+import { getSetting, setSetting } from './platformConfig.js';
 
 const PROMO_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'assets', 'promo');
 
@@ -54,18 +55,32 @@ const PLAN = [
   ['youtube', 'horizontal', 'YouTube'], ['linkedin', 'horizontal', 'LinkedIn'], ['facebook', 'horizontal', 'Facebook'], ['x', 'horizontal', 'X'],
 ];
 
-/** Adds one draft per channel for each promo video; entries that already exist (same title) are skipped, so it is safe to run again. */
+const titleOf = (series, label, shape) => `${series.titlePrefix}: ${label} (${shape === 'vertical' ? '9:16' : '16:9'})`;
+const PROMO_TITLES = Object.values(SERIES).flatMap((series) => PLAN.map(([, shape, label]) => titleOf(series, label, shape)));
+const ADDED_KEY = 'content_promo_added';
+/** True once the promo drafts were added (remembered, so deleting them later does not bring them back). Older installs that
+ *  added them before this flag existed are recognised by any promo title still listed. */
+export function promoAdded() {
+  if (getSetting(ADDED_KEY)) return true;
+  const titles = new Set(PROMO_TITLES);
+  if (listPosts().some((p) => titles.has(p.title))) { setSetting(ADDED_KEY, new Date().toISOString()); return true; }
+  return false;
+}
+
+/** Adds one draft per channel for each promo video, once. After that it adds nothing, even if drafts were deleted. */
 export function addPromoDrafts(baseUrl, by) {
+  if (promoAdded()) return { added: [], skipped: PROMO_TITLES, already: true };
   const have = new Set(listPosts().map((p) => p.title));
   const added = [], skipped = [];
   for (const [key, series] of Object.entries(SERIES)) {
     for (const [channel, shape, label] of PLAN) {
-      const title = `${series.titlePrefix}: ${label} (${shape === 'vertical' ? '9:16' : '16:9'})`;
+      const title = titleOf(series, label, shape);
       if (have.has(title)) { skipped.push(title); continue; }
       const t = series[shape];
       added.push(createPost({ title, body: t.body, channel, media_url: `${baseUrl}/promo-media/${PROMO_FILES[key][shape]}`, link: SITE, notes: t.notes }, by));
     }
   }
+  setSetting(ADDED_KEY, new Date().toISOString(), { by });
   return { added, skipped };
 }
 
