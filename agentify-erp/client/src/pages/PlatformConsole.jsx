@@ -54,7 +54,74 @@ function PasswordInput({ value, onChange, autoComplete = 'current-password', ...
 }
 
 /** Forgotten password: asks for the email and always shows the same confirmation. */
+function RecoveryCodeBox({ code, onContinue, label = 'Continue' }) {
+  const [saved, setSaved] = useState(false);
+  const toast = useToast();
+  return (
+    <div>
+      <p>Your account recovery code. It is shown <b>only once</b>. Save it somewhere safe (a password manager is best): with your email it lets you set a new password if you ever forget it.</p>
+      <p className="mono" style={{ fontSize: 20, letterSpacing: 1, textAlign: 'center', padding: 12, border: '1px dashed currentColor', borderRadius: 8, userSelect: 'all' }}>{code}</p>
+      <p style={{ textAlign: 'center' }}><button type="button" className="btn sm" onClick={() => { navigator.clipboard?.writeText(code); toast('Recovery code copied'); }}>Copy code</button></p>
+      <label className="row" style={{ gap: 8, margin: '12px 0' }}><input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} /> I have saved my recovery code</label>
+      <button type="button" className="btn primary" style={{ width: '100%' }} disabled={!saved} onClick={onContinue}>{label}</button>
+    </div>
+  );
+}
+
+/** Forgot password without email: account email + recovery code + a new password. */
+function RecoverWithCode({ onBack }) {
+  const [f, setF] = useState({ email: '', recovery_code: '', password: '', confirm: '' });
+  const [err, setErr] = useState('');
+  const [fresh, setFresh] = useState(null);
+  const go = async (e) => {
+    e.preventDefault(); setErr('');
+    if (f.password !== f.confirm) { setErr('The two passwords do not match'); return; }
+    try { const out = await api.post(`${A}/password/recover`, { email: f.email, recovery_code: f.recovery_code, password: f.password }); setFresh(out.recovery_code); } catch (x) { setErr(x.message); }
+  };
+  if (fresh) return <><div className="alert ok">Password changed. Your old recovery code is used up; here is a new one.</div><RecoveryCodeBox code={fresh} onContinue={onBack} label="Back to sign in" /></>;
+  return (
+    <form onSubmit={go}>
+      {err && <div className="alert err">{err}</div>}
+      <p className="muted">Use the recovery code you received at your first sign-in.</p>
+      <Field label="Email"><TextInput type="email" value={f.email} onChange={(v) => setF({ ...f, email: v })} autoFocus /></Field>
+      <Field label="Recovery code"><TextInput value={f.recovery_code} onChange={(v) => setF({ ...f, recovery_code: v })} /></Field>
+      <Field label="New password" hint="10+ characters using at least three of: lower case, capitals, digits, symbols."><PasswordInput autoComplete="new-password" value={f.password} onChange={(v) => setF({ ...f, password: v })} /></Field>
+      <Field label="Repeat new password"><PasswordInput autoComplete="new-password" value={f.confirm} onChange={(v) => setF({ ...f, confirm: v })} /></Field>
+      <button className="btn primary" style={{ width: '100%' }}>Set new password</button>
+      <p style={{ textAlign: 'center', marginTop: 12 }}><button type="button" style={LINK} onClick={onBack}>Back to sign in</button></p>
+    </form>
+  );
+}
+
+/** Temporary password accepted: the person chooses their own, then receives a recovery code. */
+function FirstPassword({ token, onDone, onMfa }) {
+  const [f, setF] = useState({ password: '', confirm: '' });
+  const [err, setErr] = useState('');
+  const [fresh, setFresh] = useState(null);
+  const go = async (e) => {
+    e.preventDefault(); setErr('');
+    if (f.password !== f.confirm) { setErr('The two passwords do not match'); return; }
+    try { const out = await api.post(`${A}/login/first-password`, { change_token: token, password: f.password }); setFresh(out); } catch (x) { setErr(x.message); }
+  };
+  if (fresh) return <RecoveryCodeBox code={fresh.recovery_code} onContinue={() => (fresh.mfa_required ? onMfa(fresh.mfa_token) : onDone())} />;
+  return (
+    <form onSubmit={go}>
+      {err && <div className="alert err">{err}</div>}
+      <p className="muted">Your temporary password worked once. Choose your own password to continue.</p>
+      <Field label="New password" hint="10+ characters using at least three of: lower case, capitals, digits, symbols."><PasswordInput autoComplete="new-password" value={f.password} onChange={(v) => setF({ ...f, password: v })} autoFocus /></Field>
+      <Field label="Repeat new password"><PasswordInput autoComplete="new-password" value={f.confirm} onChange={(v) => setF({ ...f, confirm: v })} /></Field>
+      <button className="btn primary" style={{ width: '100%' }}>Save password and continue</button>
+    </form>
+  );
+}
+
 function ForgotPassword({ onBack }) {
+  const [useCode, setUseCode] = useState(false);
+  if (useCode) return <RecoverWithCode onBack={onBack} />;
+  return <><ForgotByEmail onBack={onBack} /><p style={{ textAlign: 'center', marginTop: 4 }}><button type="button" style={LINK} onClick={() => setUseCode(true)}>Use my recovery code instead</button></p></>;
+}
+
+function ForgotByEmail({ onBack }) {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState('');
@@ -151,7 +218,8 @@ function AcceptInvite({ token }) {
   const [err, setErr] = useState('');
   const [done, setDone] = useState(false);
   const nav = useNavigate();
-  useEffect(() => { api.get(`${A}/invite/${token}`).then((d) => { setInfo(d); setF((x) => ({ ...x, name: d.name || '' })); }).catch((e) => { setInfo(null); setErr(e.message); }); }, [token]);
+  const [why, setWhy] = useState(null);
+  useEffect(() => { api.get(`${A}/invite/${token}`).then((d) => { setInfo(d); setF((x) => ({ ...x, name: d.name || '' })); }).catch((e) => { setInfo(null); setErr(e.message); setWhy(e.data?.code || 'unknown'); }); }, [token]);
   if (info === undefined) return <Loading />;
   const go = async (e) => {
     e.preventDefault(); setErr('');
@@ -162,7 +230,8 @@ function AcceptInvite({ token }) {
     <div className="empty" style={{ paddingTop: 60 }}>
       <div style={{ width: 380, maxWidth: '92vw', textAlign: 'left' }}>
         <h2 style={{ textAlign: 'center' }}>Join the platform console</h2>
-        {err && <div className="alert err">{err}</div>}
+        {err && <div className={`alert ${why === 'used' ? 'ok' : 'err'}`}>{err}</div>}
+        {why && !info && <button className="btn primary" style={{ width: '100%' }} onClick={() => nav('/platform')}>{why === 'used' ? 'Go to sign in' : 'Back to the console'}</button>}
         {done ? <><p>Your account is ready. Sign in with {info.email}.</p><button className="btn primary" onClick={() => nav('/platform')}>Go to sign in</button></> : info && (
           <form onSubmit={go}>
             <p>You were invited as <b>{info.role}</b> with <b>{info.email}</b>.</p>
@@ -184,16 +253,19 @@ function SignIn({ onDone }) {
   const [mfa, setMfa] = useState(null);
   const [code, setCode] = useState('');
   const [forgot, setForgot] = useState(false);
+  const [change, setChange] = useState(null);
   const go = async (e) => {
     e.preventDefault(); setBusy(true); setErr('');
     try {
       const out = mfa ? await api.post(`${A}/login/mfa`, { mfa_token: mfa, code }) : await api.post(`${A}/login`, f);
-      if (out.mfa_required) setMfa(out.mfa_token); else onDone();
+      if (out.must_change_password) setChange(out.change_token);
+      else if (out.mfa_required) setMfa(out.mfa_token); else onDone();
     } catch (x) { setErr(x.message); if (mfa && /expired/i.test(x.message)) setMfa(null); } finally { setBusy(false); }
   };
   return (
     <div className="empty" style={{ paddingTop: 80 }}>
-      {forgot ? <div style={{ width: 340, textAlign: 'left' }}><h2 style={{ textAlign: 'center' }}>Reset password</h2><ForgotPassword onBack={() => setForgot(false)} /></div> :
+      {change ? <div style={{ width: 340, maxWidth: '92vw', textAlign: 'left' }}><h2 style={{ textAlign: 'center' }}>Choose your own password</h2><FirstPassword token={change} onDone={onDone} onMfa={(t) => { setChange(null); setMfa(t); setCode(''); }} /></div> :
+      forgot ? <div style={{ width: 340, textAlign: 'left' }}><h2 style={{ textAlign: 'center' }}>Reset password</h2><ForgotPassword onBack={() => setForgot(false)} /></div> :
       <form onSubmit={go} style={{ width: 340, textAlign: 'left' }}>
         <h2 style={{ textAlign: 'center' }}>Platform console</h2>
         {err && <div className="alert err">{err}</div>}

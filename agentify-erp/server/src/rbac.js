@@ -37,6 +37,11 @@ const isRevoked = (jti) => { try { return !!jti && !!get('SELECT 1 FROM revoked_
 
 /** Short-lived proof that the password step passed, for accounts that still owe a 2FA code. It is not a session: it carries no `tv`. */
 export const signMfaToken = (user) => jwt.sign({ uid: user.id, tid: currentTenant()?.id ?? null, jti: crypto.randomUUID() }, SECRET, { expiresIn: '5m', audience: 'mfa' });
+/** Temporary-password sign-in: proves the one-time password was right; only opens the "choose your own password" step. */
+export const signChangeToken = (user) => jwt.sign({ uid: user.id, tid: currentTenant()?.id ?? null, tv: user.token_version }, SECRET, { expiresIn: '15m', audience: 'first-password' });
+export function readChangeToken(tok) {
+  try { const p = jwt.verify(String(tok || ''), SECRET, { audience: 'first-password' }); return p.tid === (currentTenant()?.id ?? null) ? p : null; } catch { return null; }
+}
 /** Between the password and the emailed code at sign-in (services/emailOtp.js). */
 export const signOtpToken = (user) => jwt.sign({ uid: user.id, tid: currentTenant()?.id ?? null }, SECRET, { expiresIn: '15m', audience: 'login-otp' });
 export function readOtpToken(tok) {

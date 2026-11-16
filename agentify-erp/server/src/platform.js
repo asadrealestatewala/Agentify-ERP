@@ -181,7 +181,9 @@ export function platformDb() {
     // invitations: the account cannot sign in until the invitee sets a password with the one-time link
     ['invited_by', 'TEXT'], ['invite_token_hash', 'TEXT'], ['invite_expires_at', 'TEXT'], ['activated_at', 'TEXT'],
     // forgotten password: one-time emailed link, only the hash is kept
-    ['reset_token_hash', 'TEXT'], ['reset_expires_at', 'TEXT'], ['reset_sent_at', 'TEXT']]) if (!adm.has(c)) pdb.exec(`ALTER TABLE platform_admins ADD COLUMN ${c} ${def}`);
+    ['reset_token_hash', 'TEXT'], ['reset_expires_at', 'TEXT'], ['reset_sent_at', 'TEXT'],
+    // temporary-password accounts: forced first change, account recovery code, and why an old invitation link no longer works
+    ['must_change_password', 'INTEGER NOT NULL DEFAULT 0'], ['recovery_code_hash', 'TEXT'], ['invite_spent_hash', 'TEXT'], ['invite_spent_reason', 'TEXT']]) if (!adm.has(c)) pdb.exec(`ALTER TABLE platform_admins ADD COLUMN ${c} ${def}`);
   const aud = new Set(pdb.prepare('PRAGMA table_info(platform_audit)').all().map((c) => c.name));
   for (const c of ['actor_role', 'target', 'reason', 'outcome', 'ip', 'user_agent', 'request_id']) if (!aud.has(c)) pdb.exec(`ALTER TABLE platform_audit ADD COLUMN ${c} TEXT`);
   // invoices: the one-time part (setup fee) is recognised at once, the rest over the invoice period

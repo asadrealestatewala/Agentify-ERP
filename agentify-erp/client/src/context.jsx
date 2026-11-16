@@ -63,7 +63,7 @@ export function AppProviders({ children }) {
   const auth = useMemo(() => ({
     user, refreshUser,
     /** Returns the user, or { mfa_required, mfa_token } when an authenticator code is still needed (see loginMfa). */
-    login: async (identifier, password, portal = false) => { const u = await api.post('/api/auth/login', { identifier, password, portal }); if (u.mfa_required || u.otp_required) return u; setUser(u); if (!u.portal) await loadMeta(); return u; },
+    login: async (identifier, password, portal = false) => { const u = await api.post('/api/auth/login', { identifier, password, portal }); if (u.mfa_required || u.otp_required || u.must_change_password) return u; setUser(u); if (!u.portal) await loadMeta(); return u; },
     /** Second step when the workspace asks for an emailed code (otp_required): the token from login() and the code typed. */
     loginOtp: async (otp_token, code) => { const u = await api.post('/api/auth/login/otp', { otp_token, code }); setUser(u); if (!u.portal) await loadMeta(); return u; },
     resendOtp: (otp_token) => api.post('/api/auth/login/otp/resend', { otp_token }),

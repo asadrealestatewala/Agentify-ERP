@@ -4,8 +4,9 @@ import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import rateLimit from 'express-rate-limit';
 import { all, get, run, getSetting, setSetting, currentDb } from '../db.js';
-import { signToken, signMfaToken, readMfaToken, mfaTokenId, signOtpToken, readOtpToken, loadUser, requireAuth, hasPerm, sessionCookie, revokeToken } from '../rbac.js';
+import { signToken, signMfaToken, readMfaToken, signChangeToken, readChangeToken, mfaTokenId, signOtpToken, readOtpToken, loadUser, requireAuth, hasPerm, sessionCookie, revokeToken } from '../rbac.js';
 import { passwordProblem } from '../validation.js';
+import { newRecoveryCode, normaliseRecovery } from '../services/welcome.js';
 import { sendCode, checkCode, canEmailCodes } from '../services/emailOtp.js';
 import { noteSignIn, noteFailedLogin, recognised, deviceList } from '../services/loginAlerts.js';
 import { encrypt, decrypt } from '../services/platformConfig.js';
@@ -66,9 +67,41 @@ r.post('/login', loginLimiter, asyncH((req, res) => {
   const u = loadUser(row.id);
   if (req.body.portal && !u.portal) throw new HttpError(403, 'Use the staff login for this account');
   if (!req.body.portal && u.portal) throw new HttpError(403, 'Customers and vendors must use their portal login');
+  if (row.must_change_password) return res.json({ must_change_password: true, change_token: signChangeToken(row) });
   if (u.totp_enabled) return res.json({ mfa_required: true, mfa_token: signMfaToken(u) });
   if (needsEmailCode(req, u)) return askEmailCode(req, res, u);
   finishLogin(req, res, u);
+}));
+
+// ---- temporary password: choose your own at the first sign-in, get a recovery code; or recover without email with that code
+r.post('/login/first-password', loginLimiter, asyncH((req, res) => {
+  const p = readChangeToken(req.body?.change_token);
+  const row = p && get('SELECT * FROM users WHERE id=? AND active=1 AND must_change_password=1', p.uid);
+  if (!row || row.token_version !== p.tv) throw new HttpError(401, 'This step expired. Sign in again with your temporary password.');
+  const pw = String(req.body?.password || '');
+  { const pp = passwordProblem(pw, { email: row.email, name: row.name, label: 'New password' }); if (pp) throw bad(pp); }
+  if (bcrypt.compareSync(pw, row.password_hash)) throw bad('Choose a new password that is different from the temporary one');
+  const recovery_code = newRecoveryCode();
+  run('UPDATE users SET password_hash=?, must_change_password=0, recovery_code_hash=?, token_version=token_version+1 WHERE id=?', bcrypt.hashSync(pw, 10), bcrypt.hashSync(normaliseRecovery(recovery_code), 10), row.id);
+  audit(req, 'Chose own password after temporary password', 'user', row.id, row.email);
+  const u = loadUser(row.id);
+  const send = res.json.bind(res); res.json = (b) => send({ ...b, recovery_code }); // the code is shown once, on whichever step answers
+  if (u.totp_enabled) return res.json({ mfa_required: true, mfa_token: signMfaToken(u) });
+  if (needsEmailCode(req, u)) return askEmailCode(req, res, u);
+  finishLogin(req, res, u);
+}));
+r.post('/password/recover', loginLimiter, asyncH((req, res) => {
+  const e = String(req.body?.email || '').trim();
+  const row = e ? get('SELECT * FROM users WHERE lower(trim(email))=lower(?) AND active=1', e) : null;
+  if (row && lockedOut(row.id)) throw lockedError();
+  const ok = bcrypt.compareSync(normaliseRecovery(req.body?.recovery_code), row?.recovery_code_hash || DUMMY_HASH);
+  if (!row || !row.recovery_code_hash || !ok) { audit(req, 'Failed recovery code', 'user', null, e); if (row) noteFailedLogin(req, row); throw new HttpError(401, 'That email and recovery code do not match'); }
+  const pw = String(req.body?.password || '');
+  { const pp = passwordProblem(pw, { email: row.email, name: row.name, label: 'New password' }); if (pp) throw bad(pp); }
+  const recovery_code = newRecoveryCode();
+  run('UPDATE users SET password_hash=?, must_change_password=0, recovery_code_hash=?, token_version=token_version+1 WHERE id=?', bcrypt.hashSync(pw, 10), bcrypt.hashSync(normaliseRecovery(recovery_code), 10), row.id);
+  audit(req, 'Password reset with recovery code', 'user', row.id, row.email);
+  res.json({ ok: true, recovery_code });
 }));
 
 // ---- optional email code after the password (Security > Email sign-in code): off, new browsers only, or every sign-in

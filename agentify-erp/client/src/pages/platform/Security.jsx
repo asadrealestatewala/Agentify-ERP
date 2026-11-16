@@ -39,13 +39,16 @@ export function AdminsPage() {
   useEffect(() => { api.get(`${A}/security-settings`).then(setSec).catch(() => {}); }, []);
   const patch = async (a, body, msg) => { try { await api.patch(`${A}/admins/${a.id}`, body); toast(msg); load(); } catch (e) { toast(e.message, 'err'); } };
   const [link, setLink] = useState(null);
-  const save = async () => { try { const out = await api.post(`${A}/admins`, { name: add.name, email: add.email, role: add.role }); setAdd(null); if (out.link) setLink(out); else toast(`Invitation emailed to ${out.email}`); load(); } catch (e) { toast(e.message, 'err'); } };
+  const [welcome, setWelcome] = useState(null);
+  const save = async () => { try { const out = await api.post(`${A}/admins`, { name: add.name, email: add.email, role: add.role, method: add.method }); setAdd(null); if (out.welcome) setWelcome(out); else if (out.link) setLink(out); else toast(`Invitation emailed to ${out.email}`); load(); } catch (e) { toast(e.message, 'err'); } };
+  const [tempFor, setTempFor] = useState(null);
+  const makeTemp = async () => { try { const out = await api.post(`${A}/admins/${tempFor.id}/temp-password`); setTempFor(null); setWelcome(out); load(); } catch (e) { toast(e.message, 'err'); } };
   const setRequire = async (v) => { try { setSec(await api.put(`${A}/security-settings`, { require_2fa: v })); toast(v ? 'Two-factor is now required for every console user' : 'Two-factor is now optional'); } catch (e) { toast(e.message, 'err'); } };
   return (
     <>
       <PageTitle title="Console users & roles" sub="People who can sign in to this super admin console. Each role allows a fixed set of actions; every action is checked on the server.">
         <button className="btn sm" onClick={() => setRoles(true)}>What each role can do</button>
-        <button className="btn primary sm" onClick={() => setAdd({ name: '', email: '', role: 'read_only' })}>Invite console user</button>
+        <button className="btn primary sm" onClick={() => setAdd({ name: '', email: '', role: 'read_only', method: 'link' })}>Invite console user</button>
       </PageTitle>
       <ErrorBox error={err} />
       {sec && <FoldCard id="Security-Security rules" title="Security rules" summary="Password, login and session rules" defaultOpen >
@@ -57,25 +60,38 @@ export function AdminsPage() {
           <div className="table-wrap"><table className="t"><thead><tr><th>User</th><th>Role</th><th>Two-factor</th><th>Last sign-in</th><th>Access</th><th /></tr></thead><tbody>
             {d.admins.map((a) => (
               <tr key={a.id}>
-                <td><b>{a.name}</b>{a.id === d.me && <span className="muted"> (you)</span>}<div className="muted">{a.email}</div>{a.status === 'invited' && <StatusBadge status="pending" label="Invitation sent" />}{a.status === 'invite_expired' && <StatusBadge status="overdue" label="Invitation expired" />}</td>
+                <td><b>{a.name}</b>{a.id === d.me && <span className="muted"> (you)</span>}<div className="muted">{a.email}</div>{a.status === 'invited' && <StatusBadge status="pending" label="Invitation sent" />}{a.status === 'temp_password' && <StatusBadge status="pending" label="Temporary password, not changed yet" />}{a.status === 'invite_expired' && <StatusBadge status="overdue" label="Invitation expired" />}</td>
                 <td>{a.id === d.me ? a.role_label : <select className="input" style={{ width: 230 }} value={a.role} aria-label={`Role of ${a.email}`} onChange={(e) => patch(a, { role: e.target.value }, 'Role changed. Their sessions were signed out.')}>{Object.entries(d.roles).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}</select>}</td>
                 <td><StatusBadge status={a.totp_enabled ? 'active' : 'inactive'} label={a.totp_enabled ? 'On' : 'Off'} /></td>
                 <td className="nowrap">{ago(a.last_login)}</td>
                 <td>{a.id === d.me ? <StatusBadge status="active" /> : <Toggle value={a.active} onChange={(v) => patch(a, { active: v }, v ? 'Access restored' : 'Access switched off and sessions ended')} label={a.active ? 'Allowed' : 'Off'} />}</td>
-                <td className="right">{a.id !== d.me && <button className="btn sm danger" onClick={() => setDel(a)}>Remove</button>}</td>
+                <td className="right nowrap">{a.id !== d.me && <><button className="btn sm" onClick={() => setTempFor(a)}>New temporary password</button>{' '}<button className="btn sm danger" onClick={() => setDel(a)}>Remove</button></>}</td>
               </tr>
             ))}
           </tbody></table></div>
         </Card>
       )}
       {add && d && (
-        <Modal title="Invite console user" onClose={() => setAdd(null)} footer={<><button className="btn" onClick={() => setAdd(null)}>Cancel</button><button className="btn primary" onClick={save}>Send invitation</button></>}>
-          <p className="muted">They get a one-time link (valid 72 hours) to choose their own password. Nobody else ever knows it.</p>
+        <Modal title="Invite console user" onClose={() => setAdd(null)} footer={<><button className="btn" onClick={() => setAdd(null)}>Cancel</button><button className="btn primary" onClick={save}>{add.method === 'temp_password' ? 'Create and send welcome' : 'Send invitation'}</button></>}>
+          <Field label="How should they get in?">
+            <select className="input" value={add.method} onChange={(e) => setAdd({ ...add, method: e.target.value })}>
+              <option value="link">Email an invitation link (they choose their password)</option>
+              <option value="temp_password">Welcome message with a temporary password</option>
+            </select>
+          </Field>
+          <p className="muted">{add.method === 'temp_password' ? 'We create the account with a one-time password, email the sign-in steps and show you the same message to copy. At first sign-in they must choose their own password and receive a recovery code.' : 'They get a one-time link (valid 72 hours) to choose their own password. Nobody else ever knows it.'}</p>
           <Field label="Name"><TextInput value={add.name} onChange={(v) => setAdd({ ...add, name: v })} /></Field>
           <Field label="Email" required><TextInput type="email" value={add.email} onChange={(v) => setAdd({ ...add, email: v })} /></Field>
           <Field label="Role" hint="Give the smallest role that lets them do their job."><select className="input" value={add.role} onChange={(e) => setAdd({ ...add, role: e.target.value })}>{Object.entries(d.roles).map(([k, r]) => <option key={k} value={k}>{r.label}</option>)}</select></Field>
         </Modal>
       )}
+      {welcome && (
+        <Modal title="Welcome message" onClose={() => setWelcome(null)} footer={<><button className="btn" onClick={() => { navigator.clipboard?.writeText(welcome.welcome.text); toast('Message copied'); }}>Copy message</button><button className="btn primary" onClick={() => setWelcome(null)}>Done</button></>}>
+          <p>{welcome.emailed ? <>Emailed to <b>{welcome.email}</b>. </> : <>Email is not configured, so nothing was sent to <b>{welcome.email}</b>. </>}Copy it to send by WhatsApp or chat. <b>This is the only time the temporary password is shown.</b></p>
+          <textarea className="input" readOnly rows={14} style={{ width: '100%', fontFamily: 'inherit' }} value={welcome.welcome.text} onFocus={(e) => e.target.select()} />
+        </Modal>
+      )}
+      {tempFor && <ConfirmDialog title="New temporary password?" confirmLabel="Create and email" message={`${tempFor.email} is signed out everywhere and their current password stops working. They get a welcome message with a one-time password and must choose their own at the next sign-in.`} onCancel={() => setTempFor(null)} onConfirm={makeTemp} />}
       {link && (
         <Modal title="Share the invitation link" onClose={() => setLink(null)} footer={<button className="btn primary" onClick={() => setLink(null)}>Done</button>}>
           <p>Email is not configured on this server, so the invitation for <b>{link.email}</b> was not sent. Pass this one-time link to them privately:</p>
