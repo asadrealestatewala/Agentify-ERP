@@ -5,6 +5,7 @@ import { Field, Loading } from '../components/ui.jsx';
 import { useAuth } from '../context.jsx';
 import { api } from '../api.js';
 import EmailCodeStep from '../components/EmailCodeStep.jsx';
+import { RecoveryCode } from '../components/FirstPassword.jsx';
 
 /** Shared frame for the account pages (signup, forgot/reset password, accept invitation). */
 function Shell({ eyebrow, title, lead, children, side }) {
@@ -128,15 +129,41 @@ export function Signup() {
   );
 }
 
+function RecoverWithCode({ onBack }) {
+  const nav = useNavigate();
+  const [f, setF] = useState({ email: '', code: '', pw: '', pw2: '' });
+  const [err, setErr] = useState('');
+  const [fresh, setFresh] = useState(null);
+  const submit = async (e) => {
+    e.preventDefault(); setErr('');
+    if (f.pw !== f.pw2) { setErr('The two passwords do not match'); return; }
+    try { setFresh((await api.post('/api/auth/password/recover', { email: f.email, recovery_code: f.code, password: f.pw })).recovery_code); } catch (x) { setErr(x.message); }
+  };
+  if (fresh) return <><div className="alert ok">Password changed. Your old recovery code is used up; here is a new one.</div><RecoveryCode code={fresh} onContinue={() => nav('/login')} label="Back to sign in" /></>;
+  return (
+    <form className="stack" onSubmit={submit}>
+      <div><h2>Use your recovery code</h2><div className="muted">The code you received when you first signed in.</div></div>
+      {err && <div className="alert err" role="alert">{err}</div>}
+      <Field label="Email" required><input className="input" type="email" autoFocus value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required autoComplete="username" /></Field>
+      <Field label="Recovery code" required><input className="input" value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} required autoComplete="off" /></Field>
+      <Field label="New password" hint="At least 8 characters." required><input className="input" type="password" autoComplete="new-password" value={f.pw} onChange={(e) => setF({ ...f, pw: e.target.value })} required /></Field>
+      <Field label="Repeat new password" required><input className="input" type="password" autoComplete="new-password" value={f.pw2} onChange={(e) => setF({ ...f, pw2: e.target.value })} required /></Field>
+      <button className="btn primary">Set new password</button>
+      <div className="center muted"><button type="button" className="btn ghost" onClick={onBack}>Send me an email link instead</button></div>
+    </form>
+  );
+}
+
 export function ForgotPassword() {
   const [email, setEmail] = useState('');
+  const [byCode, setByCode] = useState(false);
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   const submit = async (e) => { e.preventDefault(); setBusy(true); setErr(''); try { await api.post('/api/auth/forgot-password', { email }); setSent(true); } catch (er) { setErr(er.message); } finally { setBusy(false); } };
   return (
     <Shell eyebrow="Account help" title={<>Forgot your password? <em>It happens.</em></>} lead="Enter your work email and we’ll send you a one-time link to choose a new password.">
-      {sent ? (
+      {byCode ? <RecoverWithCode onBack={() => setByCode(false)} /> : sent ? (
         <><h2>Check your email</h2><div className="muted">If an account exists for <b>{email}</b>, a reset link is on its way. It works once and expires in 2 hours.</div><Link className="btn" to="/login">Back to sign in</Link></>
       ) : (
         <form className="stack" onSubmit={submit}>
@@ -144,7 +171,7 @@ export function ForgotPassword() {
           {err && <div className="alert err" role="alert">{err}</div>}
           <Field label="Email" required><input className="input" type="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="username" /></Field>
           <button className="btn primary" disabled={busy}>{busy ? 'Sending…' : 'Send reset link'}</button>
-          <div className="center muted"><Link to="/login">Back to sign in</Link></div>
+          <div className="center muted"><Link to="/login">Back to sign in</Link> · <button type="button" className="btn ghost" onClick={() => setByCode(true)}>Use my recovery code</button></div>
         </form>
       )}
     </Shell>

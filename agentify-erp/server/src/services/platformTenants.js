@@ -371,9 +371,9 @@ export function setupChecklist(operator) {
 }
 
 // ---------------------------------------------------------------- platform admins
-export const listAdmins = () => platformDb().prepare('SELECT id, email, name, role, active, totp_enabled, last_login, created_at, invited_by, invite_expires_at, activated_at FROM platform_admins ORDER BY id').all()
-  .map((a) => ({ ...a, totp_enabled: !!a.totp_enabled, active: !!a.active, role_label: ROLES[a.role]?.label || a.role,
-    status: !a.active ? 'disabled' : a.invite_expires_at && !a.activated_at ? (Date.parse(a.invite_expires_at) > Date.now() ? 'invited' : 'invite_expired') : 'active' }));
+export const listAdmins = () => platformDb().prepare('SELECT id, email, name, role, active, must_change_password, totp_enabled, last_login, created_at, invited_by, invite_expires_at, activated_at FROM platform_admins ORDER BY id').all()
+  .map((a) => ({ ...a, totp_enabled: !!a.totp_enabled, must_change_password: !!a.must_change_password, active: !!a.active, role_label: ROLES[a.role]?.label || a.role,
+    status: !a.active ? 'disabled' : a.must_change_password ? 'temp_password' : a.invite_expires_at && !a.activated_at ? (Date.parse(a.invite_expires_at) > Date.now() ? 'invited' : 'invite_expired') : 'active' }));
 /** Active accounts holding every permission (Platform Owner / Super Admin) other than `exceptId`. */
 const activeTop = (exceptId = null) => platformDb().prepare(`SELECT COUNT(*) n FROM platform_admins WHERE role IN (${TOP_ROLES.map(() => '?').join(',')}) AND active=1 AND (invite_expires_at IS NULL OR activated_at IS NOT NULL) AND id<>?`).get(...TOP_ROLES, exceptId ?? -1).n;
 setOwnerCounter(() => platformDb().prepare("SELECT COUNT(*) n FROM platform_admins WHERE role='platform_owner' AND active=1").get().n);

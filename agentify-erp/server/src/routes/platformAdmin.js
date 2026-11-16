@@ -14,7 +14,7 @@ import { marketingContent, saveMarketing, listLegal, legalDoc, saveLegal, publis
 import { analyticsReport } from '../services/analytics.js';
 import { resolveRange, utcStart, addDays, buckets, keyExpr } from '../services/platformMetrics.js';
 import { COOKIE, login, loginMfa, changePassword, requireOperator, onPlatformHost, twofaStatus, twofaSetup, twofaEnable, twofaDisable,
-  loginMeta, endSession, listSessions, revokeSession, revokeAllFor, loginHistory, mfaRequired } from '../services/platformAuth.js';
+  loginMeta, completeFirstChange, recoverWithCode, endSession, listSessions, revokeSession, revokeAllFor, loginHistory, mfaRequired } from '../services/platformAuth.js';
 import { ROLES, PERMISSIONS, TOP_ROLES, permsOf, can, need, auditContext, onDenied } from '../services/platformAccess.js';
 import { getSwitches, setSwitches, listRules as listEmailRules, addRule as addEmailRule, removeRule as removeEmailRule, checkEmail } from '../services/disposableEmail.js';
 import { getMaintenance, setMaintenance, recentErrors } from '../services/maintenance.js';
@@ -46,7 +46,7 @@ import { whatsappAccess } from '../services/whatsappAccess.js';
 import { cleanWhatsappLimits } from '../services/whatsappLimits.js';
 import * as support from '../services/supportDesk.js';
 import { listReviews, decideReview, deleteReview, reviewPhoto } from '../services/reviews.js';
-import { setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
+import { createWithTempPassword, resetToTempPassword, setupNeeded, completeSetup, inviteAdmin, inviteInfo, acceptInvite, requestPasswordReset, resetInfo, completePasswordReset } from '../services/platformStaff.js';
 import * as cal from '../services/contentCalendar.js';
 import * as blogAgent from '../services/blogAgent.js';
 import * as pageSpeed from '../services/pageSpeed.js';
@@ -89,10 +89,20 @@ r.post('/login', limiter, asyncH((req, res) => {
   if (!onPlatformHost(req)) throw new HttpError(404, 'Not found');
   if (req.headers['x-requested-with'] !== 'ERP') throw new HttpError(403, 'CSRF check failed');
   const out = login(req.body?.email, req.body?.password, loginMeta(req));
+  if (out.change_token) return res.json({ must_change_password: true, change_token: out.change_token });
   if (out.mfa_token) return res.json({ mfa_required: true, mfa_token: out.mfa_token });
   res.cookie(COOKIE, out.token, cookieOpts);
   audit(out.admin.email, 'login');
   res.json(out.admin);
+}));
+r.post('/login/first-password', limiter, asyncH((req, res) => {
+  if (!onPlatformHost(req)) throw new HttpError(404, 'Not found');
+  if (req.headers['x-requested-with'] !== 'ERP') throw new HttpError(403, 'CSRF check failed');
+  const out = completeFirstChange(req.body?.change_token, req.body?.password, loginMeta(req));
+  if (out.mfa_token) return res.json({ mfa_required: true, mfa_token: out.mfa_token, recovery_code: out.recovery_code });
+  res.cookie(COOKIE, out.token, cookieOpts);
+  audit(out.admin.email, 'first-password-chosen');
+  res.json({ ...out.admin, recovery_code: out.recovery_code });
 }));
 r.post('/login/mfa', limiter, asyncH((req, res) => {
   if (!onPlatformHost(req)) throw new HttpError(404, 'Not found');
@@ -128,6 +138,12 @@ r.post('/password/forgot', resetLimiter, asyncH((req, res) => {
   // fire and forget so the response time does not tell an existing account from an unknown one
   requestPasswordReset(req.body?.email, mainOrigin(req), loginMeta(req)).catch(() => {});
   res.json({ ok: true });
+}));
+r.post('/password/recover', resetLimiter, asyncH((req, res) => {
+  platformOnly(req, true);
+  const out = recoverWithCode(req.body?.email, req.body?.recovery_code, req.body?.password, loginMeta(req));
+  audit(out.email, 'password-recovered', { via: 'recovery-code' });
+  res.json({ ok: true, recovery_code: out.recovery_code });
 }));
 r.get('/password/reset/:token', limiter, asyncH((req, res) => { platformOnly(req); res.json(resetInfo(req.params.token)); }));
 r.post('/password/reset', limiter, asyncH((req, res) => {
@@ -967,6 +983,11 @@ r.patch('/admins/:id', requireOperator, need('admins.manage'), asyncH((req, res)
 r.post('/admins', requireOperator, need('admins.manage'), limiter, asyncH(async (req, res) => {
   adminOnly(req);
   // without a password the person is invited by email and chooses their own (recommended); with one, the account is ready at once
+  if (req.body?.method === 'temp_password' && !req.body?.password) {
+    const made = await createWithTempPassword(req.body || {}, req.operator, `${req.protocol}://${req.get('host')}`);
+    audit(req.operator.email, 'admin-created-temp-password', { email: made.email, role: made.role, emailed: made.emailed });
+    return res.status(201).json(made);
+  }
   if (!req.body?.password) {
     const inv = await inviteAdmin(req.body || {}, req.operator, `${req.protocol}://${req.get('host')}`);
     audit(req.operator.email, 'admin-invited', { email: inv.email, role: inv.role, emailed: inv.emailed });
@@ -975,6 +996,12 @@ r.post('/admins', requireOperator, need('admins.manage'), limiter, asyncH(async 
   const a = addAdmin(req.body || {}, req.operator);
   audit(req.operator.email, 'admin-added', { email: a.email, role: a.role });
   res.status(201).json(a);
+}));
+r.post('/admins/:id/temp-password', requireOperator, need('admins.manage'), limiter, asyncH(async (req, res) => {
+  adminOnly(req);
+  const out = await resetToTempPassword(req.params.id, req.operator, `${req.protocol}://${req.get('host')}`);
+  audit(req.operator.email, 'admin-temp-password', { email: out.email, emailed: out.emailed });
+  res.json(out);
 }));
 r.delete('/admins/:id', requireOperator, need('admins.manage'), asyncH((req, res) => {
   adminOnly(req);

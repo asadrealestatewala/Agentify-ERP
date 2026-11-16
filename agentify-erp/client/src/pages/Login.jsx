@@ -6,6 +6,7 @@ import PasswordInput from '../components/PasswordInput.jsx';
 import { inNativeApp } from '../installApp.js';
 import { useAuth } from '../context.jsx';
 import { api } from '../api.js';
+import FirstPassword from '../components/FirstPassword.jsx';
 import { useBrand } from '../brand.js';
 import { t, getLanguage, chooseLanguage } from '../i18n.js';
 import { getRegion } from '../format.js';
@@ -27,6 +28,7 @@ export default function Login({ portal = false, vendor = false, developer = fals
   const [otp, setOtp] = useState(null); // { token, hint } while the emailed code is awaited
   const [note, setNote] = useState('');
   const [code, setCode] = useState('');
+  const [change, setChange] = useState(null); // change_token while a temporary password must be replaced
   // returning from Google or Apple: trade the one-time code for a session
   useEffect(() => {
     const code = sp.get('sso'), bad = sp.get('oauth_error');
@@ -39,13 +41,20 @@ export default function Login({ portal = false, vendor = false, developer = fals
     const done = () => nav(portal ? (new RegExp(developer ? '^/developer(/|$)' : vendor ? '^/vendor(/|$)' : '^/portal(/|$)').test(next) && !next.includes('//') ? next : '/portal') : '/', { replace: true });
     try {
       const u = await (mfa ? loginMfa(mfa, code) : otp ? loginOtp(otp.token, code) : login(id, pw, portal));
-      if (u.mfa_required) { setMfa(u.mfa_token); setCode(''); } else if (u.otp_required) { setOtp({ token: u.otp_token, hint: u.email_hint }); setCode(''); } else done();
+      if (u.must_change_password) setChange(u.change_token); else if (u.mfa_required) { setMfa(u.mfa_token); setCode(''); } else if (u.otp_required) { setOtp({ token: u.otp_token, hint: u.email_hint }); setCode(''); } else done();
     } catch (er) { setErr(er.message); if (mfa && /expired/i.test(er.message)) setMfa(null); if (otp && /sign-in expired/i.test(er.message)) setOtp(null); } finally { setBusy(false); }
   };
   const again = async () => { setErr(''); setNote(''); try { await resendOtp(otp.token); setNote('A new code is on its way.'); } catch (er) { setErr(er.message); } };
   const FEATS = portal
     ? (vendor ? [['wallet', 'green', 'Payments & balance'], ['history', 'blue', 'Account ledger'], ['file', 'violet', 'Open contracts & bids'], ['badge', 'orange', 'Your registration']] : [['building', 'violet', 'Your properties'], ['wallet', 'green', 'Installments & receipts'], ['hardhat', 'orange', 'Site progress'], ['file', 'blue', 'Documents & offers']])
     : [['users', 'blue', 'Leads & CRM'], ['badge', 'violet', 'Sales & bookings'], ['wallet', 'green', 'Accounts & vouchers'], ['briefcase', 'orange', 'HR & attendance']];
+  if (change) {
+    const next = async (u) => {
+      setChange(null);
+      if (u.mfa_required) { setMfa(u.mfa_token); setCode(''); } else if (u.otp_required) { setOtp({ token: u.otp_token, hint: u.email_hint }); setCode(''); } else { await adopt(u); nav('/', { replace: true }); }
+    };
+    return <div className="auth2"><div className="auth2-card stack" style={{ margin: '40px auto', maxWidth: 420 }}><FirstPassword token={change} onSession={next} /></div></div>;
+  }
   return (
     <div className="auth2">
       <div className="auth2-copy">

@@ -13,6 +13,7 @@ import { HttpError, bad } from '../util.js';
 import { setMfaRule } from './platformAccess.js';
 import { checkPassword, ensureSetupToken } from './platformStaff.js';
 import { sendMail, layout } from './mailer.js';
+import { newRecoveryCode, normaliseRecovery } from './welcome.js';
 
 const SESSION_HOURS = 8;
 const setting = (k) => platformDb().prepare('SELECT value FROM platform_settings WHERE key=?').get(k)?.value;
@@ -73,8 +74,41 @@ export function login(email, password, meta = {}) {
   // compare even when the account does not exist so timing does not reveal which emails are admins
   const ok = bcrypt.compareSync(String(password || ''), a?.password_hash || '$2a$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvali');
   if (!a || !ok || !a.active) { recordLogin(a, email, !a || !ok ? 'bad_password' : 'account_disabled', meta); throw new HttpError(401, 'Invalid credentials'); }
+  // a temporary password only opens the "choose your own password" step; no session is created yet
+  if (a.must_change_password) return { change_token: jwt.sign({ aid: a.id, tv: a.token_version }, jwtSecret(), { expiresIn: '15m', audience: 'platform-pwchange' }) };
   if (a.totp_enabled) return { mfa_token: jwt.sign({ aid: a.id }, jwtSecret(), { expiresIn: '5m', audience: 'platform-mfa' }) };
   return issueSession(a, meta);
+}
+
+const mfaTokenFor = (a) => jwt.sign({ aid: a.id }, jwtSecret(), { expiresIn: '5m', audience: 'platform-mfa' });
+const setRecovery = (id) => { const code = newRecoveryCode(); platformDb().prepare('UPDATE platform_admins SET recovery_code_hash=? WHERE id=?').run(bcrypt.hashSync(normaliseRecovery(code), 10), id); return code; };
+
+/** First sign-in with a temporary password: the person chooses their own and receives an account recovery code (shown once). */
+export function completeFirstChange(changeToken, password, meta = {}) {
+  let p;
+  try { p = jwt.verify(String(changeToken || ''), jwtSecret(), { audience: 'platform-pwchange' }); } catch { throw new HttpError(401, 'This step expired. Sign in again with your temporary password.'); }
+  const db = platformDb();
+  const a = db.prepare('SELECT * FROM platform_admins WHERE id=? AND active=1 AND must_change_password=1').get(p.aid);
+  if (!a || a.token_version !== p.tv) throw new HttpError(401, 'This step expired. Sign in again with your temporary password.');
+  checkPassword(password, a.email);
+  if (bcrypt.compareSync(String(password), a.password_hash)) throw bad('Choose a new password that is different from the temporary one');
+  db.prepare('UPDATE platform_admins SET password_hash=?, must_change_password=0, token_version=token_version+1 WHERE id=?').run(bcrypt.hashSync(String(password), 10), a.id);
+  const recovery_code = setRecovery(a.id);
+  const fresh = db.prepare('SELECT * FROM platform_admins WHERE id=?').get(a.id);
+  if (fresh.totp_enabled) return { mfa_token: mfaTokenFor(fresh), recovery_code };
+  return { ...issueSession(fresh, meta), recovery_code };
+}
+
+/** "Forgot password" without email: email + account recovery code + new password. The code is used up and a new one is issued. */
+export function recoverWithCode(email, code, password, meta = {}) {
+  const db = platformDb();
+  const a = db.prepare('SELECT * FROM platform_admins WHERE email=? AND active=1').get(String(email || '').trim());
+  const ok = bcrypt.compareSync(normaliseRecovery(code), a?.recovery_code_hash || '$2a$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinvali');
+  if (!a || !a.recovery_code_hash || !ok) { recordLogin(a, email, 'bad_recovery', meta); throw new HttpError(401, 'That email and recovery code do not match'); }
+  checkPassword(password, a.email);
+  db.prepare('UPDATE platform_admins SET password_hash=?, must_change_password=0, token_version=token_version+1, reset_token_hash=NULL, reset_expires_at=NULL WHERE id=?').run(bcrypt.hashSync(String(password), 10), a.id);
+  db.prepare("UPDATE platform_sessions SET revoked_at=datetime('now'), revoked_by='recovery-code' WHERE admin_id=? AND revoked_at IS NULL").run(a.id);
+  return { recovery_code: setRecovery(a.id), email: a.email };
 }
 
 function issueSession(a, meta = {}) {

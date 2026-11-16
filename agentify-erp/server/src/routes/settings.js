@@ -11,6 +11,8 @@ import { can, hasPerm, MODULES, ACTIONS, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { crud, uploader } from './helpers.js';
 import { asyncH, bad, notFound, jparse, now } from '../util.js';
+import { tempPassword, welcomeMessage, APK_URL } from '../services/welcome.js';
+import { sendMail, layout } from '../services/mailer.js';
 import { createInvite, pendingInvites, revokeInvite } from '../services/accessLinks.js';
 import { assertSeatAvailable } from '../services/plans.js';
 import { webhookSecret } from '../services/website.js';
@@ -137,7 +139,10 @@ r.post('/users', can('settings', 'create'), asyncH(async (req, res) => {
   const emp = req.body.employee_id ? get('SELECT * FROM employees WHERE id=?', req.body.employee_id) : null;
   if (req.body.employee_id && !emp) throw bad('Employee not found');
   if (emp?.user_id) throw bad('That employee already has a login');
-  const { password, role_id } = req.body;
+  const { role_id } = req.body;
+  // "temp_password": the server makes a one-time password and the person must choose their own at the first sign-in
+  const temp = !!req.body.temp_password && !req.body.password;
+  const password = temp ? tempPassword() : req.body.password;
   const name = req.body.name || emp?.name;
   const phone = req.body.phone || emp?.phone;
   const email = String(req.body.email || emp?.email || '').trim();
@@ -150,7 +155,7 @@ r.post('/users', can('settings', 'create'), asyncH(async (req, res) => {
   assertSeatAvailable(req.tenant);
   if (role.name === 'Super Admin' && !req.user.isSuper) throw bad('Only a Super Admin can create Super Admins');
   const id = tx(() => {
-    const rr = run('INSERT INTO users(name,email,phone,password_hash,role_id,created_at) VALUES(?,?,?,?,?,?)', name, email, phone ?? null, bcrypt.hashSync(String(password), 10), role_id, now());
+    const rr = run('INSERT INTO users(name,email,phone,password_hash,role_id,created_at,must_change_password) VALUES(?,?,?,?,?,?,?)', name, email, phone ?? null, bcrypt.hashSync(String(password), 10), role_id, now(), temp ? 1 : 0);
     const uid = Number(rr.lastInsertRowid);
     if (emp) {
       run('UPDATE employees SET user_id=?, email=COALESCE(NULLIF(email,\'\'),?), phone=COALESCE(NULLIF(phone,\'\'),?) WHERE id=?', uid, email, phone ?? null, emp.id);
@@ -159,7 +164,14 @@ r.post('/users', can('settings', 'create'), asyncH(async (req, res) => {
     audit(req, 'Created user', 'user', uid, `${email} as ${role.name}`);
     return uid;
   });
-  res.status(201).json({ id });
+  if (!temp) return res.status(201).json({ id });
+  const origin = `${req.protocol}://${req.get('host')}`;
+  const org = getSetting('company_name', '') || currentTenant()?.name || 'your workspace';
+  const w = welcomeMessage({ name, org, role: role.name, signInUrl: `${origin}/login`, login: email, password, apk: APK_URL });
+  const mail = layout({ heading: w.lines[0], lines: w.lines.slice(1), preheader: `Your sign-in details for ${org}`, button: { label: 'Sign in', url: `${origin}/login` } });
+  const emailed = !!(await sendMail({ type: 'invitation', to: email, subject: w.subject, ...mail }));
+  audit(req, 'Sent welcome message with temporary password', 'user', id, email);
+  res.status(201).json({ id, temp_password: true, emailed, welcome: { subject: w.subject, text: w.text } });
 }));
 // ---- Invitations (an emailed one-time link replaces choosing someone else's password)
 r.get('/invites', can('settings', 'view'), (_req, res) => res.json(pendingInvites()));

@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.105', date: '2026-11-16', title: 'Welcome messages with a temporary password',
+    items: [
+      { text: 'When you add a team member, tick "Send a welcome message with a temporary password". They get an email with the sign-in steps, their login, a one-time password and the Android app link, and you get the same message to copy and send by WhatsApp. At their first sign-in they choose their own password and receive a recovery code that lets them set a new password later without waiting for an email (Forgot password > Use my recovery code).', where: 'Settings > Users > Add user' },
+      { text: 'Console invitation links now say why they do not work (already used, replaced by a newer invitation, or expired) instead of one general error, and console users can be created with a welcome message and a temporary password, or given a new one from the same list.', where: 'Console > Security & Access > Console users & roles', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.104', date: '2026-11-14', title: 'Content calendar: 100 more Instagram reels, ready to schedule',
     items: [
       { text: 'Add 100 more Instagram reels with one button: new screen-recorded walkthroughs of topics the first 90 did not cover, such as the customer and vendor portals, tenders, receipts on WhatsApp, reports and HR self-service. Each has an Urdu, English or Arabic voiceover that explains every step, plus its caption, hashtags and planned posting time. They are planned two a day from 16 January, after reels 41-90. The button hides once used and never adds the same reels twice. Nothing is posted for you.', where: 'Console > Marketing > Content calendar > Add 100 more Instagram reels', audience: 'platform' },

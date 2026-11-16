@@ -15,6 +15,7 @@ import { DATA_DIR } from '../db.js';
 import { ROLES, mayManageOwners } from './platformAccess.js';
 import { sendMail, layout } from './mailer.js';
 import { bad, HttpError } from '../util.js';
+import { tempPassword, welcomeMessage } from './welcome.js';
 
 const sha = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -116,6 +117,8 @@ export async function inviteAdmin({ email, name, role = 'read_only' }, operator,
   const unusable = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10);
   let id;
   if (existing) {
+    // the earlier emailed link stops working; remember that so it can say "a newer invitation was sent" instead of "invalid"
+    if (existing.invite_token_hash) db.prepare("UPDATE platform_admins SET invite_spent_hash=?, invite_spent_reason='replaced' WHERE id=?").run(existing.invite_token_hash, existing.id);
     db.prepare('UPDATE platform_admins SET name=?, role=?, invite_token_hash=?, invite_expires_at=?, invited_by=?, active=1 WHERE id=?').run(String(name || existing.name).trim().slice(0, 80) || existing.name, role, sha(token), expires, operator?.email || null, existing.id);
     id = existing.id;
   } else {
@@ -134,18 +137,76 @@ function inviteRow(token) {
   const a = platformDb().prepare('SELECT * FROM platform_admins WHERE invite_token_hash=? AND activated_at IS NULL').get(sha(token));
   return a && a.active && Date.parse(a.invite_expires_at) > Date.now() ? a : null;
 }
+/** Why a link does not work, in words the invitee can act on. Never reveals anything beyond the email on the link itself. */
+function inviteProblem(token) {
+  const db = platformDb();
+  const h = typeof token === 'string' ? sha(token) : '';
+  const spent = h && db.prepare('SELECT email, invite_spent_reason r FROM platform_admins WHERE invite_spent_hash=?').get(h);
+  if (spent?.r === 'used') return { code: 'used', email: spent.email, message: 'This invitation was already used and your account is active. Sign in with your email and the password you chose. If you forgot it, use "Reset password" on the sign-in page.' };
+  if (spent?.r === 'replaced') return { code: 'replaced', email: spent.email, message: 'A newer invitation was sent to you. Open the most recent invitation email instead of this one.' };
+  const a = h && db.prepare('SELECT * FROM platform_admins WHERE invite_token_hash=?').get(h);
+  if (a && a.activated_at) return { code: 'used', email: a.email, message: 'This invitation was already used and your account is active. Sign in with your email and your password.' };
+  if (a && !a.active) return { code: 'off', message: 'Your access has been switched off. Ask the person who invited you.' };
+  if (a) return { code: 'expired', message: `This invitation expired on ${String(a.invite_expires_at).slice(0, 10)}. Ask for a new one.` };
+  return { code: 'unknown', message: 'This invitation link is not valid. Check that you copied the whole link, or ask for a new one.' };
+}
 export function inviteInfo(token) {
   const a = inviteRow(token);
-  if (!a) throw new HttpError(404, 'This invitation link is not valid or has expired. Ask for a new one.');
+  if (!a) { const p = inviteProblem(token); throw new HttpError(404, p.message, { code: p.code, email: p.email }); }
   return { email: a.email, name: a.name, role: ROLES[a.role]?.label || a.role };
 }
 export function acceptInvite({ token, name, password }) {
   const a = inviteRow(token);
-  if (!a) throw new HttpError(404, 'This invitation link is not valid or has expired. Ask for a new one.');
+  if (!a) { const p = inviteProblem(token); throw new HttpError(404, p.message, { code: p.code, email: p.email }); }
   checkPassword(password, a.email);
-  platformDb().prepare("UPDATE platform_admins SET password_hash=?, name=?, invite_token_hash=NULL, activated_at=datetime('now'), token_version=token_version+1 WHERE id=?")
-    .run(bcrypt.hashSync(String(password), 10), String(name || a.name).trim().slice(0, 80) || a.name, a.id);
+  platformDb().prepare("UPDATE platform_admins SET password_hash=?, name=?, invite_token_hash=NULL, invite_spent_hash=?, invite_spent_reason='used', activated_at=datetime('now'), token_version=token_version+1 WHERE id=?")
+    .run(bcrypt.hashSync(String(password), 10), String(name || a.name).trim().slice(0, 80) || a.name, sha(token), a.id);
   return { id: a.id, email: a.email };
+}
+
+// ---------------------------------------------------------------- temporary-password accounts
+/** Mail + copyable message for a console account. Only ever built when the password is first created. */
+async function sendWelcome(a, password, operator, origin) {
+  const w = welcomeMessage({ name: a.name, org: 'the Agentify ERP console', role: ROLES[a.role]?.label, signInUrl: `${origin}/platform`, login: a.email, password, downloadUrl: null, apk: null, product: 'Agentify ERP' });
+  const mail = layout({ brand: 'platform', heading: w.lines[0], lines: w.lines.slice(1), preheader: 'Your Agentify ERP console sign-in details', button: { label: 'Open the console', url: `${origin}/platform` } });
+  const sent = await sendMail({ type: 'invitation', to: a.email, subject: w.subject, ...mail });
+  return { welcome: { subject: w.subject, text: w.text }, emailed: !!sent };
+}
+
+/** Create an active console account with a one-time temporary password. The first sign-in forces a new password. */
+export async function createWithTempPassword({ email, name, role = 'read_only' }, operator, origin) {
+  const e = String(email || '').trim().toLowerCase();
+  if (!EMAIL_RE.test(e)) throw bad('A valid email is required');
+  if (!ROLES[role]) throw bad(`Role must be one of: ${Object.keys(ROLES).join(', ')}`);
+  if (role === 'platform_owner' && !mayManageOwners(operator)) throw new HttpError(403, 'Only a Platform Owner can grant, change or remove the Platform Owner role');
+  const db = platformDb();
+  const existing = db.prepare('SELECT * FROM platform_admins WHERE email=?').get(e);
+  if (existing && (existing.activated_at || !existing.invite_expires_at)) throw new HttpError(409, 'A console user with this email already exists. Use "New temporary password" on their row instead.');
+  const pw = tempPassword();
+  const nm = String(name || existing?.name || '').trim().slice(0, 80) || 'Console user';
+  let id;
+  if (existing) {
+    db.prepare("UPDATE platform_admins SET name=?, role=?, password_hash=?, must_change_password=1, activated_at=datetime('now'), invite_token_hash=NULL, active=1, invited_by=? WHERE id=?").run(nm, role, bcrypt.hashSync(pw, 10), operator?.email || null, existing.id);
+    id = existing.id;
+  } else {
+    id = Number(db.prepare("INSERT INTO platform_admins(email,name,password_hash,role,must_change_password,invited_by,activated_at) VALUES(?,?,?,?,1,?,datetime('now'))").run(e, nm, bcrypt.hashSync(pw, 10), role, operator?.email || null).lastInsertRowid);
+  }
+  const out = await sendWelcome({ email: e, name: nm, role }, pw, operator, origin);
+  return { id, email: e, role, temp_password: true, ...out };
+}
+
+/** New temporary password for an existing console user (lost password and no email, or a fresh start). Ends their sessions. */
+export async function resetToTempPassword(id, operator, origin) {
+  const db = platformDb();
+  const a = db.prepare('SELECT * FROM platform_admins WHERE id=?').get(Number(id));
+  if (!a) throw new HttpError(404, 'Admin not found');
+  if (a.id === operator?.id) throw bad('Change your own password from Security instead');
+  if (a.role === 'platform_owner' && !mayManageOwners(operator)) throw new HttpError(403, 'Only a Platform Owner can grant, change or remove the Platform Owner role');
+  const pw = tempPassword();
+  db.prepare("UPDATE platform_admins SET password_hash=?, must_change_password=1, activated_at=COALESCE(activated_at,datetime('now')), invite_token_hash=NULL, token_version=token_version+1, reset_token_hash=NULL, reset_expires_at=NULL, active=1 WHERE id=?").run(bcrypt.hashSync(pw, 10), a.id);
+  db.prepare("UPDATE platform_sessions SET revoked_at=datetime('now'), revoked_by='temp-password' WHERE admin_id=? AND revoked_at IS NULL").run(a.id);
+  const out = await sendWelcome(a, pw, operator, origin);
+  return { id: a.id, email: a.email, temp_password: true, ...out };
 }
 
 // ---------------------------------------------------------------- forgotten password
