@@ -1,0 +1,29 @@
+name: Server diagnostics (one-off, read-only)
+on:
+  push:
+    branches: [diag-server-oneoff]
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install sshpass
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+      - name: Look at the server
+        env:
+          H: ${{ secrets.SSH_HOST }}
+          P: ${{ secrets.SSH_PASSWORD }}
+          U: ${{ secrets.SSH_USER }}
+          PT: ${{ secrets.SSH_PORT }}
+        run: |
+          echo "::add-mask::$P"
+          U="${U:-root}"; PT="${PT:-22}"
+          curl -s -m 15 -o /dev/null -w "https home %{http_code}\n" https://agentifyerp.co/ || echo "home unreachable"
+          curl -s -m 15 -o /dev/null -w "https health %{http_code}\n" https://agentifyerp.co/api/health || echo "health unreachable"
+          SSHPASS="$P" sshpass -e ssh -o StrictHostKeyChecking=accept-new -o ConnectTimeout=25 -p "$PT" "$U@$H" 'bash -s' <<'REMOTE' 2>&1 || echo "SSH FAILED"
+          uptime; df -h / | tail -2; free -m | head -2
+          systemctl list-units --type=service --state=failed --no-pager | head -10
+          for s in $(systemctl list-units --type=service --no-pager --plain | awk '{print $1}' | grep -iE 'agentify|erp|caddy|nginx'); do echo "-- $s: $(systemctl is-active $s)"; done
+          ss -ltnp | grep -E ':(80|443|3000|4000|8080) ' | awk '{print $1,$4,$6}'
+          curl -s -m 8 -o /dev/null -w "local health %{http_code}\n" http://127.0.0.1:3000/api/health || true
+          for s in $(systemctl list-units --type=service --no-pager --plain | awk '{print $1}' | grep -iE 'agentify|erp'); do journalctl -u $s -n 25 --no-pager | cut -c1-200; done
+          REMOTE
