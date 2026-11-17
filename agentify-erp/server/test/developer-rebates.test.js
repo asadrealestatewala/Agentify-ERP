@@ -82,6 +82,10 @@ test('an approved payment on a developer file posts the plot rebate to the books
   assert.equal(tb.total_debit, tb.total_credit);
   const s1 = ok(await w.get(`/api/sales/${sale.id}`)).sale;
   assert.equal(s1.paid_amount, 200_000);
+  // the dashboard counts company collections only: money paid to the developer shows on its own line
+  const dash = ok(await w.get('/api/dashboard?range=this_year')).finance;
+  assert.equal(dash.collected, 0, 'developer money is not the company\u2019s collection');
+  assert.equal(dash.collected_by_developer, 200_000);
 
   // the same transaction id cannot be recorded twice; over-payment and a stranger's file are refused
   ok(await pay({ amount: 100_000, method: 'Bank Transfer', bank: 'HBL', txn_id: 'TX-1', payment_type: 'Installment' }), 201);

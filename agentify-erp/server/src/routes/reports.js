@@ -106,7 +106,7 @@ const REPORTS = [
       rows: trialBalance({ from: f.from, to: f.to, projectId: f.project_id }).filter((a) => a.debit || a.credit) }) },
   { key: 'payment-collection', group: 'Financial', title: 'Payment collection', module: 'payments',
     run: (f) => ({ columns: [C('receipt_no', 'Receipt'), C('date', 'Date'), C('customer', 'Customer'), C('project', 'Project'), C('type', 'Type'), C('method', 'Method'), C('amount', 'Amount', money), C('account', 'Deposited to')],
-      rows: all(`SELECT r.receipt_no, r.date, c.full_name customer, pr.name project, r.payment_type type, r.method, CASE WHEN r.payment_type='Refund' THEN -r.amount ELSE r.amount END amount, a.name account
+      rows: all(`SELECT r.receipt_no, r.date, c.full_name customer, pr.name project, r.payment_type type, r.method, CASE WHEN r.payment_type='Refund' THEN -r.amount ELSE r.amount END amount, CASE WHEN a.code='2610' THEN 'Paid to developer (not company cash)' ELSE a.name END account
         FROM receipts r JOIN contacts c ON c.id=r.contact_id LEFT JOIN projects pr ON pr.id=r.project_id JOIN accounts a ON a.id=r.account_id WHERE r.status='valid' AND r.date BETWEEN ? AND ?
         ${f.project_id ? 'AND r.project_id=' + Number(f.project_id) : ''} ${f.method ? "AND r.method='" + String(f.method).replace(/'/g, '') + "'" : ''} ${f.contact_id ? 'AND r.contact_id=' + Number(f.contact_id) : ''} ORDER BY r.date DESC`, f.from, f.to) }) },
 
