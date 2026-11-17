@@ -205,7 +205,7 @@ export default function Dashboard() {
             <div className="dpane">
               <div className="grid g4">
                 <Stat label="Total project value" value={moneyShort(f.project_value)} sub={money(f.project_value)} icon="building" />
-                <Stat label="Amount collected" value={money(f.collected)} sub="in selected period" tone="pos" to="/receipts" icon="wallet" />
+                <Stat label="Amount collected" value={money(f.collected)} sub={f.collected_by_developer ? `in selected period · plus ${money(f.collected_by_developer)} paid to developers` : 'in selected period'} tone="pos" to="/receipts" icon="wallet" />
                 <Stat label="Amount receivable" value={money(f.receivable)} sub="all open sales" to="/payments/receivables" icon="dollar" />
                 <Stat label="Total expenses" value={money(f.expenses)} sub="in selected period" tone="neg" to="/expenses" icon="receipt" />
                 <Stat label="Net revenue" value={money(f.net_revenue)} sub="collected − expenses" tone={f.net_revenue >= 0 ? 'pos' : 'neg'} icon="chart" />

@@ -296,7 +296,7 @@ r.get('/installments', can('payments', 'view'), asyncH((req, res) => {
     COALESCE(SUM(CASE WHEN i.status<>'paid' AND i.due_date<? THEN i.amount-i.paid ELSE 0 END),0) overdue_amount,
     COALESCE(SUM(CASE WHEN i.status<>'paid' AND i.due_date>=? AND i.due_date<=? THEN 1 ELSE 0 END),0) soon_count,
     COALESCE(SUM(CASE WHEN i.status<>'paid' AND i.due_date>=? AND i.due_date<=? THEN i.amount-i.paid ELSE 0 END),0) soon_amount ${sbase}`, t, t, t, wk, t, wk, ...params);
-  stats.collected_month = get(`SELECT COALESCE(SUM(amount+advance_amount),0) v FROM receipts WHERE status='valid' AND date>=?${q.project_id ? ' AND project_id=?' : ''}`, `${t.slice(0, 7)}-01`, ...(q.project_id ? [q.project_id] : [])).v;
+  stats.collected_month = get(`SELECT COALESCE(SUM(amount+advance_amount),0) v FROM receipts WHERE status='valid' AND account_id NOT IN (SELECT id FROM accounts WHERE code='2610') AND date>=?${q.project_id ? ' AND project_id=?' : ''}`, `${t.slice(0, 7)}-01`, ...(q.project_id ? [q.project_id] : [])).v;
   res.json({ rows, total, page, limit, balance_total: sums, stats });
 }));
 
