@@ -24,6 +24,7 @@ import { stripeView, saveStripe, stripeConfig, STRIPE_MODES, audit, getSetting, 
 import { testConnection } from '../services/stripe.js';
 import { platformGatewayList, savePlatformGateway, setPlatformGatewayEnabled, removePlatformGateway, platformCheckouts } from '../services/platformGateways.js';
 import { LOCAL_METHODS } from '../services/billing.js';
+import * as hifiOne from '../services/hifiOne.js';
 import { runBackup, listBackups, backupDir } from '../services/backup.js';
 import { dashboard, health, listNotifications, markRead, search, generateNotifications } from '../services/platformMetrics.js';
 import { overview, tenantSummaries, tenantDetail, createWorkspace, extendTrial, trialAction, extendGrace, remindOwner, setOwner, userAction, setupChecklist, listAdmins, addAdmin, removeAdmin,
@@ -555,6 +556,10 @@ r.post('/announcements/:id/:action(publish|retire|draft)', requireOperator, need
 }));
 r.get('/version', requireOperator, need('dashboard.view'), (_req, res) => res.json(versionInfo()));
 r.get('/integrations', requireOperator, need('system.view'), (_req, res) => res.json(integrationRegistry()));
+// Hifi One connection key (Integrations page): made here, shown once, stored as a hash
+r.get('/hifi-one', requireOperator, need('system.view'), (_req, res) => res.json(hifiOne.keyState()));
+r.post('/hifi-one/key', requireOperator, need('integrations.manage'), limiter, (req, res) => res.json(hifiOne.makeKey(req.operator.email)));
+r.delete('/hifi-one/key', requireOperator, need('integrations.manage'), (req, res) => res.json(hifiOne.removeKey(req.operator.email)));
 r.put('/integrations/:id', requireOperator, need('integrations.manage'), asyncH(async (req, res) => {
   const out = await configureIntegration(req.params.id, req.body || {}, req.operator.email);
   audit(req.operator.email, 'integration-configured', { integration: req.params.id });

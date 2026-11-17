@@ -313,6 +313,39 @@ export function AnnouncementsPage() {
 }
 
 // ---------------------------------------------------------------- video meeting limits (platform-wide ceilings every workspace stays under)
+// Hifi One reads each workspace's status line (status, plan, paid-until, active staff, last activity; no customer records)
+// with a key made here. The key is shown once; only its hash is kept. Making a new key stops the old one at once.
+function HifiOneKey() {
+  const toast = useToast();
+  const can = useCan();
+  const { d, err, load } = useLoad(`${A}/hifi-one`);
+  const [shown, setShown] = useState(null);
+  const [ask, setAsk] = useState(null);
+  const address = window.location.origin;
+  const make = async () => { try { const r = await api.post(`${A}/hifi-one/key`, {}); setShown(r.key); setAsk(null); load(); } catch (e) { toast(e.message, 'err'); } };
+  const remove = async () => { try { await api.del(`${A}/hifi-one/key`); setShown(null); setAsk(null); toast('Key removed. Hifi One can no longer read'); load(); } catch (e) { toast(e.message, 'err'); } };
+  const copy = async (v) => { try { await navigator.clipboard.writeText(v); toast('Copied'); } catch { toast('Copy failed. Select the text and copy it', 'err'); } };
+  return (
+    <Card title="Hifi One" actions={d && <StatusBadge status={d.set ? 'active' : 'inactive'} label={d.set ? (d.last_read_at ? 'Connected' : 'Key made, not read yet') : 'Not configured'} />}>
+      <p className="muted" style={{ marginTop: 0 }}>Partners · Lets Hifi One show its partners and sales agents whether each workspace is on trial, live, overdue, suspended or cancelled, with plan, paid-until date, active staff and last activity. No customer, lead, sale or payment records are shared.</p>
+      <ErrorBox error={err} />
+      {d?.set && <p className="muted">Key ends {d.hint}{d.by ? ` · made by ${d.by}` : ''}{d.created_at ? ` · ${when(d.created_at)}` : ''} · {d.last_read_at ? `last read by Hifi One ${when(d.last_read_at)}` : 'not read by Hifi One yet'}</p>}
+      {shown && <div style={{ border: '1px solid var(--line, #e3e7e5)', borderRadius: 10, padding: 12, margin: '8px 0' }}>
+        <p style={{ marginTop: 0 }}><b>Copy this key now. It is not shown again.</b> In Hifi One open Partner Stack → Live Solutions → Connect, choose Agentify ERP, and paste the address and key.</p>
+        <Field label="Address"><div className="row" style={{ gap: 8 }}><span className="mono">{address}</span><button className="btn sm" onClick={() => copy(address)}>Copy address</button></div></Field>
+        <Field label="API key"><div className="row wrap" style={{ gap: 8 }}><span className="mono" style={{ wordBreak: 'break-all' }}>{shown}</span><button className="btn sm primary" onClick={() => copy(shown)}>Copy key</button></div></Field>
+      </div>}
+      {d && !can('integrations.manage') && <p className="muted"><b>Your console role cannot make keys.</b> Ask a Platform Owner, Super Admin or Technical Administrator.</p>}
+      {d && can('integrations.manage') && <div className="row wrap" style={{ gap: 8 }}>
+        <button className="btn sm primary" onClick={() => (d.set ? setAsk('make') : make())}>{d.set ? 'Make a new key' : 'Make a key'}</button>
+        {d.set && <button className="btn sm danger" onClick={() => setAsk('remove')}>Remove key</button>}
+      </div>}
+      {ask === 'make' && <ConfirmDialog title="Make a new Hifi One key?" message="The current key stops working at once. Paste the new key into Hifi One straight after." confirmLabel="Make new key" onConfirm={make} onCancel={() => setAsk(null)} />}
+      {ask === 'remove' && <ConfirmDialog title="Remove the Hifi One key?" message="Hifi One will stop receiving workspace status until you make a new key." confirmLabel="Remove key" danger onConfirm={remove} onCancel={() => setAsk(null)} />}
+    </Card>
+  );
+}
+
 function MeetingLimits() {
   const toast = useToast();
   const can = useCan();
@@ -399,6 +432,7 @@ export function IntegrationsPage() {
           </Card>
         );
       })}
+      <HifiOneKey />
       <MeetingLimits />
       {edit && (
         <Modal title={`Configure · ${edit.name}`} onClose={() => setEdit(null)} footer={<><button className="btn" onClick={() => setEdit(null)}>Cancel</button><button className="btn primary" onClick={save}>Save</button></>}>

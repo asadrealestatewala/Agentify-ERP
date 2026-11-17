@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.106', date: '2026-11-17', title: 'Connect Hifi One with a key made in the console',
+    items: [
+      { text: 'Make a Hifi One key in the console so Hifi One can show its partners and sales agents whether each workspace is on trial, live, overdue, suspended or cancelled, with its plan, paid-until date, active staff and last activity. Only these counts and dates are shared, never customer, lead, sale or payment records. The key is shown once; making a new key or removing it stops the old one at once.', where: 'Console > Integrations > Hifi One', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.105', date: '2026-11-16', title: 'Welcome messages with a temporary password',
     items: [
       { text: 'When you add a team member, tick "Send a welcome message with a temporary password". They get an email with the sign-in steps, their login, a one-time password and the Android app link, and you get the same message to copy and send by WhatsApp. At their first sign-in they choose their own password and receive a recovery code that lets them set a new password later without waiting for an email (Forgot password > Use my recovery code).', where: 'Settings > Users > Add user' },
