@@ -19,6 +19,7 @@ import { markJob, snapshot, generateNotifications } from './services/platformMet
 import { maintenanceGate, recordError } from './services/maintenance.js';
 import { runLifecycle } from './services/lifecycle.js';
 import platformRoutes, { siteInfo, marketingInfo } from './routes/platform.js';
+import hifiOneRoutes from './routes/hifiOne.js';
 import { fastLanding } from './services/fastLanding.js';
 import billing from './routes/billing.js';
 import { billingGuard, apiAccessGuard } from './services/plans.js';
@@ -123,6 +124,8 @@ export function createApp() {
 
   // Platform (control plane) API: signup, tenant admin. Never tenant-scoped.
   app.use('/api/platform', platformRoutes);
+  // Hifi One reads workspace status counts with a console-made key (services/hifiOne.js); before maintenance so it keeps working
+  app.use('/api/hifi-one', hifiOneRoutes);
 
   // Everything below runs inside the tenant that owns the request's host name. Placed after the body parsers so the
   // tenant context is not lost in stream callbacks.
