@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.109', date: '2026-11-18', title: 'Full courses wait until the channel may upload long videos',
+    items: [
+      { text: 'The automatic upload queue now holds the three full courses (longer than 15 minutes) until YouTube states that the channel is allowed long videos, and never treats an unknown answer as permission. Lessons keep uploading meanwhile. A tick box lets you upload the full courses anyway once you know the channel is verified, and Upload again puts a video that YouTube removed back in the queue.', where: 'Console > System > Training videos > Automatic upload queue', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.108', date: '2026-11-18', title: 'Upload queue handles videos YouTube refuses',
     items: [
       { text: 'The automatic upload queue now checks that YouTube accepted each video. A video YouTube refuses (for example one longer than 15 minutes on a channel that is not verified) is marked On hold with the reason instead of On YouTube, and goes up again by itself once the channel is verified. Lessons keep uploading meanwhile.', where: 'Console > System > Training videos > Automatic upload queue', audience: 'platform' },
