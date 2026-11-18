@@ -77,6 +77,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { authorizeUrl, signState, mainOrigin, redirectUri } from '../services/oauthApps.js';
 import * as training from '../services/trainingYoutube.js';
+import * as ytQueue from '../services/trainingQueue.js';
 import { freeSitesConfig, saveFreeSites, checkFreeSitesDns } from '../services/freeSites.js';
 
 const r = Router();
@@ -928,6 +929,10 @@ r.delete('/ai/settings/key', requireOperator, need('integrations.manage'), (req,
 r.put('/content/limits', requireOperator, need('system.manage'), asyncH((req, res) => { const l = cal.saveLimits(req.body || {}, req.operator.email); audit(req.operator.email, 'content-limits-changed', l); res.json(l); }));
 
 r.get('/training-videos', requireOperator, need('system.view'), (_req, res) => res.json({ youtube: training.youtubeStatus(), rows: training.listVideos(), roles: training.roleNames(), categories: training.CATEGORIES, privacy: training.PRIVACY }));
+r.get('/training-videos/queue', requireOperator, need('system.view'), (_req, res) => res.json(ytQueue.view()));
+r.put('/training-videos/queue/settings', requireOperator, need('system.manage'), asyncH((req, res) => { ytQueue.saveSettings(req.body || {}, req.operator.email); audit(req.operator.email, 'youtube-queue-settings', { on: req.body?.on, limit: req.body?.limit, privacy: req.body?.privacy }); res.json(ytQueue.view()); }));
+r.post('/training-videos/queue/run', requireOperator, need('system.manage'), asyncH(async (req, res) => { const out = await ytQueue.tick({ force: true }); audit(req.operator.email, 'youtube-queue-run', { state: out.state }); res.json({ ...out, ...ytQueue.view() }); }));
+r.post('/training-videos/queue/retry', requireOperator, need('system.manage'), asyncH((req, res) => { ytQueue.retry(req.body?.file); res.json(ytQueue.view()); }));
 r.get('/training-videos/youtube/connect', requireOperator, need('system.manage'), asyncH((req, res) => {
   if (training.youtubeStatus().state === 'not_configured') throw bad('Add the Google client ID and secret first (Integrations > Google).');
   const state = signState({ purpose: 'youtube', origin: mainOrigin(req), by: req.operator.email });

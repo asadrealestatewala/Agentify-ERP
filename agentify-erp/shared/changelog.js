@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.107', date: '2026-11-18', title: 'Training course uploads itself to YouTube',
+    items: [
+      { text: 'The training course videos already on the server can now go to the YouTube channel on their own: switch on the automatic upload queue, choose how many uploads per day (6 fits Google\'s default limit) and the visibility. It posts the 3 full courses first, then the lessons in English, Urdu and Arabic, sets each thumbnail and adds each video to its language playlist. Playlists need one reconnect of YouTube to give the extra permission.', where: 'Console > System > Training videos > Automatic upload queue', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.106', date: '2026-11-17', title: 'Connect Hifi One with a key made in the console',
     items: [
       { text: 'Make a Hifi One key in the console so Hifi One can show its partners and sales agents whether each workspace is on trial, live, overdue, suspended or cancelled, with its plan, paid-until date, active staff and last activity. Only these counts and dates are shared, never customer, lead, sale or payment records. The key is shown once; making a new key or removing it stops the old one at once.', where: 'Console > Integrations > Hifi One', audience: 'platform' },

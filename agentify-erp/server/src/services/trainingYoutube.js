@@ -154,7 +154,7 @@ export function linkExisting(key, url, by) {
   bump();
 }
 
-const friendly = (status, data) => {
+export const friendly = (status, data) => {
   const reason = data?.error?.errors?.[0]?.reason || data?.error?.status || '';
   const msg = data?.error?.message || '';
   if (/quotaExceeded|rateLimitExceeded/i.test(reason)) return 'YouTube\'s daily upload quota for this project is used up. It resets at midnight Pacific time; try again then, or ask Google for more quota.';
@@ -193,7 +193,7 @@ export function startPost(key, { privacy = 'unlisted' } = {}, by = null, deps = 
   return job;
 }
 
-async function upload(r, file, privacy, { fetchFn = fetch } = {}) {
+export async function upload(r, file, privacy, { fetchFn = fetch } = {}) {
   let access;
   try { access = (await refreshAccessToken('google', getSetting(TOKEN_KEY))).access_token; } catch (e) { throw new Error(friendly(400, { error: { message: String(e.message) } })); }
   const meta = { snippet: { title: r.title.replace(/[<>]/g, '').slice(0, 100), description: String(r.description || '').replace(/[<>]/g, '').slice(0, 5000), categoryId: '27' }, status: { privacyStatus: privacy, selfDeclaredMadeForKids: false } };
@@ -206,4 +206,19 @@ async function upload(r, file, privacy, { fetchFn = fetch } = {}) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok || !data.id) throw new Error(friendly(res.status, data));
   return { id: data.id, channelId: data.snippet?.channelId };
+}
+
+/** The refreshed access token for the connected channel (used by the upload queue for thumbnails and playlists). */
+export async function accessToken() {
+  try { return (await refreshAccessToken('google', getSetting(TOKEN_KEY))).access_token; } catch (e) { throw new Error(friendly(400, { error: { message: String(e.message) } })); }
+}
+/** Throws a plain sentence unless YouTube is connected and (when an expected channel is saved) it is that channel. */
+export function assertReadyToPost() {
+  const st = youtubeStatus();
+  if (st.state === 'not_configured') throw new Error('YouTube is not set up yet.');
+  if (st.state === 'not_connected') throw new Error('Connect the YouTube channel first.');
+  if (st.expected_channel) {
+    if (!st.channel?.id) throw new Error('YouTube must be connected again before the channel can be checked.');
+    if (st.channel.id !== st.expected_channel) throw new Error(`The connected YouTube channel is ${st.channel.title || st.channel.id}, not the expected ${st.expected_channel}. Nothing was posted.`);
+  }
 }
