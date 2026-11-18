@@ -128,6 +128,7 @@ function QueueCard({ canManage }) {
       <p className="muted" style={{ marginTop: 0 }}>The training course (3 full courses, then 25 lessons in English, Urdu and Arabic) is already on the server. Switch this on and it posts the videos to the connected channel one by one, sets each thumbnail and adds it to its language playlist. Nothing is downloaded by hand.</p>
       <ErrorBox error={err} />
       {s.note && <p><span className="pill red">Stopped</span> {s.note}</p>}
+      {canManage && <label className="check" style={{ display: 'block', margin: '0 0 10px' }}><input type="checkbox" checked={!!s.force_long} disabled={busy} onChange={(e) => act(() => api.put(`${A}/training-videos/queue/settings`, { force_long: e.target.checked }))} /> Upload the full courses (over 15 minutes) without waiting for YouTube to confirm long videos. If YouTube refuses one again it goes On hold and is not retried until YouTube confirms.</label>}
       <div className="row" style={{ gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <Field label="Uploads per day" hint="Google's default quota allows about 6"><input className="input" type="number" min="1" max="10" style={{ width: 90 }} value={s.limit} disabled={!canManage || busy} onChange={(e) => setQ({ ...q, settings: { ...s, limit: e.target.value } })} onBlur={() => act(() => api.put(`${A}/training-videos/queue/settings`, { limit: s.limit }))} /></Field>
         <Field label="Visibility"><select className="select" aria-label="Queue visibility" value={s.privacy} disabled={!canManage || busy} onChange={(e) => act(() => api.put(`${A}/training-videos/queue/settings`, { privacy: e.target.value }))}>{Object.entries(PRIVACY).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
@@ -144,6 +145,7 @@ function QueueCard({ canManage }) {
             {r.error && <span className="muted" style={{ display: 'block', fontSize: 12.5 }}>{r.error}</span>}
             {r.status === 'posted' && r.playlist_note && <span className="muted" style={{ display: 'block', fontSize: 12.5 }}>{r.playlist_note}</span>}</span>
           {canManage && ['failed', 'held'].includes(r.status) && <button className="btn" disabled={busy} onClick={() => act(() => api.post(`${A}/training-videos/queue/retry`, { file: r.file }))}>Try again</button>}
+          {canManage && r.status === 'posted' && <button className="btn ghost" disabled={busy} onClick={() => confirm('Put this video back in the queue? Use this when YouTube removed it. The old YouTube video is not deleted, so remove it in YouTube Studio if it is still there.') && act(() => api.post(`${A}/training-videos/queue/retry`, { file: r.file }), () => 'Back in the queue')}>Upload again</button>}
         </div>))}
       <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => setShowAll(!showAll)}>{showAll ? 'Show only what is waiting' : `Show all ${q.rows.length}`}</button>
     </FoldCard>

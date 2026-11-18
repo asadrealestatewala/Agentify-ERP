@@ -13,7 +13,7 @@ import { bad } from '../util.js';
 
 export const DIR = path.join(ASSETS, 'promo', 'training');
 const THUMBS = path.join(DIR, 'thumbs');
-const K = { on: 'yt_queue_on', limit: 'yt_queue_limit', privacy: 'yt_queue_privacy', pause: 'yt_queue_pause_until', note: 'yt_queue_note' };
+const K = { on: 'yt_queue_on', limit: 'yt_queue_limit', privacy: 'yt_queue_privacy', pause: 'yt_queue_pause_until', note: 'yt_queue_note', forceLong: 'yt_queue_force_long' };
 const MAX_ATTEMPTS = 3;
 export const PLAYLISTS = { en: 'Agentify ERP Training (English)', ur: 'ایجنٹیفائی ای آر پی تربیت (اردو)', ar: 'تدريب أجنتيفاي ERP (العربية)' };
 const db = () => platformDb();
@@ -44,10 +44,11 @@ const day = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/Lo
 export function settings() {
   const limit = Math.min(10, Math.max(1, Math.round(Number(getSetting(K.limit))) || 6));
   const privacy = PRIVACY.includes(getSetting(K.privacy)) ? getSetting(K.privacy) : 'unlisted';
-  return { on: getSetting(K.on) === '1', limit, privacy, paused_until: getSetting(K.pause) || null, note: getSetting(K.note) || '' };
+  return { on: getSetting(K.on) === '1', force_long: getSetting(K.forceLong) === '1', limit, privacy, paused_until: getSetting(K.pause) || null, note: getSetting(K.note) || '' };
 }
 export function saveSettings(body, by) {
   if (body.limit !== undefined) { const n = Math.round(Number(body.limit)); if (!(n >= 1 && n <= 10)) throw bad('The daily limit is between 1 and 10 uploads'); setSetting(K.limit, String(n), { by }); }
+  if (body.force_long !== undefined) setSetting(K.forceLong, body.force_long ? '1' : '0', { by });
   if (body.privacy !== undefined) { if (!PRIVACY.includes(body.privacy)) throw bad('Visibility is unlisted, public or private'); setSetting(K.privacy, body.privacy, { by }); }
   if (body.on !== undefined) {
     if (body.on) { try { assertReadyToPost(); } catch (e) { throw bad(e.message); } }
@@ -64,8 +65,9 @@ export function view() {
 export function retry(file) {
   const r = db().prepare('SELECT status FROM youtube_queue WHERE file=?').get(String(file));
   if (!r) throw bad('Video not found');
-  if (!['failed', 'held'].includes(r.status)) throw bad('Only a failed or held upload can be retried.');
-  db().prepare("UPDATE youtube_queue SET status='queued', attempts=0, error=NULL, hold=NULL, verified=NULL WHERE file=?").run(file);
+  if (r.status === 'posting') throw bad('This video is being uploaded right now.');
+  // a video that is on YouTube can be put back too (for example when YouTube removed it); the old link is forgotten, the old video is not touched
+  db().prepare("UPDATE youtube_queue SET status='queued', attempts=0, error=NULL, hold=NULL, verified=NULL, youtube_id=NULL, youtube_url=NULL, thumb=NULL, playlist=NULL, playlist_note=NULL WHERE file=?").run(file);
 }
 
 const quotaError = (m) => /quota|upload limit/i.test(m);
@@ -141,7 +143,7 @@ export async function tick({ force = false, fetchFn = fetch, uploadFn = upload, 
     let row = null;
     for (const cand of db().prepare("SELECT * FROM youtube_queue WHERE status='queued' ORDER BY pos").all()) {
       // the full courses are longer than 15 minutes: do not spend quota on them until the channel is allowed long videos
-      if (cand.file.includes('full-course') && !(token0 && await longUploadsAllowed(token0, fetchFn))) { db().prepare("UPDATE youtube_queue SET status='held', hold='long', error=? WHERE file=?").run(LONG_MSG, cand.file); continue; }
+      if (cand.file.includes('full-course') && !s.force_long && !(token0 && await longUploadsAllowed(token0, fetchFn))) { db().prepare("UPDATE youtube_queue SET status='held', hold='long', error=? WHERE file=?").run(LONG_MSG, cand.file); continue; }
       row = cand; break;
     }
     if (!row) { await finishExtras(s, fetchFn, tokenFn); return { state: 'empty' }; }

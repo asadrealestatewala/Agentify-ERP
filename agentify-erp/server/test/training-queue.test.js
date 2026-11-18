@@ -84,3 +84,30 @@ test('a video YouTube refuses as too long is held, and returns to the queue once
   await q.tick({ ...deps, fetchFn: f });
   assert.equal(q.view().counts.held, 0, 'released after verification');
 });
+
+test('a posted video can be put back in the queue and is forgotten as posted', async () => {
+  const f = q.view().rows.find((r) => r.status === 'posted').file;
+  q.retry(f);
+  const r = q.view().rows.find((x) => x.file === f);
+  assert.equal(r.status, 'queued'); assert.equal(r.youtube_url, null); assert.equal(r.thumb, null);
+});
+
+test('"upload long videos anyway" skips the pre-check but a refused video is still held', async () => {
+  const { platformDb } = await import('../src/platform.js');
+  q.saveSettings({ on: true, limit: 10, force_long: true }, 'x');
+  const full = q.view().rows.filter((r) => r.file.includes('full-course'));
+  for (const r of full) q.retry(r.file);
+  let vids = [];
+  const f = async (url, init) => {
+    const j = (d) => ({ ok: true, status: 200, json: async () => d });
+    if (url.includes('/channels?')) return j({ items: [{ status: { longUploadsStatus: 'disallowed' } }] });
+    if (url.includes('/videos?')) return j({ items: vids.map((id) => ({ id, status: { uploadStatus: 'rejected', rejectionReason: 'tooLong' } })) });
+    return fakeFetch(url, init);
+  };
+  assert.equal((await q.tick({ ...deps, fetchFn: f })).state, 'posted');
+  assert.ok(q.view().rows.find((r) => r.file === full[0].file).youtube_url, 'attempted despite the pre-check');
+  vids = full.map((r) => platformDb().prepare('SELECT youtube_id FROM youtube_queue WHERE file=?').get(r.file).youtube_id).filter(Boolean);
+  platformDb().prepare("UPDATE youtube_queue SET posted_at=datetime('now','-5 minutes') WHERE file=?").run(full[0].file);
+  await q.tick({ ...deps, fetchFn: f });
+  assert.equal(q.view().rows.find((r) => r.file === full[0].file).status, 'held');
+});
