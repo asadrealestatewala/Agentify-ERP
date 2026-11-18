@@ -21,6 +21,7 @@ The reference projects are Next.js applications. Agentify renders every website 
 | `haven` | Haven | Rentals and bookings. Original. |
 | `maison` | Maison | Single property. Original. |
 | `homestead` | Homestead | Modern agency. Original. |
+| `society` | Society | Housing society and developers. Original. |
 
 Sample photos shipped for previews (`client/public/site/theme-*.jpg`) were supplied by the product owner for use as sample content. Rights to use them in the product are the owner's to confirm; they appear only as starting pictures that a company replaces with its own.
 

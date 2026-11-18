@@ -601,6 +601,89 @@ function LiveStats({ p }) {
   );
 }
 
+/** Housing society facts typed by the company. Blank numbers stay hidden from visitors (shown faintly in the editor). */
+function SocietyStats({ p }) {
+  const editing = !!useContext(EditCtx);
+  const items = (p.items || []).map((s, i) => ({ ...s, _i: i })).filter((s) => editing || String(s.value || '').trim());
+  if (!items.length) return null;
+  return (
+    <section className="sec"><div className="wrap">
+      <Head title={p.title} subtitle={p.subtitle} />
+      <div className="pi-stats ss-stats">{items.map((s) => <div key={s._i} style={!String(s.value || '').trim() ? { opacity: 0.45 } : undefined}><b>{String(s.value || '').trim() || '—'}</b><span>{s.label}</span>{s.note && <small>{s.note}</small>}</div>)}</div>
+      {p.as_of && <p className="ss-asof">Figures as of {p.as_of}</p>}
+    </div></section>
+  );
+}
+
+/** Live construction progress: website-visible projects with their progress bars and the latest published updates. */
+function ConstructionProgress({ p }) {
+  const proj = usePublic('/api/site/projects', { kind: 'development' });
+  const upd = usePublic('/api/site/project-updates', { limit: 6 });
+  const rows = (proj?.data || []).slice(0, p.limit || 6);
+  const updates = p.show_updates === false ? [] : upd?.data || [];
+  if (proj && !rows.length && !updates.length) return null;
+  return (
+    <section className="sec soft"><div className="wrap">
+      <Head title={p.title} subtitle={p.subtitle} href="/site/projects" />
+      {proj && <div className="cp-list">{rows.map((x) => (
+        <Link key={x.id} to={`/site/project/${x.id}`} className="cp-row">
+          <div><b>{x.name}</b><small>{[x.location, x.dev_status].filter(Boolean).join(' · ')}</small></div>
+          {x.progress != null ? <div className="cp-bar"><div className="jbar big"><div style={{ width: `${x.progress}%` }} /></div><span>{x.progress}% complete</span></div> : <span className="cp-nop">{x.dev_status}</span>}
+        </Link>
+      ))}</div>}
+      {updates.length > 0 && <>
+        {p.updates_title && <h3 className="cp-h">{p.updates_title}</h3>}
+        <div className="cp-updates">{updates.map((u) => (
+          <article key={u.id} className="cp-upd">
+            {u.images[0] && <img src={imgUrl(u.images[0].url)} alt={u.title} loading="lazy" />}
+            <div><small>{u.project_name} · {u.update_date}{u.progress != null ? ` · ${u.progress}%` : ''}</small><h4>{u.title}</h4>{u.description && <p>{String(u.description).replace(/<[^>]+>/g, '').slice(0, 160)}</p>}</div>
+          </article>
+        ))}</div>
+      </>}
+    </div></section>
+  );
+}
+
+/** Block-wise table. "Available now" counts come live from published listings whose Block matches. */
+function BlockTable({ p }) {
+  const live = p.live_available !== false;
+  const d = usePublic(live ? '/api/site/block-counts' : null);
+  const editing = !!useContext(EditCtx);
+  const rows = (p.rows || []).filter((r) => editing || r.block);
+  if (!rows.length) return null;
+  const counts = Object.fromEntries((d?.data || []).map((x) => [String(x.block).trim().toLowerCase(), x.available]));
+  return (
+    <section className="sec"><div className="wrap">
+      <Head title={p.title} subtitle={p.subtitle} />
+      <div className="bt-wrap"><table className="bt"><thead><tr><th>Block</th><th>Plot sizes</th><th>Total plots</th>{live && <th>Available now</th>}<th>Status</th></tr></thead>
+        <tbody>{rows.map((r, i) => <tr key={i}><td><b>{r.block || '—'}</b></td><td>{r.sizes || '—'}</td><td>{r.plots || '—'}</td>{live && <td>{d ? (counts[String(r.block).trim().toLowerCase()] ?? 0) : '…'}</td>}<td>{r.status || '—'}</td></tr>)}</tbody></table></div>
+    </div></section>
+  );
+}
+
+const APPROVAL_LABEL = { approved: 'Approved', in_process: 'In process', applied: 'Applied', not_required: 'Not required' };
+/** Approvals and NOCs exactly as the company states them; the status badge is a choice the company makes, never guessed. */
+function Approvals({ p }) {
+  const editing = !!useContext(EditCtx);
+  const items = (p.items || []).filter((x) => editing || x.title);
+  if (!items.length) return null;
+  return (
+    <section className="sec soft"><div className="wrap">
+      <Head title={p.title} />
+      {p.intro && <p className="pi-intro">{p.intro}</p>}
+      <div className="ap-grid">{items.map((x, i) => (
+        <div key={i} className="ap-card">
+          <span className={`ap-badge ap-${x.status || 'approved'}`}>{APPROVAL_LABEL[x.status] || 'Approved'}</span>
+          <h4>{x.title || '—'}</h4>
+          {x.authority && <small>Issued by {x.authority}</small>}
+          {(x.number || x.date) && <small>{[x.number && `Ref. ${x.number}`, x.date].filter(Boolean).join(' · ')}</small>}
+          {x.href && <A href={x.href} className="more">View document →</A>}
+        </div>
+      ))}</div>
+    </div></section>
+  );
+}
+
 /** Book a site visit: picks project, day and time slot, then arrives in the CRM as a lead with the request attached. */
 function Booking({ p }) {
   const opts = usePublic('/api/site/booking-options');
@@ -648,7 +731,7 @@ const Portal = ({ p }) => (
 
 const Banner = ({ p }) => { const inner = <div className="wrap"><Ed value={p.text} path="text" /><LinkBtn path="href" value={p.href} /></div>; return p.href ? <A href={p.href} className={`banner ${p.tone || 'primary'}`}>{inner}</A> : <div className={`banner ${p.tone || 'primary'}`}>{inner}</div>; };
 
-const MAP = { hero: Hero, listings: Listings, projects: Projects, stats: Stats, services: Services, calculators: Calculators, agents: Agents, testimonials: Testimonials, partners: Partners, reviews: Reviews, embed: Embed, blog: Blog, cta: Cta, text: TextBlock, imagetext: ImageText, faq: Faq, contact: Contact, gallery: Gallery, banner: Banner, leadership: Leadership, projectinfo: ProjectInfo, columns: Columns, spacer: Spacer, livestats: LiveStats, booking: Booking, portal: Portal };
+const MAP = { hero: Hero, listings: Listings, projects: Projects, stats: Stats, services: Services, calculators: Calculators, agents: Agents, testimonials: Testimonials, partners: Partners, reviews: Reviews, embed: Embed, blog: Blog, cta: Cta, text: TextBlock, imagetext: ImageText, faq: Faq, contact: Contact, gallery: Gallery, banner: Banner, leadership: Leadership, projectinfo: ProjectInfo, columns: Columns, spacer: Spacer, livestats: LiveStats, societystats: SocietyStats, constructionprogress: ConstructionProgress, blocktable: BlockTable, approvals: Approvals, booking: Booking, portal: Portal };
 
 /**
  * Renders a page's sections. Each one sits in a wrapper (#sb-<id>) so the responsive layout settings can be compiled

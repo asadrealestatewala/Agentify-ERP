@@ -8,7 +8,8 @@
  * aria-label instead.
  */
 import {
-  IconAward, IconBath, IconBed, IconBrandWhatsapp, IconBuilding, IconBuildingCommunity, IconBuildingSkyscraper,
+  IconAward, IconBath, IconBed, IconBrandWhatsapp, IconBuilding, IconBuildingCommunity, IconBuildingMosque, IconBuildingSkyscraper,
+  IconBolt, IconSchool, IconStethoscope,
   IconCalendarEvent, IconCamera, IconCar, IconCash, IconChartLine, IconChecklist, IconCircleDot, IconClock, IconCrane,
   IconCreditCard, IconDeviceLandlinePhone, IconDiamond, IconFileText, IconHeartHandshake, IconHome, IconHomeDollar,
   IconKey, IconMail, IconMapPin, IconMessageCircle, IconNews, IconPhone, IconPhoto, IconReceipt, IconRulerMeasure,
@@ -46,6 +47,10 @@ export const ICON_COMPONENTS = {
   search: IconSearch,
   calendar: IconCalendarEvent,
   hours: IconClock,
+  mosque: IconBuildingMosque,
+  school: IconSchool,
+  health: IconStethoscope,
+  utilities: IconBolt,
   verified: IconShieldCheck,
   paperwork: IconFileText,
   receipt: IconReceipt,

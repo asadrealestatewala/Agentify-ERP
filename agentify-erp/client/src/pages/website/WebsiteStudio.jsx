@@ -86,6 +86,7 @@ export const PALETTE = [
   ['layout', 'Layout', ['columns', 'imagetext', 'text', 'spacer', 'gallery', 'embed', 'banner', 'cta']],
   ['erp', 'Data from the ERP', ['listings', 'projects', 'agents', 'livestats', 'blog', 'calculators', 'contact', 'booking', 'portal']],
   ['content', 'Content', ['hero', 'stats', 'services', 'testimonials', 'reviews', 'partners', 'faq', 'leadership', 'projectinfo']],
+  ['society', 'Housing society', ['societystats', 'constructionprogress', 'blocktable', 'approvals']],
 ];
 
 function buildConfig(ctx) {
