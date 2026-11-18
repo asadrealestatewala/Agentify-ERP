@@ -57,3 +57,29 @@ test('a quota error pauses the queue without losing the video; other errors retr
   assert.equal(q.view().counts.failed, 0);
   assert.throws(() => q.saveSettings({ limit: 50 }, 'x'), /between 1 and 10/);
 });
+
+test('a video YouTube refuses as too long is held, and returns to the queue once the channel may upload long videos', async () => {
+  const { platformDb } = await import('../src/platform.js');
+  q.saveSettings({ on: true, limit: 10 }, 'x');
+  const file = q.view().rows.find((r) => r.status === 'posted').file;
+  platformDb().prepare("UPDATE youtube_queue SET posted_at=datetime('now','-5 minutes'), verified=NULL WHERE file=?").run(file);
+  const id = platformDb().prepare('SELECT youtube_id FROM youtube_queue WHERE file=?').get(file).youtube_id;
+  let longStatus = 'disallowed';
+  const f = async (url, init) => {
+    const j = (d) => ({ ok: true, status: 200, json: async () => d });
+    if (url.includes('/videos?')) return j({ items: [{ id, status: { uploadStatus: 'rejected', rejectionReason: 'tooLong' } }] });
+    if (url.includes('/channels?')) return j({ items: [{ status: { longUploadsStatus: longStatus } }] });
+    return fakeFetch(url, init);
+  };
+  await q.tick({ ...deps, fetchFn: f });
+  let row = q.view().rows.find((r) => r.file === file);
+  assert.equal(row.status, 'held'); assert.equal(row.hold, 'long'); assert.match(row.error, /verif/i); assert.equal(row.youtube_url, null);
+  // the other full courses are held too while the channel may not upload long videos, and short lessons carry on
+  const held = q.view().rows.filter((r) => r.status === 'held').map((r) => r.file);
+  assert.ok(held.every((x) => x.includes('full-course')));
+  const next = await q.tick({ ...deps, fetchFn: f });
+  assert.ok(['posted', 'limit'].includes(next.state));
+  longStatus = 'allowed';
+  await q.tick({ ...deps, fetchFn: f });
+  assert.equal(q.view().counts.held, 0, 'released after verification');
+});

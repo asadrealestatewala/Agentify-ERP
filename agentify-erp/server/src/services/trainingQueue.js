@@ -28,7 +28,9 @@ const order = () => [...TRAINING].sort((a, b) => {
 
 function ensureTable() {
   db().exec(`CREATE TABLE IF NOT EXISTS youtube_queue(file TEXT PRIMARY KEY, pos INTEGER NOT NULL, lang TEXT, title TEXT NOT NULL, description TEXT, status TEXT NOT NULL DEFAULT 'queued',
-    attempts INTEGER NOT NULL DEFAULT 0, error TEXT, youtube_id TEXT, youtube_url TEXT, posted_at TEXT, posted_day TEXT, thumb TEXT, playlist TEXT, playlist_note TEXT)`);
+    attempts INTEGER NOT NULL DEFAULT 0, error TEXT, youtube_id TEXT, youtube_url TEXT, posted_at TEXT, posted_day TEXT, thumb TEXT, playlist TEXT, playlist_note TEXT, hold TEXT, verified INTEGER)`);
+  const have = new Set(db().prepare('PRAGMA table_info(youtube_queue)').all().map((c) => c.name));
+  for (const [c, def] of [['hold', 'TEXT'], ['verified', 'INTEGER']]) if (!have.has(c)) db().exec(`ALTER TABLE youtube_queue ADD COLUMN ${c} ${def}`);
 }
 /** Puts every shipped training video in the queue once; resets uploads that a restart interrupted. */
 export function seed() {
@@ -54,16 +56,16 @@ export function saveSettings(body, by) {
 }
 export function view() {
   seed();
-  const rows = db().prepare('SELECT file,pos,lang,title,status,attempts,error,youtube_url,posted_at,thumb,playlist,playlist_note FROM youtube_queue ORDER BY pos').all();
+  const rows = db().prepare('SELECT file,pos,lang,title,status,attempts,error,youtube_url,posted_at,thumb,playlist,playlist_note,hold FROM youtube_queue ORDER BY pos').all();
   const n = (s) => rows.filter((r) => r.status === s).length;
-  return { settings: settings(), today: db().prepare('SELECT COUNT(*) c FROM youtube_queue WHERE posted_day=?').get(day()).c, counts: { queued: n('queued'), posting: n('posting'), posted: n('posted'), failed: n('failed') },
+  return { settings: settings(), today: db().prepare('SELECT COUNT(*) c FROM youtube_queue WHERE posted_day=?').get(day()).c, counts: { queued: n('queued'), posting: n('posting'), posted: n('posted'), failed: n('failed'), held: n('held') },
     youtube: youtubeStatus(), playlists: PLAYLISTS, rows };
 }
 export function retry(file) {
   const r = db().prepare('SELECT status FROM youtube_queue WHERE file=?').get(String(file));
   if (!r) throw bad('Video not found');
-  if (r.status !== 'failed') throw bad('Only a failed upload can be retried.');
-  db().prepare("UPDATE youtube_queue SET status='queued', attempts=0, error=NULL WHERE file=?").run(file);
+  if (!['failed', 'held'].includes(r.status)) throw bad('Only a failed or held upload can be retried.');
+  db().prepare("UPDATE youtube_queue SET status='queued', attempts=0, error=NULL, hold=NULL, verified=NULL WHERE file=?").run(file);
 }
 
 const quotaError = (m) => /quota|upload limit/i.test(m);
@@ -93,6 +95,29 @@ async function addToPlaylist(row, token, privacy, fetchFn) {
   await yt('POST', 'https://www.googleapis.com/youtube/v3/playlistItems?part=snippet', token, JSON.stringify({ snippet: { playlistId: pl, resourceId: { kind: 'youtube#video', videoId: row.youtube_id } } }), fetchFn);
   return pl;
 }
+
+const LONG_MSG = 'YouTube only accepts videos up to 15 minutes until the channel is verified. Verify it at youtube.com/verify; this video then goes up on its own.';
+/** false only when YouTube says this channel may not upload videos longer than 15 minutes (it is not verified yet). */
+async function longUploadsAllowed(token, fetchFn) {
+  try { const d = await yt('GET', 'https://www.googleapis.com/youtube/v3/channels?part=status&mine=true', token, null, fetchFn); const v = d.items?.[0]?.status?.longUploadsStatus; return !v || v === 'allowed'; }
+  catch { return true; }
+}
+/** YouTube can refuse a video after the upload went through (for example "too long"). Looks at fresh uploads and holds the refused ones. */
+async function checkPosted(token, fetchFn) {
+  const rows = db().prepare("SELECT file, youtube_id FROM youtube_queue WHERE status='posted' AND verified IS NULL AND youtube_id IS NOT NULL AND posted_at < datetime('now','-45 seconds')").all();
+  if (!rows.length) return;
+  let d; try { d = await yt('GET', `https://www.googleapis.com/youtube/v3/videos?part=status&id=${rows.slice(0, 50).map((r) => r.youtube_id).join(',')}`, token, null, fetchFn); } catch { return; }
+  const by = new Map((d.items || []).map((i) => [i.id, i.status || {}]));
+  for (const r of rows) {
+    const st = by.get(r.youtube_id);
+    if (!st) { db().prepare("UPDATE youtube_queue SET status='held', hold='other', error='YouTube no longer shows this video (it was removed or refused). Try again once you have checked the channel.', youtube_url=NULL, verified=1 WHERE file=?").run(r.file); continue; }
+    if (st.uploadStatus === 'processed') db().prepare('UPDATE youtube_queue SET verified=1 WHERE file=?').run(r.file);
+    else if (st.uploadStatus === 'rejected' || st.uploadStatus === 'failed') {
+      const long = st.rejectionReason === 'tooLong';
+      db().prepare("UPDATE youtube_queue SET status='held', hold=?, error=?, youtube_url=NULL, verified=1 WHERE file=?").run(long ? 'long' : 'other', long ? LONG_MSG : `YouTube refused the video (${st.rejectionReason || st.failureReason || st.uploadStatus}).`, r.file);
+    }
+  }
+}
 const needsReconnect = (m) => /insufficient|scope|permission/i.test(m) ? 'Reconnect YouTube once (Connect YouTube) to allow playlists.' : m;
 
 /** Posts the next queued video when allowed. Returns what happened, for the console button and the tests. */
@@ -105,9 +130,20 @@ export async function tick({ force = false, fetchFn = fetch, uploadFn = upload, 
   try {
     if (s.paused_until && s.paused_until > new Date().toISOString()) return { state: 'paused', until: s.paused_until };
     try { assertReadyToPost(); } catch (e) { setSetting(K.note, e.message); return { state: 'not-ready', note: e.message }; }
+    let token0 = null; try { token0 = await tokenFn(); } catch { /* the upload reports it */ }
+    if (token0) {
+      await checkPosted(token0, fetchFn);
+      // videos held for the 15-minute limit go back in the queue once the channel is verified
+      if (db().prepare("SELECT 1 FROM youtube_queue WHERE status='held' AND hold='long' LIMIT 1").get() && await longUploadsAllowed(token0, fetchFn)) db().prepare("UPDATE youtube_queue SET status='queued', error=NULL, hold=NULL, verified=NULL WHERE status='held' AND hold='long'").run();
+    }
     const done = db().prepare('SELECT COUNT(*) c FROM youtube_queue WHERE posted_day=?').get(day()).c;
     if (done >= s.limit) return { state: 'limit', done };
-    const row = db().prepare("SELECT * FROM youtube_queue WHERE status='queued' ORDER BY pos LIMIT 1").get();
+    let row = null;
+    for (const cand of db().prepare("SELECT * FROM youtube_queue WHERE status='queued' ORDER BY pos").all()) {
+      // the full courses are longer than 15 minutes: do not spend quota on them until the channel is allowed long videos
+      if (cand.file.includes('full-course') && token0 && !(await longUploadsAllowed(token0, fetchFn))) { db().prepare("UPDATE youtube_queue SET status='held', hold='long', error=? WHERE file=?").run(LONG_MSG, cand.file); continue; }
+      row = cand; break;
+    }
     if (!row) { await finishExtras(s, fetchFn, tokenFn); return { state: 'empty' }; }
     db().prepare("UPDATE youtube_queue SET status='posting', error=NULL WHERE file=?").run(row.file);
     try {
