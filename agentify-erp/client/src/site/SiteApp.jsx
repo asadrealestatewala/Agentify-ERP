@@ -47,6 +47,27 @@ function SignInMenu() {
   );
 }
 
+/** "More" dropdown for the links that do not fit in the desktop bar (the burger menu lists everything on small screens). */
+function NavMore({ links }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef(null);
+  useEffect(() => {
+    if (!open) return undefined;
+    const off = (e) => { if (e.type === 'keydown' ? e.key === 'Escape' : !box.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', off); document.addEventListener('keydown', off);
+    return () => { document.removeEventListener('mousedown', off); document.removeEventListener('keydown', off); };
+  }, [open]);
+  return (
+    <div className="navmore desk-only" ref={box}>
+      <button type="button" className="navmore-btn" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(!open)}>More <span aria-hidden="true">▾</span></button>
+      {open && <div className="navmore-pop" onClick={(e) => { e.stopPropagation(); setOpen(false); }}>{links.map((l, i) => <A key={i} href={l.href}>{l.label}</A>)}</div>}
+    </div>
+  );
+}
+
+/** A menu longer than this shows the first few links and puts the rest under "More". */
+const NAV_INLINE = 6;
+
 export function Header() {
   const { config, menu, preview, portals } = useSite();
   const [open, setOpen] = useState(false);
@@ -57,7 +78,7 @@ export function Header() {
   const hs = HEADER_STYLES.includes(h.style) ? h.style : 'light';
   const links = [...h.links, ...menu.filter((m) => !h.links.some((l) => l.href.endsWith(`/p/${m.slug}`))).map((m) => ({ label: m.title, href: `/site/p/${m.slug}` }))];
   return (
-    <header className={`s-header hs-${hs} ${h.sticky && hs !== 'transparent' ? 'sticky' : ''}${h.topbar ? ' has-topbar' : ''}${links.length > 8 ? ' nav-many' : ''}`}>
+    <header className={`s-header hs-${hs} ${h.sticky && hs !== 'transparent' ? 'sticky' : ''}${h.topbar ? ' has-topbar' : ''}`}>
       {h.topbar && (c.phone || c.email || c.hours || (config.social || []).length > 0) && (
         <div className="s-topbar"><div className="wrap">
           <span className="tb-info">{c.phone && <a href={`tel:${c.phone}`}><Ic n="phone" /> {c.phone}</a>}{c.email && <a href={`mailto:${c.email}`}><Ic n="email" /> {c.email}</a>}{c.hours && <span><Ic n="hours" /> {c.hours}</span>}</span>
@@ -67,7 +88,8 @@ export function Header() {
       <div className="wrap row">
         <Link to="/site" className="brand" aria-label={b.name}>{b.logo ? <img src={imgUrl(b.logo)} alt={b.name} /> : <><span className="mark"><LogoMark size={36} tile={false} /></span><span><b>{b.name}</b>{b.tagline && <small>{b.tagline}</small>}</span></>}</Link>
         <nav className={`nav ${open ? 'open' : ''}`} onClick={() => setOpen(false)} aria-label="Main">
-          {links.map((l, i) => <A key={i} href={l.href}>{l.label}</A>)}
+          {links.map((l, i) => <A key={i} href={l.href} className={links.length > NAV_INLINE && i >= NAV_INLINE - 1 ? 'n-extra' : undefined}>{l.label}</A>)}
+          {links.length > NAV_INLINE && <NavMore links={links.slice(NAV_INLINE - 1)} />}
           {showCta && <A href={h.cta_href || '/login'} className="btn-p sm mobile-only">{h.cta_label}</A>}
           {showSignIn && <div className="signin-m mobile-only" role="group" aria-label="Sign in"><span>Sign in</span>{signInDoors(portals).map((d) => <A key={d.href} href={d.href}>{d.label}</A>)}</div>}
         </nav>

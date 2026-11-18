@@ -374,15 +374,13 @@
 .site .tags .tag-sample { background: #fff; color: #1f2937; border: 1px dashed #9ca3af; padding: 3px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
 .site img.av.av-img { width: 88px; height: 88px; object-fit: cover; object-position: top; display: block; margin: 0 auto 10px; }
 
-/* a long menu (a theme adds pages to an existing menu) collapses into the menu button on all but very wide screens, so links never run under the phone number or the logo */
-@media (max-width: 1500px) {
-  .site .s-header.nav-many .desk-only { display: none !important; } .site .s-header.nav-many .mobile-only, .site .s-header.nav-many .btn-p.mobile-only, .s-header.nav-many .nav .mobile-only { display: inline-flex; justify-content: center; }
-  .s-header.nav-many .nav { position: absolute; top: 68px; left: 0; right: 0; background: #fff; flex-direction: column; padding: 8px 14px 16px; border-bottom: 1px solid var(--line); display: none; box-shadow: 0 14px 24px rgba(0,0,0,.08); z-index: 60; } .s-header.nav-many .nav.open { display: flex; } .s-header.nav-many .nav a { padding: 12px; }
-  .site .s-header.nav-many .burger { display: block; } .s-header.nav-many .hphone { display: none; }
-  .s-header.nav-many.hs-dark .nav, .s-header.nav-many.hs-transparent .nav { background: var(--s-dark); }
-  .s-header.nav-many.hs-dark .burger, .s-header.nav-many.hs-transparent .burger { background: transparent; color: #fff; border-color: rgba(255,255,255,.35); }
-  .s-header.nav-many.has-topbar .nav { top: 104px; }
-}
+/* a long menu: the first links stay in the bar and the rest go under "More"; small screens list everything in the burger menu */
+.s-header .navmore { position: relative; } .s-header .n-extra { display: none !important; }
+.s-header .navmore-btn { font: inherit; font-weight: 500; font-size: 14.5px; padding: 8px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; white-space: nowrap; }
+.s-header .navmore-btn:hover { background: var(--s-soft); color: var(--s-primary); }
+.s-header.hs-dark .navmore-btn, .s-header.hs-transparent .navmore-btn { color: #fff; } .s-header.hs-dark .navmore-btn:hover, .s-header.hs-transparent .navmore-btn:hover { background: rgba(255,255,255,.12); color: #fff; }
+.s-header .navmore-pop { position: absolute; left: 0; top: calc(100% + 8px); min-width: 220px; background: #fff; border: 1px solid var(--line); border-radius: var(--s-radius); box-shadow: 0 14px 28px rgba(0,0,0,.14); padding: 6px; z-index: 80; display: flex; flex-direction: column; }
+.s-header .navmore-pop a { padding: 9px 12px; border-radius: 8px; color: var(--ink) !important; text-decoration: none !important; font-size: 14.5px; font-weight: 500; white-space: nowrap; } .s-header .navmore-pop a:hover { background: var(--s-soft); color: var(--s-primary) !important; }
 @media (max-width: 1180px) { .s-header.has-topbar .nav { top: 104px; } }
 
 /* ---- Website icons (SiteIcon.jsx, Tabler outline icons, 1.75 stroke, currentColor). Sizes: inline ~1.15em, controls 22px, cards 36px. */
@@ -436,3 +434,7 @@
 .site .sc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } .site .sc-err { color: #b42318; background: #fef3f2; border-radius: 8px; padding: 8px 12px; font-size: 14px; } .site .sc-ok { color: #0b5a4d; background: #e8f3f1; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
 .site .sc-track h3 { margin: 0; } .site .sc-found { display: grid; gap: 6px; font-size: 14px; } .site .sc-found p { margin: 0; background: var(--s-soft); padding: 8px 10px; border-radius: 8px; }
 @media (max-width: 760px) { .site .sc-grid, .site .sc-row { grid-template-columns: 1fr; } }
+
+@media (max-width: 1180px) { .s-header .n-extra { display: block !important; } }
+/* the burger menu follows the real height of the header (the top bar can wrap on a phone) and scrolls when the list is long */
+@media (max-width: 1180px) { .s-header .nav { top: 100% !important; max-height: calc(100vh - 130px); overflow-y: auto; overscroll-behavior: contain; } }
