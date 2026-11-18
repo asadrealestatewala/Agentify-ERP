@@ -52,7 +52,7 @@ const NAV = [
     ['All Projects', '/projects'], ['Development Projects', '/projects/development'], ['Construction Projects', '/projects/construction'], ['Project Units', '/projects/units'], ['Development Updates', '/projects/updates'], ['Project Financials', '/projects/financials', 'accounting'], ['Plot Map', '/projects/map'] ] },
   { label: 'Customers', icon: 'badge', module: 'customers', children: [
     ['All Customers', '/customers'], ['Active Customers', '/customers/active'], ['Buyers', '/customers/buyers'], ['Installment Customers', '/customers/installment'],
-    ['Sales & Bookings', '/sales', 'sales'], ['Construction Contracts', '/sales/construction', 'sales'], ['Customer Portal', '/customers/portal', 'customers:edit'], ['Portal Promotions', '/customers/promos', 'customers:edit'] ] },
+    ['Sales & Bookings', '/sales', 'sales'], ['Construction Contracts', '/sales/construction', 'sales'], ['Customer Portal', '/customers/portal', 'customers:edit'], ['Portal Promotions', '/customers/promos', 'customers:edit'], ['Support Center', '/customers/support'], ['Launch Notices', '/customers/notices', 'customers:edit'] ] },
   { label: 'Accounting', icon: 'wallet', module: 'accounting', children: [
     ['Dashboard', '/accounting'], ['Chart of Accounts', '/accounting/coa'], ['Receipt Vouchers', '/receipts', 'payments'], ['Expense Vouchers', '/expenses'], ['Asset Library', '/assets'],
     ['Income Statement', '/accounting/income-statement'], ['Balance Sheet', '/accounting/balance-sheet'], ['Account Statement', '/accounting/statement'], ['Cash / Till', '/accounting/treasury'], ['Bank Accounts', '/accounting/banks'], ['Journal / Transactions', '/accounting/journals'] ] },

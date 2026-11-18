@@ -6,7 +6,7 @@ export const SECTION_TYPE_NAMES = [
   'hero', 'listings', 'projects', 'stats', 'services', 'calculators', 'agents', 'testimonials', 'partners', 'reviews', 'embed',
   'blog', 'cta', 'text', 'imagetext', 'faq', 'contact', 'gallery', 'leadership', 'projectinfo', 'columns', 'spacer', 'livestats',
   'booking', 'portal', 'banner',
-  'societystats', 'constructionprogress', 'blocktable', 'approvals',
+  'societystats', 'constructionprogress', 'blocktable', 'approvals', 'supportcenter', 'noticeboard',
 ];
 
 /** Most blocks one page may hold. */

@@ -105,6 +105,9 @@ const OnboardingHome = lazy(() => import('./pages/Onboarding.jsx').then((m) => (
 const WhatsNew = lazy(() => import('./pages/WhatsNew.jsx'));
 const Content = lazy(() => import('./pages/Content.jsx'));
 const Promos = lazy(() => import('./pages/Promos.jsx'));
+const SocietySupport = lazy(() => import('./pages/SocietySupport.jsx'));
+const LaunchNotices = lazy(() => import('./pages/LaunchNotices.jsx'));
+const PortalSupport = lazy(() => import('./pages/PortalSupport.jsx'));
 const PlotMap = lazy(() => import('./pages/PlotMap.jsx'));
 const TenderDetail = lazy(() => import('./pages/Tenders.jsx').then((m) => ({ default: m.TenderDetail })));
 const TenderList = lazy(() => import('./pages/Tenders.jsx').then((m) => ({ default: m.TenderList })));
@@ -250,7 +253,7 @@ export default function App() {
       <Routes>
         <Route path="/portal" element={<PortalLayout />}>
           <Route index element={<PortalDashboard />} /><Route path="property/:id" element={<PortalProperty />} /><Route path="development" element={<PortalDevelopment />} />
-          <Route path="payments" element={<PortalPayments />} /><Route path="notifications" element={<PortalNotifications />} /><Route path="documents" element={<PortalDocuments />} /><Route path="offers" element={<PortalOffers />} /><Route path="construction" element={<PortalConstruction />} />
+          <Route path="payments" element={<PortalPayments />} /><Route path="notifications" element={<PortalNotifications />} /><Route path="documents" element={<PortalDocuments />} /><Route path="offers" element={<PortalOffers />} /><Route path="support" element={<PortalSupport />} /><Route path="construction" element={<PortalConstruction />} />
         </Route>
         <Route path="*" element={<Navigate to="/portal" replace />} />
       </Routes>
@@ -416,6 +419,8 @@ export default function App() {
         <Route path="my/onboarding" element={<MyOnboarding />} />
         <Route path="content" element={G('content', <Content />)} />
         <Route path="customers/promos" element={G('customers', <Promos />, 'edit')} />
+        <Route path="customers/support" element={G('customers', <SocietySupport />)} />
+        <Route path="customers/notices" element={G('customers', <LaunchNotices />, 'edit')} />
         <Route path="website" element={G('website', <WebsiteHome />)} />
         <Route path="website/classic" element={<Navigate to="/website" replace />} />
         <Route path="website/visual" element={<Navigate to="/website" replace />} />

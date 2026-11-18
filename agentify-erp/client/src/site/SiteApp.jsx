@@ -3,6 +3,7 @@ import { Link, Outlet, Route, Routes, useNavigate, useParams, useSearchParams } 
 import { api } from '../api.js';
 import { InstallmentCalculator } from './Calculators.jsx';
 import ChatBot from './ChatBot.jsx';
+import NoticePopup from '../components/NoticePopup.jsx';
 import { resolveStyle } from '../../../shared/sectionStyle.js';
 import { CalculatorTabs } from './ConstructionTools.jsx';
 import { A, safeHref, AgentCard, InquiryForm, Placeholder, PostCard, ProjectCard, PropertyCard, SearchBox, SectionRenderer, usePublic } from './components.jsx';
@@ -120,6 +121,14 @@ export function Footer() {
   );
 }
 
+/** Launch notices that pop up once for each visitor (not in the editor preview). */
+function SitePopup() {
+  const [d, setD] = useState(null);
+  const { draft } = useSite();
+  useEffect(() => { if (draft) return; fetch('/api/site/notices?popup=1', { headers: { 'X-Requested-With': 'ERP' } }).then((r) => (r.ok ? r.json() : null)).then((j) => setD(j?.data || null)).catch(() => {}); }, [draft]);
+  return <NoticePopup notices={d} imgSrc={imgUrl} renderLink={(n) => <A href={n.link_href} className="btn primary">{n.link_label || 'Review details'}</A>} />;
+}
+
 function SiteLayout() {
   const { config, draft } = useSite();
   const wa = config.contact.whatsapp;
@@ -131,6 +140,7 @@ function SiteLayout() {
       <main id="site-main"><Outlet /></main>
       <Footer />
       <ChatBot />
+      <SitePopup />
       {wa && <a className="wa-float" href={waLink(wa, 'Hello, I would like to know more about your properties.')} target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp"><SiteIcon name="whatsapp" size={28} /></a>}
     </>
   );

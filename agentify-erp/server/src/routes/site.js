@@ -13,6 +13,7 @@ import { botConfig, logChat, reply } from '../services/bot.js';
 import { cleanReview } from '../services/reviews.js';
 import { isHtml, outline, readingMinutes, sanitizeHtml } from '../services/richText.js';
 import { cleanForOutput } from '../services/siteValidate.js';
+import { CATEGORIES, cleanComplaint, createComplaint, liveNotices, trackComplaint } from '../services/societySupport.js';
 
 /**
  * The company's own public website. No login: only published, customer-safe data leaves this router.
@@ -245,6 +246,18 @@ r.get('/block-counts', (req, res) => {
   const rows = all(`SELECT TRIM(p.block) block, COUNT(*) available FROM properties p WHERE p.published=1 AND p.status IN ('available','featured') AND p.block IS NOT NULL AND TRIM(p.block)<>'' GROUP BY TRIM(p.block)`);
   res.json({ data: rows });
 });
+// --- housing society support center: anyone may lodge a request; a visitor checks it with its reference plus the contact detail they gave
+const supportLimit = rateLimit({ windowMs: 10 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests — please try again later.' } });
+const trackLimit = rateLimit({ windowMs: 10 * 60_000, limit: 30, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many checks — please try again later.' } });
+r.get('/support/options', (_req, res) => res.json({ categories: CATEGORIES }));
+r.post('/support', supportLimit, asyncH((req, res) => {
+  if (req.body?.website) return res.json({ ok: true }); // honeypot for bots
+  const out = createComplaint(cleanComplaint(req.body || {}), { source: 'website' });
+  res.status(201).json({ ok: true, reference: out.ref });
+}));
+r.post('/support/track', trackLimit, asyncH((req, res) => res.json(trackComplaint(req.body?.reference, req.body?.proof))));
+/** Launch notices for the website pop-up and the notice board: only those active today, customer-safe fields. */
+r.get('/notices', (req, res) => res.json({ data: liveNotices({ popupOnly: req.query.popup === '1' }).map((n) => ({ id: n.id, title: n.title, body: cleanForOutput(n.body), kind: n.kind, image: img(n.image), link_label: n.link_label, link_href: n.link_href, starts_on: n.starts_on })) }));
 r.get('/booking-options', (req, res) => res.json({ projects: all('SELECT id,name FROM projects WHERE site_visible=1 ORDER BY name') }));
 
 // --- website assistant: answers from the knowledge bank, then captures a lead into the CRM
