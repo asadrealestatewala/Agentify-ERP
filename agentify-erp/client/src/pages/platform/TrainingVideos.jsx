@@ -111,6 +111,45 @@ function Row({ v, yt, canManage, reload }) {
   );
 }
 
+
+const QSTAT = { queued: 'Waiting', posting: 'Uploading…', posted: 'On YouTube', failed: 'Failed' };
+/** The automatic upload queue: the course videos already on the server go to YouTube a few a day, no downloading by hand. */
+function QueueCard({ canManage }) {
+  const toast = useToast();
+  const [q, setQ] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [showAll, setShowAll] = useState(false);
+  const load = () => api.get(`${A}/training-videos/queue`).then((x) => { setQ(x); setErr(''); }).catch((e) => setErr(e.message));
+  useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
+  const act = async (fn, msg) => { setBusy(true); setErr(''); try { const x = await fn(); if (x?.rows) setQ(x); if (msg) toast(msg(x)); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  if (!q) return err ? <ErrorBox error={err} /> : null;
+  const s = q.settings, c = q.counts;
+  const rows = showAll ? q.rows : q.rows.filter((r) => r.status !== 'posted').slice(0, 8);
+  return (
+    <FoldCard id="TrainingVideos-Upload queue" title="Automatic upload queue" summary={`${c.posted} of ${q.rows.length} on YouTube${s.on ? ' · running' : ' · off'}`} defaultOpen>
+      <p className="muted" style={{ marginTop: 0 }}>The training course (3 full courses, then 25 lessons in English, Urdu and Arabic) is already on the server. Switch this on and it posts the videos to the connected channel one by one, sets each thumbnail and adds it to its language playlist. Nothing is downloaded by hand.</p>
+      <ErrorBox error={err} />
+      {s.note && <p><span className="pill red">Stopped</span> {s.note}</p>}
+      <div className="row" style={{ gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <Field label="Uploads per day" hint="Google's default quota allows about 6"><input className="input" type="number" min="1" max="10" style={{ width: 90 }} value={s.limit} disabled={!canManage || busy} onChange={(e) => setQ({ ...q, settings: { ...s, limit: e.target.value } })} onBlur={() => act(() => api.put(`${A}/training-videos/queue/settings`, { limit: s.limit }))} /></Field>
+        <Field label="Visibility"><select className="select" aria-label="Queue visibility" value={s.privacy} disabled={!canManage || busy} onChange={(e) => act(() => api.put(`${A}/training-videos/queue/settings`, { privacy: e.target.value }))}>{Object.entries(PRIVACY).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
+        {canManage && (s.on
+          ? <button className="btn" disabled={busy} onClick={() => act(() => api.put(`${A}/training-videos/queue/settings`, { on: false }), () => 'Queue paused')}>Pause queue</button>
+          : <button className="btn primary" disabled={busy} onClick={() => act(() => api.put(`${A}/training-videos/queue/settings`, { on: true }), () => 'Queue started. The first video goes up within minutes.')}>Start queue</button>)}
+        {canManage && <button className="btn" disabled={busy || !s.on} onClick={() => act(() => api.post(`${A}/training-videos/queue/run`, {}), (x) => ({ posted: 'Posted one video', limit: 'Today\'s limit is reached', paused: 'Paused until Google\'s quota resets', empty: 'Nothing left to post', busy: 'An upload is already running', failed: 'The upload failed. See the list below.' }[x.state] || 'Done'))}>Post next now</button>}
+      </div>
+      <p style={{ margin: '10px 0 4px' }}>Today {q.today} of {s.limit} · waiting {c.queued} · on YouTube {c.posted}{c.failed ? ` · failed ${c.failed}` : ''}</p>
+      {rows.map((r) => (
+        <div key={r.file} className="row" style={{ gap: 8, padding: '4px 0', borderTop: '1px solid var(--border, #e5e7eb)', flexWrap: 'wrap' }}>
+          <span className={`pill ${r.status === 'posted' ? 'green' : r.status === 'failed' ? 'red' : ''}`}>{QSTAT[r.status]}</span>
+          <span style={{ flex: 1, minWidth: 220 }}>{r.title}{r.youtube_url && <> · <a href={r.youtube_url} target="_blank" rel="noopener noreferrer">watch</a></>}
+            {r.error && <span className="muted" style={{ display: 'block', fontSize: 12.5 }}>{r.error}</span>}
+            {r.status === 'posted' && r.playlist_note && <span className="muted" style={{ display: 'block', fontSize: 12.5 }}>{r.playlist_note}</span>}</span>
+          {canManage && r.status === 'failed' && <button className="btn" disabled={busy} onClick={() => act(() => api.post(`${A}/training-videos/queue/retry`, { file: r.file }))}>Try again</button>}
+        </div>))}
+      <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => setShowAll(!showAll)}>{showAll ? 'Show only what is waiting' : `Show all ${q.rows.length}`}</button>
+    </FoldCard>
+  );
+}
+
 /** The console's training library: post each video to YouTube once; workspaces then show the YouTube link, title and description. */
 export default function TrainingVideosPage() {
   const me = useContext(MeContext);
@@ -133,6 +172,7 @@ export default function TrainingVideosPage() {
       </PageTitle>
       <ErrorBox error={err} />
       <YoutubeCard yt={d.youtube} canManage={canManage} reload={load} />
+      <QueueCard canManage={canManage} />
       {add && <AddForm data={d} onDone={() => { setAdd(false); load(); }} onCancel={() => setAdd(false)} />}
       {d.rows.map((v) => <Row key={v.key} v={v} yt={d.youtube} canManage={canManage} reload={load} />)}
     </>

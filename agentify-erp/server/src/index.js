@@ -1,3 +1,4 @@
+import * as ytQueue from './services/trainingQueue.js';
 import { PROMO_FILE_NAMES } from './services/promoDrafts.js';
 import express from 'express';
 import helmet from 'helmet';
@@ -315,6 +316,9 @@ if (isMain) {
   // approved posts that are due go to Zernio; posts it is still working on are looked at again
   const zernioTick = () => forEachTenantAsync(() => runZernioDue()).then(() => markJob('social-zernio')).catch((e) => markJob('social-zernio', e));
   setInterval(zernioTick, 60 * 1000).unref();
+  // the training course goes to YouTube a few videos a day while the console switch is on (services/trainingQueue.js)
+  const ytQueueTick = () => ytQueue.tick().then(() => markJob('youtube-queue')).catch((e) => markJob('youtube-queue', e));
+  setInterval(ytQueueTick, 5 * 60 * 1000).unref();
   const reelTick = () => runReelJobs().then(() => markJob('creative-reels')).catch((e) => markJob('creative-reels', e));
   setInterval(reelTick, 20 * 1000).unref();
   const meetingTick = () => forEachTenantAsync(() => runMeetingReminders()).then(() => markJob('meeting-reminders')).catch((e) => markJob('meeting-reminders', e));
