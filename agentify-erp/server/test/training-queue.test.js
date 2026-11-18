@@ -15,6 +15,7 @@ after(async () => { (await import('../src/db.js')).closeDbs(); });
 
 const calls = [];
 const fakeFetch = async (url, init) => { calls.push(`${init.method} ${url.replace(/\?.*/, '')}`); const j = (d, ok = true, status = 200) => ({ ok, status, json: async () => d });
+  if (url.includes('/channels?')) return j({ items: [{ status: { longUploadsStatus: 'allowed' } }] });
   if (url.includes('/playlists') && init.method === 'GET') return j({ items: [] });
   if (url.includes('/playlists')) return j({ id: 'PL1' });
   return j({}); };

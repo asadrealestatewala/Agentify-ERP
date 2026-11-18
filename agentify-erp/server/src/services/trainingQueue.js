@@ -97,10 +97,10 @@ async function addToPlaylist(row, token, privacy, fetchFn) {
 }
 
 const LONG_MSG = 'YouTube only accepts videos up to 15 minutes until the channel is verified. Verify it at youtube.com/verify; this video then goes up on its own.';
-/** false only when YouTube says this channel may not upload videos longer than 15 minutes (it is not verified yet). */
+/** True only when YouTube says outright that this channel may upload videos longer than 15 minutes. Unknown counts as not allowed. */
 async function longUploadsAllowed(token, fetchFn) {
-  try { const d = await yt('GET', 'https://www.googleapis.com/youtube/v3/channels?part=status&mine=true', token, null, fetchFn); const v = d.items?.[0]?.status?.longUploadsStatus; return !v || v === 'allowed'; }
-  catch { return true; }
+  try { const d = await yt('GET', 'https://www.googleapis.com/youtube/v3/channels?part=status&mine=true', token, null, fetchFn); return d.items?.[0]?.status?.longUploadsStatus === 'allowed'; }
+  catch { return false; }
 }
 /** YouTube can refuse a video after the upload went through (for example "too long"). Looks at fresh uploads and holds the refused ones. */
 async function checkPosted(token, fetchFn) {
@@ -141,7 +141,7 @@ export async function tick({ force = false, fetchFn = fetch, uploadFn = upload, 
     let row = null;
     for (const cand of db().prepare("SELECT * FROM youtube_queue WHERE status='queued' ORDER BY pos").all()) {
       // the full courses are longer than 15 minutes: do not spend quota on them until the channel is allowed long videos
-      if (cand.file.includes('full-course') && token0 && !(await longUploadsAllowed(token0, fetchFn))) { db().prepare("UPDATE youtube_queue SET status='held', hold='long', error=? WHERE file=?").run(LONG_MSG, cand.file); continue; }
+      if (cand.file.includes('full-course') && !(token0 && await longUploadsAllowed(token0, fetchFn))) { db().prepare("UPDATE youtube_queue SET status='held', hold='long', error=? WHERE file=?").run(LONG_MSG, cand.file); continue; }
       row = cand; break;
     }
     if (!row) { await finishExtras(s, fetchFn, tokenFn); return { state: 'empty' }; }
