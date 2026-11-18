@@ -112,7 +112,7 @@ function Row({ v, yt, canManage, reload }) {
 }
 
 
-const QSTAT = { queued: 'Waiting', posting: 'Uploading…', posted: 'On YouTube', failed: 'Failed' };
+const QSTAT = { queued: 'Waiting', posting: 'Uploading…', posted: 'On YouTube', failed: 'Failed', held: 'On hold' };
 /** The automatic upload queue: the course videos already on the server go to YouTube a few a day, no downloading by hand. */
 function QueueCard({ canManage }) {
   const toast = useToast();
@@ -136,14 +136,14 @@ function QueueCard({ canManage }) {
           : <button className="btn primary" disabled={busy} onClick={() => act(() => api.put(`${A}/training-videos/queue/settings`, { on: true }), () => 'Queue started. The first video goes up within minutes.')}>Start queue</button>)}
         {canManage && <button className="btn" disabled={busy || !s.on} onClick={() => act(() => api.post(`${A}/training-videos/queue/run`, {}), (x) => ({ posted: 'Posted one video', limit: 'Today\'s limit is reached', paused: 'Paused until Google\'s quota resets', empty: 'Nothing left to post', busy: 'An upload is already running', failed: 'The upload failed. See the list below.' }[x.state] || 'Done'))}>Post next now</button>}
       </div>
-      <p style={{ margin: '10px 0 4px' }}>Today {q.today} of {s.limit} · waiting {c.queued} · on YouTube {c.posted}{c.failed ? ` · failed ${c.failed}` : ''}</p>
+      <p style={{ margin: '10px 0 4px' }}>Today {q.today} of {s.limit} · waiting {c.queued} · on YouTube {c.posted}{c.failed ? ` · failed ${c.failed}` : ''}{c.held ? ` · on hold ${c.held}` : ''}</p>
       {rows.map((r) => (
         <div key={r.file} className="row" style={{ gap: 8, padding: '4px 0', borderTop: '1px solid var(--border, #e5e7eb)', flexWrap: 'wrap' }}>
           <span className={`pill ${r.status === 'posted' ? 'green' : r.status === 'failed' ? 'red' : ''}`}>{QSTAT[r.status]}</span>
           <span style={{ flex: 1, minWidth: 220 }}>{r.title}{r.youtube_url && <> · <a href={r.youtube_url} target="_blank" rel="noopener noreferrer">watch</a></>}
             {r.error && <span className="muted" style={{ display: 'block', fontSize: 12.5 }}>{r.error}</span>}
             {r.status === 'posted' && r.playlist_note && <span className="muted" style={{ display: 'block', fontSize: 12.5 }}>{r.playlist_note}</span>}</span>
-          {canManage && r.status === 'failed' && <button className="btn" disabled={busy} onClick={() => act(() => api.post(`${A}/training-videos/queue/retry`, { file: r.file }))}>Try again</button>}
+          {canManage && ['failed', 'held'].includes(r.status) && <button className="btn" disabled={busy} onClick={() => act(() => api.post(`${A}/training-videos/queue/retry`, { file: r.file }))}>Try again</button>}
         </div>))}
       <button className="btn ghost" style={{ marginTop: 8 }} onClick={() => setShowAll(!showAll)}>{showAll ? 'Show only what is waiting' : `Show all ${q.rows.length}`}</button>
     </FoldCard>

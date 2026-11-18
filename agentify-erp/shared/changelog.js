@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.108', date: '2026-11-18', title: 'Upload queue handles videos YouTube refuses',
+    items: [
+      { text: 'The automatic upload queue now checks that YouTube accepted each video. A video YouTube refuses (for example one longer than 15 minutes on a channel that is not verified) is marked On hold with the reason instead of On YouTube, and goes up again by itself once the channel is verified. Lessons keep uploading meanwhile.', where: 'Console > System > Training videos > Automatic upload queue', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.107', date: '2026-11-18', title: 'Training course uploads itself to YouTube',
     items: [
       { text: 'The training course videos already on the server can now go to the YouTube channel on their own: switch on the automatic upload queue, choose how many uploads per day (6 fits Google\'s default limit) and the visibility. It posts the 3 full courses first, then the lessons in English, Urdu and Arabic, sets each thumbnail and adds each video to its language playlist. Playlists need one reconnect of YouTube to give the extra permission.', where: 'Console > System > Training videos > Automatic upload queue', audience: 'platform' },
