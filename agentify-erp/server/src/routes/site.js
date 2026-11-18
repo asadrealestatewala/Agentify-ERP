@@ -232,6 +232,19 @@ r.get('/metrics', (req, res) => res.json({
   agents: get("SELECT COUNT(DISTINCT agent_id) n FROM properties p WHERE p.published=1 AND p.agent_id IS NOT NULL").n,
   articles: get('SELECT COUNT(*) n FROM site_posts WHERE published=1').n,
 }));
+/** Latest published construction updates of website-visible projects (the same updates customers see in their portal): title, date, stage, progress and photos only. */
+r.get('/project-updates', asyncH((req, res) => {
+  const limit = Math.min(Math.max(int(req.query.limit, 6), 1), 24);
+  const rows = all(`SELECT d.id,d.update_date,d.title,d.kind,d.progress,d.description,p.id project_id,p.name project_name FROM dev_updates d JOIN projects p ON p.id=d.project_id
+    WHERE d.published=1 AND p.site_visible=1 ORDER BY d.update_date DESC, d.id DESC LIMIT ?`, limit);
+  res.json({ data: rows.map((u) => ({ ...u, description: cleanForOutput(u.description),
+    images: all("SELECT path,caption FROM media WHERE entity_type='dev_update' AND entity_id=? AND kind='image' ORDER BY sort_order LIMIT 4", u.id).map((m) => ({ url: img(m.path), caption: m.caption })) })) });
+}));
+/** Plots on sale per block (published, available) so a block table can show a live "available" column. Aggregate only. */
+r.get('/block-counts', (req, res) => {
+  const rows = all(`SELECT TRIM(p.block) block, COUNT(*) available FROM properties p WHERE p.published=1 AND p.status IN ('available','featured') AND p.block IS NOT NULL AND TRIM(p.block)<>'' GROUP BY TRIM(p.block)`);
+  res.json({ data: rows });
+});
 r.get('/booking-options', (req, res) => res.json({ projects: all('SELECT id,name FROM projects WHERE site_visible=1 ORDER BY name') }));
 
 // --- website assistant: answers from the knowledge bank, then captures a lead into the CRM

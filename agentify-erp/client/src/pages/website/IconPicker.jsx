@@ -16,6 +16,7 @@ const KEYWORDS = {
   bathrooms: 'bath bathroom washroom', parking: 'car garage parking', photos: 'camera photo marketing', installments: 'installment card payment plan',
   agent: 'agent person user broker', team: 'team people staff', phone: 'call phone mobile', landline: 'landline telephone office phone', email: 'mail email message',
   whatsapp: 'whatsapp chat message', chat: 'chat message talk support', search: 'search find look', calendar: 'calendar date booking visit appointment',
+  mosque: 'mosque masjid prayer worship community', school: 'school education college nursery', health: 'health hospital clinic doctor medical', utilities: 'electricity power gas water utilities',
   hours: 'time hours clock opening', verified: 'verified trust safe secure check', paperwork: 'documents paperwork file legal', receipt: 'receipt payment invoice',
   handshake: 'deal partner handshake care', investment: 'money cash investment profit', growth: 'growth chart returns', award: 'award best prize quality',
   checklist: 'steps checklist process', star: 'star featured favourite', diamond: 'luxury premium diamond', news: 'news blog article', image: 'picture image gallery', dot: 'dot plain simple',

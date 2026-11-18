@@ -39,6 +39,11 @@ export const SITE_ICONS = {
   search: { label: 'Search', group: 'People and contact' },
   calendar: { label: 'Calendar', group: 'People and contact' },
   hours: { label: 'Opening hours', group: 'People and contact' },
+  // Community
+  mosque: { label: 'Mosque', group: 'Community' },
+  school: { label: 'School', group: 'Community' },
+  health: { label: 'Healthcare', group: 'Community' },
+  utilities: { label: 'Electricity / utilities', group: 'Community' },
   // Trust and process
   verified: { label: 'Verified', group: 'Trust and process' },
   paperwork: { label: 'Documents', group: 'Trust and process' },

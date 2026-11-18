@@ -372,6 +372,86 @@ export const SITE_THEMES = [
       ] },
     ],
   },
+  {
+    id: 'society',
+    origin: 'original',
+    name: 'Society',
+    kind: 'Housing society and developers',
+    tagline: 'For a housing society: overview, plots delivered and possessions given, live construction progress, blocks, approvals, leadership and newly listed plots.',
+    best: 'Housing societies, gated communities and developers who run one or more schemes',
+    design: {
+      theme: { primary: '#0e7c6b', accent: '#e0a23a', dark: '#0b2f2a', bg: '#ffffff', soft: '#f1f7f6', font_heading: 'Montserrat', font_body: 'Open Sans', radius: 8 },
+      header: { style: 'light', topbar: true, sticky: true },
+      footer: { style: 'dark' },
+    },
+    pages: [
+      { slug: 'home', title: 'Home', blocks: [
+        b('hero', { headline: 'Welcome to our society', subheadline: 'One sentence about the society: where it is and what makes living here special.', align: 'left', show_search: false, height: 'tall', overlay: 50, cta_label: 'Book a site visit', cta_href: '/site/p/contact', photo: 0 }),
+        b('societystats', { title: 'The society at a glance' }),
+        b('imagetext', { title: 'About the society', text: 'Tell the story of the society: who developed it, when it started, the vision and the community you are building.', image_side: 'right', button_label: 'Read more', button_href: '/site/p/about', photo: 1 }),
+        b('constructionprogress', { title: 'Construction in progress', subtitle: 'Live progress from the site, updated by our project team', limit: 4 }),
+        b('listings', { title: 'Newly listed plots and homes', subtitle: 'Fresh from our sales team', source: 'latest', limit: 6, layout: 'grid', columns: 3, view_all_href: '/site/properties' }),
+        b('services', { variant: 'cards', title: 'Life in the society', items: [
+          { icon: 'verified', title: 'Security', text: 'Describe the gates, guards and cameras, only if they are real.', href: '' },
+          { icon: 'land', title: 'Parks and open space', text: 'Describe the parks and green areas that exist or are planned.', href: '' },
+          { icon: 'mosque', title: 'Mosque and community', text: 'Describe the community facilities.', href: '' },
+        ] }),
+        b('leadership', { title: 'Leadership', subtitle: 'The people behind the society' }),
+        b('cta', { headline: 'Visit the society', text: 'Book a site visit and see the development for yourself.', button_label: 'Book a visit', button_href: '/site/p/contact', tone: 'primary' }),
+      ] },
+      { slug: 'about', title: 'About the society', show_in_menu: true, blocks: [
+        b('hero', { headline: 'About the society', subheadline: 'Who we are and what we are building.', show_search: false, height: 'medium', overlay: 55, photo: 1 }),
+        b('imagetext', { title: 'Our story', text: 'Write the history, the vision and what residents can expect.', image_side: 'right', photo: 2 }),
+        b('societystats', { title: 'Delivered so far' }),
+        b('projectinfo', { title: 'Phases and projects', intro: 'List each phase or scheme with what has been delivered. Only add figures you can stand behind.' }),
+        b('leadership', { title: 'Director, CEO and team', subtitle: 'The people who run the society' }),
+      ] },
+      { slug: 'master-plan', title: 'Master plan', show_in_menu: true, blocks: [
+        b('banner', { text: 'Master plan and blocks', tone: 'primary' }),
+        b('imagetext', { title: 'Master plan', text: 'Upload the approved master plan image here and describe how the society is laid out. Add a link to the PDF map if you have one.', image_side: 'left', button_label: 'Download the map', button_href: '', photo: 0 }),
+        b('blocktable', { title: 'Block-wise details' }),
+        b('text', { title: 'Location', html: '<p>Describe where the society is, the main roads and the distance to the nearest city centre and airport. Add an address and map link on the Contact page.</p>', align: 'left' }),
+      ] },
+      { slug: 'progress', title: 'Development progress', show_in_menu: true, blocks: [
+        b('banner', { text: 'Development progress', tone: 'primary' }),
+        b('constructionprogress', { title: 'Project progress', subtitle: 'Each project, with its latest completed percentage', limit: 12, updates_title: 'Latest updates from the site' }),
+        b('societystats', { title: 'Possessions' }),
+        b('gallery', { title: 'Site photos', photos: 6 }),
+      ] },
+      { slug: 'properties', title: 'Properties', show_in_menu: true, blocks: [
+        b('hero', { variant: 'search', headline: 'Plots and homes in the society', subheadline: 'Search what is available now.', show_search: true, height: 'medium', overlay: 50, photo: 2 }),
+        b('listings', { title: 'Newly listed', source: 'latest', limit: 12, layout: 'grid', columns: 3, view_all_href: '/site/properties' }),
+        b('calculators', { title: 'Payment plan calculator', subtitle: 'Work out instalments before you visit' }),
+        b('booking', { title: 'Book a site visit', subtitle: 'Choose a day and time. Our team will confirm by phone.' }),
+      ] },
+      { slug: 'amenities', title: 'Amenities', show_in_menu: true, blocks: [
+        b('banner', { text: 'Amenities', tone: 'primary' }),
+        b('services', { variant: 'cards', title: 'What the society offers', subtitle: 'List real, built or approved facilities. Remove any that do not apply.', items: [
+          { icon: 'verified', title: 'Security', text: 'Describe the security arrangements.', href: '' },
+          { icon: 'land', title: 'Parks', text: 'Describe the parks and playgrounds.', href: '' },
+          { icon: 'mosque', title: 'Mosque', text: 'Describe the mosque and community hall.', href: '' },
+          { icon: 'school', title: 'Schools', text: 'Describe schools in or next to the society.', href: '' },
+          { icon: 'health', title: 'Healthcare', text: 'Describe clinics or hospitals nearby.', href: '' },
+          { icon: 'utilities', title: 'Utilities', text: 'Describe electricity, water, gas and roads.', href: '' },
+        ] }),
+        b('gallery', { title: 'Gallery', photos: 6 }),
+      ] },
+      { slug: 'approvals', title: 'Approvals and plans', show_in_menu: true, blocks: [
+        b('banner', { text: 'Approvals and payment plans', tone: 'primary' }),
+        b('approvals', { title: 'Approvals and NOC', intro: 'Show your real approvals and their true status, so buyers can check them with the authority.' }),
+        b('text', { title: 'Payment plans', html: '<p>Explain the payment plan: booking amount, instalment length and what is included. Use the calculator on the Properties page for examples.</p>', align: 'left' }),
+        b('faq', { title: 'Buyer questions', items: [
+          { q: 'How do I book a plot?', a: 'Explain the booking steps and the documents you ask for.' },
+          { q: 'When is possession given?', a: 'Explain when and how possession is given, block by block.' },
+        ] }),
+      ] },
+      { slug: 'contact', title: 'Contact', blocks: [
+        b('banner', { text: 'Contact the society office', tone: 'primary' }),
+        b('contact', { title: 'Speak to our sales and customer care team', text: 'Ask about plots, payments, possession or a site visit.', show_form: true, show_details: true }),
+        b('booking', {}),
+      ] },
+    ],
+  },
 ];
 
 export const themeById = (id) => SITE_THEMES.find((t) => t.id === id) || null;

@@ -418,3 +418,15 @@
   .s-header.hs-dark .signin-m, .s-header.hs-transparent .signin-m { border-top-color: rgba(255,255,255,.2); }
   .s-header.hs-dark .signin-m > span, .s-header.hs-transparent .signin-m > span { color: rgba(255,255,255,.7); }
 }
+
+/* Housing society blocks */
+.site .ss-stats small { display: block; color: #667085; font-size: 12px; margin-top: 4px; } .site .ss-asof { text-align: center; color: #667085; font-size: 13px; margin: 14px 0 0; }
+.site .cp-list { display: grid; gap: 12px; } .site .cp-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 18px; align-items: center; background: #fff; border: 1px solid var(--s-line, #e4e7ec); border-radius: var(--s-radius); padding: 16px 18px; color: inherit; text-decoration: none; }
+.site .cp-row b { display: block; font-size: 16px; } .site .cp-row small { color: #667085; } .site .cp-bar span { font-size: 13px; font-weight: 700; color: var(--s-primary); } .site .cp-nop { justify-self: end; font-weight: 700; color: var(--s-primary); }
+.site .cp-h { margin: 30px 0 12px; } .site .cp-updates { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.site .cp-upd { background: #fff; border: 1px solid var(--s-line, #e4e7ec); border-radius: var(--s-radius); overflow: hidden; } .site .cp-upd img { width: 100%; height: 160px; object-fit: cover; display: block; } .site .cp-upd > div { padding: 14px 16px; }
+.site .cp-upd small { color: #667085; } .site .cp-upd h4 { margin: 4px 0 6px; } .site .cp-upd p { margin: 0; color: #475467; font-size: 14px; }
+.site .bt-wrap { overflow-x: auto; border: 1px solid var(--s-line, #e4e7ec); border-radius: var(--s-radius); } .site .bt { width: 100%; border-collapse: collapse; min-width: 520px; } .site .bt th { text-align: left; background: var(--s-soft); font-size: 13px; padding: 12px 14px; } .site .bt td { padding: 12px 14px; border-top: 1px solid var(--s-line, #e4e7ec); font-size: 14px; }
+.site .ap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; } .site .ap-card { background: #fff; border: 1px solid var(--s-line, #e4e7ec); border-radius: var(--s-radius); padding: 18px; display: flex; flex-direction: column; gap: 6px; } .site .ap-card h4 { margin: 0; } .site .ap-card small { color: #667085; }
+.site .ap-badge { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: #e8f3f1; color: #0e7c6b; } .site .ap-in_process, .site .ap-applied { background: #fff4e0; color: #8a5a00; } .site .ap-not_required { background: #eef0f3; color: #475467; }
+@media (max-width: 640px) { .site .cp-row { grid-template-columns: 1fr; } }
