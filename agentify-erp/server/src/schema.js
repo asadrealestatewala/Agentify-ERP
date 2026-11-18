@@ -329,4 +329,19 @@ CREATE TABLE IF NOT EXISTS training_library(
   seconds INTEGER, seed_key TEXT UNIQUE, sort_order INTEGER NOT NULL DEFAULT 100, created_by INTEGER, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS training_assignments(
   video_id INTEGER NOT NULL, role_id INTEGER NOT NULL, PRIMARY KEY(video_id, role_id));
+-- housing society support center: complaints and requests from residents, customers and website visitors (services/societySupport.js)
+CREATE TABLE IF NOT EXISTS complaints(
+  id INTEGER PRIMARY KEY, ref TEXT UNIQUE NOT NULL, contact_id INTEGER, sale_id INTEGER, name TEXT NOT NULL, email TEXT, phone TEXT, whatsapp TEXT, plot_no TEXT,
+  category TEXT NOT NULL DEFAULT 'Other', subject TEXT NOT NULL, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', priority TEXT NOT NULL DEFAULT 'normal',
+  assigned_to INTEGER, source TEXT NOT NULL DEFAULT 'website', created_at TEXT NOT NULL, updated_at TEXT NOT NULL, resolved_at TEXT);
+CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_complaints_contact ON complaints(contact_id);
+CREATE TABLE IF NOT EXISTS complaint_messages(
+  id INTEGER PRIMARY KEY, complaint_id INTEGER NOT NULL REFERENCES complaints(id) ON DELETE CASCADE, author_type TEXT NOT NULL, author_name TEXT,
+  body TEXT NOT NULL, internal INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_complaint_msgs ON complaint_messages(complaint_id);
+-- launch notices: possession, allotment, new services... shown as a pop-up on the website and in the customer portal
+CREATE TABLE IF NOT EXISTS launch_notices(
+  id INTEGER PRIMARY KEY, title TEXT NOT NULL, body TEXT, kind TEXT NOT NULL DEFAULT 'Notice', image TEXT, link_label TEXT, link_href TEXT, project_id INTEGER,
+  show_popup INTEGER NOT NULL DEFAULT 1, starts_on TEXT, ends_on TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL);
 `;

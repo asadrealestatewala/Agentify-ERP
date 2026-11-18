@@ -684,6 +684,73 @@ function Approvals({ p }) {
   );
 }
 
+/** Support center: lodge a request or complaint (a ticket in the ERP Support Center) and check its status with the reference. */
+function SupportCenter({ p }) {
+  const opts = usePublic('/api/site/support/options');
+  const [f, setF] = useState({ name: '', email: '', phone: '', whatsapp: '', plot_no: '', category: 'Complaint', subject: '', message: '', website: '' });
+  const [state, setState] = useState({ busy: false, error: '', ref: '' });
+  const [t, setT] = useState({ reference: '', proof: '' });
+  const [found, setFound] = useState(null);
+  const [terr, setTerr] = useState('');
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const submit = async (e) => {
+    e.preventDefault(); setState({ busy: true, error: '', ref: '' });
+    try { const r = await api.post('/api/site/support', f); setState({ busy: false, error: '', ref: r.reference }); setF({ ...f, subject: '', message: '' }); }
+    catch (er) { setState({ busy: false, error: er.message, ref: '' }); }
+  };
+  const track = async (e) => {
+    e.preventDefault(); setTerr(''); setFound(null);
+    try { setFound(await api.post('/api/site/support/track', t)); } catch (er) { setTerr(er.message); }
+  };
+  return (
+    <section className="sec"><div className="wrap">
+      <Head title={p.title} subtitle={p.subtitle} />
+      <div className="sc-grid">
+        <form className="sc-form" onSubmit={submit}>
+          <div className="sc-row"><label>Your name<input required value={f.name} onChange={set('name')} autoComplete="name" /></label><label>Email<input required type="email" value={f.email} onChange={set('email')} autoComplete="email" /></label></div>
+          <div className="sc-row"><label>Phone<input value={f.phone} onChange={set('phone')} inputMode="tel" autoComplete="tel" /></label><label>WhatsApp<input value={f.whatsapp} onChange={set('whatsapp')} inputMode="tel" /></label></div>
+          <div className="sc-row"><label>Plot / file number<input value={f.plot_no} onChange={set('plot_no')} /></label><label>Topic<select value={f.category} onChange={set('category')}>{(opts?.categories || ['Complaint']).map((c) => <option key={c}>{c}</option>)}</select></label></div>
+          <label>Subject<input value={f.subject} onChange={set('subject')} /></label>
+          <label>Your message<textarea required rows={5} value={f.message} onChange={set('message')} /></label>
+          <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" style={{ position: 'absolute', left: '-9999px' }} value={f.website} onChange={set('website')} />
+          {state.error && <div className="sc-err" role="alert">{state.error}</div>}
+          {state.ref && <div className="sc-ok" role="status"><b>Reference {state.ref}</b><br />{p.success_text}</div>}
+          <button className="btn primary" disabled={state.busy}>{state.busy ? 'Sending…' : 'Send request'}</button>
+          <small className="muted">Phone or WhatsApp is needed so our team can reach you.</small>
+        </form>
+        {p.show_track !== false && (
+          <form className="sc-form sc-track" onSubmit={track}>
+            <h3>Check a request</h3>
+            <label>Reference (like CMP-0001)<input required value={t.reference} onChange={(e) => setT({ ...t, reference: e.target.value })} /></label>
+            <label>Phone, WhatsApp or email you used<input required value={t.proof} onChange={(e) => setT({ ...t, proof: e.target.value })} /></label>
+            <button className="btn">Check status</button>
+            {terr && <div className="sc-err" role="alert">{terr}</div>}
+            {found && <div className="sc-found"><b>{found.ref}: {found.subject}</b><span className={`ap-badge ap-${found.status === 'resolved' || found.status === 'closed' ? 'approved' : 'in_process'}`}>{String(found.status).replace('_', ' ')}</span>
+              {found.messages.map((m, i) => <p key={i}><small>{m.author_type === 'staff' ? 'Support team' : 'You'}</small><br />{m.body}</p>)}</div>}
+          </form>
+        )}
+      </div>
+    </div></section>
+  );
+}
+
+/** Latest launch notices (possession, allotment, new services) from the ERP. */
+function NoticeBoard({ p }) {
+  const d = usePublic('/api/site/notices');
+  const rows = (d?.data || []).slice(0, p.limit || 6);
+  if (d && !rows.length) return null;
+  return (
+    <section className="sec soft"><div className="wrap">
+      <Head title={p.title} subtitle={p.subtitle} />
+      {d && <div className="jgrid">{rows.map((n) => (
+        <article key={n.id} className="jcard">
+          {n.image && <div className="jimg"><img src={imgUrl(n.image)} alt="" loading="lazy" /><span className="jstatus">{n.kind}</span></div>}
+          <div className="jbody"><h3>{n.title}</h3>{!n.image && <div className="muted">{n.kind}</div>}{n.body && <p>{n.body}</p>}{n.link_href && <A href={n.link_href} className="more">{n.link_label || 'Review details'} →</A>}</div>
+        </article>))}</div>}
+    </div></section>
+  );
+}
+
 /** Book a site visit: picks project, day and time slot, then arrives in the CRM as a lead with the request attached. */
 function Booking({ p }) {
   const opts = usePublic('/api/site/booking-options');
@@ -731,7 +798,7 @@ const Portal = ({ p }) => (
 
 const Banner = ({ p }) => { const inner = <div className="wrap"><Ed value={p.text} path="text" /><LinkBtn path="href" value={p.href} /></div>; return p.href ? <A href={p.href} className={`banner ${p.tone || 'primary'}`}>{inner}</A> : <div className={`banner ${p.tone || 'primary'}`}>{inner}</div>; };
 
-const MAP = { hero: Hero, listings: Listings, projects: Projects, stats: Stats, services: Services, calculators: Calculators, agents: Agents, testimonials: Testimonials, partners: Partners, reviews: Reviews, embed: Embed, blog: Blog, cta: Cta, text: TextBlock, imagetext: ImageText, faq: Faq, contact: Contact, gallery: Gallery, banner: Banner, leadership: Leadership, projectinfo: ProjectInfo, columns: Columns, spacer: Spacer, livestats: LiveStats, societystats: SocietyStats, constructionprogress: ConstructionProgress, blocktable: BlockTable, approvals: Approvals, booking: Booking, portal: Portal };
+const MAP = { hero: Hero, listings: Listings, projects: Projects, stats: Stats, services: Services, calculators: Calculators, agents: Agents, testimonials: Testimonials, partners: Partners, reviews: Reviews, embed: Embed, blog: Blog, cta: Cta, text: TextBlock, imagetext: ImageText, faq: Faq, contact: Contact, gallery: Gallery, banner: Banner, leadership: Leadership, projectinfo: ProjectInfo, columns: Columns, spacer: Spacer, livestats: LiveStats, societystats: SocietyStats, constructionprogress: ConstructionProgress, blocktable: BlockTable, approvals: Approvals, supportcenter: SupportCenter, noticeboard: NoticeBoard, booking: Booking, portal: Portal };
 
 /**
  * Renders a page's sections. Each one sits in a wrapper (#sb-<id>) so the responsive layout settings can be compiled

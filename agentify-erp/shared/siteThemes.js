@@ -377,7 +377,7 @@ export const SITE_THEMES = [
     origin: 'original',
     name: 'Society',
     kind: 'Housing society and developers',
-    tagline: 'For a housing society: overview, plots delivered and possessions given, live construction progress, blocks, approvals, leadership and newly listed plots.',
+    tagline: 'For a housing society: overview, plots delivered and possessions given, live construction progress, blocks, approvals, a support center for complaints, launch notices, leadership and newly listed plots.',
     best: 'Housing societies, gated communities and developers who run one or more schemes',
     design: {
       theme: { primary: '#0e7c6b', accent: '#e0a23a', dark: '#0b2f2a', bg: '#ffffff', soft: '#f1f7f6', font_heading: 'Montserrat', font_body: 'Open Sans', radius: 8 },
@@ -389,6 +389,7 @@ export const SITE_THEMES = [
         b('hero', { headline: 'Welcome to our society', subheadline: 'One sentence about the society: where it is and what makes living here special.', align: 'left', show_search: false, height: 'tall', overlay: 50, cta_label: 'Book a site visit', cta_href: '/site/p/contact', photo: 0 }),
         b('societystats', { title: 'The society at a glance' }),
         b('imagetext', { title: 'About the society', text: 'Tell the story of the society: who developed it, when it started, the vision and the community you are building.', image_side: 'right', button_label: 'Read more', button_href: '/site/p/about', photo: 1 }),
+        b('noticeboard', { title: 'Latest notices', subtitle: 'Possession, allotment and new services' }),
         b('constructionprogress', { title: 'Construction in progress', subtitle: 'Live progress from the site, updated by our project team', limit: 4 }),
         b('listings', { title: 'Newly listed plots and homes', subtitle: 'Fresh from our sales team', source: 'latest', limit: 6, layout: 'grid', columns: 3, view_all_href: '/site/properties' }),
         b('services', { variant: 'cards', title: 'Life in the society', items: [
@@ -443,6 +444,15 @@ export const SITE_THEMES = [
         b('faq', { title: 'Buyer questions', items: [
           { q: 'How do I book a plot?', a: 'Explain the booking steps and the documents you ask for.' },
           { q: 'When is possession given?', a: 'Explain when and how possession is given, block by block.' },
+        ] }),
+      ] },
+      { slug: 'support', title: 'Support center', show_in_menu: true, blocks: [
+        b('banner', { text: 'Support center', tone: 'primary' }),
+        b('supportcenter', { title: 'Lodge a request or complaint' }),
+        b('noticeboard', { title: 'Latest notices' }),
+        b('faq', { title: 'Before you write', items: [
+          { q: 'How long does a reply take?', a: 'State your real reply time, for example one working day.' },
+          { q: 'Can I see my ledger and receipts online?', a: 'Yes, in the customer portal. Explain how customers get their login.' },
         ] }),
       ] },
       { slug: 'contact', title: 'Contact', blocks: [

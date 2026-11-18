@@ -430,3 +430,9 @@
 .site .ap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; } .site .ap-card { background: #fff; border: 1px solid var(--s-line, #e4e7ec); border-radius: var(--s-radius); padding: 18px; display: flex; flex-direction: column; gap: 6px; } .site .ap-card h4 { margin: 0; } .site .ap-card small { color: #667085; }
 .site .ap-badge { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: #e8f3f1; color: #0e7c6b; } .site .ap-in_process, .site .ap-applied { background: #fff4e0; color: #8a5a00; } .site .ap-not_required { background: #eef0f3; color: #475467; }
 @media (max-width: 640px) { .site .cp-row { grid-template-columns: 1fr; } }
+
+.site .sc-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 22px; align-items: start; } .site .sc-form { background: #fff; border: 1px solid var(--s-line, #e4e7ec); border-radius: var(--s-radius); padding: 20px; display: grid; gap: 12px; position: relative; }
+.site .sc-form label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: #344054; } .site .sc-form input, .site .sc-form select, .site .sc-form textarea { font: inherit; font-weight: 400; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 8px; width: 100%; box-sizing: border-box; }
+.site .sc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; } .site .sc-err { color: #b42318; background: #fef3f2; border-radius: 8px; padding: 8px 12px; font-size: 14px; } .site .sc-ok { color: #0b5a4d; background: #e8f3f1; border-radius: 8px; padding: 10px 12px; font-size: 14px; }
+.site .sc-track h3 { margin: 0; } .site .sc-found { display: grid; gap: 6px; font-size: 14px; } .site .sc-found p { margin: 0; background: var(--s-soft); padding: 8px 10px; border-radius: 8px; }
+@media (max-width: 760px) { .site .sc-grid, .site .sc-row { grid-template-columns: 1fr; } }

@@ -48,6 +48,7 @@ import claims, { feed as paymentFeed } from './routes/claims.js';
 import vendorPortal from './routes/vendorPortal.js';
 import content, { contentReminders } from './routes/content.js';
 import promos from './routes/promos.js';
+import societySupport from './routes/societySupport.js';
 import creative from './routes/creative.js';
 import { runReelJobs } from './services/creativeJobs.js';
 import { checkFfmpeg } from './services/ffmpeg.js';
@@ -197,6 +198,7 @@ export function createApp() {
   app.use('/api/vendor', vendorPortal);
   app.use('/api/content', content);
   app.use('/api/promos', promos);
+  app.use('/api/society', societySupport);
   app.use('/api/creative', creative);
   app.use('/api/announcements', announcements);
   app.use('/api/training', training);

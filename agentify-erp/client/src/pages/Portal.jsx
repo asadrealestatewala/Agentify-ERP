@@ -7,6 +7,7 @@ import { Card, Empty, KV, LedgerSummary, Loading, ProgressBar, StatusBadge, Tabs
 import { download, fileUrl } from '../api.js';
 import LedgerViewer from '../components/LedgerViewer.jsx';
 import { printPdf } from '../printPdf.js';
+import NoticePopup from '../components/NoticePopup.jsx';
 import { NotificationBell, NotificationCentre } from '../components/Notifications.jsx';
 export function PortalNotifications() { return <div className="stack"><h2 style={{ fontSize: 20, margin: 0 }}>Notifications</h2><NotificationCentre /></div>; }
 import { DuesCard, MyPaymentReports, OnlinePayBanner, PayNowModal } from '../components/PayNow.jsx';
@@ -19,6 +20,7 @@ import { date, money, getRegion } from '../format.js';
 export function PortalLayout() {
   const { user, logout } = useAuth();
   const brand = useBrand();
+  const { data: notices } = useFetch('/api/portal/notices');
   return (
     <div style={{ minHeight: '100%', background: 'var(--bg)' }}>
       <header className="portal-top">
@@ -30,11 +32,13 @@ export function PortalLayout() {
           <NavLink to="/portal/payments" className={({ isActive }) => (isActive ? 'active' : '')}>Payments</NavLink>
           <NavLink to="/portal/documents" className={({ isActive }) => (isActive ? 'active' : '')}>Documents</NavLink>
           <NavLink to="/portal/offers" className={({ isActive }) => (isActive ? 'active' : '')}>Offers</NavLink>
+          <NavLink to="/portal/support" className={({ isActive }) => (isActive ? 'active' : '')}>Support</NavLink>
         </nav>
         <div className="grow" /><NotificationBell allHref="/portal/notifications" /><span style={{ color: '#cfd8ea' }} className="nowrap">{user.name}</span>
         <button className="btn sm" onClick={logout}>Sign out</button>
       </header>
       <div className="portal-body"><Suspense fallback={<Loading />}><Outlet /></Suspense></div>
+      <NoticePopup notices={notices?.data} renderLink={(n) => <a className="btn primary" href={n.link_href} target="_blank" rel="noreferrer">{n.link_label || 'Review details'}</a>} />
     </div>
   );
 }
@@ -237,6 +241,7 @@ function HowToPay() {
 
 export function PortalOffers() {
   const { data } = useFetch('/api/portal/promos');
+  const { data: notices } = useFetch('/api/portal/notices');
   if (!data) return <Loading />;
   const priceText = (n) => getRegion().price.priceText(n);
   return (
@@ -252,6 +257,8 @@ export function PortalOffers() {
             <div className="muted" style={{ fontSize: 12 }}>{p.project_name || p.property_title ? `${p.project_name || ''}${p.property_title ? ` · ${p.property_title}` : ''}` : ''}{p.valid_until ? ` · valid until ${date(p.valid_until)}` : ''}</div>
           </div>
         </Card>))}</div>}
+      {notices?.data?.length > 0 && <><h3 style={{ margin: '8px 0 0' }}>Notices from the society</h3><div className="grid g2">{notices.data.map((n) => (
+        <Card key={n.id} flush>{n.image && <img src={n.image} alt="" style={{ width: '100%', maxHeight: 160, objectFit: 'cover', display: 'block' }} />}<div style={{ padding: 14 }}><span className="pill green"><i />{n.kind}</span><b style={{ display: 'block', margin: '6px 0 2px' }}>{n.title}</b><div className="muted" style={{ whiteSpace: 'pre-line' }}>{n.body}</div>{n.link_href && <a href={n.link_href} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 8 }}>{n.link_label || 'Review details'} →</a>}</div></Card>))}</div></>}
       <h3 style={{ margin: '8px 0 0' }}>Available for sale</h3>
       {!data.listings.length ? <Card><Empty>No listings right now — check back soon.</Empty></Card> : (
         <div className="grid g3">{data.listings.map((l) => (

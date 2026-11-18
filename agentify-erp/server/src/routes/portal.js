@@ -18,6 +18,7 @@ import { receiptRecord } from '../services/customers.js';
 import { claimStateByInstallment, dues, ownClaims, proofSent, submitClaim } from '../services/claims.js';
 import { uploader, storedPath } from './helpers.js';
 import { sendStored } from '../services/storage.js';
+import { cleanComplaint, createComplaint, customerReply, liveNotices, ownComplaint, ownComplaints, CATEGORIES } from '../services/societySupport.js';
 import { createCheckout, ownCheckout, portalGateways } from '../services/gateways.js';
 
 /**
@@ -211,6 +212,19 @@ r.get('/documents', asyncH((req, res) => {
       WHEN 'project' THEN (SELECT name FROM projects WHERE id=d.entity_id) WHEN 'property' THEN (SELECT title FROM properties WHERE id=d.entity_id) ELSE NULL END related
     FROM documents d WHERE ${DOC_SCOPE} ORDER BY d.id DESC`, c, c, c, c));
 }));
+// --- support center: the customer's own requests and replies; launch notices from the society
+r.get('/support', asyncH((req, res) => res.json({ requests: ownComplaints(mine(req)), categories: CATEGORIES,
+  plots: all("SELECT s.id, COALESCE(p.title, s.title) title, p.plot_no FROM sales s LEFT JOIN properties p ON p.id=s.property_id WHERE s.contact_id=? AND s.status='confirmed' ORDER BY s.id DESC", mine(req)),
+  me: get('SELECT full_name name, email, phone, whatsapp FROM contacts WHERE id=?', mine(req)) })));
+r.post('/support', asyncH((req, res) => {
+  const b = req.body || {}, c = get('SELECT full_name, email, phone, whatsapp FROM contacts WHERE id=?', mine(req)) || {};
+  const sale = b.sale_id ? get("SELECT s.id, p.plot_no FROM sales s LEFT JOIN properties p ON p.id=s.property_id WHERE s.id=? AND s.contact_id=? AND s.status='confirmed'", b.sale_id, mine(req)) : null;
+  const d = cleanComplaint({ ...b, name: b.name || c.full_name, email: b.email || c.email, phone: b.phone || c.phone, whatsapp: b.whatsapp || c.whatsapp, plot_no: b.plot_no || sale?.plot_no });
+  res.status(201).json(createComplaint(d, { source: 'portal', contactId: mine(req), saleId: sale?.id || null }));
+}));
+r.get('/support/:id(\\d+)', asyncH((req, res) => res.json(ownComplaint(mine(req), Number(req.params.id)))));
+r.post('/support/:id(\\d+)/reply', asyncH((req, res) => { customerReply(mine(req), Number(req.params.id), req.body?.body, req.user.name); res.status(201).json({ ok: true }); }));
+r.get('/notices', (_req, res) => res.json({ data: liveNotices().map((n) => ({ ...n, image: n.image ? `/uploads/${n.image}` : null })) }));
 r.get('/promos', asyncH((_req, res) => res.json(portalPromos())));
 /** Bank / wallet details the customer can pay into (from Settings → Payment methods). */
 /** "I have paid": the customer reports a payment (with a slip) for finance to verify and turn into a receipt. */
