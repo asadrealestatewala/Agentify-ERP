@@ -56,7 +56,7 @@ export default function ContactForm({ initial, onClose, onSaved }) {
       const saved = editing ? await api.put(`/api/contacts/${initial.id}`, body) : await api.post('/api/contacts', body);
       toast(editing ? 'Contact updated' : 'Contact created', 'ok');
       onSaved(saved);
-    } catch (e) { setErr(e.message); if (e.data?.duplicate_id) setDup((d) => (d?.id === e.data.duplicate_id ? d : { id: e.data.duplicate_id, full_name: 'existing contact', mine: true })); else if (e.data?.duplicate_hidden) setDup({ id: null, mine: false }); } finally { setBusy(false); }
+    } catch (e) { setErr(e.message); if (e.data?.duplicate_id) setDup((d) => (d?.id === e.data.duplicate_id ? d : { id: e.data.duplicate_id, full_name: e.data.duplicate_name || 'existing contact', matched: e.data.duplicate_matched, mine: true })); else if (e.data?.duplicate_hidden) setDup({ id: null, mine: false }); } finally { setBusy(false); }
   };
   const submit = (e) => {
     e.preventDefault();
@@ -74,7 +74,7 @@ export default function ContactForm({ initial, onClose, onSaved }) {
       footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy} onClick={submit}>{busy ? 'Saving…' : editing ? 'Save changes' : 'Create contact'}</button></>}>
       <form className="stack" onSubmit={submit}>
         {err && <div className="alert err">{err}</div>}
-        {dup && !editing && (dup.id ? <div className="alert warn">A contact with this phone/email/CNIC already exists — <Link to={`/contacts/${dup.id}`} target="_blank">view {dup.full_name}</Link>. Saving will be blocked unless you change it.</div> : <div className="alert warn">This phone / email / CNIC is already registered with another agent, so it can’t be added again. Ask your sales manager.</div>)}
+        {dup && (dup.id ? <div className="alert warn">{dup.full_name || 'A contact'} already has the same {(dup.matched || []).map((m) => `${m.label.toLowerCase()} (${m.value})`).join(' and ') || 'phone/email/CNIC'}. <Link to={`/contacts/${dup.id}`} target="_blank">Open {dup.full_name || 'that contact'}</Link>, change the number, or save this as a separate lead.{' '}<button type="button" className="btn sm" disabled={busy} onClick={() => save(true)}>Save anyway</button></div> : <div className="alert warn">This phone / email / CNIC is already registered with another agent, so it can’t be added again. Ask your sales manager.</div>)}
         <Section title="Personal information">
           <Field label="First name" required><input className="input" value={f.first_name ?? ''} onChange={(e) => setF((x) => ({ ...x, first_name: e.target.value, full_name: `${e.target.value} ${x.last_name || ''}`.trim() }))} autoFocus /></Field>
           <Field label="Last name"><input className="input" value={f.last_name ?? ''} onChange={(e) => setF((x) => ({ ...x, last_name: e.target.value, full_name: `${x.first_name || ''} ${e.target.value}`.trim() }))} /></Field>
