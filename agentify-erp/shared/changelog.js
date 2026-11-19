@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.110', date: '2026-11-19', title: 'Clearer duplicate warning when adding a lead',
+    items: [
+      { text: 'When a new contact matches an existing one, the warning now says which field matched (phone, WhatsApp, email or CNIC) and shows the saved value. Short numbers no longer match by accident, and you can open the existing contact or choose Save anyway to add a separate lead.', where: 'Contacts > Add contact' },
+    ],
+  },
+  {
     version: 'v1.109', date: '2026-11-18', title: 'Full courses wait until the channel may upload long videos',
     items: [
       { text: 'The automatic upload queue now holds the three full courses (longer than 15 minutes) until YouTube states that the channel is allowed long videos, and never treats an unknown answer as permission. Lessons keep uploading meanwhile. A tick box lets you upload the full courses anyway once you know the channel is verified, and Upload again puts a video that YouTube removed back in the queue.', where: 'Console > System > Training videos > Automatic upload queue', audience: 'platform' },

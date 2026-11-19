@@ -61,6 +61,12 @@ test('Scenario 1 — agent lead flows to the manager, follow-up, conversion', as
   assert.equal(list.data.total, 1, 'sales manager sees the agent lead');
   const dup = await agent.post('/api/contacts', { full_name: 'Dup', phone: '+92 300 9990001' });
   assert.equal(dup.status, 400, 'duplicate phone rejected');
+  assert.match(dup.data.error, /phone \+92 300 9990001/, 'message names the field that matched');
+  assert.equal(dup.data.duplicate_matched[0].field, 'phone');
+  const short = await agent.post('/api/contacts', { full_name: 'Short', phone: '9990001' });
+  assert.equal(short.status, 201, 'a short number is not matched by the tail of a longer one');
+  const forced = await agent.post('/api/contacts', { full_name: 'Same phone, own lead', phone: '0300-9990001', force: true });
+  assert.equal(forced.status, 201, 'the agent can still save a separate lead for a number they already own');
   const ws = await agent.get(`/api/contacts/${created.data.id}/workspace`);
   assert.ok(ws.data.activities.some((a) => a.action === 'Lead created'));
   assert.ok(ws.data.tasks.length >= 1, 'follow-up task created');

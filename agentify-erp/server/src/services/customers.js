@@ -51,15 +51,37 @@ export function receiptRecord(contactId, saleId) {
  * Contacts that already use the same phone / alternate phone / WhatsApp / e-mail / CNIC — however it is typed.
  * (0311-1234321 and +92 311 1234321 are the same number.)
  */
+export const DUP_LABELS = { phone: 'Phone', alt_phone: 'Alternate phone', whatsapp: 'WhatsApp', email: 'Email', cnic: 'CNIC' };
+
+// numbers of 10+ digits match on their last 10 digits (0311-1234321 = +92 311 1234321);
+// shorter numbers must match exactly, so a short entry never "matches" a longer number by its tail
+const digits = (v) => String(v || '').replace(/\D/g, '');
+const numKey = (v) => { const d = digits(v); return d.length >= 10 ? d.slice(-10) : d.length >= 7 ? d : ''; };
+
 export function findDuplicateContacts({ phone, alt_phone, whatsapp, email, cnic } = {}, excludeId = 0) {
-  const tail = (v) => { const d = String(v || '').replace(/\D/g, ''); return d.length >= 7 ? d.slice(-10) : ''; };
-  const nums = [...new Set([phone, alt_phone, whatsapp].map(tail).filter(Boolean))];
+  const nums = [...new Set([phone, alt_phone, whatsapp].map(numKey).filter(Boolean))];
   const mail = String(email || '').trim().toLowerCase();
-  const id = String(cnic || '').replace(/\D/g, '');
+  const id = digits(cnic);
   const where = [], params = [];
-  for (const n of nums) for (const col of ['phone', 'alt_phone', 'whatsapp']) { where.push(`${strip(col)} LIKE ?`); params.push(`%${n}`); }
+  for (const n of nums) for (const col of ['phone', 'alt_phone', 'whatsapp']) { where.push(`${strip(col)} LIKE ?`); params.push(`%${n.slice(-7)}`); }
   if (mail) { where.push('lower(email)=?'); params.push(mail); }
   if (id.length === 13) { where.push(`${strip('cnic')}=?`); params.push(id); }
   if (!where.length) return [];
-  return all(`SELECT id, full_name, phone, email, cnic, agent_id, created_by, is_customer, customer_code FROM contacts WHERE id<>? AND (${where.join(' OR ')}) LIMIT 5`, excludeId, ...params);
+  const rows = all(`SELECT id, full_name, phone, alt_phone, whatsapp, email, cnic, agent_id, created_by, is_customer, customer_code FROM contacts WHERE id<>? AND (${where.join(' OR ')}) LIMIT 50`, excludeId, ...params);
+  // confirm each candidate in code and record exactly which field matched
+  const out = [];
+  for (const c of rows) {
+    const matched = [];
+    for (const col of ['phone', 'alt_phone', 'whatsapp']) {
+      const k = numKey(c[col]);
+      if (k && nums.includes(k)) matched.push({ field: col, label: DUP_LABELS[col], value: c[col] });
+    }
+    if (mail && String(c.email || '').trim().toLowerCase() === mail) matched.push({ field: 'email', label: DUP_LABELS.email, value: c.email });
+    if (id.length === 13 && digits(c.cnic) === id) matched.push({ field: 'cnic', label: DUP_LABELS.cnic, value: c.cnic });
+    if (matched.length) out.push({ ...c, matched });
+  }
+  return out.slice(0, 5);
 }
+
+/** "phone (0311-1234321)" style text for the fields that matched */
+export const matchedText = (c) => (c.matched || []).map((m) => `${m.label.toLowerCase()} ${m.value}`).join(' and ') || 'phone/email/CNIC';

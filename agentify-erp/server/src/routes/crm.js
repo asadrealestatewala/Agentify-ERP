@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { customerSearchClause, findDuplicateContacts } from '../services/customers.js';
+import { customerSearchClause, findDuplicateContacts, matchedText } from '../services/customers.js';
 import { recordAssignment } from '../services/leadFlow.js';
 import { all, get, run, tx, insert, update } from '../db.js';
 import { can, ownerId, requireStaff, hasPerm } from '../rbac.js';
@@ -95,7 +95,7 @@ r.get('/contacts/duplicates', can('crm', 'view'), asyncH((req, res) => {
   res.json(findDuplicateContacts({ phone, email, cnic, alt_phone, whatsapp }, Number(exclude) || 0).map((c) => {
     const mine = !o || c.agent_id === o || c.created_by === o;
     // an agent learns that the person is already registered, but not whose lead it is or their details
-    return mine ? { id: c.id, full_name: c.full_name, phone: c.phone, email: c.email, customer_code: c.customer_code, mine: true } : { id: null, full_name: null, mine: false };
+    return mine ? { id: c.id, full_name: c.full_name, phone: c.phone, email: c.email, customer_code: c.customer_code, matched: c.matched, mine: true } : { id: null, full_name: null, mine: false };
   }));
 }));
 
@@ -130,7 +130,7 @@ r.post('/contacts', can('crm', 'create'), asyncH((req, res) => {
   if (dup) {
     const mine = !o || dup.agent_id === o || dup.created_by === o;
     if (!mine) throw bad('This phone / email / CNIC is already registered with another agent. Ask your sales manager.', { duplicate_hidden: true }); // never overridable by an agent
-    if (!req.body.force) throw bad(`A contact with the same phone/email/CNIC already exists: ${dup.full_name}`, { duplicate_id: dup.id });
+    if (!req.body.force) throw bad(`${dup.full_name} is already in your contacts with the same ${matchedText(dup)}. Open that contact, or choose Save anyway to add this as a separate lead.`, { duplicate_id: dup.id, duplicate_name: dup.full_name, duplicate_matched: dup.matched });
   }
   if (req.user.own_scope) { d.agent_id = req.user.id; delete d.manager_id; }
   if (!d.stage_id) d.stage_id = get(`SELECT id FROM lookups WHERE type='lead_stage' AND active=1 ORDER BY sort_order LIMIT 1`)?.id;
@@ -172,7 +172,7 @@ export function updateContact(id, body, req) {
     if (dup) {
       const o = ownerId(req), mine = !o || dup.agent_id === o || dup.created_by === o;
       if (!mine) throw bad('This phone / email / CNIC is already registered with another agent. Ask your sales manager.', { duplicate_hidden: true });
-      if (!body.force) throw bad(`Another contact already uses this phone/email/CNIC: ${dup.full_name}`, { duplicate_id: dup.id });
+      if (!body.force) throw bad(`${dup.full_name} already has the same ${matchedText(dup)}. Open that contact, or choose Save anyway.`, { duplicate_id: dup.id, duplicate_name: dup.full_name, duplicate_matched: dup.matched });
     }
   }
   const after = { ...existing, ...d };
