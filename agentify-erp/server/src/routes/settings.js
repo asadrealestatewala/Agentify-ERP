@@ -9,6 +9,7 @@ import { all, get, run, tx, getSetting, setSetting } from '../db.js';
 import { assertEmailAllowed } from '../services/disposableEmail.js';
 import { can, hasPerm, MODULES, ACTIONS, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
+import { PROJECT_TYPE_CHOICES } from '../services/projectKinds.js';
 import { crud, uploader } from './helpers.js';
 import { asyncH, bad, notFound, jparse, now } from '../util.js';
 import { tempPassword, welcomeMessage, APK_URL } from '../services/welcome.js';
@@ -30,7 +31,7 @@ export const SETTING_KEYS = ['company_name', 'company_address', 'company_phone',
   'notify_whatsapp_enabled', 'installment_reminder_days', 'allow_negative_bank',
   // printed documents (receipt vouchers, expense vouchers, statements)
   'print_header', 'print_footer', 'print_email', 'print_phone', 'print_address', 'print_website', 'print_social', 'print_show_logo',
-  'receipt_title', 'receipt_header', 'receipt_footer', 'receipt_terms', 'receipt_copies', 'receipt_qr', 'expense_title', 'expense_header', 'expense_footer', 'agents_can_publish', 'staff_login_path', 'brand_color', 'ask_business_notes', 'ask_style', 'ask_friendly_data', 'ask_use_records'];
+  'receipt_title', 'receipt_header', 'receipt_footer', 'receipt_terms', 'receipt_copies', 'receipt_qr', 'expense_title', 'expense_header', 'expense_footer', 'agents_can_publish', 'staff_login_path', 'brand_color', 'ask_business_notes', 'ask_style', 'ask_friendly_data', 'ask_use_records', 'project_types'];
 
 /** Bootstrap data for dropdowns across the app. */
 r.get('/meta', asyncH((req, res) => {
@@ -73,6 +74,7 @@ r.put('/system', can('settings', 'edit'), asyncH((req, res) => {
   }
   if (req.body.staff_login_path !== undefined) req.body.staff_login_path = cleanStaffPath(req.body.staff_login_path);
   if (req.body.ask_business_notes !== undefined) req.body.ask_business_notes = String(req.body.ask_business_notes || '').slice(0, 4000);
+  if (req.body.project_types !== undefined && !PROJECT_TYPE_CHOICES.includes(req.body.project_types)) req.body.project_types = 'auto';
   if (req.body.ask_style !== undefined && !['friendly', 'formal'].includes(req.body.ask_style)) req.body.ask_style = 'friendly';
   for (const k of SETTING_KEYS) if (k !== 'website_api_key' && req.body[k] !== undefined) setSetting(k, k === 'website_webhook_url' ? String(req.body[k] || '').trim() : req.body[k]);
   if (req.body.print_social !== undefined) { const v = jparse(req.body.print_social, null); if (!Array.isArray(v)) throw bad('Social handles must be a list'); }

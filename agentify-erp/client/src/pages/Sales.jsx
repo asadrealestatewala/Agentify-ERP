@@ -18,6 +18,8 @@ import ChecklistCard from '../components/ChecklistCard.jsx';
 export const KindBadge = ({ kind }) => (kind === 'construction' ? <span className="pill purple">Construction</span> : <span className="pill blue">Property</span>);
 
 export function SaleList({ kind }) {
+  const kinds = useFetch('/api/billing/status').data?.project_kinds || {};
+  const canBuild = kinds.construction !== false;
   const { can } = useAuth();
   const nav = useNavigate();
   const { projects, agents } = useLookups();
@@ -26,12 +28,12 @@ export function SaleList({ kind }) {
   return (
     <div>
       <PageHead title={construction ? 'Construction contracts' : 'Sales & bookings'} sub={`${t.total} ${construction ? 'contract' : 'sale'}(s)`}>
-        {can('sales', 'create') && <Link className="btn" to="/sales/new?type=construction"><Icon name="hardhat" size={14} />New construction contract</Link>}
+        {canBuild && can('sales', 'create') && <Link className="btn" to="/sales/new?type=construction"><Icon name="hardhat" size={14} />New construction contract</Link>}
         {can('sales', 'create') && <Link className="btn primary" to="/sales/new"><Icon name="plus" size={14} />New property sale</Link>}
       </PageHead>
       <Card flush>
         <div className="toolbar"><SearchBar value={t.q} onChange={t.setQ} placeholder="Search sale, customer, plot, contract…" />
-          {!kind && <div style={{ width: 150 }}><Select value={t.extra.kind || ''} onChange={(v) => t.setFilter({ kind: v })} placeholder="All types" options={[{ value: 'property', label: 'Property sales' }, { value: 'construction', label: 'Construction contracts' }]} /></div>}
+          {!kind && canBuild && <div style={{ width: 150 }}><Select value={t.extra.kind || ''} onChange={(v) => t.setFilter({ kind: v })} placeholder="All types" options={[{ value: 'property', label: 'Property sales' }, { value: 'construction', label: 'Construction contracts' }]} /></div>}
           <div style={{ width: 170 }}><Select value={t.extra.project_id || ''} onChange={(v) => t.setFilter({ project_id: v })} placeholder="All projects" options={projects.map((p) => ({ value: p.id, label: p.name }))} /></div>
           {can('sales', 'approve') && <div style={{ width: 170 }}><Select value={t.extra.agent_id || ''} onChange={(v) => t.setFilter({ agent_id: v })} placeholder="All agents" options={agents.map((p) => ({ value: p.id, label: p.name }))} /></div>}
           <div style={{ width: 150 }}><Select value={t.extra.status || ''} onChange={(v) => t.setFilter({ status: v })} placeholder="All statuses" options={['confirmed', 'cancelled']} /></div>
@@ -67,6 +69,7 @@ export function SaleForm() {
   const toast = useToast();
   const { can, user } = useAuth();
   const { agents, projects, treasury } = useLookups();
+  const canBuild = (useFetch('/api/billing/status').data?.project_kinds || {}).construction !== false;
   const constructionProjects = projects.filter((p) => p.kind === 'construction');
   const [mode, setMode] = useState(sp.get('type') === 'construction' ? 'construction' : 'property');
   const [f, setF] = useState({ contact_id: Number(sp.get('contact')) || '', property_id: Number(sp.get('property')) || '', sale_date: todayPK(), sale_price: '', discount: 0, booking_amount: '', advance_amount: '', num_installments: 12, installment_amount: '', balloon_count: 0, balloon_amount: '', balloon_interval: 6, first_due: '', agent_id: '', notes: '', title: '', project_id: '', linked_sale_id: '' });
@@ -162,10 +165,10 @@ export function SaleForm() {
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
       <BackLink to="/sales">Sales</BackLink>
       <PageHead title={isHouse ? 'New construction contract' : 'New property sale'} sub="Creates the contract, payment schedule, receivable ledger and agent commission in one step — nothing is entered twice." />
-      <div className="top-tabs">
+      {(canBuild || isHouse) && <div className="top-tabs">
         <button className={`chip ${!isHouse ? 'active' : ''}`} onClick={() => setMode('property')}>Property sale (plot / house / shop)</button>
         <button className={`chip ${isHouse ? 'active' : ''}`} onClick={() => setMode('construction')}>Construction contract (house building)</button>
-      </div>
+      </div>}
       <div className="grid" style={{ gridTemplateColumns: 'minmax(0,3fr) minmax(300px,2fr)', alignItems: 'start' }} data-stack="md">
         <div className="stack">
           <Card title="Customer">
@@ -206,7 +209,7 @@ export function SaleForm() {
             </div>
           </Card>
 
-          {!isHouse && (
+          {!isHouse && canBuild && (
             <Card title="Also build a house on this plot?" actions={<label className="check"><input type="checkbox" checked={h.enabled} onChange={(e) => setH({ ...h, enabled: e.target.checked })} />Add a construction contract</label>}>
               {!h.enabled ? <span className="muted">Customers who buy a plot and also have us build on it pay one monthly amount that is split between the plot and the house. Tick to create both together — the customer, plot, agent, dates and number of installments are reused.</span> : (
                 <div className="stack">

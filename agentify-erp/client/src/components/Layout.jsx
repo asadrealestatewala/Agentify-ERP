@@ -79,6 +79,8 @@ const GROUP_FEATURE = { Accounting: 'vouchers', Reports: 'reports', Website: 'we
 const PATH_FEATURE = { '/payments/installments': 'installments', '/receipts': 'receipts', '/settings/email': 'tenant_email', '/settings/whatsapp': 'whatsapp', '/leads/scoring': 'lead_scoring', '/my/location': 'field_location', '/field': 'field_location' };
 
 /** Pages that belong to the Real Estate product only (the server refuses them for other workspaces too). */
+/** Menu pages that only make sense for one kind of project (Settings > Project types). */
+const KIND_PATHS = { '/projects/construction': 'construction', '/sales/construction': 'construction', '/projects/development': 'development', '/projects/units': 'development', '/projects/updates': 'development', '/projects/map': 'development' };
 const PRODUCT_PATHS = { '/listings/approvals': 'real_estate', '/projects/map': 'real_estate', '/properties/new': 'real_estate', '/properties/featured': 'real_estate' };
 
 function useAllowed() {
@@ -104,6 +106,8 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
   const fieldOk = (spec) => (spec === 'field:me' ? !!fieldMe && (fieldMe.settings.enabled || fieldMe.status.location) : spec === 'field:team' ? !!fieldMe?.can_view_team : true);
   const products = ent?.products || null; // null while loading: show everything rather than flicker
   const hasProduct = (pr) => !pr || !products || products.includes(pr);
+  const kinds = ent?.project_kinds || null;
+  const hasKind = (k) => !k || !kinds || kinds[k] !== false;
   const planFlags = ent?.limits?.flags || null; // null (older plans, trials) = nothing switched off
   const featOk = (f) => !f || !planFlags || planFlags[f] !== false;
   useEffect(() => {
@@ -124,7 +128,7 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
     if (g.creative && !creativeSt) return null; // status unreachable (no Content access): hide; otherwise always show, the page explains why it is unavailable
     if (g.flag && !getRegion().config.flags?.[g.flag]) return null;
     if (!g.children) return g;
-    const kids = (g.always ? g.children.filter((c) => fieldOk(c[2])) : g.children.filter((c) => ok(c[2], g.module))).filter((c) => hasProduct(PRODUCT_PATHS[c[1]])).filter((c) => featOk(PATH_FEATURE[c[1]])).filter((c) => !siteOnly || SITE_ONLY_PATHS.has(c[1]));
+    const kids = (g.always ? g.children.filter((c) => fieldOk(c[2])) : g.children.filter((c) => ok(c[2], g.module))).filter((c) => hasProduct(PRODUCT_PATHS[c[1]])).filter((c) => hasKind(KIND_PATHS[c[1]])).filter((c) => featOk(PATH_FEATURE[c[1]])).filter((c) => !siteOnly || SITE_ONLY_PATHS.has(c[1]));
     return kids.length ? { ...g, children: kids } : null;
   }).filter(Boolean);
   // upgrade path: the product a workspace does not have yet, for people who manage billing

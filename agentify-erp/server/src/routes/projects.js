@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { all, get, run, tx, insert, update } from '../db.js';
+import { all, get, run, tx, insert, update, getSetting } from '../db.js';
 import { can, hasPerm, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { crud, uploader } from './helpers.js';
@@ -7,6 +7,8 @@ import { asyncH, bad, notFound, jparse, now, today, int } from '../util.js';
 import { projectFinancials } from '../services/projectFinance.js';
 import { scheduleFor, progressSql } from '../services/schedule.js';
 import { publish } from '../services/events.js';
+import { projectKinds } from '../services/projectKinds.js';
+import { billingState } from '../services/plans.js';
 
 const r = Router();
 
@@ -14,6 +16,16 @@ const PCOLS = ['code', 'name', 'location', 'developer', 'description', 'total_la
   'manager_id', 'start_date', 'expected_completion', 'is_development', 'kind', 'budget', 'site_visible', 'created_at'];
 
 const pc = Router();
+// a workspace only creates the kinds of project it uses (Settings > System settings > Project types)
+pc.use((req, res, next) => {
+  const kind = req.body?.kind;
+  if (!['POST', 'PUT'].includes(req.method) || !kind || getSetting('project_types', 'auto') === 'auto') return next(); // automatic mode only hides, it never blocks
+  const id = req.method === 'PUT' ? Number((req.path.match(/^\/(\d+)$/) || [])[1]) : 0;
+  if (id && get('SELECT kind FROM projects WHERE id=?', id)?.kind === kind) return next(); // an existing project keeps its kind
+  const k = projectKinds(req.tenant ? billingState(req.tenant).products : null);
+  if (k[kind] === false) return next(bad(`${kind === 'construction' ? 'Construction' : 'Development'} projects are not switched on for this workspace. Change it in Settings > System settings > Project types.`));
+  next();
+});
 crud(pc, {
   table: 'projects', module: 'projects', cols: PCOLS, search: ['projects.name', 'projects.code', 'projects.location'], filters: ['is_development', 'dev_status', 'kind'], label: 'project',
   required: ['code', 'name'], orderBy: 'projects.name',

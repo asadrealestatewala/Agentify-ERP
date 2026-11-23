@@ -14,10 +14,13 @@ import { ScheduleManager } from '../components/Schedule.jsx';
 
 const DEV_STATUS = ['Planning', 'Under Development', 'Completed', 'On Hold'];
 
-export function projectFields(users) {
+/** Which kinds of project this workspace uses (null while loading: allow both). */
+export const useProjectKinds = () => useFetch('/api/billing/status').data?.project_kinds || {};
+
+export function projectFields(users, kinds = {}) {
   return [
     { name: 'code', label: 'Project code', required: true }, { name: 'name', label: 'Project name', required: true },
-    { name: 'kind', label: 'Project type', type: 'select', options: [{ value: 'development', label: 'Development (plots, housing scheme)' }, { value: 'construction', label: 'Construction (house-building contracts)' }], allowEmpty: false, full: true },
+    ...(kinds.development !== false && kinds.construction !== false ? [{ name: 'kind', label: 'Project type', type: 'select', options: [{ value: 'development', label: 'Development (plots, housing scheme)' }, { value: 'construction', label: 'Construction (house-building contracts)' }], allowEmpty: false, full: true }] : []),
     { name: 'location', label: 'Location' }, { name: 'developer', label: 'Developer' },
     { name: 'total_land_area', label: 'Total land area', type: 'number' }, { name: 'land_unit', label: 'Land unit', type: 'select', options: ['Kanal', 'Marla', 'Acre', 'Sq Ft'], allowEmpty: false },
     { name: 'total_units', label: 'Total units', type: 'number' }, { name: 'total_value', label: 'Total project value', type: 'money' }, { name: 'budget', label: 'Project budget (cost ceiling)', type: 'money', hint: 'Used for “budget utilised” in reports and the assistant' },
@@ -33,9 +36,10 @@ export function projectFields(users) {
 export function ProjectList({ development, kind }) {
   const nav = useNavigate();
   const { users } = useLookups();
+  const kinds = useProjectKinds();
   return (
     <ResourcePage title={kind === 'construction' ? 'Construction projects' : development ? 'Development projects' : 'Projects'} sub={kind === 'construction' ? 'House-building contracts with customers' : 'Every unit belongs to a project'} endpoint="/api/projects" module="projects" noun="project" tableId="projects"
-      filters={kind ? { kind } : development ? { is_development: 1 } : {}} fields={projectFields(users)} defaults={{ site_visible: 1, dev_status: 'Planning', land_unit: 'Kanal', is_development: kind === 'construction' ? 0 : 1, kind: kind || 'development' }}
+      filters={kind ? { kind } : development ? { is_development: 1 } : {}} fields={projectFields(users, kinds)} defaults={{ site_visible: 1, dev_status: 'Planning', land_unit: 'Kanal', is_development: kind === 'construction' ? 0 : 1, kind: kind || (kinds.development === false ? 'construction' : 'development') }}
       columns={[
         { key: 'name', label: 'Project', render: (r) => <div><Link to={`/projects/${r.id}`} className="cell-main">{r.name}</Link>{r.is_demo ? <span className="demo-chip">DEMO</span> : null}<div className="cell-sub">{r.code} · {r.location}</div></div> },
         { key: 'manager_name', label: 'Manager' }, { key: 'dev_status', label: 'Status', render: (r) => <StatusBadge status={r.dev_status || 'Planning'} tone="blue" label={r.dev_status} /> },
@@ -123,6 +127,7 @@ export function ProjectWorkspace() {
   const [tab, setTab] = useState(sp.get('tab') || 'overview');
   const [addingUpdate, setAddingUpdate] = useState(false);
   const { users } = useLookups();
+  const kinds = useProjectKinds();
   const [editing, setEditing] = useState(false);
   if (error) return <div className="alert err">{error}</div>;
   if (!ws) return <Loading />;
@@ -193,7 +198,7 @@ export function ProjectWorkspace() {
         </div>
       </Card>
       {addingUpdate && <UpdateForm project={p.id} onClose={() => setAddingUpdate(false)} onSaved={() => { setAddingUpdate(false); reload(); }} />}
-      {editing && <FormModal title="Edit project" fields={projectFields(users)} initial={p} onClose={() => setEditing(false)} onSave={async (f) => { await api.put(`/api/projects/${p.id}`, f); setEditing(false); reload(); toast('Project saved', 'ok'); }} />}
+      {editing && <FormModal title="Edit project" fields={projectFields(users, kinds)} initial={p} onClose={() => setEditing(false)} onSave={async (f) => { await api.put(`/api/projects/${p.id}`, f); setEditing(false); reload(); toast('Project saved', 'ok'); }} />}
     </div>
   );
 }
