@@ -1,10 +1,10 @@
 import { get, all, run, tx, nextNo } from '../db.js';
 import { now, today, bad, int, num, moneyText, curCode } from '../util.js';
-import { postJournal, assertTreasury, assertFunds } from './accounting.js';
+import { postJournal, reverseJournal, assertTreasury, assertFunds } from './accounting.js';
 import { audit, notifyPerm } from '../audit.js';
 import { notifyVendor } from './vendorAccount.js';
 
-export const EXPENSE_STATUS = ['created', 'submitted', 'approved', 'partial', 'paid', 'rejected'];
+export const EXPENSE_STATUS = ['created', 'submitted', 'approved', 'partial', 'paid', 'rejected', 'void'];
 
 
 const str = (v, n = 200) => { const t = String(v ?? '').trim().slice(0, n); return t || null; };
@@ -149,4 +149,28 @@ export function payVendor(vendorId, inp, req) {
 }
 function require_open(vendorId) {
   return all(`SELECT * FROM expense_vouchers WHERE vendor_id=? AND status IN ('approved','partial') ORDER BY date, id`, vendorId);
+}
+
+/**
+ * Super-Admin-only: void an approved / partly paid / paid voucher. Every payment journal and the approval journal are reversed
+ * (bank or cash comes back, the vendor payable and the expense go away), the voucher stays on file as "void" with who/when/why.
+ */
+export function voidVoucher(id, { reason, confirm_no } = {}, req) {
+  return tx(() => {
+    const v = get('SELECT * FROM expense_vouchers WHERE id=?', id);
+    if (!v) throw bad('Voucher not found');
+    if (v.status === 'void') throw bad('Voucher is already void');
+    if (!['approved', 'partial', 'paid'].includes(v.status)) throw bad('Draft, submitted and rejected vouchers are deleted, not voided');
+    if (!String(reason || '').trim()) throw bad('A reason is required to void a voucher');
+    if (String(confirm_no || '').trim() !== v.voucher_no) throw bad(`Type the voucher number (${v.voucher_no}) to confirm`);
+    if (get('SELECT 1 FROM assets WHERE voucher_id=?', id)) throw bad('This voucher created assets in the Asset Library. Remove or dispose of those assets first.');
+    const why = `Void of ${v.voucher_no}: ${String(reason).trim()}`;
+    for (const p of all('SELECT * FROM vendor_payments WHERE voucher_id=? AND voided=0', id)) {
+      if (p.journal_id) reverseJournal(p.journal_id, why, req.user.id);
+      run('UPDATE vendor_payments SET voided=1 WHERE id=?', p.id);
+    }
+    if (v.journal_id) reverseJournal(v.journal_id, why, req.user.id);
+    run("UPDATE expense_vouchers SET status='void', void_reason=?, voided_by=?, voided_at=? WHERE id=?", String(reason).trim(), req.user.id, now(), id);
+    audit(req, 'Voided Expense Voucher', 'expense', id, `${v.voucher_no} (${v.status}, paid ${v.paid_amount}): ${String(reason).trim()}`);
+  });
 }

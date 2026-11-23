@@ -51,8 +51,8 @@
  },
  "/api/accounting/expenses?limit=200": {
   "status": 200,
-  "sha": "7bc666988a83cdb8",
-  "bytes": 6013
+  "sha": "0228c30715884c28",
+  "bytes": 6384
  },
  "/api/accounting/credit-book": {
   "status": 200,
@@ -171,23 +171,23 @@
  },
  "/api/accounting/expenses/6": {
   "status": 200,
-  "sha": "1a98256cb5d28838",
-  "bytes": 915
+  "sha": "21dca49aef556b79",
+  "bytes": 968
  },
  "/api/accounting/expenses/5": {
   "status": 200,
-  "sha": "c03c8db8c9f0b3bd",
-  "bytes": 1145
+  "sha": "7815b8d190053495",
+  "bytes": 1209
  },
  "/api/accounting/expenses/4": {
   "status": 200,
-  "sha": "9bc2ddfeb32ea4ea",
-  "bytes": 1177
+  "sha": "657f870ae6a534d4",
+  "bytes": 1241
  },
  "/api/accounting/expenses/1": {
   "status": 200,
-  "sha": "8fe5f001cb267dfc",
-  "bytes": 1175
+  "sha": "96802f449541c759",
+  "bytes": 1239
  },
  "/api/portal/dashboard": {
   "status": 200,

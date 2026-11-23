@@ -128,6 +128,7 @@ function migrate() {
   addCol('properties', 'file_status', 'TEXT'); addCol('properties', 'file_notes', 'TEXT');
   addCol('contacts', 'customer_code', 'TEXT');
   addCol('expense_vouchers', 'show_paid_from', 'INTEGER NOT NULL DEFAULT 0'); addCol('expense_vouchers', 'is_asset', 'INTEGER NOT NULL DEFAULT 0'); addCol('expense_vouchers', 'asset_info', 'TEXT');
+  addCol('expense_vouchers', 'void_reason', 'TEXT'); addCol('expense_vouchers', 'voided_by', 'INTEGER'); addCol('expense_vouchers', 'voided_at', 'TEXT'); addCol('vendor_payments', 'voided', 'INTEGER NOT NULL DEFAULT 0');
   addCol('properties', 'review_note', 'TEXT'); addCol('properties', 'review_by', 'INTEGER'); addCol('properties', 'reviewed_at', 'TEXT');
   addCol('projects', 'site_state', "TEXT NOT NULL DEFAULT 'none'"); addCol('projects', 'site_requested_by', 'INTEGER'); addCol('projects', 'site_requested_at', 'TEXT'); addCol('projects', 'site_featured', 'INTEGER NOT NULL DEFAULT 0'); addCol('projects', 'site_note', 'TEXT');
   for (const [c, t] of [['installment_ids', 'TEXT'], ['proof_sent_at', 'TEXT'], ['verifying_at', 'TEXT'], ['verified_channel', 'TEXT'], ['verified_ref', 'TEXT'], ['verified_note', 'TEXT'], ['verified_by', 'INTEGER'], ['verified_at', 'TEXT'],
