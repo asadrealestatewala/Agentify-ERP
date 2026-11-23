@@ -10,6 +10,7 @@ import { startPlatformCheckout, platformCheckoutStatus } from '../services/platf
 import { recordServerEvent } from '../services/analytics.js';
 import { platformDb, logTenantEvent } from '../platform.js';
 import { marketingContent } from '../services/marketing.js';
+import { projectKinds } from '../services/projectKinds.js';
 import multer from 'multer';
 import { creditsAllowance, creditsUsed, creditsLeft } from '../services/aiGate.js';
 import { postsUsage } from '../services/socialCalendar.js';
@@ -37,7 +38,7 @@ const appLinks = (s) => (!s.free_site && ['active', 'past_due'].includes(s.statu
 r.get('/status', (req, res) => {
   const s = summary(req);
   res.json({ status: s.status, locked: s.locked, reason: s.reason || null, message: s.message, days_left: s.days_left ?? null, trial_ends_at: s.trial_ends_at || null, plan: s.plan,
-    grace_until: s.grace_until || null, period_end: s.period_end || null, products: s.products, product: s.product, modules: s.limits.modules, limits: s.limits, legacy: !!req.tenant.is_legacy, app: appLinks(s) });
+    grace_until: s.grace_until || null, period_end: s.period_end || null, products: s.products, product: s.product, project_kinds: projectKinds(s.products), modules: s.limits.modules, limits: s.limits, legacy: !!req.tenant.is_legacy, app: appLinks(s) });
 });
 
 r.get('/', can('settings', 'view'), (req, res) => res.json({ ...summary(req), invoices: req.tenant.is_legacy ? [] : invoicesFor(req.tenant.id), payments: req.tenant.is_legacy ? [] : submissionsFor(req.tenant.id),

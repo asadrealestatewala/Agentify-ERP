@@ -259,6 +259,7 @@ export function SystemSettings() {
           <Field label="Address" className="full"><input className="input" disabled={ro} value={f.company_address || ''} onChange={(e) => set('company_address', e.target.value)} /></Field>
           <Field label="Currency" hint="Set by the workspace region"><input className="input" disabled value={f.currency || cur()} /></Field>
           <Field label="Date format"><input className="input" disabled value={`${getRegion().config.date_style} (${getRegion().config.timezone})`} /></Field>
+          <Field label="Project types" hint="Choose which kinds of project show in menus, forms and contracts. Automatic follows your plan and keeps anything you already created visible."><select className="input" disabled={ro} value={f.project_types || 'auto'} onChange={(e) => set('project_types', e.target.value)}><option value="auto">Automatic</option><option value="both">Development and construction</option><option value="development">Development only (plots, housing schemes)</option><option value="construction">Construction only (house-building contracts)</option></select></Field>
         </div></Card>
         <Card title="Ask assistant"><div className="stack">
           <ExtraAiNotice />

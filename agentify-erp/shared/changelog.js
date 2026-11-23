@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.111', date: '2026-11-23', title: 'Show only the project types you use',
+    items: [
+      { text: 'Menus, project forms and contract pages now show only the kinds of project your workspace uses. A construction-only workspace no longer sees plots, units and the plot map, and a plot-and-development workspace no longer sees construction contracts. Anything you already created stays visible, and you can choose the project types yourself.', where: 'Settings > System settings > Project types' },
+    ],
+  },
+  {
     version: 'v1.110', date: '2026-11-19', title: 'Clearer duplicate warning when adding a lead',
     items: [
       { text: 'When a new contact matches an existing one, the warning now says which field matched (phone, WhatsApp, email or CNIC) and shows the saved value. Short numbers no longer match by accident, and you can open the existing contact or choose Save anyway to add a separate lead.', where: 'Contacts > Add contact' },

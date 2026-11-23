@@ -96,8 +96,8 @@
  },
  "/api/settings/system": {
   "status": 200,
-  "sha": "6f4eb00842b76bd8",
-  "bytes": 1714
+  "sha": "079b4cd1bca8e8e6",
+  "bytes": 1733
  },
  "/api/auth/brand": {
   "status": 200,
