@@ -9,7 +9,7 @@ import { asyncH, bad, notFound, int, today, now, dateRange, moneyText, curCode }
 import { postJournal, reverseJournal, accountBalance, trialBalance, treasuryAccounts, assertTreasury, assertFunds, postOpening, isDebitNature, setOpening, currentOpening, CORE_CODES } from '../services/accounting.js';
 import { sendPdf } from '../services/pdf.js';
 import { expensePdf } from '../services/voucherPdf.js';
-import { createVoucher, submitVoucher, approveVoucher, rejectVoucher, payVoucher, payVendor, cleanAssetInfo } from '../services/expenses.js';
+import { createVoucher, submitVoucher, approveVoucher, rejectVoucher, payVoucher, payVendor, voidVoucher, cleanAssetInfo } from '../services/expenses.js';
 import { projectFinancials } from '../services/projectFinance.js';
 
 const r = Router();
@@ -366,6 +366,10 @@ r.post('/expenses/:id(\\d+)/submit', can('accounting', 'create'), asyncH((req, r
 r.post('/expenses/:id(\\d+)/approve', can('accounting', 'approve'), asyncH((req, res) => { approveVoucher(Number(req.params.id), req); res.json({ ok: true }); }));
 r.post('/expenses/:id(\\d+)/reject', can('accounting', 'approve'), asyncH((req, res) => { rejectVoucher(Number(req.params.id), req); res.json({ ok: true }); }));
 r.post('/expenses/:id(\\d+)/pay', can('accounting', 'approve'), asyncH((req, res) => { payVoucher(Number(req.params.id), req.body, req); res.json({ ok: true }); }));
+r.post('/expenses/:id(\\d+)/void', can('accounting', 'delete'), asyncH((req, res) => {
+  if (req.user.role !== 'Super Admin') throw bad('Only the Super Admin can void a paid voucher');
+  voidVoucher(Number(req.params.id), req.body || {}, req); res.json({ ok: true });
+}));
 r.delete('/expenses/:id(\\d+)', can('accounting', 'delete'), asyncH((req, res) => {
   const e = get('SELECT * FROM expense_vouchers WHERE id=?', req.params.id);
   if (!e) throw notFound();

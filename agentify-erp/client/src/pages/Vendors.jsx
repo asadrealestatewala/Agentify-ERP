@@ -33,7 +33,7 @@ export function VendorList() {
 
 export function VendorDetail() {
   const { id } = useParams();
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const toast = useToast();
   const { treasury } = useLookups();
   const { data, error, reload } = useFetch(`/api/accounting/vendors-ledger/${id}`);
@@ -179,11 +179,11 @@ export function ExpenseList({ vendorsOnly }) {
       <Card flush>
         <div className="toolbar"><SearchBar value={t.q} onChange={t.setQ} placeholder="Search voucher, vendor, description…" />
           <div style={{ width: 170 }}><Select value={t.extra.project_id || ''} onChange={(v) => t.setFilter({ project_id: v })} placeholder="All projects" options={projects.map((p) => ({ value: p.id, label: p.name }))} /></div>
-          <div style={{ width: 150 }}><Select value={t.extra.status || ''} onChange={(v) => t.setFilter({ status: v })} placeholder="All statuses" options={['created', 'submitted', 'approved', 'partial', 'paid', 'rejected']} /></div>
+          <div style={{ width: 150 }}><Select value={t.extra.status || ''} onChange={(v) => t.setFilter({ status: v })} placeholder="All statuses" options={['created', 'submitted', 'approved', 'partial', 'paid', 'rejected', 'void']} /></div>
           <div className="grow" /><ExportMenu url="/api/accounting/expenses" params={t.params} name="expense-vouchers" module="accounting" /></div>
         <ViewsBar t={t} />
         <DataTable {...t.tableProps} hiddenIds={useUndoDelete('expenses').hidden} tableId="expenses"
-          quickActions={(r) => r.status === 'rejected' ? null : <button className="qa wa" title="Send on WhatsApp" aria-label={`Send ${r.voucher_no} on WhatsApp`} onClick={() => nav(`/expenses/${r.id}`, { state: { offer: r.status === 'paid' ? 'paid' : ['approved', 'partial'].includes(r.status) ? 'approved' : 'send' } })}><Icon name="whatsapp" size={13} /></button>} onRowClick={(r) => nav(`/expenses/${r.id}`)} columns={[
+          quickActions={(r) => ['rejected', 'void'].includes(r.status) ? null : <button className="qa wa" title="Send on WhatsApp" aria-label={`Send ${r.voucher_no} on WhatsApp`} onClick={() => nav(`/expenses/${r.id}`, { state: { offer: r.status === 'paid' ? 'paid' : ['approved', 'partial'].includes(r.status) ? 'approved' : 'send' } })}><Icon name="whatsapp" size={13} /></button>} onRowClick={(r) => nav(`/expenses/${r.id}`)} columns={[
           { key: 'voucher_no', label: 'Voucher', render: (r) => <span className="cell-main">{r.voucher_no}{r.is_demo ? <span className="demo-chip">DEMO</span> : null}</span> }, { key: 'date', label: 'Date', render: (r) => date(r.date) },
           { key: 'project_name', label: 'Project' }, { key: 'vendor_name', label: 'Vendor', render: (r) => r.vendor_name || '—' }, { key: 'expense_account_name', label: 'Expense' }, { key: 'description', label: 'Description' },
           { key: 'amount', label: 'Amount', num: true, render: (r) => money(r.amount) }, { key: 'paid_amount', label: 'Paid', num: true, render: (r) => money(r.paid_amount), hidden: true },
@@ -299,6 +299,7 @@ export function ExpenseDetail() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [e?.id]);
   const [del, setDel] = useState(false);
+  const [voiding, setVoiding] = useState(false);
   const nav = useNavigate();
   if (error) return <div className="alert err">{error}</div>;
   if (!e) return <Loading />;
@@ -336,7 +337,8 @@ export function ExpenseDetail() {
         {['approved', 'partial'].includes(e.status) && can('accounting', 'approve') && <button className="btn primary" onClick={() => setPaying(true)}>Pay {money(bal)}</button>}
         {e.status === 'rejected' && can('accounting', 'create') && <button className="btn" onClick={() => act('submit', 'Re-submitted')}>Re-submit</button>}
         {['created', 'rejected'].includes(e.status) && can('accounting', 'delete') && <button className="btn danger" onClick={() => setDel(true)}>Delete</button>}
-        {e.status !== 'rejected' && <button className="btn success" onClick={() => setWa({ kind: e.status === 'paid' ? 'paid' : ['approved', 'partial'].includes(e.status) ? 'approved' : null, phone: e.vendor_phone || '' })}><Icon name="whatsapp" size={14} />Send on WhatsApp</button>}
+        {['approved', 'partial', 'paid'].includes(e.status) && user?.role === 'Super Admin' && <button className="btn danger" onClick={() => setVoiding(true)}>Void voucher</button>}
+        {!['rejected', 'void'].includes(e.status) && <button className="btn success" onClick={() => setWa({ kind: e.status === 'paid' ? 'paid' : ['approved', 'partial'].includes(e.status) ? 'approved' : null, phone: e.vendor_phone || '' })}><Icon name="whatsapp" size={14} />Send on WhatsApp</button>}
         <button className="btn primary" onClick={() => download(`/api/accounting/expenses/${e.id}/pdf`, {}, `expense-${e.voucher_no}.pdf`).catch((er) => toast(er.message, 'err'))}><Icon name="download" size={14} />Download PDF</button>
         <button className="btn" onClick={() => window.print()}><Icon name="print" size={14} />Print</button>
       </PageHead>
@@ -359,6 +361,10 @@ export function ExpenseDetail() {
       {paying && <FormModal title="Pay voucher" size="sm" initial={{ amount: bal, date: todayPK(), method: e.payment_method || 'Cash', account_id: e.paid_from_account_id || '' }}
         fields={[{ name: 'amount', label: 'Amount', type: 'money', required: true }, { name: 'account_id', label: 'Pay from', type: 'select', number: true, required: true, options: treasury.map((a) => ({ value: a.id, label: a.name })) }, { name: 'method', label: 'Method', type: 'select', lookup: 'payment_method', allowEmpty: false }, { name: 'date', label: 'Date', type: 'date' }, { name: 'reference_no', label: 'Reference' }]}
         onClose={() => setPaying(false)} onSave={async (f) => { await api.post(`/api/accounting/expenses/${e.id}/pay`, f); toast('Payment recorded', 'ok'); setPaying(false); reload(); if (e.vendor_id) setWa({ kind: 'paid', phone: e.vendor_phone || '' }); }} />}
+      {e.status === 'void' && <div className="alert err" style={{ marginBottom: 12 }}>Voided{e.voided_at ? ` on ${date(e.voided_at)}` : ''}. Reason: {e.void_reason || '—'}. All payments and ledger entries for this voucher were reversed.</div>}
+      {voiding && <FormModal title={`Void ${e.voucher_no}`} size="sm" submitLabel="Void voucher" initial={{ reason: '', confirm_no: '' }}
+        fields={[{ name: 'reason', label: 'Reason', type: 'textarea', required: true, hint: `This reverses ${money(e.paid_amount)} paid and the ${money(e.amount)} expense. Money returns to the bank or cash account. This cannot be undone.` }, { name: 'confirm_no', label: `Type ${e.voucher_no} to confirm`, required: true }]}
+        onClose={() => setVoiding(false)} onSave={async (f) => { await api.post(`/api/accounting/expenses/${e.id}/void`, f); toast('Voucher voided and payments reversed', 'ok'); setVoiding(false); reload(); }} />}
       {wa && (
         <Modal title={wa.kind === 'paid' ? 'Payment recorded — tell the vendor?' : wa.kind === 'approved' ? 'Voucher approved — send it to the vendor?' : 'Send voucher on WhatsApp'} size="sm" onClose={() => setWa(null)}
           footer={<><button className="btn" onClick={() => setWa(null)}>Not now</button><button className="btn success" disabled={waBusy} onClick={sendWa}><Icon name="whatsapp" size={14} />{waBusy ? 'Preparing…' : 'Send on WhatsApp'}</button></>}>

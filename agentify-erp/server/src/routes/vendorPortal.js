@@ -32,7 +32,7 @@ r.get('/dashboard', asyncH((req, res) => {
   res.json({
     vendor: { id: v.id, vendor_code: v.vendor_code, name: v.name, company: v.company, category: v.category, active: !!v.active, payment_terms: v.payment_terms },
     money,
-    recent_payments: all(`SELECT p.payment_no, p.date, p.amount, p.method, p.reference_no, e.voucher_no FROM vendor_payments p LEFT JOIN expense_vouchers e ON e.id=p.voucher_id WHERE p.vendor_id=? ORDER BY p.date DESC, p.id DESC LIMIT 6`, v.id),
+    recent_payments: all(`SELECT p.payment_no, p.date, p.amount, p.method, p.reference_no, e.voucher_no FROM vendor_payments p LEFT JOIN expense_vouchers e ON e.id=p.voucher_id WHERE p.voided=0 AND p.vendor_id=? ORDER BY p.date DESC, p.id DESC LIMIT 6`, v.id),
     tenders: { open: tenders.length, not_yet_bid: tenders.filter((x) => !x.my_bid_status).length, closing_soon: tenders.filter((x) => x.days_left <= 3).length },
     bids: all("SELECT status, COUNT(*) n FROM tender_bids WHERE vendor_id=? AND status<>'withdrawn' GROUP BY status", v.id),
   });
@@ -70,7 +70,7 @@ const ownVoucher = (req) => {
 r.get('/vouchers/:id(\\d+)', asyncH((req, res) => {
   const e = ownVoucher(req);
   const row = get(`${VOUCHER} WHERE e.id=?`, e.id);
-  res.json({ ...row, payments: all('SELECT payment_no, date, amount, method, reference_no FROM vendor_payments WHERE voucher_id=? ORDER BY date, id', e.id) });
+  res.json({ ...row, payments: all('SELECT payment_no, date, amount, method, reference_no FROM vendor_payments WHERE voided=0 AND voucher_id=? ORDER BY date, id', e.id) });
 }));
 r.get('/vouchers/:id(\\d+)/pdf', asyncH((req, res) => {
   const e = ownVoucher(req);
