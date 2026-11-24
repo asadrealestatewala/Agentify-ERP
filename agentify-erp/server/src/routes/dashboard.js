@@ -57,13 +57,15 @@ r.get('/', asyncH((req, res) => {
     const collected = get(`SELECT COALESCE(SUM(CASE WHEN payment_type='Refund' THEN -amount ELSE amount END),0) v FROM receipts WHERE status='valid' AND date BETWEEN ? AND ? AND account_id NOT IN (SELECT id FROM accounts WHERE code='2610')`, from, to).v;
     const collectedByDeveloper = get(`SELECT COALESCE(SUM(CASE WHEN payment_type='Refund' THEN -amount ELSE amount END),0) v FROM receipts WHERE status='valid' AND date BETWEEN ? AND ? AND account_id IN (SELECT id FROM accounts WHERE code='2610')`, from, to).v;
     const expenses = get(`SELECT COALESCE(SUM(l.debit-l.credit),0) v FROM journal_lines l JOIN journals j ON j.id=l.journal_id JOIN accounts a ON a.id=l.account_id WHERE a.type='expense' AND j.date BETWEEN ? AND ?`, from, to).v;
+    // rebate the developer owes the company (account 4500) is the company's own income on developer files
+    const rebateIncome = get(`SELECT COALESCE(SUM(l.credit-l.debit),0) v FROM journal_lines l JOIN journals j ON j.id=l.journal_id JOIN accounts a ON a.id=l.account_id WHERE a.code='4500' AND j.date BETWEEN ? AND ?`, from, to).v;
     const rec = get(`SELECT COALESCE(SUM(net_price-paid_amount),0) v FROM sales WHERE status='confirmed'`).v;
     const pend = get(`SELECT COUNT(*) n, COALESCE(SUM(i.amount-i.paid),0) v FROM installments i JOIN sales s ON s.id=i.sale_id WHERE s.status='confirmed' AND i.status<>'paid'`);
     const overdue = get(`SELECT COUNT(*) n, COALESCE(SUM(i.amount-i.paid),0) v FROM installments i JOIN sales s ON s.id=i.sale_id WHERE s.status='confirmed' AND i.status<>'paid' AND i.due_date<?`, t);
     const upcoming = get(`SELECT COUNT(*) n, COALESCE(SUM(i.amount-i.paid),0) v FROM installments i JOIN sales s ON s.id=i.sale_id WHERE s.status='confirmed' AND i.status<>'paid' AND i.due_date BETWEEN ? AND ?`, t, addDays(t, 30));
     out.finance = {
       project_value: get('SELECT COALESCE(SUM(total_value),0) v FROM projects').v || get("SELECT COALESCE(SUM(net_price),0) v FROM properties WHERE status<>'cancelled'").v,
-      collected, collected_by_developer: collectedByDeveloper, receivable: rec, expenses, net_revenue: collected - expenses,
+      collected, collected_by_developer: collectedByDeveloper, receivable: rec, expenses, rebate_income: rebateIncome, net_revenue: collected + rebateIncome - expenses,
       pending_installments: pend, overdue_installments: overdue, upcoming_installments: upcoming,
       commission_payable: get("SELECT COALESCE(SUM(amount-paid_amount),0) v FROM commissions WHERE status IN ('approved','partially_paid')").v,
       commission_pending_approval: get("SELECT COALESCE(SUM(amount),0) v FROM commissions WHERE status='pending'").v,
@@ -72,7 +74,7 @@ r.get('/', asyncH((req, res) => {
     };
     out.charts = {
       sales_by_month: all(`SELECT substr(sale_date,1,7) month, COUNT(*) n, SUM(net_price) value FROM sales WHERE status='confirmed' AND sale_date BETWEEN ? AND ? GROUP BY month ORDER BY month`, from, to),
-      revenue_by_month: all(`SELECT substr(date,1,7) month, SUM(CASE WHEN payment_type='Refund' THEN -amount ELSE amount END) value FROM receipts WHERE status='valid' AND date BETWEEN ? AND ? AND account_id NOT IN (SELECT id FROM accounts WHERE code='2610') GROUP BY month ORDER BY month`, from, to),
+      revenue_by_month: all(`SELECT month, SUM(value) value FROM (SELECT substr(date,1,7) month, CASE WHEN payment_type='Refund' THEN -amount ELSE amount END value FROM receipts WHERE status='valid' AND date BETWEEN ? AND ? AND account_id NOT IN (SELECT id FROM accounts WHERE code='2610') UNION ALL SELECT substr(j.date,1,7), l.credit-l.debit FROM journal_lines l JOIN journals j ON j.id=l.journal_id JOIN accounts a ON a.id=l.account_id WHERE a.code='4500' AND j.date BETWEEN ? AND ?) GROUP BY month ORDER BY month`, from, to, from, to),
       expenses_by_month: all(`SELECT substr(j.date,1,7) month, SUM(l.debit-l.credit) value FROM journal_lines l JOIN journals j ON j.id=l.journal_id JOIN accounts a ON a.id=l.account_id WHERE a.type='expense' AND j.date BETWEEN ? AND ? GROUP BY month ORDER BY month`, from, to),
       collection_vs_receivable: all(`SELECT substr(i.due_date,1,7) month, SUM(i.paid) collected, SUM(i.amount-i.paid) receivable FROM installments i JOIN sales s ON s.id=i.sale_id WHERE s.status='confirmed' AND i.due_date BETWEEN ? AND ? GROUP BY month ORDER BY month`, from, to),
       project_revenue: all(`SELECT COALESCE(p.name,'—') name, SUM(s.net_price) revenue, SUM(s.paid_amount) collected FROM sales s LEFT JOIN projects p ON p.id=s.project_id WHERE s.status='confirmed' AND s.sale_date BETWEEN ? AND ? GROUP BY s.project_id`, from, to),
