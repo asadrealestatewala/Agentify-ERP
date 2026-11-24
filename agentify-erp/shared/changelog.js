@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.113', date: '2026-11-24', title: 'Combine developer plots and sell them as 4, 5 or 6 marla',
+    items: [
+      { text: 'Tick two or more of a developer\'s unsold plots and choose Combine to make one plot of the size you are selling, for example two 3-marla plots sold as 6, or as 4 or 5 marla. Any size left over stays as its own plot, so no land goes missing. The combined plot is ready to sell and is not shown on your website.', where: 'Developers > the developer > Plots and files' },
+    ],
+  },
+  {
     version: 'v1.112', date: '2026-11-24', title: 'Developer plots: payments go to the developer, you record only the rebate',
     items: [
       { text: 'Receiving a payment or collecting a booking on a developer plot now goes straight to the developer. It never counts as your cash, bank or income, and new developer plots no longer add a receivable or developer balance to your books; only the rebate does. Plots booked before this update keep their earlier entries. A new Developer account on the developer page lists what customers paid the developer next to the rebate earned, the rebate received and what is still due.', where: 'Developers > the developer > Developer account', guide: 'developer-partners' },
