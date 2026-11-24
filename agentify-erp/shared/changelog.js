@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.112', date: '2026-11-24', title: 'Developer plots: payments go to the developer, you record only the rebate',
+    items: [
+      { text: 'Receiving a payment or collecting a booking on a developer plot now goes straight to the developer. It never counts as your cash, bank or income; only the rebate does. A new Developer account on the developer page lists what customers paid the developer next to the rebate earned, the rebate received and what is still due.', where: 'Developers > the developer > Developer account', guide: 'developer-partners' },
+      { text: 'When the developer pays your rebate you can now record cash, cheque (with cheque number and bank) or online transfer, with the date received.', where: 'Developers > the developer > Rebate received', guide: 'developer-partners' },
+    ],
+  },
+  {
     version: 'v1.111', date: '2026-11-23', title: 'Show only the project types you use',
     items: [
       { text: 'Menus, project forms and contract pages now show only the kinds of project your workspace uses. A construction-only workspace no longer sees plots, units and the plot map, and a plot-and-development workspace no longer sees construction contracts. Anything you already created stays visible, and you can choose the project types yourself.', where: 'Settings > System settings > Project types' },

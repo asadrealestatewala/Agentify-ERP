@@ -14,6 +14,7 @@ import { assertUserEmailFree } from '../services/uniqueEmail.js';
 import { createSale, cancelSale, planSchedule, saleSummary, ensurePortalUser } from '../services/sales.js';
 import { sendPdf } from '../services/pdf.js';
 import { scheduleFor } from '../services/schedule.js';
+import { recordDeveloperPayment } from '../services/developerRebates.js';
 import { receivePayment, voidReceipt, customerLedger, ledgerTable, PAYMENT_TYPES, PAYMENT_METHODS } from '../services/payments.js';
 import { approveCommission, payCommission, cancelCommission } from '../services/commissions.js';
 
@@ -252,6 +253,14 @@ r.post('/receipts/:id(\\d+)/qr/refresh', can('payments', 'edit'), asyncH(async (
   res.json(q);
 }));
 r.post('/receipts', can('payments', 'create'), asyncH((req, res) => {
+  // a customer payment on a developer file is paid to the developer: it never enters company cash or income (rebate is booked instead)
+  const b = req.body || {};
+  const devFile = (sid) => { const s = sid ? get('SELECT id, developer_id, holder FROM sales WHERE id=?', sid) : null; return s?.developer_id && s.holder === 'customer' ? s : null; };
+  if (Array.isArray(b.splits) && b.splits.some((x) => devFile(Number(x.sale_id)))) throw bad('A developer file is paid to the developer, so record it on its own, not in a combined payment');
+  if (b.payment_type !== 'Refund' && devFile(Number(b.sale_id))) {
+    const out = recordDeveloperPayment({ ...b, sale_id: Number(b.sale_id) }, req);
+    return res.status(201).json({ ...get(`${RC_BASE} WHERE r.id=?`, out.receipt_id), rebate: out.rebate, paid_to_developer: true });
+  }
   const id = receivePayment(req.body, req);
   res.status(201).json(get(`${RC_BASE} WHERE r.id=?`, id));
 }));

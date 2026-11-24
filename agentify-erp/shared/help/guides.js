@@ -179,9 +179,11 @@ export const GUIDES = {
       'Open Developers and choose Add developer. Enter the developer and its agreement: rates, rebate percentages and the cancellation window with its deduction tiers.',
       'Open Properties > Add Property (or edit a plot) and set Plot source to Developer. Choose the developer and one of its agreements.',
       'Sell the plot from Sales & Bookings as usual. A booking ID is created and the sale is held as a pass-through, so it is not counted as your revenue.',
+      'Record customer payments and bookings as usual. On a developer plot they are paid to the developer, not to your cash or bank. Open Developers > the developer > Developer account to see them beside the rebate earned and still due.',
+      'When the developer pays your rebate, choose Rebate received and pick cash, cheque or online transfer.',
       'To give the developer a read-only view, open Developers > the developer > Create portal login.',
     ],
-    limits: ['Direct receipts on developer files are switched off until the developer approval step arrives.', 'Payment approval by the developer, rebates and cancellations are not part of the product yet.', 'The developer portal never shows customer CNIC, phone or e-mail.'],
+    limits: ['A payment on a developer file never enters your cash, bank or income: it is shown on the developer account and only the rebate is your income.', 'The rebate is received from the developer in cash, cheque or online transfer under Developers > Rebate received.', 'The developer portal never shows customer CNIC, phone or e-mail.'],
     faq: [
       { q: 'Why is a developer plot sale not in my revenue?', a: 'The customer pays the developer, so the sale is held as a pass-through and kept out of your revenue.' },
       { q: 'The Developers list is empty.', a: 'This was fixed in v1.57. Refresh the page; your developers now appear.' },

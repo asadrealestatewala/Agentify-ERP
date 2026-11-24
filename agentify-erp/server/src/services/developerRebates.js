@@ -135,10 +135,46 @@ export function receiveRebates(developerId, inp, req) {
     if (ids && rows.length !== new Set(ids).size) throw bad('Some of the chosen rebates are not waiting to be paid');
     const acc = assertTreasury(inp.account_id);
     const total = rows.reduce((t, x) => t + x.amount, 0);
-    const jid = postJournal({ date, memo: `Rebate received from developer${inp.reference_no ? ` — ${inp.reference_no}` : ''}`, refType: 'developer_rebate_payment', refId: developerId, userId: req.user.id,
+    const ref = [inp.cheque_no ? `Cheque ${String(inp.cheque_no).trim()}` : '', String(inp.bank || '').trim(), String(inp.reference_no || '').trim()].filter(Boolean).join(' · ').slice(0, 200) || null;
+    const jid = postJournal({ date, memo: `Rebate received from developer${ref ? ` — ${ref}` : ''}`, refType: 'developer_rebate_payment', refId: developerId, userId: req.user.id,
       lines: [{ account: acc.id, debit: total }, { account: '1350', credit: total }] });
-    for (const x of rows) run("UPDATE developer_rebates SET status='received', received_journal_id=?, received_on=?, received_method=?, reference_no=? WHERE id=?", jid, date, method, inp.reference_no ?? null, x.id);
+    for (const x of rows) run("UPDATE developer_rebates SET status='received', received_journal_id=?, received_on=?, received_method=?, reference_no=? WHERE id=?", jid, date, method, ref, x.id);
     audit(req, 'Recorded developer rebate payment', 'developer', developerId, `${curCode()} ${total} (${rows.length} rebates)`);
     return { received: total, count: rows.length, journal_id: jid };
   });
+}
+
+/**
+ * The developer's account in the company's books, in date order. Money the customers paid to the developer is shown for reference
+ * ("Collected by developer") and never counts as company income; the running balance is only the rebate the developer still owes the company.
+ */
+export function developerAccount(developerId, { from, to } = {}) {
+  const inRange = (d) => (!from || d >= from) && (!to || d <= to);
+  const entries = [];
+  for (const r of all(`SELECT r.id, r.receipt_no, r.date, r.method, r.payment_type, r.amount, c.full_name customer, s.booking_id
+      FROM receipts r JOIN sales s ON s.id=r.sale_id JOIN contacts c ON c.id=r.contact_id
+      WHERE s.developer_id=? AND r.status='valid' AND r.account_id IN (SELECT id FROM accounts WHERE code='2610') ORDER BY r.date, r.id`, developerId)) {
+    entries.push({ date: r.date, ord: 1, kind: 'collected', ref: r.receipt_no, description: `${r.payment_type} from ${r.customer} (${r.booking_id || 'file'}) paid to the developer by ${r.method}`,
+      collected: r.payment_type === 'Refund' ? -r.amount : r.amount, earned: 0, received: 0 });
+  }
+  const earned = new Map(), got = new Map();
+  for (const b of all(`SELECT b.*, r.receipt_no, r.date payment_date FROM developer_rebates b JOIN receipts r ON r.id=b.receipt_id WHERE b.developer_id=? AND b.status<>'reversed' ORDER BY b.id`, developerId)) {
+    const e = earned.get(b.receipt_id) || { date: b.payment_date, ord: 2, kind: 'rebate', ref: b.receipt_no, description: `Rebate earned on ${b.receipt_no}`, collected: 0, earned: 0, received: 0 };
+    e.earned += b.amount; earned.set(b.receipt_id, e);
+    if (b.status === 'received') {
+      const g = got.get(b.received_journal_id) || { date: b.received_on, ord: 3, kind: 'received', ref: b.reference_no || '', description: `Rebate received from the developer by ${b.received_method || 'transfer'}`, collected: 0, earned: 0, received: 0 };
+      g.received += b.amount; got.set(b.received_journal_id, g);
+    }
+  }
+  const all_ = [...entries, ...earned.values(), ...got.values()].sort((a, b) => a.date.localeCompare(b.date) || a.ord - b.ord);
+  let bal = 0, open = 0;
+  const rows = [];
+  for (const e of all_) {
+    if (to && e.date > to) break;
+    bal += e.earned - e.received;
+    if (!inRange(e.date)) { if (from && e.date < from) open = bal; continue; }
+    rows.push({ ...e, ord: undefined, balance: bal });
+  }
+  const sum = (k) => rows.reduce((t, x) => t + x[k], 0);
+  return { rows, opening: open, balance: bal, totals: { collected: sum('collected'), earned: sum('earned'), received: sum('received') } };
 }

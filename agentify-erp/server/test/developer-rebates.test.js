@@ -171,3 +171,22 @@ test('rebate posting needs developers.approve and the developer sees only their 
   const dc2 = (await call(w.host, 'POST', '/api/auth/login', { identifier: login2.login, password: login2.password, portal: true })).cookie;
   assert.equal(ok(await call(w.host, 'GET', '/api/developer/rebates', null, { cookie: dc2 })).rows.length, 0);
 });
+
+test('a normal receipt and a booking collected at sale time on a developer file are paid to the developer, and the developer account shows only the rebate', async () => {
+  const w = await workspace('devroute');
+  const { d, plot } = await setup(w, { name: 'Afaq Business', rebate: { rebate_type: 'percent', rebate_value: 5 } });
+  const p = await plot(1_000_000, 'RT1');
+  const c = ok(await w.post('/api/contacts', { full_name: 'Sana Malik', phone: '+92 300 7654321' }), 201);
+  const sale = ok(await w.post('/api/sales', { contact_id: c.id, property_id: p.id, sale_price: 1_000_000, discount: 0, booking_amount: 100_000, num_installments: 9, first_due: month(),
+    collect_booking: { method: 'Cash' } }), 201);
+  // the normal Receive screen: no deposit account needed, the money goes to the developer
+  const r = ok(await w.post('/api/receipts', { contact_id: c.id, sale_id: sale.id, amount: 50_000, payment_type: 'Installment', method: 'Cash' }), 201);
+  assert.equal(r.paid_to_developer, true); assert.equal(r.rebate, 2_500);
+  let tb = ok(await w.get('/api/accounting/trial-balance'));
+  assert.equal(tbAmount(tb, '1110'), 0, 'no company cash'); assert.equal(tbAmount(tb, '4500'), 7_500, 'only the rebate is company income');
+  const acc = ok(await w.get('/api/accounting/accounts')).find((a) => a.code === '1110');
+  ok(await w.post(`/api/developers/${d.id}/rebates/receive`, { account_id: acc.id, method: 'Cheque', cheque_no: '000123', bank: 'HBL' }));
+  const led = ok(await w.get(`/api/developers/${d.id}/ledger`));
+  assert.equal(led.totals.collected, 150_000); assert.equal(led.totals.earned, 7_500); assert.equal(led.totals.received, 7_500); assert.equal(led.balance, 0);
+  assert.match(led.rows.find((x) => x.received).ref, /Cheque 000123/);
+});

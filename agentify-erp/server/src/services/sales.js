@@ -7,6 +7,7 @@ import { now, today, bad, int, addMonths, notFound, curCode } from '../util.js';
 import { postJournal } from './accounting.js';
 import { generateCommission, cancelCommission } from './commissions.js';
 import { receivePayment } from './payments.js';
+import { recordDeveloperPayment } from './developerRebates.js';
 import { audit, activity, notify, notifyPerm } from '../audit.js';
 import { fireWebhook } from './website.js';
 import { developerSaleFields, logFileEvent } from './developers.js';
@@ -144,7 +145,10 @@ function createSaleTx(inp, req) {
   run('UPDATE sales SET journal_id=? WHERE id=?', jid, id);
   if (inp.linked_sale_id) joinBundle(id, Number(inp.linked_sale_id), contact.id);
   generateCommission(id, user);
-  if (inp.collect_booking && int(body.booking_amount) > 0) {
+  if (inp.collect_booking && int(body.booking_amount) > 0 && dev && dev.holder === 'customer') {
+    // booking paid to the developer: not company cash, and the rebate on it is booked
+    recordDeveloperPayment({ sale_id: id, amount: int(body.booking_amount), payment_type: 'Booking Payment', date: body.sale_date, ...inp.collect_booking }, req);
+  } else if (inp.collect_booking && int(body.booking_amount) > 0) {
     receivePayment({ contact_id: contact.id, sale_id: id, amount: int(body.booking_amount), payment_type: 'Booking Payment', date: body.sale_date, ...inp.collect_booking }, req);
   }
   audit(req, kind === 'property' ? 'Created sale' : 'Created construction contract', 'sale', id, `${saleNo} ${label} for ${contact.full_name}, net ${curCode()} ${plan.net}`);
