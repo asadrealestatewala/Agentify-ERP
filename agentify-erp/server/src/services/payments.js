@@ -137,11 +137,13 @@ export function receivePayment(inp, req) {
         }
       } else lines.push({ account: '2200', credit: amount, contactId: contact.id });
     }
-    const jid = postJournal({
+    // payment on a developer file booked off the company's books: kept as a receipt only, nothing is posted
+    const offBooks = !!inp.developerApproval && parts.length > 0 && parts.every((p) => p.sale.off_books);
+    const jid = offBooks ? null : postJournal({
       date, memo: `${isRefund ? 'Refund' : 'Receipt'} ${no} — ${contact.full_name}`, refType: 'receipt', refId: rid,
       projectId: parts[0]?.sale.project_id, userId: user.id, lines,
     });
-    run('UPDATE receipts SET journal_id=? WHERE id=?', jid, rid);
+    if (jid) run('UPDATE receipts SET journal_id=? WHERE id=?', jid, rid);
 
     const partText = parts.length > 1 ? ` split: ${parts.map((p) => `${p.sale.sale_no} ${moneyText(p.amount)}`).join(' + ')}` : '';
     activity(contact.id, user, isRefund ? 'Refund issued' : 'Payment received', { detail: `${no} — ${moneyText(amount)} (${type}, ${method})${partText}`, entityType: 'receipt', entityId: rid });
@@ -170,7 +172,7 @@ export function voidReceipt(id, reason, req) {
     for (const rs of all('SELECT * FROM receipt_sales WHERE receipt_id=?', id)) {
       run('UPDATE sales SET paid_amount=paid_amount-?, advance_credit=advance_credit-? WHERE id=?', rs.amount, rs.advance, rs.sale_id);
     }
-    reverseJournal(r.journal_id, `Void of ${r.receipt_no}: ${reason}`, req.user.id);
+    if (r.journal_id) reverseJournal(r.journal_id, `Void of ${r.receipt_no}: ${reason}`, req.user.id);
     run("UPDATE receipts SET status='void', void_reason=? WHERE id=?", reason, id);
     activity(r.contact_id, req.user, 'Receipt voided', { detail: `${r.receipt_no}: ${reason}`, entityType: 'receipt', entityId: id });
     audit(req, 'Voided Receipt Voucher', 'receipt', id, `${r.receipt_no}: ${reason}`);

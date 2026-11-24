@@ -76,7 +76,7 @@ test('an approved payment on a developer file posts the plot rebate to the books
   const p1 = ok(await pay({ amount: 200_000, payment_type: 'Booking Payment' }), 201);
   assert.equal(p1.rebate, 10_000, '5% of the 200,000 booking');
   let tb = ok(await w.get('/api/accounting/trial-balance'));
-  assert.equal(tbAmount(tb, '2610'), 1_800_000, 'contract less what the developer has been paid');
+  assert.equal(tbAmount(tb, '2610'), 0, 'nothing of the developer\u2019s money sits in the company books'); assert.equal(tbAmount(tb, '1300'), 0);
   assert.equal(tbAmount(tb, '1350'), 10_000); assert.equal(tbAmount(tb, '4500'), 10_000);
   assert.equal(tbAmount(tb, '1110'), 0, 'no company cash moved'); assert.equal(tbAmount(tb, '4100'), 0);
   assert.equal(tb.total_debit, tb.total_credit);

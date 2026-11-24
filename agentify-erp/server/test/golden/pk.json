@@ -1,8 +1,8 @@
 {
  "/api/sales?limit=200": {
   "status": 200,
-  "sha": "f04348542199c09c",
-  "bytes": 4878
+  "sha": "229ed1f3889948ed",
+  "bytes": 4948
  },
  "/api/receipts?limit=200": {
   "status": 200,
@@ -106,48 +106,48 @@
  },
  "/api/sales/5": {
   "status": 200,
-  "sha": "3fccd4a89a6708f4",
-  "bytes": 18863
+  "sha": "228ee648c712caf6",
+  "bytes": 18877
  },
  "/api/customers/8/statement": {
   "status": 200,
-  "sha": "a5ea2c3085a70b88",
-  "bytes": 24509
+  "sha": "76387be718213f07",
+  "bytes": 24537
  },
  "/api/sales/4": {
   "status": 200,
-  "sha": "0cce983d8ac70981",
-  "bytes": 19222
+  "sha": "2f79bc0bc004c755",
+  "bytes": 19236
  },
  "/api/sales/3": {
   "status": 200,
-  "sha": "bd6953e8378e8e94",
-  "bytes": 4855
+  "sha": "2eb0cf24c0e0936a",
+  "bytes": 4869
  },
  "/api/customers/3/statement": {
   "status": 200,
-  "sha": "6119d7ba8c42eeeb",
-  "bytes": 5139
+  "sha": "db94f774e98a6575",
+  "bytes": 5153
  },
  "/api/sales/2": {
   "status": 200,
-  "sha": "9fc593725a527b5b",
-  "bytes": 5420
+  "sha": "b1cb3c67131463c3",
+  "bytes": 5434
  },
  "/api/customers/2/statement": {
   "status": 200,
-  "sha": "e43bfdd9568f86f2",
-  "bytes": 5007
+  "sha": "78f7818a6b9a646c",
+  "bytes": 5021
  },
  "/api/sales/1": {
   "status": 200,
-  "sha": "15a689c32c02dfe9",
-  "bytes": 9355
+  "sha": "afb57b347ba8a951",
+  "bytes": 9369
  },
  "/api/customers/1/statement": {
   "status": 200,
-  "sha": "3cdbfc323d87e11b",
-  "bytes": 8245
+  "sha": "6b3e651432f0abce",
+  "bytes": 8259
  },
  "/api/receipts/12": {
   "status": 200,

@@ -86,7 +86,7 @@ test('developers, agreements, plots and developer files', async () => {
   assert.match(s.booking_id, /^BK-\d{5}$/); assert.equal(s.file_state, 'active'); assert.equal(s.holder, 'customer'); assert.equal(s.developer_id, d.id);
   assert.ok(s.cancel_window_until); assert.equal(JSON.parse(s.cancel_tiers)[0].pct, 20);
   let tb = ok(await w.get('/api/accounting/trial-balance'));
-  assert.equal(tbAmount(tb, '2610'), 2_000_000, 'contract sits in developer clearing');
+  assert.equal(tbAmount(tb, '2610'), 0, 'a developer file posts nothing to the company books'); assert.equal(tbAmount(tb, '1300'), 0);
   assert.equal(tbAmount(tb, '4100'), 0, 'no property-sales revenue for a developer file');
   assert.equal(tb.total_debit, tb.total_credit);
 

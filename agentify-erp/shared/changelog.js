@@ -8,7 +8,7 @@ export const CHANGELOG = [
   {
     version: 'v1.112', date: '2026-11-24', title: 'Developer plots: payments go to the developer, you record only the rebate',
     items: [
-      { text: 'Receiving a payment or collecting a booking on a developer plot now goes straight to the developer. It never counts as your cash, bank or income; only the rebate does. A new Developer account on the developer page lists what customers paid the developer next to the rebate earned, the rebate received and what is still due.', where: 'Developers > the developer > Developer account', guide: 'developer-partners' },
+      { text: 'Receiving a payment or collecting a booking on a developer plot now goes straight to the developer. It never counts as your cash, bank or income, and new developer plots no longer add a receivable or developer balance to your books; only the rebate does. Plots booked before this update keep their earlier entries. A new Developer account on the developer page lists what customers paid the developer next to the rebate earned, the rebate received and what is still due.', where: 'Developers > the developer > Developer account', guide: 'developer-partners' },
       { text: 'When the developer pays your rebate you can now record cash, cheque (with cheque number and bank) or online transfer, with the date received.', where: 'Developers > the developer > Rebate received', guide: 'developer-partners' },
     ],
   },

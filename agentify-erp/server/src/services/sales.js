@@ -123,6 +123,7 @@ function createSaleTx(inp, req) {
   if (dev) {
     run(`UPDATE sales SET developer_id=?, agreement_id=?, booking_id=?, file_state=?, holder=?, cancel_window_until=?, cancel_tiers=?, rebate_terms=? WHERE id=?`,
       dev.developer_id, dev.agreement_id, dev.booking_id, dev.file_state, dev.holder, dev.cancel_window_until, dev.cancel_tiers, dev.rebate_terms, id);
+    if (dev.holder === 'customer') run('UPDATE sales SET off_books=1 WHERE id=?', id);
     logFileEvent(id, 'booked', { to: 'active', user, amount: plan.net, note: dev.booking_id });
   }
   for (const row of plan.rows) run('INSERT INTO installments(sale_id,seq,kind,due_date,amount) VALUES(?,?,?,?,?)', id, row.seq, row.kind, row.due_date, row.amount);
@@ -138,11 +139,13 @@ function createSaleTx(inp, req) {
   if (won && prevStage !== won.value) activity(contact.id, user, 'Lead stage changed', { field: 'Lead stage', prev: prevStage, next: won.value });
   activity(contact.id, user, kind === 'property' ? 'Property sold' : 'Construction contract signed', { detail: `${label} — ${saleNo}`, entityType: 'sale', entityId: id });
 
-  const jid = postJournal({
+  // a developer file is the developer's contract: the company owes and is owed nothing on it, so no sale journal is posted
+  const offBooks = !!dev && dev.holder === 'customer';
+  const jid = offBooks ? null : postJournal({
     date: body.sale_date, memo: `${KIND_LABEL[kind]} ${saleNo} — ${label}`, refType: 'sale', refId: id, projectId, userId: user.id,
     lines: [{ account: '1300', debit: plan.net, contactId: contact.id, saleId: id }, { account: dev ? '2610' : incomeAccount(kind), credit: plan.net, contactId: contact.id, saleId: id }],
   });
-  run('UPDATE sales SET journal_id=? WHERE id=?', jid, id);
+  if (jid) run('UPDATE sales SET journal_id=? WHERE id=?', jid, id);
   if (inp.linked_sale_id) joinBundle(id, Number(inp.linked_sale_id), contact.id);
   generateCommission(id, user);
   if (inp.collect_booking && int(body.booking_amount) > 0 && dev && dev.holder === 'customer') {
