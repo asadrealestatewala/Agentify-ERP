@@ -2,12 +2,12 @@
 // The developers' own portal is a separate router with its own session scoping.
 import { assertRecordEmailFree } from '../services/uniqueEmail.js';
 import { Router } from 'express';
-import { all, get, run, insert, update } from '../db.js';
+import { all, get, run, insert, update, tx } from '../db.js';
 import { can, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { asyncH, bad, notFound, now } from '../util.js';
 import { developerAccount, rebateLedger, receiveRebates, recordDeveloperPayment } from '../services/developerRebates.js';
-import { AGREEMENT_FIELDS, checkAgreement, createDeveloperPortalUser, developerSummary, linkPlots, listDevelopers, plotRebateAmount, setPlotRebates, toSqft, unlinkPlots } from '../services/developers.js';
+import { AGREEMENT_FIELDS, checkAgreement, combinePlots, createDeveloperPortalUser, developerSummary, linkPlots, listDevelopers, plotRebateAmount, setPlotRebates, toSqft, unlinkPlots } from '../services/developers.js';
 
 const r = Router();
 r.use(requireStaff);
@@ -83,7 +83,7 @@ r.get('/:id/plots', can('developers', 'view'), asyncH((req, res) => {
   const rows = all(`SELECT p.id, p.code, p.title, p.plot_no, p.block, p.property_type, p.area_size, p.unit, p.net_price, p.status, p.registration_no, p.agreement_id, p.rebate_type, p.rebate_value,
     s.id sale_id, s.booking_id, s.file_state, c.full_name customer_name FROM properties p
     LEFT JOIN sales s ON s.property_id=p.id AND s.status='confirmed' LEFT JOIN contacts c ON c.id=s.contact_id
-    WHERE p.developer_id=? ORDER BY p.id DESC`, d.id);
+    WHERE p.developer_id=? AND p.merged_into IS NULL ORDER BY p.id DESC`, d.id);
   res.json(rows.map((p) => ({ ...p, area_sqft: toSqft(p.area_size, p.unit), rebate_amount: plotRebateAmount(p) })));
 }));
 
@@ -104,6 +104,13 @@ r.post('/:id/link-plots', can('developers', 'edit'), asyncH((req, res) => {
   const out = linkPlots(d.id, b.agreement_id, b.property_ids, b.rebate_type ? { rebate_type: b.rebate_type, rebate_value: b.rebate_value } : null);
   audit(req, 'Linked plots to developer', 'developer', d.id, `${d.name}: ${out.linked.length} linked, ${out.skipped.length} skipped`);
   res.json(out);
+}));
+
+r.post('/:id/combine-plots', can('developers', 'edit'), asyncH((req, res) => {
+  const d = dev(req.params.id), b = req.body || {};
+  const out = tx(() => combinePlots(d.id, b.property_ids, b, req.user));
+  audit(req, 'Combined plots', 'developer', d.id, `${d.name}: ${out.combined.length} plots into ${out.area_size}${out.leftover_area ? `, ${out.leftover_area} left over` : ''}`);
+  res.status(201).json(out);
 }));
 
 r.post('/:id/unlink-plots', can('developers', 'edit'), asyncH((req, res) => {

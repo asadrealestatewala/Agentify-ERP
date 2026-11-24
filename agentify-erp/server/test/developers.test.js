@@ -295,3 +295,35 @@ test('developer portal: approve / reject customer payments, rebate statement, re
   const blocked = await one.post(`/api/developer/payments/${third.id}/approve`);
   assert.ok([400, 401, 403].includes(blocked.status), String(blocked.status));
 });
+
+test('combine developer plots into one sellable plot of 4, 5 or 6 marla, leftover kept', async () => {
+  const w = await workspace('devcombine');
+  const d = ok(await w.post('/api/developers', { name: 'Combine Dev' }), 201);
+  const ag = ok(await w.post(`/api/developers/${d.id}/agreements`, { title: 'C1', rebate_down_pct: 10 }), 201);
+  const mk = async (no) => ok(await w.post('/api/properties', { title: `Plot ${no}`, property_type: 'Plots', plot_no: no, area_size: 3, unit: 'Marla', total_price: 1_200_000 }), 201);
+  const [a, b, c, e] = [await mk('B-7'), await mk('B-9'), await mk('B-11'), await mk('B-13')];
+  ok(await w.post(`/api/developers/${d.id}/link-plots`, { property_ids: [a.id, b.id, c.id, e.id], agreement_id: ag.id }));
+
+  // 6 marla = both plots, no leftover, price shared by size
+  const six = ok(await w.post(`/api/developers/${d.id}/combine-plots`, { property_ids: [a.id, b.id], area_size: 6 }), 201);
+  assert.equal(six.leftover_id, null);
+  const sixPlot = ok(await w.get(`/api/properties/${six.id}`));
+  assert.equal(sixPlot.area_size, 6); assert.equal(sixPlot.net_price, 2_400_000); assert.equal(sixPlot.plot_no, 'B-7/B-9');
+  assert.equal(sixPlot.status, 'available'); assert.equal(sixPlot.published, 0); assert.equal(sixPlot.developer_id, d.id);
+  assert.equal(ok(await w.get(`/api/properties/${a.id}`)).status, 'cancelled');
+  const list = ok(await w.get(`/api/developers/${d.id}/plots`));
+  assert.deepEqual(list.map((p) => p.id).sort(), [six.id, c.id, e.id].sort());
+
+  // 4 marla out of two 3-marla plots: 2 marla stays as its own plot
+  const four = ok(await w.post(`/api/developers/${d.id}/combine-plots`, { property_ids: [c.id, e.id], area_size: 4, total_price: 1_900_000, plot_no: 'B-11/B-13' }), 201);
+  assert.equal(four.leftover_area, 2);
+  assert.equal(ok(await w.get(`/api/properties/${four.leftover_id}`)).area_size, 2);
+
+  // the combined plot sells as a developer file, and a sold or too-big combination is refused
+  const cust = ok(await w.post('/api/contacts', { full_name: 'Dost Muhammad', phone: '+92 300 5550099' }), 201);
+  const sale = ok(await w.post('/api/sales', { contact_id: cust.id, property_id: six.id, sale_price: 2_700_000, discount: 0, booking_amount: 600_000, num_installments: 6, first_due: month(), collect_booking: { method: 'Cash' } }), 201);
+  assert.match(ok(await w.get(`/api/sales/${sale.id}`)).sale.booking_id, /^BK-/);
+  assert.equal((await w.post(`/api/developers/${d.id}/combine-plots`, { property_ids: [six.id, four.id] })).status, 400);
+  assert.equal((await w.post(`/api/developers/${d.id}/combine-plots`, { property_ids: [four.leftover_id, four.id], area_size: 99 })).status, 400);
+  assert.equal((await w.post(`/api/developers/${d.id}/combine-plots`, { property_ids: [four.id] })).status, 400);
+});

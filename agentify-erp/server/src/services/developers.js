@@ -157,6 +157,59 @@ export function linkPlots(developerId, agreementId, ids, rebate) {
   return { linked, skipped };
 }
 
+/**
+ * Combine two or more of one developer's unsold plots into one plot of any size (e.g. two 3-marla plots sold as 6, or as 4 or 5 marla).
+ * The sources leave stock (status cancelled, merged_into points at the new plot); when the new size is smaller than their total,
+ * the rest becomes a separate plot so no land disappears. The new plot is available but not published on the website.
+ */
+export function combinePlots(developerId, ids, inp, user) {
+  const plots = plotsByIds(ids);
+  if (plots.length < 2) throw bad('Choose at least two plots to combine');
+  const first = plots[0];
+  for (const p of plots) {
+    if (p.developer_id !== Number(developerId)) throw bad(`${p.title} is not this developer’s plot`);
+    if (!unsold(p)) throw bad(`${p.title} is already sold or booked`);
+    if (['cancelled', 'reserved'].includes(p.status)) throw bad(`${p.title} is ${p.status} and cannot be combined`);
+    if (p.project_id !== first.project_id || p.agreement_id !== first.agreement_id) throw bad('Plots must be in the same project and under the same agreement');
+    if (String(p.unit || '').toLowerCase() !== String(first.unit || '').toLowerCase()) throw bad('Plots must use the same size unit');
+  }
+  const total = Math.round(plots.reduce((t, p) => t + (Number(p.area_size) || 0), 0) * 100) / 100;
+  const area = Math.round((Number(inp.area_size) || total) * 100) / 100;
+  if (area <= 0 || area > total) throw bad(`The combined size must be more than 0 and at most ${total} ${first.unit || ''}`.trim());
+  const sumPrice = plots.reduce((t, p) => t + (Number(p.net_price) || 0), 0);
+  const price = inp.total_price === undefined || inp.total_price === '' || inp.total_price === null ? Math.round(sumPrice * area / total) : int(inp.total_price);
+  if (price < 0) throw bad('Price cannot be negative');
+  const uniq = (a) => [...new Set(a.map((x) => String(x ?? '').trim()).filter(Boolean))];
+  const plotNo = String(inp.plot_no || '').trim() || uniq(plots.map((p) => p.plot_no)).join('/');
+  const block = String(inp.block || '').trim() || uniq(plots.map((p) => p.block)).join(', ');
+  if (!plotNo) throw bad('Enter the plot number of the combined plot');
+  const clash = (no, b) => get("SELECT id FROM properties WHERE project_id IS ? AND IFNULL(block,'')=? AND plot_no=? AND status<>'cancelled'", first.project_id ?? null, b, no);
+  if (clash(plotNo, block)) throw bad(`Plot ${plotNo} already exists in this project`);
+  const make = (no, blk, size, amount, from) => {
+    const code = nextNo('PR', 'PR');
+    const r = run(`INSERT INTO properties(code,title,purpose,property_type,project_id,block,sector,plot_no,city,area_name,location,lat,lng,area_size,unit,total_price,price_per_unit,discount,net_price,
+      installment_available,ready_possession,inventory_source,developer_id,agreement_id,rebate_type,rebate_value,registration_no,file_status,status,review_state,published,combined_from,created_by,created_at,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?,?,'developer',?,?,?,?,?,?,'available','draft',0,?,?,?,?)`,
+    code, `${size} ${first.unit || ''} Plot ${no}`.replace(/\s+/g, ' ').trim(), first.purpose, first.property_type, first.project_id, blk, first.sector, no, first.city, first.area_name, first.location, first.lat, first.lng, size, first.unit,
+    amount, size > 0 ? Math.round(amount / size) : null, amount, first.installment_available, first.ready_possession, first.developer_id, first.agreement_id, first.rebate_type, first.rebate_value,
+    nextNo('REG', 'REG', 4), first.file_status, JSON.stringify(from), user?.id ?? null, now(), now());
+    return Number(r.lastInsertRowid);
+  };
+  const from = plots.map((p) => p.id);
+  const combinedId = make(plotNo, block, area, price, from);
+  let leftoverId = null;
+  const rest = Math.round((total - area) * 100) / 100;
+  if (rest > 0) {
+    const no = String(inp.remainder_plot_no || '').trim() || `${plotNo}-rest`;
+    if (clash(no, block)) throw bad(`Plot ${no} already exists in this project`);
+    leftoverId = make(no, block, rest, Math.round(sumPrice * rest / total), from);
+  }
+  for (const p of plots) {
+    run("UPDATE properties SET status='cancelled', published=0, merged_into=?, file_notes=?, updated_at=? WHERE id=?", combinedId, `Combined into plot ${plotNo}`, now(), p.id);
+  }
+  return { id: combinedId, leftover_id: leftoverId, combined: from, area_size: area, leftover_area: rest > 0 ? rest : 0 };
+}
+
 /** Return plots to the company's own stock. Booked or sold plots stay put. */
 export function unlinkPlots(developerId, ids) {
   const unlinked = [], skipped = [];

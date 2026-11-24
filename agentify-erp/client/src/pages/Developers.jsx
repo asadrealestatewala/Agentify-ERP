@@ -98,6 +98,31 @@ function LinkPlotsModal({ developer, agreements, onClose, onDone }) {
   );
 }
 
+function CombinePlotsModal({ developer, plots, onClose, onDone }) {
+  const toast = useToast();
+  const total = plots.reduce((t, p) => t + (Number(p.area_size) || 0), 0);
+  const [f, setF] = useState({ area_size: String(total), total_price: '', plot_no: '' });
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try {
+      const out = await api.post(`/api/developers/${developer.id}/combine-plots`, { property_ids: plots.map((p) => p.id), ...f, total_price: f.total_price === '' ? undefined : f.total_price });
+      toast(out.leftover_area ? `Combined plot created, ${out.leftover_area} left over as its own plot` : 'Combined plot created'); onDone();
+    } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <Modal title="Combine plots" onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || !f.area_size} onClick={save}>Combine into one plot</button></>}>
+      <p>{plots.map((p) => `${p.plot_no || p.title} (${p.area_size} ${p.unit})`).join(' + ')} = {total} {plots[0]?.unit}. Enter the size you are selling; anything left over stays as a separate plot.</p>
+      <div className="form-grid">
+        <Field label={`Size to sell (${plots[0]?.unit || ''})`} required><input className="input" type="number" min="0" step="0.01" value={f.area_size} onChange={(e) => setF({ ...f, area_size: e.target.value })} /></Field>
+        <Field label="Price (leave empty to share the plots' prices by size)"><input className="input" type="number" min="0" value={f.total_price} onChange={(e) => setF({ ...f, total_price: e.target.value })} /></Field>
+        <Field label="Plot number (empty = the plot numbers joined)"><input className="input" value={f.plot_no} onChange={(e) => setF({ ...f, plot_no: e.target.value })} /></Field>
+      </div>
+    </Modal>
+  );
+}
+
 const METHODS = ['Cash', 'Bank Transfer', 'Online Transfer', 'JazzCash', 'Easypaisa', 'Cheque', 'Other'];
 
 /** Staff record a customer payment the developer has approved (call, chat, cash at the developer's office). The rebate is posted with it. */
@@ -172,6 +197,7 @@ export function DeveloperDetail() {
   const [agreement, setAgreement] = useState(null); // {} for new, row for edit
   const [login, setLogin] = useState(null);
   const [linking, setLinking] = useState(false);
+  const [combining, setCombining] = useState(false);
   const [sel, setSel] = useState([]);
   const [bulkRebate, setBulkRebate] = useState(null); // null = closed, else {rebate_type, rebate_value}
   if (error) return <div className="alert err">{error}</div>;
@@ -223,6 +249,7 @@ export function DeveloperDetail() {
       <Card title="Plots and files" flush actions={can('developers', 'edit') && (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {sel.length > 0 && <button className="btn" onClick={() => setBulkRebate({ rebate_type: 'percent', rebate_value: '' })}>Set rebate ({sel.length})</button>}
+          {sel.length > 1 && <button className="btn" onClick={() => setCombining(true)}>Combine ({sel.length})</button>}
           {sel.length > 0 && <button className="btn" onClick={unlink}>Unlink ({sel.length})</button>}
           <button className="btn" onClick={() => setBulkRebate({ rebate_type: 'percent', rebate_value: '' })}>Rebate for all plots</button>
           <button className="btn primary" onClick={() => setLinking(true)}>Link existing plots</button>
@@ -266,6 +293,7 @@ export function DeveloperDetail() {
       {agreement && <FormModal title={agreement.id ? 'Edit agreement' : 'Add agreement'} fields={agreementFields} initial={agreement} onClose={() => setAgreement(null)} onSave={saveAgreement} />}
       {paying && <ApprovedPaymentModal developerId={id} files={plots.data.filter((p) => p.sale_id)} onClose={() => setPaying(false)} onDone={() => { setPaying(false); refresh(); }} />}
       {rebatePaid && <RebatePaidModal developerId={id} onClose={() => setRebatePaid(false)} onDone={() => { setRebatePaid(false); refresh(); }} />}
+      {combining && <CombinePlotsModal developer={data} plots={(plots.data || []).filter((p) => sel.includes(p.id))} onClose={() => setCombining(false)} onDone={() => { setCombining(false); setSel([]); refresh(); }} />}
       {linking && <LinkPlotsModal developer={data} agreements={data.agreements} onClose={() => setLinking(false)} onDone={() => { setLinking(false); refresh(); }} />}
       {bulkRebate && (
         <Modal title={sel.length ? `Set rebate on ${sel.length} selected plot${sel.length === 1 ? '' : 's'}` : 'Set rebate on all of this developer’s plots'} onClose={() => setBulkRebate(null)}
