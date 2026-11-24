@@ -57,6 +57,8 @@ const book = async (w, plot, price, booking, n, name) => {
 
 test('customer pays the company, which passes it on: held for the developer, not income; rebate recorded afterwards', async () => {
   const w = await workspace('devhold');
+  assert.equal((await w.post('/api/contacts', { full_name: 'No Phone Lead' })).status, 400, 'a lead needs a way to be reached');
+  ok(await w.post('/api/contacts', { full_name: 'No Phone Customer', is_customer: true }), 201);
   const { d, plot } = await setup(w, { name: 'Iqbal Dev' });
   const sale = await book(w, await plot(1_000_000, 'IH1'), 1_000_000, 0, 8, 'Zaheer');
   const accts = ok(await w.get('/api/accounting/accounts'));
