@@ -208,7 +208,7 @@ export default function Dashboard() {
                 <Stat label="Amount collected" value={money(f.collected)} sub={f.collected_by_developer ? `in selected period · plus ${money(f.collected_by_developer)} paid to developers` : 'in selected period'} tone="pos" to="/receipts" icon="wallet" />
                 <Stat label="Amount receivable" value={money(f.receivable)} sub="all open sales" to="/payments/receivables" icon="dollar" />
                 <Stat label="Total expenses" value={money(f.expenses)} sub="in selected period" tone="neg" to="/expenses" icon="receipt" />
-                <Stat label="Net revenue" value={money(f.net_revenue)} sub="collected − expenses" tone={f.net_revenue >= 0 ? 'pos' : 'neg'} icon="chart" />
+                <Stat label="Net revenue" value={money(f.net_revenue)} sub={f.rebate_income ? `collected + ${money(f.rebate_income)} developer rebate − expenses` : 'collected − expenses'} tone={f.net_revenue >= 0 ? 'pos' : 'neg'} icon="chart" />
                 <Stat label="Pending installments" value={f.pending_installments.n} sub={money(f.pending_installments.v)} to="/payments/installments" icon="calendar" />
                 <Stat label="Overdue" value={f.overdue_installments.n} sub={money(f.overdue_installments.v)} tone={f.overdue_installments.n ? 'neg' : ''} to="/payments/installments?status=overdue" icon="clock" />
                 <Stat label="Upcoming (30 days)" value={f.upcoming_installments.n} sub={money(f.upcoming_installments.v)} to="/payments/installments?status=upcoming" icon="calendar" />
@@ -218,7 +218,7 @@ export default function Dashboard() {
               </div>
               <div className="section-title">Performance</div>
               <div className="grid g2">
-                {d.charts?.revenue_by_month && <Card title="Revenue (collections) by month"><LinesChart data={d.charts.revenue_by_month} series={[{ key: 'value', label: 'Collected', color: '#14b8a6' }]} /></Card>}
+                {d.charts?.revenue_by_month && <Card title="Revenue (collections and rebate) by month"><LinesChart data={d.charts.revenue_by_month} series={[{ key: 'value', label: 'Collected', color: '#14b8a6' }]} /></Card>}
                 {d.charts?.expenses_by_month && <Card title="Expenses by month"><BarsChart data={d.charts.expenses_by_month} series={[{ key: 'value', label: 'Expenses', color: '#fb7185' }]} /></Card>}
                 {d.charts?.collection_vs_receivable && <Card title="Collection vs receivables (by due month)"><BarsChart data={d.charts.collection_vs_receivable} stacked series={[{ key: 'collected', label: 'Collected', color: '#14b8a6' }, { key: 'receivable', label: 'Receivable', color: '#f59e0b' }]} /></Card>}
                 {d.charts?.project_revenue && <Card title="Project-wise revenue"><BarsChart isMonth={false} data={d.charts.project_revenue} x="name" series={[{ key: 'revenue', label: 'Sales' }, { key: 'collected', label: 'Collected', color: '#34d399' }]} /></Card>}

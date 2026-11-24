@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.117', date: '2026-11-24', title: 'Developer rebate now counts in dashboard revenue',
+    items: [
+      { text: 'The rebate a developer pays you is now included in Net revenue and in the monthly revenue chart on the dashboard, so it no longer disappears from your revenue.' },
+    ],
+  },
+  {
     version: 'v1.116', date: '2026-11-24', title: 'Split a developer payment: part to the developer, part back to you as rebate',
     items: [
       { text: 'When you record a developer-approved payment you can now enter the rebate for that payment by hand, for example 10,000 of a 25,000 installment, and tick where it was already received. The customer\'s installment is settled in full, the rebate is counted once as your income, and the rest stays with the developer.', where: 'Developers > the developer > Record developer-approved payment', guide: 'developer-partners' },
