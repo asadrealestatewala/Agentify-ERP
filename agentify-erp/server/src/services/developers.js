@@ -236,13 +236,13 @@ export function setPlotRebates(developerId, ids, rebate) {
 }
 
 export function developerSummary(id) {
-  const rebate = all("SELECT net_price, rebate_type, rebate_value, status FROM properties WHERE developer_id=?", id);
+  const rebate = all("SELECT net_price, rebate_type, rebate_value, status FROM properties WHERE developer_id=? AND merged_into IS NULL", id); // plots combined into another plot no longer count
   const rebate_expected = rebate.reduce((t, p) => t + plotRebateAmount(p), 0);
   const rebate_on_sold = rebate.filter((p) => p.status === 'sold').reduce((t, p) => t + plotRebateAmount(p), 0);
   const files = get(`SELECT COUNT(*) n, COALESCE(SUM(net_price),0) value, COALESCE(SUM(paid_amount),0) paid FROM sales WHERE developer_id=? AND status='confirmed'`, id);
   return {
-    plots: get("SELECT COUNT(*) n FROM properties WHERE developer_id=?", id).n,
-    available: get("SELECT COUNT(*) n FROM properties WHERE developer_id=? AND status IN ('available','featured')", id).n,
+    plots: get("SELECT COUNT(*) n FROM properties WHERE developer_id=? AND merged_into IS NULL", id).n,
+    available: get("SELECT COUNT(*) n FROM properties WHERE developer_id=? AND merged_into IS NULL AND status IN ('available','featured')", id).n,
     rebate_expected, rebate_on_sold,
     files: files.n, contract_value: files.value, collected: files.paid, outstanding: files.value - files.paid,
   };

@@ -313,6 +313,7 @@ test('combine developer plots into one sellable plot of 4, 5 or 6 marla, leftove
   assert.equal(ok(await w.get(`/api/properties/${a.id}`)).status, 'cancelled');
   const list = ok(await w.get(`/api/developers/${d.id}/plots`));
   assert.deepEqual(list.map((p) => p.id).sort(), [six.id, c.id, e.id].sort());
+  assert.equal(ok(await w.get(`/api/developers/${d.id}`)).plots, 3); // the two source plots are not counted
 
   // 4 marla out of two 3-marla plots: 2 marla stays as its own plot
   const four = ok(await w.post(`/api/developers/${d.id}/combine-plots`, { property_ids: [c.id, e.id], area_size: 4, total_price: 1_900_000, plot_no: 'B-11/B-13' }), 201);
