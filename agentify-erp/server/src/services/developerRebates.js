@@ -63,7 +63,7 @@ export function computeRebate(sale, terms, allocations, { fullyPaid = false } = 
  * approvePayment and by recordDeveloperPayment). The receipt itself already cleared 2610 against the customer's receivable.
  * Safe to call twice for one receipt.
  */
-export function postPaymentRebate(receiptId, req) {
+export function postPaymentRebate(receiptId, req, { amount: fixed } = {}) {
   return tx(() => {
     const rc = get('SELECT * FROM receipts WHERE id=?', receiptId);
     const sale = rc?.sale_id ? get('SELECT * FROM sales WHERE id=?', rc.sale_id) : null;
@@ -71,7 +71,13 @@ export function postPaymentRebate(receiptId, req) {
     if (get('SELECT 1 FROM developer_rebates WHERE receipt_id=?', receiptId)) return { rebate: 0, rebates: [], already: true };
     const terms = saleRebateTerms(sale);
     const allocs = all('SELECT i.kind, ra.amount FROM receipt_allocations ra JOIN installments i ON i.id=ra.installment_id WHERE ra.receipt_id=? AND i.sale_id=? AND ra.amount>0', receiptId, sale.id);
-    const rows = computeRebate(sale, terms, allocs, { fullyPaid: sale.paid_amount >= sale.net_price });
+    let rows;
+    if (fixed !== undefined && fixed !== null) {
+      // the rebate was agreed for this payment by hand (e.g. 10,000 of a 25,000 installment): it replaces the computed one, so nothing is counted twice
+      const paid = allocs.reduce((t, a) => t + a.amount, 0);
+      if (fixed > paid) throw bad('The rebate cannot be more than the payment');
+      rows = fixed > 0 ? [{ stage: stageOf(allocs.slice().sort((a, b) => b.amount - a.amount)[0]?.kind), base_amount: paid, rate: null, amount: fixed }] : [];
+    } else rows = computeRebate(sale, terms, allocs, { fullyPaid: sale.paid_amount >= sale.net_price });
     const total = rows.reduce((t, r) => t + r.amount, 0);
     if (total > 0) {
       const rj = postJournal({ date: rc.date, memo: `Rebate on ${rc.receipt_no} — ${sale.booking_id || sale.sale_no}`, refType: 'developer_rebate', refId: receiptId, projectId: sale.project_id, userId: req.user.id,
@@ -104,7 +110,14 @@ export function recordDeveloperPayment(inp, req) {
       reference_no: inp.reference_no, date: inp.date, payment_type: type, developerApproval: true,
       notes: ['Approved by the developer, recorded by staff', inp.notes].filter(Boolean).join('. ') }, req);
     logFileEvent(sale.id, 'payment_approved', { user: req.user, amount: int(inp.amount), note: 'recorded by staff' });
-    const out = postPaymentRebate(rid, req);
+    const hand = inp.rebate_amount !== undefined && inp.rebate_amount !== null && inp.rebate_amount !== '';
+    const out = postPaymentRebate(rid, req, hand ? { amount: int(inp.rebate_amount) } : {});
+    // the developer already handed the rebate over (e.g. 10,000 of this installment came back to the company): mark it received into the chosen account
+    if (hand && out.rebate > 0 && inp.rebate_received_account_id) {
+      const ids = all('SELECT id FROM developer_rebates WHERE receipt_id=?', rid).map((r) => r.id);
+      receiveRebates(sale.developer_id, { rebate_ids: ids, account_id: inp.rebate_received_account_id, method: inp.rebate_received_method || inp.method, reference_no: inp.rebate_received_ref, date: inp.date }, req);
+      out.rebate_received = out.rebate;
+    }
     return { receipt_id: rid, ...out };
   });
 }

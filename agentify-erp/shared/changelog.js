@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.116', date: '2026-11-24', title: 'Split a developer payment: part to the developer, part back to you as rebate',
+    items: [
+      { text: 'When you record a developer-approved payment you can now enter the rebate for that payment by hand, for example 10,000 of a 25,000 installment, and tick where it was already received. The customer\'s installment is settled in full, the rebate is counted once as your income, and the rest stays with the developer.', where: 'Developers > the developer > Record developer-approved payment', guide: 'developer-partners' },
+    ],
+  },
+  {
     version: 'v1.115', date: '2026-11-24', title: 'Developer page no longer counts plots that were combined into another plot',
     items: [
       { text: 'After you combine plots, the developer page counted the original plots as well as the new combined plot. It now counts only the plots you can still sell or have sold.', where: 'Developers > the developer' },

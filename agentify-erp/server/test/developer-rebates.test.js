@@ -190,3 +190,24 @@ test('a normal receipt and a booking collected at sale time on a developer file 
   assert.equal(led.totals.collected, 150_000); assert.equal(led.totals.earned, 7_500); assert.equal(led.totals.received, 7_500); assert.equal(led.balance, 0);
   assert.match(led.rows.find((x) => x.received).ref, /Cheque 000123/);
 });
+
+test('one payment split: part settles the customer with the developer, part is rebate handed back to the company', async () => {
+  const w = await workspace('devsplit');
+  const { d, plot } = await setup(w, { name: 'Split Dev' });
+  const sale = await book(w, await plot(1_000_000, 'SP1'), 1_000_000, 200_000, 8, 'Uzair Khan');
+  const pay = (b) => w.post(`/api/developers/${d.id}/files/${sale.id}/payments`, { method: 'Cash', ...b });
+  ok(await pay({ amount: 200_000, payment_type: 'Booking Payment' }), 201);
+  const bank = ok(await w.get('/api/accounting/accounts')).find((a) => a.code === '1110');
+  // the customer paid 25,000: 15,000 stayed with the developer, 10,000 came back to the company as rebate
+  const r = ok(await pay({ amount: 25_000, payment_type: 'Installment', rebate_amount: 10_000, rebate_received_account_id: bank.id }), 201);
+  assert.equal(r.rebate, 10_000);
+  const tb = ok(await w.get('/api/accounting/trial-balance'));
+  assert.equal(tbAmount(tb, '1110'), 10_000, 'only the rebate reaches company cash');
+  assert.equal(tbAmount(tb, '2610'), 0);
+  const income = tbAmount(tb, '4500'); assert.equal(income, 30_000, '20,000 on the booking (10%) + 10,000 on the installment'); // not counted twice
+  const st = ok(await w.get(`/api/developers/${d.id}/rebates`));
+  assert.equal(st.totals.received, 10_000); assert.equal(st.totals.due, 20_000);
+  const detail = ok(await w.get(`/api/sales/${sale.id}`)).sale;
+  assert.equal(detail.paid_amount, 225_000);
+  assert.equal((await pay({ amount: 5_000, payment_type: 'Installment', rebate_amount: 9_000 })).status, 400, 'rebate cannot exceed the payment');
+});

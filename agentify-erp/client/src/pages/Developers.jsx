@@ -128,14 +128,16 @@ const METHODS = ['Cash', 'Bank Transfer', 'Online Transfer', 'JazzCash', 'Easypa
 /** Staff record a customer payment the developer has approved (call, chat, cash at the developer's office). The rebate is posted with it. */
 function ApprovedPaymentModal({ developerId, files, onClose, onDone }) {
   const toast = useToast();
-  const [f, setF] = useState({ sale_id: files[0]?.sale_id || '', amount: '', payment_type: 'Installment', method: 'Cash', txn_id: '', bank: '', date: '' });
+  const [f, setF] = useState({ sale_id: files[0]?.sale_id || '', amount: '', payment_type: 'Installment', method: 'Cash', txn_id: '', bank: '', date: '', rebate_amount: '', rebate_received_account_id: '' });
+  const { data: accounts } = useFetch('/api/accounting/accounts');
+  const treasury = (accounts || []).filter((a) => ['cash', 'bank', 'custody', 'online'].includes(a.subtype));
   const [busy, setBusy] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target ? e.target.value : e });
   const online = ['Bank Transfer', 'Online Transfer', 'JazzCash', 'Easypaisa'].includes(f.method);
   const save = async () => {
     setBusy(true);
     try {
-      const out = await api.post(`/api/developers/${developerId}/files/${f.sale_id}/payments`, { ...f, amount: Number(f.amount), date: f.date || undefined });
+      const out = await api.post(`/api/developers/${developerId}/files/${f.sale_id}/payments`, { ...f, amount: Number(f.amount), date: f.date || undefined, rebate_amount: f.rebate_amount === '' ? undefined : Number(f.rebate_amount), rebate_received_account_id: f.rebate_received_account_id || undefined });
       toast(`Payment recorded${out.rebate ? `, rebate ${money(out.rebate)} posted` : ''}`); onDone();
     } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
   };
@@ -151,6 +153,8 @@ function ApprovedPaymentModal({ developerId, files, onClose, onDone }) {
         {online && <Field label="Transaction ID" required><input className="input" value={f.txn_id} onChange={set('txn_id')} /></Field>}
         {(online || f.method === 'Cheque') && <Field label="Bank / channel" required><input className="input" value={f.bank} onChange={set('bank')} /></Field>}
         <Field label="Date received"><input className="input" type="date" value={f.date} onChange={set('date')} /></Field>
+        <Field label="Rebate on this payment (optional)"><input className="input" type="number" min="0" placeholder="Leave empty to use the agreement rates" value={f.rebate_amount} onChange={set('rebate_amount')} /></Field>
+        {f.rebate_amount !== '' && Number(f.rebate_amount) > 0 && <Field label="Rebate already received into (optional)"><Select value={f.rebate_received_account_id} onChange={(v) => set('rebate_received_account_id')(v)} options={treasury.map((a) => ({ value: a.id, label: `${a.code} ${a.name}` }))} /></Field>}
       </div>
     </Modal>
   );
