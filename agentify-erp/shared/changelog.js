@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.115', date: '2026-11-24', title: 'Developer page no longer counts plots that were combined into another plot',
+    items: [
+      { text: 'After you combine plots, the developer page counted the original plots as well as the new combined plot. It now counts only the plots you can still sell or have sold.', where: 'Developers > the developer' },
+      { text: 'The developer page now shows Rebate earned so far and Rebate still due, so the top boxes match the Developer account. The plot-only rebate boxes were always 0 when the rebate comes from the agreement rates.', where: 'Developers > the developer' },
+    ],
+  },
+  {
     version: 'v1.114', date: '2026-11-24', title: 'Cancelled sales and voided receipts leave the everyday lists',
     items: [
       { text: 'The Sales and Receipts lists now show only active sales and valid receipts. Cancelled sales and voided receipts are kept on record and appear when you pick Cancelled only, Voided only, or Active and cancelled / Valid and voided in the status filter.', where: 'Sales and Receipts, status filter' },
