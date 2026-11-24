@@ -244,6 +244,8 @@ export function developerSummary(id) {
     plots: get("SELECT COUNT(*) n FROM properties WHERE developer_id=? AND merged_into IS NULL", id).n,
     available: get("SELECT COUNT(*) n FROM properties WHERE developer_id=? AND merged_into IS NULL AND status IN ('available','featured')", id).n,
     rebate_expected, rebate_on_sold,
+    rebate_earned: val("SELECT COALESCE(SUM(amount),0) FROM developer_rebates WHERE developer_id=? AND status<>'reversed'", id),
+    rebate_due: val("SELECT COALESCE(SUM(amount),0) FROM developer_rebates WHERE developer_id=? AND status='due'", id),
     files: files.n, contract_value: files.value, collected: files.paid, outstanding: files.value - files.paid,
   };
 }

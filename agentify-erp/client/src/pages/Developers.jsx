@@ -232,7 +232,7 @@ export function DeveloperDetail() {
       <div className="grid g4">
         <Stat label="Plots" value={data.plots} /><Stat label="Files sold" value={data.files} />
         <Stat label="Contract value" value={money(data.contract_value)} /><Stat label="Collected by developer" value={money(data.collected)} />
-        <Stat label="Plot rebate (all plots)" value={money(data.rebate_expected)} /><Stat label="Plot rebate (sold plots)" value={money(data.rebate_on_sold)} />
+        <Stat label="Rebate earned so far" value={money(data.rebate_earned)} /><Stat label="Rebate still due" value={money(data.rebate_due)} />
       </div>
       <div style={{ height: 12 }} />
       <Card title="Agreements" actions={can('developers', 'create') && <button className="btn primary" onClick={() => setAgreement({ pricing_basis: 'per_sqft', rebate_basis: 'percent_of_payment' })}>Add agreement</button>} flush>

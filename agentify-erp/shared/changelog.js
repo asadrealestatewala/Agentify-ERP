@@ -9,6 +9,7 @@ export const CHANGELOG = [
     version: 'v1.115', date: '2026-11-24', title: 'Developer page no longer counts plots that were combined into another plot',
     items: [
       { text: 'After you combine plots, the developer page counted the original plots as well as the new combined plot. It now counts only the plots you can still sell or have sold.', where: 'Developers > the developer' },
+      { text: 'The developer page now shows Rebate earned so far and Rebate still due, so the top boxes match the Developer account. The plot-only rebate boxes were always 0 when the rebate comes from the agreement rates.', where: 'Developers > the developer' },
     ],
   },
   {
