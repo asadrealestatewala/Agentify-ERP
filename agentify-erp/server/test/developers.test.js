@@ -327,3 +327,23 @@ test('combine developer plots into one sellable plot of 4, 5 or 6 marla, leftove
   assert.equal((await w.post(`/api/developers/${d.id}/combine-plots`, { property_ids: [four.leftover_id, four.id], area_size: 99 })).status, 400);
   assert.equal((await w.post(`/api/developers/${d.id}/combine-plots`, { property_ids: [four.id] })).status, 400);
 });
+
+test('cancelled sales and voided receipts stay out of the default lists but remain reachable', async () => {
+  const w = await workspace('devhide');
+  const d = ok(await w.post('/api/developers', { name: 'Hide Dev' }), 201);
+  const ag = ok(await w.post(`/api/developers/${d.id}/agreements`, { title: 'H', rebate_down_pct: 10 }), 201);
+  const pl = ok(await w.post('/api/properties', { title: 'H1', property_type: 'Plots', area_size: 3, unit: 'Marla', total_price: 1_000_000 }), 201);
+  ok(await w.post(`/api/developers/${d.id}/link-plots`, { property_ids: [pl.id], agreement_id: ag.id }));
+  ok(await w.post(`/api/properties/${pl.id}/publish`));
+  const c = ok(await w.post('/api/contacts', { full_name: 'Hide Client', phone: '+92 300 5550123' }), 201);
+  const sale = ok(await w.post('/api/sales', { contact_id: c.id, property_id: pl.id, sale_price: 1_000_000, discount: 0, booking_amount: 100_000, num_installments: 3, first_due: month(), collect_booking: { method: 'Cash' } }), 201);
+  const rid = ok(await w.get('/api/receipts')).rows[0].id;
+  ok(await w.post(`/api/receipts/${rid}/void`, { reason: 'test' }));
+  ok(await w.post(`/api/sales/${sale.id}/cancel`, { reason: 'test' }));
+  assert.equal(ok(await w.get('/api/sales')).rows.length, 0);
+  assert.equal(ok(await w.get('/api/receipts')).rows.length, 0);
+  assert.equal(ok(await w.get('/api/sales?status=all')).rows.length, 1);
+  assert.equal(ok(await w.get('/api/sales?status=cancelled')).rows.length, 1);
+  assert.equal(ok(await w.get('/api/receipts?status=all')).rows.length, 1);
+  assert.equal(ok(await w.get('/api/receipts?status=void')).rows.length, 1);
+});

@@ -194,7 +194,7 @@ export function ReceiptList({ preset, title = 'Receipt vouchers' }) {
           <div style={{ width: 160 }}><Select value={t.extra.project_id || ''} onChange={(v) => t.setFilter({ project_id: v })} placeholder="All projects" options={projects.map((p) => ({ value: p.id, label: p.name }))} /></div>
           <div style={{ width: 150 }}><Select value={t.extra.method || ''} onChange={(v) => t.setFilter({ method: v })} placeholder="All methods" options={list('payment_method')} /></div>
           {!preset && <div style={{ width: 160 }}><Select value={t.extra.payment_type || ''} onChange={(v) => t.setFilter({ payment_type: v })} placeholder="All types" options={PAY_TYPES} /></div>}
-          <div style={{ width: 130 }}><Select value={t.extra.status || ''} onChange={(v) => t.setFilter({ status: v })} placeholder="Any status" options={['valid', 'void']} /></div>
+          <div style={{ width: 130 }}><Select value={t.extra.status || ''} onChange={(v) => t.setFilter({ status: v })} placeholder="Valid receipts" options={[{ value: 'void', label: 'Voided only' }, { value: 'all', label: 'Valid and voided' }]} /></div>
           <div className="grow" /><ExportMenu url="/api/receipts" params={t.params} name="receipts" module="payments" /></div>
         <ViewsBar t={t} />
         <DataTable {...t.tableProps} onRowClick={(r) => nav(`/receipts/${r.id}`)} tableId="receipts" columns={[

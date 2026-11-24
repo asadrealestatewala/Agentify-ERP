@@ -35,7 +35,8 @@ r.get('/sales', can('sales', 'view'), asyncH(async (req, res) => {
   const o = ownerId(req);
   if (o) { where.push('s.agent_id=?'); params.push(o); }
   if (q.q) { where.push('(s.sale_no LIKE ? OR c.full_name LIKE ? OR p.title LIKE ? OR s.title LIKE ? OR p.plot_no LIKE ? OR c.customer_code LIKE ? OR p.registration_no LIKE ?)'); params.push(...Array(7).fill(`%${q.q}%`)); }
-  for (const [k, col] of [['project_id', 's.project_id'], ['agent_id', 's.agent_id'], ['status', 's.status'], ['contact_id', 's.contact_id'], ['kind', 's.kind']]) if (q[k]) { where.push(`${col}=?`); params.push(q[k]); }
+  for (const [k, col] of [['project_id', 's.project_id'], ['agent_id', 's.agent_id'], ['status', 's.status'], ['contact_id', 's.contact_id'], ['kind', 's.kind']]) if (q[k] && !(k === 'status' && q[k] === 'all')) { where.push(`${col}=?`); params.push(q[k]); }
+  if (!q.status) where.push("s.status<>'cancelled'"); // cancelled sales stay on record but out of the everyday list; status=all shows them
   if (q.from) { where.push('s.sale_date>=?'); params.push(q.from); }
   if (q.to) { where.push('s.sale_date<=?'); params.push(q.to); }
   const limit = ['csv', 'xlsx', 'pdf'].includes(q.format) ? 100000 : Math.min(int(q.limit, 25), 500), page = Math.max(int(q.page, 1), 1);
@@ -190,7 +191,8 @@ const RC_BASE = `SELECT r.*, c.full_name customer_name, c.customer_code customer
 r.get('/receipts', can('payments', 'view'), asyncH(async (req, res) => {
   const q = req.query, where = ['1=1'], params = [];
   if (q.q) { where.push('(r.receipt_no LIKE ? OR c.full_name LIKE ? OR r.txn_id LIKE ? OR r.reference_no LIKE ? OR r.cheque_no LIKE ? OR c.customer_code LIKE ?)'); params.push(...Array(6).fill(`%${q.q}%`)); }
-  for (const [k, col] of [['project_id', 'r.project_id'], ['contact_id', 'r.contact_id'], ['method', 'r.method'], ['payment_type', 'r.payment_type'], ['status', 'r.status'], ['account_id', 'r.account_id']]) if (q[k]) { where.push(`${col}=?`); params.push(q[k]); }
+  for (const [k, col] of [['project_id', 'r.project_id'], ['contact_id', 'r.contact_id'], ['method', 'r.method'], ['payment_type', 'r.payment_type'], ['status', 'r.status'], ['account_id', 'r.account_id']]) if (q[k] && !(k === 'status' && q[k] === 'all')) { where.push(`${col}=?`); params.push(q[k]); }
+  if (!q.status && !q.sale_id) where.push("r.status<>'void'"); // voided receipts stay on record but out of the everyday list; status=all shows them
   if (q.sale_id) { where.push('EXISTS(SELECT 1 FROM receipt_sales x WHERE x.receipt_id=r.id AND x.sale_id=?)'); params.push(q.sale_id); }
   if (ownerId(req)) { where.push(RC_OWN); params.push(ownerId(req), ownerId(req)); }
   if (q.from) { where.push('r.date>=?'); params.push(q.from); }
