@@ -136,11 +136,11 @@ function RebatePaidModal({ developerId, onClose, onDone }) {
   const toast = useToast();
   const { data: accounts } = useFetch('/api/accounting/accounts');
   const treasury = (accounts || []).filter((a) => ['cash', 'bank', 'custody', 'online'].includes(a.subtype));
-  const [f, setF] = useState({ account_id: '', method: 'Bank Transfer', reference_no: '' });
+  const [f, setF] = useState({ account_id: '', method: 'Bank Transfer', reference_no: '', cheque_no: '', bank: '', date: '' });
   const [busy, setBusy] = useState(false);
   const save = async () => {
     setBusy(true);
-    try { const out = await api.post(`/api/developers/${developerId}/rebates/receive`, f); toast(`${money(out.received)} received`); onDone(); } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+    try { const out = await api.post(`/api/developers/${developerId}/rebates/receive`, { ...f, date: f.date || undefined }); toast(`${money(out.received)} received`); onDone(); } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
   };
   return (
     <Modal title="Rebate received from developer" onClose={onClose}
@@ -149,7 +149,10 @@ function RebatePaidModal({ developerId, onClose, onDone }) {
       <div className="form-grid">
         <Field label="Paid into" required><Select value={f.account_id} onChange={(v) => setF({ ...f, account_id: v })} options={treasury.map((a) => ({ value: a.id, label: `${a.code} ${a.name}` }))} /></Field>
         <Field label="Method"><Select value={f.method} onChange={(v) => setF({ ...f, method: v })} allowEmpty={false} options={METHODS.map((x) => ({ value: x, label: x }))} /></Field>
-        <Field label="Reference"><input className="input" value={f.reference_no} onChange={(e) => setF({ ...f, reference_no: e.target.value })} /></Field>
+        {f.method === 'Cheque' && <Field label="Cheque number"><input className="input" value={f.cheque_no} onChange={(e) => setF({ ...f, cheque_no: e.target.value })} /></Field>}
+        {f.method !== 'Cash' && <Field label="Bank"><input className="input" value={f.bank} onChange={(e) => setF({ ...f, bank: e.target.value })} /></Field>}
+        <Field label="Reference / transaction ID"><input className="input" value={f.reference_no} onChange={(e) => setF({ ...f, reference_no: e.target.value })} /></Field>
+        <Field label="Date received"><input className="input" type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
       </div>
     </Modal>
   );
@@ -162,6 +165,7 @@ export function DeveloperDetail() {
   const { data, error, reload } = useFetch(`/api/developers/${id}`);
   const plots = useFetch(`/api/developers/${id}/plots`);
   const rebates = useFetch(`/api/developers/${id}/rebates`);
+  const ledger = useFetch(`/api/developers/${id}/ledger`);
   const [paying, setPaying] = useState(false);
   const [rebatePaid, setRebatePaid] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -178,7 +182,7 @@ export function DeveloperDetail() {
     if (agreement.id) await api.put(`/api/developers/${id}/agreements/${agreement.id}`, body); else await api.post(`/api/developers/${id}/agreements`, body);
     toast(agreement.id ? 'Agreement updated' : 'Agreement added'); setAgreement(null); reload();
   };
-  const refresh = () => { reload(); plots.reload?.(); rebates.reload?.(); setSel([]); };
+  const refresh = () => { reload(); plots.reload?.(); rebates.reload?.(); ledger.reload?.(); setSel([]); };
   const applyRebate = async () => {
     try {
       const out = await api.post(`/api/developers/${id}/plot-rebates`, { property_ids: sel, ...bulkRebate });
@@ -229,6 +233,18 @@ export function DeveloperDetail() {
               <tr key={p.id}><td><input type="checkbox" aria-label={`Select ${p.title}`} checked={sel.includes(p.id)} onChange={() => setSel((l) => (l.includes(p.id) ? l.filter((x) => x !== p.id) : [...l, p.id]))} /></td><td><Link to={`/properties/${p.id}`} className="cell-main">{p.title}</Link><div className="cell-sub">{p.registration_no || p.code}</div></td>
                 <td>{p.area_size} {p.unit}{p.area_sqft ? <div className="cell-sub">{p.area_sqft} sqft</div> : null}</td><td className="num">{money(p.net_price)}</td><td>{rebateText(p)}</td>
                 <td><StatusBadge status={p.status} /></td><td>{p.sale_id ? <Link to={`/sales/${p.sale_id}`}>{p.booking_id}</Link> : '-'}</td><td>{p.customer_name || '-'}</td></tr>))}</tbody></table>)}
+      </Card>
+      <div style={{ height: 12 }} />
+      <Card title="Developer account" flush>
+        {!ledger.data ? <Loading /> : (
+          <>
+            <p className="muted" style={{ padding: '8px 12px 0' }}>Customer payments are paid to the developer, so they are only listed here for reference. They are not company income, cash or bank. The balance is just the rebate the developer still owes the company.</p>
+            <div className="grid g4" style={{ padding: 12 }}><Stat label="Collected by developer" value={money(ledger.data.totals.collected)} /><Stat label="Rebate earned" value={money(ledger.data.totals.earned)} /><Stat label="Rebate received" value={money(ledger.data.totals.received)} /><Stat label="Rebate still due" value={money(ledger.data.balance)} /></div>
+            {ledger.data.rows.length === 0 ? <Empty title="No entries yet" hint="Payments the developer approves and the rebate paid back to the company appear here." /> : (
+              <table className="t"><thead><tr><th>Date</th><th>Reference</th><th>Description</th><th className="num">Collected by developer</th><th className="num">Rebate earned</th><th className="num">Rebate received</th><th className="num">Rebate due</th></tr></thead>
+                <tbody>{ledger.data.rows.map((r, i) => (
+                  <tr key={i}><td>{r.date}</td><td>{r.ref}</td><td>{r.description}</td><td className="num">{r.collected ? money(r.collected) : ''}</td><td className="num">{r.earned ? money(r.earned) : ''}</td><td className="num">{r.received ? money(r.received) : ''}</td><td className="num">{money(r.balance)}</td></tr>))}</tbody></table>)}
+          </>)}
       </Card>
       <div style={{ height: 12 }} />
       <Card title="Rebate statement" flush actions={(

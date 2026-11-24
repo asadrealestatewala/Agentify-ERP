@@ -86,7 +86,7 @@ test('developers, agreements, plots and developer files', async () => {
   assert.match(s.booking_id, /^BK-\d{5}$/); assert.equal(s.file_state, 'active'); assert.equal(s.holder, 'customer'); assert.equal(s.developer_id, d.id);
   assert.ok(s.cancel_window_until); assert.equal(JSON.parse(s.cancel_tiers)[0].pct, 20);
   let tb = ok(await w.get('/api/accounting/trial-balance'));
-  assert.equal(tbAmount(tb, '2610'), 2_000_000, 'contract sits in developer clearing');
+  assert.equal(tbAmount(tb, '2610'), 0, 'a developer file posts nothing to the company books'); assert.equal(tbAmount(tb, '1300'), 0);
   assert.equal(tbAmount(tb, '4100'), 0, 'no property-sales revenue for a developer file');
   assert.equal(tb.total_debit, tb.total_credit);
 
@@ -95,10 +95,12 @@ test('developers, agreements, plots and developer files', async () => {
   tb = ok(await w.get('/api/accounting/trial-balance'));
   assert.equal(tbAmount(tb, '4100'), 3_000_000);
 
-  // direct receipts on a developer file are refused until the approval flow exists
+  // a receipt entered on the normal screen for a developer file is paid to the developer: it never lands in the company's cash
   const acc = ok(await w.get('/api/accounting/accounts')).find((a) => a.code === '1110');
   const rcpt = await w.post('/api/receipts', { contact_id: customer.id, sale_id: sale.id, amount: 200_000, payment_type: 'Booking Payment', method: 'Cash', account_id: acc.id });
-  assert.equal(rcpt.status, 400); assert.match(rcpt.data.error || JSON.stringify(rcpt.data), /developer file/i);
+  assert.equal(rcpt.status, 201); assert.equal(rcpt.data.paid_to_developer, true);
+  ok(await w.post(`/api/receipts/${rcpt.data.id}/void`, { reason: 'test' })); // so the file below is receipt-free again
+  assert.equal(ok(await w.get('/api/accounting/trial-balance')).rows.find((x) => x.code === '1110')?.balance || 0, 0);
 
   // the Developers table asks for pages ({rows,total}); the plain call (property form picker) stays an array
   const paged = ok(await w.get('/api/developers?page=1&limit=25&q=green'));
