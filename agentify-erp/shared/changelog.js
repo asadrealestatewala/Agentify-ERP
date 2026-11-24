@@ -6,9 +6,9 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
-    version: 'v1.118', date: '2026-11-24', title: 'Developer rebate shows in the dashboard top card',
+    version: 'v1.118', date: '2026-11-24', title: 'Developer rebate shows in the dashboard total revenue',
     items: [
-      { text: 'The green "Collected" card at the top of the dashboard now includes the rebate a developer paid you, and says so underneath.' },
+      { text: 'When a developer has paid you a rebate in the selected period, the green card at the top of the dashboard becomes "Total revenue": customer payments collected plus the rebate, with the rebate shown underneath. Without a rebate it stays "Collected".' },
     ],
   },
   {
