@@ -36,7 +36,7 @@ export function SaleList({ kind }) {
           {!kind && canBuild && <div style={{ width: 150 }}><Select value={t.extra.kind || ''} onChange={(v) => t.setFilter({ kind: v })} placeholder="All types" options={[{ value: 'property', label: 'Property sales' }, { value: 'construction', label: 'Construction contracts' }]} /></div>}
           <div style={{ width: 170 }}><Select value={t.extra.project_id || ''} onChange={(v) => t.setFilter({ project_id: v })} placeholder="All projects" options={projects.map((p) => ({ value: p.id, label: p.name }))} /></div>
           {can('sales', 'approve') && <div style={{ width: 170 }}><Select value={t.extra.agent_id || ''} onChange={(v) => t.setFilter({ agent_id: v })} placeholder="All agents" options={agents.map((p) => ({ value: p.id, label: p.name }))} /></div>}
-          <div style={{ width: 150 }}><Select value={t.extra.status || ''} onChange={(v) => t.setFilter({ status: v })} placeholder="All statuses" options={['confirmed', 'cancelled']} /></div>
+          <div style={{ width: 150 }}><Select value={t.extra.status || ''} onChange={(v) => t.setFilter({ status: v })} placeholder="Active sales" options={[{ value: 'cancelled', label: 'Cancelled only' }, { value: 'all', label: 'Active and cancelled' }]} /></div>
           <div className="grow" /><ExportMenu url="/api/sales" params={t.params} name="sales" module="sales" /></div>
         <ViewsBar t={t} />
         <DataTable {...t.tableProps} onRowClick={(r) => nav(`/sales/${r.id}`)} columns={[

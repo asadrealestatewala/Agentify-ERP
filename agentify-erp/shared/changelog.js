@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.114', date: '2026-11-24', title: 'Cancelled sales and voided receipts leave the everyday lists',
+    items: [
+      { text: 'The Sales and Receipts lists now show only active sales and valid receipts. Cancelled sales and voided receipts are kept on record and appear when you pick Cancelled only, Voided only, or Active and cancelled / Valid and voided in the status filter.', where: 'Sales and Receipts, status filter' },
+    ],
+  },
+  {
     version: 'v1.113', date: '2026-11-24', title: 'Combine developer plots and sell them as 4, 5 or 6 marla',
     items: [
       { text: 'Tick two or more of a developer\'s unsold plots and choose Combine to make one plot of the size you are selling, for example two 3-marla plots sold as 6, or as 4 or 5 marla. Any size left over stays as its own plot, so no land goes missing. The combined plot is ready to sell and is not shown on your website.', where: 'Developers > the developer > Plots and files' },
