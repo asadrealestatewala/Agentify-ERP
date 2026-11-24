@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.120', date: '2026-11-24', title: 'Add a customer before you have their phone number',
+    items: [
+      { text: 'When you add a contact who is already a customer, you can now save it without a phone number, WhatsApp or e-mail and add the details later. New leads still need one way to be reached.', where: 'CRM > Contacts' },
+    ],
+  },
+  {
     version: 'v1.119', date: '2026-11-24', title: 'Customer pays you, you pass it on to the developer',
     items: [
       { text: 'On a developer file you can now record that the customer paid your company (choose the wallet or account it reached). The money is held for the developer, is not your income and is not counted as collected.', where: 'Developers > the developer > Record approved payment', guide: 'developer-partners' },

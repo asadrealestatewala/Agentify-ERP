@@ -124,7 +124,8 @@ function normalise(data, req, existing) {
 r.post('/contacts', can('crm', 'create'), asyncH((req, res) => {
   const d = normalise(req.body, req);
   required(d, 'full_name');
-  if (!d.phone && !d.alt_phone && !d.whatsapp && !d.email) throw bad('Add a phone number, WhatsApp number or email so the lead can be contacted');
+  // an existing customer (e.g. a client entered from an account statement) can be saved first and given contact details later
+  if (!d.phone && !d.alt_phone && !d.whatsapp && !d.email && !req.body.is_customer) throw bad('Add a phone number, WhatsApp number or email so the lead can be contacted');
   const o = ownerId(req);
   const dup = findDuplicateContacts(d)[0];
   if (dup) {
