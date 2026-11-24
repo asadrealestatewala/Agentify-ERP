@@ -6,7 +6,7 @@ import { all, get, run, insert, update, tx } from '../db.js';
 import { can, requireStaff } from '../rbac.js';
 import { audit } from '../audit.js';
 import { asyncH, bad, notFound, now } from '../util.js';
-import { developerAccount, rebateLedger, receiveRebates, recordDeveloperPayment } from '../services/developerRebates.js';
+import { cancelTransfer, developerAccount, heldForDeveloper, rebateLedger, receiveRebates, recordDeveloperPayment, recordFileRebate, sendToDeveloper, transferLedger } from '../services/developerRebates.js';
 import { AGREEMENT_FIELDS, checkAgreement, combinePlots, createDeveloperPortalUser, developerSummary, linkPlots, listDevelopers, plotRebateAmount, setPlotRebates, toSqft, unlinkPlots } from '../services/developers.js';
 
 const r = Router();
@@ -137,6 +137,12 @@ r.post('/:id/files/:saleId/payments', can('developers', 'approve'), asyncH((req,
   if (!sale) throw notFound('File not found');
   res.status(201).json(recordDeveloperPayment({ ...(req.body || {}), sale_id: sale.id }, req));
 }));
+
+// customer paid the company for a developer file: send it on to the developer, record transfers and the rebate that comes back afterwards
+r.get('/:id/transfers', can('developers', 'view'), asyncH((req, res) => res.json({ rows: transferLedger(dev(req.params.id).id), ...heldForDeveloper(dev(req.params.id).id) })));
+r.post('/:id/transfers', can('developers', 'approve'), asyncH((req, res) => res.status(201).json(sendToDeveloper(dev(req.params.id).id, req.body || {}, req))));
+r.post('/:id/transfers/:tid(\\d+)/cancel', can('developers', 'approve'), asyncH((req, res) => res.json(cancelTransfer(dev(req.params.id).id, Number(req.params.tid), (req.body || {}).reason, req))));
+r.post('/:id/files/:saleId(\\d+)/rebate', can('developers', 'approve'), asyncH((req, res) => res.status(201).json(recordFileRebate(dev(req.params.id).id, { ...(req.body || {}), sale_id: Number(req.params.saleId) }, req))));
 
 r.get('/:id/ledger', can('developers', 'view'), asyncH((req, res) => res.json(developerAccount(dev(req.params.id).id, { from: req.query.from || undefined, to: req.query.to || undefined }))));
 

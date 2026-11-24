@@ -6,8 +6,8 @@
  },
  "/api/receipts?limit=200": {
   "status": 200,
-  "sha": "31e069f1b7918641",
-  "bytes": 7523
+  "sha": "b7a80dc22e5ede97",
+  "bytes": 7799
  },
  "/api/installments?limit=200": {
   "status": 200,
@@ -106,8 +106,8 @@
  },
  "/api/sales/5": {
   "status": 200,
-  "sha": "228ee648c712caf6",
-  "bytes": 18877
+  "sha": "6a2655baa94536c3",
+  "bytes": 18923
  },
  "/api/customers/8/statement": {
   "status": 200,
@@ -116,13 +116,13 @@
  },
  "/api/sales/4": {
   "status": 200,
-  "sha": "2f79bc0bc004c755",
-  "bytes": 19236
+  "sha": "ab0bf3c40b187511",
+  "bytes": 19305
  },
  "/api/sales/3": {
   "status": 200,
-  "sha": "2eb0cf24c0e0936a",
-  "bytes": 4869
+  "sha": "ab59e2589666843d",
+  "bytes": 4892
  },
  "/api/customers/3/statement": {
   "status": 200,
@@ -131,8 +131,8 @@
  },
  "/api/sales/2": {
   "status": 200,
-  "sha": "b1cb3c67131463c3",
-  "bytes": 5434
+  "sha": "3541385f4c02ffd1",
+  "bytes": 5503
  },
  "/api/customers/2/statement": {
   "status": 200,
@@ -141,8 +141,8 @@
  },
  "/api/sales/1": {
   "status": 200,
-  "sha": "afb57b347ba8a951",
-  "bytes": 9369
+  "sha": "da2e40ef28784fd8",
+  "bytes": 9484
  },
  "/api/customers/1/statement": {
   "status": 200,
@@ -151,23 +151,23 @@
  },
  "/api/receipts/12": {
   "status": 200,
-  "sha": "dbf30689943f0f94",
-  "bytes": 1700
+  "sha": "8eddcf993455d65e",
+  "bytes": 1723
  },
  "/api/receipts/9": {
   "status": 200,
-  "sha": "aea4c5dafa066734",
-  "bytes": 1454
+  "sha": "231976e628a519b5",
+  "bytes": 1477
  },
  "/api/receipts/8": {
   "status": 200,
-  "sha": "83b76f2e1c646c0f",
-  "bytes": 1443
+  "sha": "632bb4b6df05dee3",
+  "bytes": 1466
  },
  "/api/receipts/11": {
   "status": 200,
-  "sha": "5e01be428a329d38",
-  "bytes": 1700
+  "sha": "e7d7d5f66bc4e344",
+  "bytes": 1723
  },
  "/api/accounting/expenses/6": {
   "status": 200,

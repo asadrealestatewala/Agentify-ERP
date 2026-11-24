@@ -7,7 +7,7 @@
 //   developer pays R   : Dr bank/cash R / Cr 1350 R
 import { get, all, run, tx, val } from '../db.js';
 import { now, today, bad, int, jparse, moneyText, curCode } from '../util.js';
-import { postJournal, assertTreasury } from './accounting.js';
+import { postJournal, reverseJournal, assertTreasury } from './accounting.js';
 import { PAYMENT_METHODS, receivePayment } from './payments.js';
 import { audit, notify } from '../audit.js';
 import { logFileEvent, rebateTermsOf } from './developers.js';
@@ -63,24 +63,25 @@ export function computeRebate(sale, terms, allocations, { fullyPaid = false } = 
  * approvePayment and by recordDeveloperPayment). The receipt itself already cleared 2610 against the customer's receivable.
  * Safe to call twice for one receipt.
  */
-export function postPaymentRebate(receiptId, req, { amount: fixed } = {}) {
+export function postPaymentRebate(receiptId, req, { amount: fixed, extra = false, date: onDate } = {}) {
   return tx(() => {
     const rc = get('SELECT * FROM receipts WHERE id=?', receiptId);
     const sale = rc?.sale_id ? get('SELECT * FROM sales WHERE id=?', rc.sale_id) : null;
     if (!sale || !sale.developer_id) return { rebate: 0, rebates: [] };
-    if (get('SELECT 1 FROM developer_rebates WHERE receipt_id=?', receiptId)) return { rebate: 0, rebates: [], already: true };
+    if (!extra && get('SELECT 1 FROM developer_rebates WHERE receipt_id=?', receiptId)) return { rebate: 0, rebates: [], already: true };
     const terms = saleRebateTerms(sale);
     const allocs = all('SELECT i.kind, ra.amount FROM receipt_allocations ra JOIN installments i ON i.id=ra.installment_id WHERE ra.receipt_id=? AND i.sale_id=? AND ra.amount>0', receiptId, sale.id);
     let rows;
     if (fixed !== undefined && fixed !== null) {
       // the rebate was agreed for this payment by hand (e.g. 10,000 of a 25,000 installment): it replaces the computed one, so nothing is counted twice
       const paid = allocs.reduce((t, a) => t + a.amount, 0);
-      if (fixed > paid) throw bad('The rebate cannot be more than the payment');
+      const already = extra ? val("SELECT COALESCE(SUM(amount),0) FROM developer_rebates WHERE receipt_id=? AND status<>'reversed'", receiptId) : 0;
+      if (fixed + already > paid) throw bad('The rebate cannot be more than the payment');
       rows = fixed > 0 ? [{ stage: stageOf(allocs.slice().sort((a, b) => b.amount - a.amount)[0]?.kind), base_amount: paid, rate: null, amount: fixed }] : [];
     } else rows = computeRebate(sale, terms, allocs, { fullyPaid: sale.paid_amount >= sale.net_price });
     const total = rows.reduce((t, r) => t + r.amount, 0);
     if (total > 0) {
-      const rj = postJournal({ date: rc.date, memo: `Rebate on ${rc.receipt_no} — ${sale.booking_id || sale.sale_no}`, refType: 'developer_rebate', refId: receiptId, projectId: sale.project_id, userId: req.user.id,
+      const rj = postJournal({ date: onDate || rc.date, memo: `Rebate on ${rc.receipt_no} — ${sale.booking_id || sale.sale_no}`, refType: 'developer_rebate', refId: receiptId, projectId: sale.project_id, userId: req.user.id,
         lines: [{ account: '1350', debit: total, saleId: sale.id }, { account: '4500', credit: total, saleId: sale.id }] });
       for (const r of rows) {
         run(`INSERT INTO developer_rebates(developer_id,sale_id,receipt_id,stage,source,base_amount,rate,amount,status,recognised_journal_id,created_at) VALUES(?,?,?,?,?,?,?,?,'due',?,?)`,
@@ -106,10 +107,15 @@ export function recordDeveloperPayment(inp, req) {
     if (sale.holder !== 'customer') throw bad('This file is held by the company, so the company handles its payments');
     const type = inp.payment_type || 'Installment';
     if (['Refund', 'Adjustment'].includes(type)) throw bad('Choose a payment type: booking, down payment, installment, balloon, partial or full');
+    // the customer paid the company (e.g. into a staff member's wallet) and the company passes it on to the developer afterwards
+    const held = !!inp.paid_to_company;
+    if (held && !inp.account_id) throw bad('Choose the account the customer’s money was received into');
     const rid = receivePayment({ contact_id: sale.contact_id, sale_id: sale.id, amount: inp.amount, method: inp.method, txn_id: inp.txn_id, bank: inp.bank, cheque_no: inp.cheque_no,
-      reference_no: inp.reference_no, date: inp.date, payment_type: type, developerApproval: true,
-      notes: ['Approved by the developer, recorded by staff', inp.notes].filter(Boolean).join('. ') }, req);
-    logFileEvent(sale.id, 'payment_approved', { user: req.user, amount: int(inp.amount), note: 'recorded by staff' });
+      reference_no: inp.reference_no, date: inp.date, payment_type: type, developerApproval: !held, developerHeld: held, account_id: held ? inp.account_id : undefined,
+      notes: [held ? 'Received by the company for the developer' : 'Approved by the developer, recorded by staff', inp.notes].filter(Boolean).join('. ') }, req);
+    logFileEvent(sale.id, held ? 'payment_held' : 'payment_approved', { user: req.user, amount: int(inp.amount), note: held ? 'received by the company, to be passed on' : 'recorded by staff' });
+    // money held for the developer earns no rebate until staff record what the developer pays back (Record rebate on the file)
+    if (held) return { receipt_id: rid, rebate: 0, held: true };
     const hand = inp.rebate_amount !== undefined && inp.rebate_amount !== null && inp.rebate_amount !== '';
     const out = postPaymentRebate(rid, req, hand ? { amount: int(inp.rebate_amount) } : {});
     // the developer already handed the rebate over (e.g. 10,000 of this installment came back to the company): mark it received into the chosen account
@@ -170,6 +176,11 @@ export function developerAccount(developerId, { from, to } = {}) {
     entries.push({ date: r.date, ord: 1, kind: 'collected', ref: r.receipt_no, description: `${r.payment_type} from ${r.customer} (${r.booking_id || 'file'}) paid to the developer by ${r.method}`,
       collected: r.payment_type === 'Refund' ? -r.amount : r.amount, earned: 0, received: 0 });
   }
+  const held = all(`SELECT r.receipt_no, r.date, r.amount, r.payment_type, c.full_name customer, s.booking_id FROM receipts r JOIN sales s ON s.id=r.sale_id JOIN contacts c ON c.id=r.contact_id
+    WHERE s.developer_id=? AND r.status='valid' AND r.held_for_developer=1 ORDER BY r.date, r.id`, developerId);
+  for (const r of held) entries.push({ date: r.date, ord: 1, kind: 'held', ref: r.receipt_no, description: `${r.payment_type} from ${r.customer} (${r.booking_id || 'file'}) received by the company for the developer`, collected: 0, earned: 0, received: 0, held_in: r.amount, sent: 0 });
+  for (const t of all(`SELECT t.*, s.booking_id FROM developer_transfers t JOIN sales s ON s.id=t.sale_id WHERE t.developer_id=? AND t.status='valid' ORDER BY t.date, t.id`, developerId))
+    entries.push({ date: t.date, ord: 1, kind: 'sent', ref: t.reference_no || `T-${t.id}`, description: `Sent to the developer for ${t.booking_id || 'file'}${t.rebate_kept ? ` (rebate ${t.rebate_kept} kept)` : ''}`, collected: 0, earned: 0, received: 0, held_in: 0, sent: t.amount + t.rebate_kept });
   const earned = new Map(), got = new Map();
   for (const b of all(`SELECT b.*, r.receipt_no, r.date payment_date FROM developer_rebates b JOIN receipts r ON r.id=b.receipt_id WHERE b.developer_id=? AND b.status<>'reversed' ORDER BY b.id`, developerId)) {
     const e = earned.get(b.receipt_id) || { date: b.payment_date, ord: 2, kind: 'rebate', ref: b.receipt_no, description: `Rebate earned on ${b.receipt_no}`, collected: 0, earned: 0, received: 0 };
@@ -188,6 +199,92 @@ export function developerAccount(developerId, { from, to } = {}) {
     if (!inRange(e.date)) { if (from && e.date < from) open = bal; continue; }
     rows.push({ ...e, ord: undefined, balance: bal });
   }
-  const sum = (k) => rows.reduce((t, x) => t + x[k], 0);
-  return { rows, opening: open, balance: bal, totals: { collected: sum('collected'), earned: sum('earned'), received: sum('received') } };
+  const sum = (k) => rows.reduce((t, x) => t + (x[k] || 0), 0);
+  return { rows, opening: open, balance: bal, held: heldForDeveloper(developerId), totals: { collected: sum('collected'), earned: sum('earned'), received: sum('received'), held_in: sum('held_in'), sent: sum('sent') } };
+}
+
+// ---------------------------------------------------------------- customer pays the company, the company passes it on (v1.119)
+// Customer pays X into the company's own account : Dr bank/wallet X / Cr 2610 X   (owed to the developer, not income)
+// Company hands it on                           : Dr 2610 (sent + rebate kept) / Cr bank sent / Cr 4500 rebate kept
+// Developer pays the rebate later               : Dr bank R / Cr 4500 R   (see recordFileRebate)
+
+/** What the company still holds for the developer on one file (or on all of the developer's files). */
+export function heldForDeveloper(developerId, saleId) {
+  const bySale = saleId ? ' AND s.id=?' : '';
+  const args = saleId ? [developerId, saleId] : [developerId];
+  const got = val(`SELECT COALESCE(SUM(r.amount),0) FROM receipts r JOIN sales s ON s.id=r.sale_id WHERE s.developer_id=? AND r.status='valid' AND r.held_for_developer=1${bySale}`, ...args);
+  const sent = val(`SELECT COALESCE(SUM(t.amount+t.rebate_kept),0) FROM developer_transfers t JOIN sales s ON s.id=t.sale_id WHERE s.developer_id=? AND t.status='valid'${bySale}`, ...args);
+  return { received: got, sent, held: got - sent };
+}
+
+/** Hand money the company holds for a developer's file on to the developer, keeping the rebate first if agreed. */
+export function sendToDeveloper(developerId, inp, req) {
+  const date = inp.date || today();
+  const amount = int(inp.amount), kept = int(inp.rebate_kept || 0);
+  if (amount < 0 || kept < 0 || amount + kept <= 0) throw bad('Enter the amount sent to the developer');
+  return tx(() => {
+    const sale = get('SELECT * FROM sales WHERE id=? AND developer_id=?', inp.sale_id, developerId);
+    if (!sale) throw bad('This is not one of the developer\'s files');
+    const acc = assertTreasury(inp.account_id);
+    const h = heldForDeveloper(developerId, sale.id);
+    if (amount + kept > h.held) throw bad(`Only ${moneyText(h.held)} is being held for the developer on this file`);
+    const lastReceipt = kept > 0 ? get("SELECT id FROM receipts WHERE sale_id=? AND status='valid' AND held_for_developer=1 ORDER BY date DESC, id DESC", sale.id) : null;
+    if (kept > 0 && !lastReceipt) throw bad('There is no payment on this file to attach the rebate to');
+    const ref = [String(inp.reference_no || '').trim()].filter(Boolean).join(' · ').slice(0, 200) || null;
+    const lines = [{ account: '2610', debit: amount + kept, saleId: sale.id }];
+    if (amount > 0) lines.push({ account: acc.id, credit: amount });
+    if (kept > 0) lines.push({ account: '4500', credit: kept, saleId: sale.id });
+    const jid = postJournal({ date, memo: `Sent to developer — ${sale.booking_id || sale.sale_no}${kept ? ` (rebate ${moneyText(kept)} kept)` : ''}${ref ? ` — ${ref}` : ''}`,
+      refType: 'developer_transfer', refId: sale.id, projectId: sale.project_id, userId: req.user.id, lines });
+    const r = run(`INSERT INTO developer_transfers(developer_id,sale_id,date,amount,rebate_kept,account_id,method,reference_no,notes,journal_id,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+      developerId, sale.id, date, amount, kept, acc.id, inp.method || null, ref, inp.notes || null, jid, req.user.id, now());
+    if (kept > 0) {
+      const allocs = all('SELECT i.kind, ra.amount FROM receipt_allocations ra JOIN installments i ON i.id=ra.installment_id WHERE ra.receipt_id=? AND ra.amount>0', lastReceipt.id);
+      run(`INSERT INTO developer_rebates(developer_id,sale_id,receipt_id,stage,source,base_amount,rate,amount,status,recognised_journal_id,received_journal_id,received_on,received_method,reference_no,created_at) VALUES(?,?,?,?,?,?,?,?,'received',?,?,?,?,?,?)`,
+        developerId, sale.id, lastReceipt.id, stageOf(allocs.sort((a, b) => b.amount - a.amount)[0]?.kind), 'agreement', amount + kept, null, kept, jid, jid, date, 'Kept from transfer', ref, now());
+    }
+    logFileEvent(sale.id, 'sent_to_developer', { user: req.user, amount: amount + kept, note: kept ? `rebate ${kept} kept` : undefined });
+    audit(req, 'Sent money to developer', 'developer', developerId, `${sale.booking_id || sale.sale_no} ${curCode()} ${amount}${kept ? ` + rebate kept ${kept}` : ''}`);
+    return { id: Number(r.lastInsertRowid), journal_id: jid, held: h.held - amount - kept };
+  });
+}
+
+/** Undo a transfer to the developer (reverses its journal and any rebate that was kept in it). */
+export function cancelTransfer(developerId, transferId, reason, req) {
+  return tx(() => {
+    const t = get('SELECT * FROM developer_transfers WHERE id=? AND developer_id=?', transferId, developerId);
+    if (!t) throw bad('Transfer not found');
+    if (t.status === 'void') throw bad('This transfer is already cancelled');
+    if (!reason) throw bad('A reason is required');
+    if (t.journal_id) reverseJournal(t.journal_id, `Cancelled transfer to developer: ${reason}`, req.user.id);
+    run("UPDATE developer_transfers SET status='void' WHERE id=?", t.id);
+    run("UPDATE developer_rebates SET status='reversed' WHERE recognised_journal_id=? AND received_journal_id=?", t.journal_id, t.journal_id);
+    audit(req, 'Cancelled transfer to developer', 'developer', developerId, `#${t.id}: ${reason}`);
+    return { ok: true };
+  });
+}
+
+export function transferLedger(developerId) {
+  return all(`SELECT t.*, a.name account_name, s.booking_id, c.full_name customer_name FROM developer_transfers t JOIN accounts a ON a.id=t.account_id
+    JOIN sales s ON s.id=t.sale_id LEFT JOIN contacts c ON c.id=s.contact_id WHERE t.developer_id=? ORDER BY t.date DESC, t.id DESC`, developerId);
+}
+
+/** The developer paid its rebate on one file, afterwards: books the rebate (income) and the money coming in, in one step. */
+export function recordFileRebate(developerId, inp, req) {
+  return tx(() => {
+    const sale = get('SELECT * FROM sales WHERE id=? AND developer_id=?', inp.sale_id, developerId);
+    if (!sale) throw bad('This is not one of the developer\'s files');
+    const amount = int(inp.amount);
+    if (amount <= 0) throw bad('Enter the rebate received');
+    if (!inp.account_id) throw bad('Choose the account the rebate was received into');
+    const rc = inp.receipt_id ? get("SELECT id FROM receipts WHERE id=? AND sale_id=? AND status='valid'", inp.receipt_id, sale.id)
+      : get("SELECT id FROM receipts WHERE sale_id=? AND status='valid' AND payment_type<>'Refund' ORDER BY date DESC, id DESC", sale.id);
+    if (!rc) throw bad('This file has no payment to attach the rebate to');
+    // the rebate earns its date from the day it was received, not from the payment it hangs on
+    const out = postPaymentRebate(rc.id, req, { amount, extra: true, date: inp.date || today() });
+    const row = get("SELECT id FROM developer_rebates WHERE receipt_id=? AND status='due' ORDER BY id DESC", rc.id);
+    if (!row) throw bad('The rebate could not be recorded');
+    receiveRebates(developerId, { rebate_ids: [row.id], account_id: inp.account_id, method: inp.method, reference_no: inp.reference_no, date: inp.date }, req);
+    return { rebate: out.rebate };
+  });
 }

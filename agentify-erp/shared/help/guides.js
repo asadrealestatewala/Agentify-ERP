@@ -181,6 +181,7 @@ export const GUIDES = {
       'Sell the plot from Sales & Bookings as usual. A booking ID is created and the sale is held as a pass-through, so it is not counted as your revenue.',
       'Record customer payments and bookings as usual. On a developer plot they are paid to the developer, not to your cash or bank. Open Developers > the developer > Developer account to see them beside the rebate earned and still due.',
       'When the developer pays your rebate, choose Rebate received and pick cash, cheque or online transfer.',
+      'If the customer paid your company instead (for example into a staff wallet), choose "Our company" under Who received the money, then use Send to developer when you pass it on, and Record rebate on a file when the developer pays your rebate afterwards.',
       'To give the developer a read-only view, open Developers > the developer > Create portal login.',
     ],
     limits: ['A payment on a developer file never enters your cash, bank or income: it is shown on the developer account and only the rebate is your income.', 'The rebate is received from the developer in cash, cheque or online transfer under Developers > Rebate received.', 'The developer portal never shows customer CNIC, phone or e-mail.'],
