@@ -72,11 +72,12 @@ export function receivePayment(inp, req) {
       if (!sale) throw bad('Sale not found');
       if (sale.contact_id !== contact.id) throw bad('Sale does not belong to this customer');
       if (sale.status !== 'confirmed') throw bad('Payments can only be recorded against confirmed sales');
-      if (sale.developer_id && sale.holder === 'customer' && !inp.developerApproval) throw bad(`${sale.sale_no} is a developer file: the customer pays the developer, and the payment is recorded once the developer approves it. Staff record it with Record developer-approved payment on the developer’s page.`);
+      if (inp.developerHeld && !(sale.developer_id && sale.holder === 'customer')) throw bad(`${sale.sale_no} is not a developer file`);
+      if (sale.developer_id && sale.holder === 'customer' && !inp.developerApproval && !inp.developerHeld) throw bad(`${sale.sale_no} is a developer file: the customer pays the developer, and the payment is recorded once the developer approves it. Staff record it with Record developer-approved payment on the developer’s page.`);
       return { sale, amount: w.amount, allocations: [], settled: 0, advance: 0 };
     });
     // a developer-approved payment never touches the company's cash: it clears the developer clearing account (2610)
-    const acc = inp.developerApproval ? (get("SELECT * FROM accounts WHERE code='2610'") || (() => { throw bad('The developer clearing account (2610) is missing'); })()) : assertTreasury(inp.account_id);
+    const acc = inp.developerApproval && !inp.developerHeld ? (get("SELECT * FROM accounts WHERE code='2610'") || (() => { throw bad('The developer clearing account (2610) is missing'); })()) : assertTreasury(inp.account_id);
     if (inp.txn_id && get("SELECT id FROM receipts WHERE txn_id=? AND status='valid'", inp.txn_id)) throw bad('This transaction ID has already been recorded');
 
     if (isRefund) {
@@ -130,7 +131,10 @@ export function receivePayment(inp, req) {
       lines = [{ account: '1300', debit: amount, contactId: contact.id, saleId: parts[0].sale.id, projectId: parts[0].sale.project_id }, { account: acc.id, credit: amount }];
     } else {
       lines = [{ account: acc.id, debit: amount }];
-      if (parts.length) {
+      if (inp.developerHeld) {
+        // the company holds this money for the developer: it owes it on (Developer Clearing), it is not income
+        lines.push({ account: '2610', credit: amount, contactId: contact.id, saleId: parts[0]?.sale.id, projectId: parts[0]?.sale.project_id });
+      } else if (parts.length) {
         for (const p of parts) {
           lines.push({ account: '1300', credit: p.settled, contactId: contact.id, saleId: p.sale.id, projectId: p.sale.project_id });
           lines.push({ account: '2200', credit: p.advance, contactId: contact.id, saleId: p.sale.id, projectId: p.sale.project_id });
@@ -144,6 +148,7 @@ export function receivePayment(inp, req) {
       projectId: parts[0]?.sale.project_id, userId: user.id, lines,
     });
     if (jid) run('UPDATE receipts SET journal_id=? WHERE id=?', jid, rid);
+    if (inp.developerHeld) run('UPDATE receipts SET held_for_developer=1 WHERE id=?', rid);
 
     const partText = parts.length > 1 ? ` split: ${parts.map((p) => `${p.sale.sale_no} ${moneyText(p.amount)}`).join(' + ')}` : '';
     activity(contact.id, user, isRefund ? 'Refund issued' : 'Payment received', { detail: `${no} — ${moneyText(amount)} (${type}, ${method})${partText}`, entityType: 'receipt', entityId: rid });
@@ -165,6 +170,7 @@ export function voidReceipt(id, reason, req) {
     if (!reason) throw bad('A reason is required to void a receipt');
     // a developer file's receipt also booked the rebate the developer owes: take it back, unless the developer already paid it
     const rebates = all("SELECT * FROM developer_rebates WHERE receipt_id=? AND status<>'reversed'", id);
+    if (r.held_for_developer && get("SELECT 1 FROM developer_transfers t JOIN receipt_sales rs ON rs.sale_id=t.sale_id WHERE rs.receipt_id=? AND t.status='valid'", id)) throw bad('Part of this money was already sent to the developer. Cancel that transfer first.');
     if (rebates.some((b) => b.status === 'received')) throw bad('The developer has already paid the rebate on this payment. Reverse that rebate payment first.');
     for (const jid of new Set(rebates.map((b) => b.recognised_journal_id).filter(Boolean))) reverseJournal(jid, `Void of ${r.receipt_no}: rebate withdrawn`, req.user.id);
     if (rebates.length) run("UPDATE developer_rebates SET status='reversed' WHERE receipt_id=? AND status='due'", id);

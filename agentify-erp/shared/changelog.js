@@ -6,6 +6,13 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.119', date: '2026-11-24', title: 'Customer pays you, you pass it on to the developer',
+    items: [
+      { text: 'On a developer file you can now record that the customer paid your company (choose the wallet or account it reached). The money is held for the developer, is not your income and is not counted as collected.', where: 'Developers > the developer > Record approved payment', guide: 'developer-partners' },
+      { text: 'Send to developer records what you handed on, in full or with your rebate kept first, and Record rebate on a file records the rebate the developer pays you afterwards. Both can be undone, and the developer account shows money held, sent on and rebate side by side.', where: 'Developers > the developer > Rebate statement', guide: 'developer-partners' },
+    ],
+  },
+  {
     version: 'v1.118', date: '2026-11-24', title: 'Developer rebate shows in the dashboard total revenue',
     items: [
       { text: 'When a developer has paid you a rebate in the selected period, the green card at the top of the dashboard becomes "Total revenue": customer payments collected plus the rebate, with the rebate shown underneath. Without a rebate it stays "Collected".' },

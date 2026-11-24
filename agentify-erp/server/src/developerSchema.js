@@ -28,4 +28,12 @@ CREATE TABLE IF NOT EXISTS developer_rebates(
 CREATE INDEX IF NOT EXISTS idx_devreb_dev ON developer_rebates(developer_id, status);
 CREATE INDEX IF NOT EXISTS idx_devreb_sale ON developer_rebates(sale_id);
 CREATE INDEX IF NOT EXISTS idx_devreb_receipt ON developer_rebates(receipt_id);
+-- money the customers paid to the company for a developer file and the company then handed on to the developer (v1.119)
+CREATE TABLE IF NOT EXISTS developer_transfers(
+  id INTEGER PRIMARY KEY, developer_id INTEGER NOT NULL REFERENCES developers(id), sale_id INTEGER NOT NULL REFERENCES sales(id),
+  date TEXT NOT NULL, amount INTEGER NOT NULL, rebate_kept INTEGER NOT NULL DEFAULT 0, account_id INTEGER NOT NULL REFERENCES accounts(id),
+  method TEXT, reference_no TEXT, notes TEXT, journal_id INTEGER, status TEXT NOT NULL DEFAULT 'valid' CHECK(status IN ('valid','void')),
+  created_by INTEGER, created_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_devxfer_dev ON developer_transfers(developer_id, status);
+CREATE INDEX IF NOT EXISTS idx_devxfer_sale ON developer_transfers(sale_id);
 `;

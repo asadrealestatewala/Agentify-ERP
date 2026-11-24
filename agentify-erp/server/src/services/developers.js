@@ -246,6 +246,8 @@ export function developerSummary(id) {
     rebate_expected, rebate_on_sold,
     rebate_earned: val("SELECT COALESCE(SUM(amount),0) FROM developer_rebates WHERE developer_id=? AND status<>'reversed'", id),
     rebate_due: val("SELECT COALESCE(SUM(amount),0) FROM developer_rebates WHERE developer_id=? AND status='due'", id),
+    held_for_developer: val("SELECT COALESCE(SUM(r.amount),0) FROM receipts r JOIN sales s ON s.id=r.sale_id WHERE s.developer_id=? AND r.status='valid' AND r.held_for_developer=1", id)
+      - val("SELECT COALESCE(SUM(t.amount+t.rebate_kept),0) FROM developer_transfers t WHERE t.developer_id=? AND t.status='valid'", id),
     files: files.n, contract_value: files.value, collected: files.paid, outstanding: files.value - files.paid,
   };
 }

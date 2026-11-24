@@ -140,6 +140,7 @@ function migrate() {
   addCol('properties', 'inventory_source', "TEXT NOT NULL DEFAULT 'own'"); addCol('properties', 'developer_id', 'INTEGER'); addCol('properties', 'agreement_id', 'INTEGER'); addCol('properties', 'rebate_type', 'TEXT'); addCol('properties', 'rebate_value', 'REAL');
   for (const [c, t] of [['developer_id', 'INTEGER'], ['agreement_id', 'INTEGER'], ['booking_id', 'TEXT'], ['file_state', 'TEXT'], ['holder', "TEXT NOT NULL DEFAULT 'customer'"],
     ['cancel_window_until', 'TEXT'], ['cancel_tiers', 'TEXT']]) addCol('sales', c, t);
+  addCol('receipts', 'held_for_developer', 'INTEGER NOT NULL DEFAULT 0'); // customer paid the company for a developer file; the company passes it on (v1.119)
   addCol('properties', 'merged_into', 'INTEGER'); addCol('properties', 'combined_from', 'TEXT'); // combined developer plots (v1.113): sources point at the combined plot
   addCol('users', 'developer_id', 'INTEGER'); addCol('sales', 'rebate_terms', 'TEXT'); addCol('sales', 'off_books', 'INTEGER NOT NULL DEFAULT 0'); // 1 = developer file booked after v1.112: customer money is the developer's, no receivable/clearing in the company's books
   addCol('users', 'vendor_id', 'INTEGER'); addCol('vendors', 'vendor_code', 'TEXT');

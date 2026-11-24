@@ -128,7 +128,7 @@ const METHODS = ['Cash', 'Bank Transfer', 'Online Transfer', 'JazzCash', 'Easypa
 /** Staff record a customer payment the developer has approved (call, chat, cash at the developer's office). The rebate is posted with it. */
 function ApprovedPaymentModal({ developerId, files, onClose, onDone }) {
   const toast = useToast();
-  const [f, setF] = useState({ sale_id: files[0]?.sale_id || '', amount: '', payment_type: 'Installment', method: 'Cash', txn_id: '', bank: '', date: '', rebate_amount: '', rebate_received_account_id: '' });
+  const [f, setF] = useState({ sale_id: files[0]?.sale_id || '', amount: '', payment_type: 'Installment', method: 'Cash', txn_id: '', bank: '', date: '', rebate_amount: '', rebate_received_account_id: '', paid_to_company: false, account_id: '' });
   const { data: accounts } = useFetch('/api/accounting/accounts');
   const treasury = (accounts || []).filter((a) => ['cash', 'bank', 'custody', 'online'].includes(a.subtype));
   const [busy, setBusy] = useState(false);
@@ -137,14 +137,14 @@ function ApprovedPaymentModal({ developerId, files, onClose, onDone }) {
   const save = async () => {
     setBusy(true);
     try {
-      const out = await api.post(`/api/developers/${developerId}/files/${f.sale_id}/payments`, { ...f, amount: Number(f.amount), date: f.date || undefined, rebate_amount: f.rebate_amount === '' ? undefined : Number(f.rebate_amount), rebate_received_account_id: f.rebate_received_account_id || undefined });
-      toast(`Payment recorded${out.rebate ? `, rebate ${money(out.rebate)} posted` : ''}`); onDone();
+      const out = await api.post(`/api/developers/${developerId}/files/${f.sale_id}/payments`, { ...f, amount: Number(f.amount), date: f.date || undefined, rebate_amount: f.rebate_amount === '' ? undefined : Number(f.rebate_amount), rebate_received_account_id: f.rebate_received_account_id || undefined, account_id: f.paid_to_company ? f.account_id : undefined });
+      toast(out.held ? 'Payment recorded. The money is held for the developer until you send it on.' : `Payment recorded${out.rebate ? `, rebate ${money(out.rebate)} posted` : ''}`); onDone();
     } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
   };
   return (
     <Modal title="Record developer-approved payment" onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || !f.sale_id || !(Number(f.amount) > 0)} onClick={save}>Record payment</button></>}>
-      <p>Use this when the developer has confirmed they received the customer’s money. It is not company cash: it settles the customer’s installments and posts the rebate the developer owes.</p>
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || !f.sale_id || !(Number(f.amount) > 0) || (f.paid_to_company && !f.account_id)} onClick={save}>Record payment</button></>}>
+      <p>Use this for a customer payment on a developer file. If the developer received it, it is not company cash and posts the rebate the developer owes. If our company received it, the money is held for the developer until you use Send to developer, and the rebate is recorded afterwards.</p>
       <div className="form-grid">
         <Field label="File" required><Select value={f.sale_id} onChange={(v) => set('sale_id')(v)} allowEmpty={false} options={files.map((p) => ({ value: p.sale_id, label: `${p.booking_id} · ${p.title} · ${p.customer_name}` }))} /></Field>
         <Field label="Amount" required><input className="input" type="number" min="0" value={f.amount} onChange={set('amount')} /></Field>
@@ -153,8 +153,66 @@ function ApprovedPaymentModal({ developerId, files, onClose, onDone }) {
         {online && <Field label="Transaction ID" required><input className="input" value={f.txn_id} onChange={set('txn_id')} /></Field>}
         {(online || f.method === 'Cheque') && <Field label="Bank / channel" required><input className="input" value={f.bank} onChange={set('bank')} /></Field>}
         <Field label="Date received"><input className="input" type="date" value={f.date} onChange={set('date')} /></Field>
-        <Field label="Rebate on this payment (optional)"><input className="input" type="number" min="0" placeholder="Leave empty to use the agreement rates" value={f.rebate_amount} onChange={set('rebate_amount')} /></Field>
-        {f.rebate_amount !== '' && Number(f.rebate_amount) > 0 && <Field label="Rebate already received into (optional)"><Select value={f.rebate_received_account_id} onChange={(v) => set('rebate_received_account_id')(v)} options={treasury.map((a) => ({ value: a.id, label: `${a.code} ${a.name}` }))} /></Field>}
+        <Field label="Who received the money?"><Select value={f.paid_to_company ? 'company' : 'developer'} onChange={(v) => setF({ ...f, paid_to_company: v === 'company' })} allowEmpty={false}
+          options={[{ value: 'developer', label: 'The developer (paid directly)' }, { value: 'company', label: 'Our company (we pass it on to the developer)' }]} /></Field>
+        {f.paid_to_company && <Field label="Received into" required><Select value={f.account_id} onChange={(v) => set('account_id')(v)} options={treasury.map((a) => ({ value: a.id, label: `${a.code} ${a.name}` }))} /></Field>}
+        {!f.paid_to_company && <Field label="Rebate on this payment (optional)"><input className="input" type="number" min="0" placeholder="Leave empty to use the agreement rates" value={f.rebate_amount} onChange={set('rebate_amount')} /></Field>}
+        {!f.paid_to_company && f.rebate_amount !== '' && Number(f.rebate_amount) > 0 && <Field label="Rebate already received into (optional)"><Select value={f.rebate_received_account_id} onChange={(v) => set('rebate_received_account_id')(v)} options={treasury.map((a) => ({ value: a.id, label: `${a.code} ${a.name}` }))} /></Field>}
+      </div>
+    </Modal>
+  );
+}
+
+/** The company hands money it received for a developer file on to the developer, optionally keeping its rebate first. */
+function SendToDeveloperModal({ developerId, files, onClose, onDone }) {
+  const toast = useToast();
+  const { data: accounts } = useFetch('/api/accounting/accounts');
+  const treasury = (accounts || []).filter((a) => ['cash', 'bank', 'custody', 'online'].includes(a.subtype));
+  const [f, setF] = useState({ sale_id: files[0]?.sale_id || '', amount: '', rebate_kept: '', account_id: '', method: 'Bank Transfer', reference_no: '', date: '' });
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try { await api.post(`/api/developers/${developerId}/transfers`, { ...f, amount: Number(f.amount || 0), rebate_kept: Number(f.rebate_kept || 0), date: f.date || undefined }); toast('Sent to developer'); onDone(); } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <Modal title="Send to developer" onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || !f.sale_id || !f.account_id || !(Number(f.amount) > 0 || Number(f.rebate_kept) > 0)} onClick={save}>Record transfer</button></>}>
+      <p>Records money you passed on to the developer from the account that received the customer’s payment. If you keep your rebate first, enter it in “Rebate kept”: it becomes company income and the rest goes to the developer.</p>
+      <div className="form-grid">
+        <Field label="File" required><Select value={f.sale_id} onChange={(v) => setF({ ...f, sale_id: v })} allowEmpty={false} options={files.map((p) => ({ value: p.sale_id, label: `${p.booking_id} · ${p.title} · ${p.customer_name}` }))} /></Field>
+        <Field label="Sent to the developer" required><input className="input" type="number" min="0" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+        <Field label="Rebate kept (optional)"><input className="input" type="number" min="0" value={f.rebate_kept} onChange={(e) => setF({ ...f, rebate_kept: e.target.value })} /></Field>
+        <Field label="Sent from" required><Select value={f.account_id} onChange={(v) => setF({ ...f, account_id: v })} options={treasury.map((a) => ({ value: a.id, label: `${a.code} ${a.name}` }))} /></Field>
+        <Field label="Method"><Select value={f.method} onChange={(v) => setF({ ...f, method: v })} allowEmpty={false} options={METHODS.map((x) => ({ value: x, label: x }))} /></Field>
+        <Field label="Reference / transaction ID"><input className="input" value={f.reference_no} onChange={(e) => setF({ ...f, reference_no: e.target.value })} /></Field>
+        <Field label="Date sent"><input className="input" type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
+      </div>
+    </Modal>
+  );
+}
+
+/** The developer paid its rebate on one file, after the money was passed on. */
+function FileRebateModal({ developerId, files, onClose, onDone }) {
+  const toast = useToast();
+  const { data: accounts } = useFetch('/api/accounting/accounts');
+  const treasury = (accounts || []).filter((a) => ['cash', 'bank', 'custody', 'online'].includes(a.subtype));
+  const [f, setF] = useState({ sale_id: files[0]?.sale_id || '', amount: '', account_id: '', method: 'Bank Transfer', reference_no: '', date: '' });
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true);
+    try { await api.post(`/api/developers/${developerId}/files/${f.sale_id}/rebate`, { ...f, amount: Number(f.amount), date: f.date || undefined }); toast('Rebate recorded'); onDone(); } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  return (
+    <Modal title="Record rebate received on a file" onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy || !f.sale_id || !f.account_id || !(Number(f.amount) > 0)} onClick={save}>Record rebate</button></>}>
+      <p>Use this when the developer pays the company its rebate on a file. The amount becomes company income and goes into the account you choose.</p>
+      <div className="form-grid">
+        <Field label="File" required><Select value={f.sale_id} onChange={(v) => setF({ ...f, sale_id: v })} allowEmpty={false} options={files.map((p) => ({ value: p.sale_id, label: `${p.booking_id} · ${p.title} · ${p.customer_name}` }))} /></Field>
+        <Field label="Rebate received" required><input className="input" type="number" min="0" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></Field>
+        <Field label="Received into" required><Select value={f.account_id} onChange={(v) => setF({ ...f, account_id: v })} options={treasury.map((a) => ({ value: a.id, label: `${a.code} ${a.name}` }))} /></Field>
+        <Field label="Method"><Select value={f.method} onChange={(v) => setF({ ...f, method: v })} allowEmpty={false} options={METHODS.map((x) => ({ value: x, label: x }))} /></Field>
+        <Field label="Reference / transaction ID"><input className="input" value={f.reference_no} onChange={(e) => setF({ ...f, reference_no: e.target.value })} /></Field>
+        <Field label="Date received"><input className="input" type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
       </div>
     </Modal>
   );
@@ -197,6 +255,8 @@ export function DeveloperDetail() {
   const ledger = useFetch(`/api/developers/${id}/ledger`);
   const [paying, setPaying] = useState(false);
   const [rebatePaid, setRebatePaid] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [fileRebate, setFileRebate] = useState(false);
   const [editing, setEditing] = useState(false);
   const [agreement, setAgreement] = useState(null); // {} for new, row for edit
   const [login, setLogin] = useState(null);
@@ -236,7 +296,7 @@ export function DeveloperDetail() {
       <div className="grid g4">
         <Stat label="Plots" value={data.plots} /><Stat label="Files sold" value={data.files} />
         <Stat label="Contract value" value={money(data.contract_value)} /><Stat label="Collected by developer" value={money(data.collected)} />
-        <Stat label="Rebate earned so far" value={money(data.rebate_earned)} /><Stat label="Rebate still due" value={money(data.rebate_due)} />
+        <Stat label="Rebate earned so far" value={money(data.rebate_earned)} /><Stat label="Rebate still due" value={money(data.rebate_due)} />{data.held_for_developer ? <Stat label="Held for developer" value={money(data.held_for_developer)} /> : null}
       </div>
       <div style={{ height: 12 }} />
       <Card title="Agreements" actions={can('developers', 'create') && <button className="btn primary" onClick={() => setAgreement({ pricing_basis: 'per_sqft', rebate_basis: 'percent_of_payment' })}>Add agreement</button>} flush>
@@ -272,15 +332,17 @@ export function DeveloperDetail() {
             <p className="muted" style={{ padding: '8px 12px 0' }}>Customer payments are paid to the developer, so they are only listed here for reference. They are not company income, cash or bank. The balance is just the rebate the developer still owes the company.</p>
             <div className="grid g4" style={{ padding: 12 }}><Stat label="Collected by developer" value={money(ledger.data.totals.collected)} /><Stat label="Rebate earned" value={money(ledger.data.totals.earned)} /><Stat label="Rebate received" value={money(ledger.data.totals.received)} /><Stat label="Rebate still due" value={money(ledger.data.balance)} /></div>
             {ledger.data.rows.length === 0 ? <Empty title="No entries yet" hint="Payments the developer approves and the rebate paid back to the company appear here." /> : (
-              <table className="t"><thead><tr><th>Date</th><th>Reference</th><th>Description</th><th className="num">Collected by developer</th><th className="num">Rebate earned</th><th className="num">Rebate received</th><th className="num">Rebate due</th></tr></thead>
+              <table className="t"><thead><tr><th>Date</th><th>Reference</th><th>Description</th><th className="num">Collected by developer</th><th className="num">Held by us</th><th className="num">Sent on</th><th className="num">Rebate earned</th><th className="num">Rebate received</th><th className="num">Rebate due</th></tr></thead>
                 <tbody>{ledger.data.rows.map((r, i) => (
-                  <tr key={i}><td>{r.date}</td><td>{r.ref}</td><td>{r.description}</td><td className="num">{r.collected ? money(r.collected) : ''}</td><td className="num">{r.earned ? money(r.earned) : ''}</td><td className="num">{r.received ? money(r.received) : ''}</td><td className="num">{money(r.balance)}</td></tr>))}</tbody></table>)}
+                  <tr key={i}><td>{r.date}</td><td>{r.ref}</td><td>{r.description}</td><td className="num">{r.collected ? money(r.collected) : ''}</td><td className="num">{r.held_in ? money(r.held_in) : ''}</td><td className="num">{r.sent ? money(r.sent) : ''}</td><td className="num">{r.earned ? money(r.earned) : ''}</td><td className="num">{r.received ? money(r.received) : ''}</td><td className="num">{money(r.balance)}</td></tr>))}</tbody></table>)}
           </>)}
       </Card>
       <div style={{ height: 12 }} />
       <Card title="Rebate statement" flush actions={(
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {can('developers', 'approve') && <button className="btn" disabled={!plots.data?.some((p) => p.sale_id)} onClick={() => setPaying(true)}>Record approved payment</button>}
+          {can('developers', 'approve') && <button className="btn" disabled={!plots.data?.some((p) => p.sale_id)} onClick={() => setSending(true)}>Send to developer</button>}
+          {can('developers', 'approve') && <button className="btn" disabled={!plots.data?.some((p) => p.sale_id)} onClick={() => setFileRebate(true)}>Record rebate on a file</button>}
           {can('developers', 'approve') && <button className="btn primary" disabled={!rebates.data?.totals.due} onClick={() => setRebatePaid(true)}>Rebate received</button>}
         </div>)}>
         {!rebates.data ? <Loading /> : (
@@ -296,6 +358,8 @@ export function DeveloperDetail() {
       {editing && <FormModal title="Edit developer" fields={devFields} initial={data} onClose={() => setEditing(false)} onSave={async (f) => { await api.put(`/api/developers/${id}`, f); toast('Saved'); setEditing(false); reload(); }} />}
       {agreement && <FormModal title={agreement.id ? 'Edit agreement' : 'Add agreement'} fields={agreementFields} initial={agreement} onClose={() => setAgreement(null)} onSave={saveAgreement} />}
       {paying && <ApprovedPaymentModal developerId={id} files={plots.data.filter((p) => p.sale_id)} onClose={() => setPaying(false)} onDone={() => { setPaying(false); refresh(); }} />}
+      {sending && <SendToDeveloperModal developerId={id} files={plots.data.filter((p) => p.sale_id)} onClose={() => setSending(false)} onDone={() => { setSending(false); refresh(); }} />}
+      {fileRebate && <FileRebateModal developerId={id} files={plots.data.filter((p) => p.sale_id)} onClose={() => setFileRebate(false)} onDone={() => { setFileRebate(false); refresh(); }} />}
       {rebatePaid && <RebatePaidModal developerId={id} onClose={() => setRebatePaid(false)} onDone={() => { setRebatePaid(false); refresh(); }} />}
       {combining && <CombinePlotsModal developer={data} plots={(plots.data || []).filter((p) => sel.includes(p.id))} onClose={() => setCombining(false)} onDone={() => { setCombining(false); setSel([]); refresh(); }} />}
       {linking && <LinkPlotsModal developer={data} agreements={data.agreements} onClose={() => setLinking(false)} onDone={() => { setLinking(false); refresh(); }} />}
