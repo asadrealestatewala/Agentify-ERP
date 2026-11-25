@@ -18,6 +18,22 @@ export function planSchedule(inp) {
   const remaining = net - booking - advance;
   if (net <= 0) throw bad('Net sale price must be positive');
   if (remaining < 0) throw bad('Booking + advance exceed the net sale price');
+  // a statement-style schedule: every due date and amount given row by row (v1.121); they must add up to what is left after booking and advance
+  if (Array.isArray(inp.schedule) && inp.schedule.length) {
+    const custom = inp.schedule.map((r) => ({ kind: r.kind === 'balloon' ? 'balloon' : 'installment', due_date: String(r.due_date || ''), amount: int(r.amount) }));
+    if (custom.some((r) => !/^\d{4}-\d{2}-\d{2}$/.test(r.due_date) || r.amount <= 0)) throw bad('Every schedule row needs a due date (YYYY-MM-DD) and an amount above zero');
+    const total = custom.reduce((t, r) => t + r.amount, 0);
+    if (total !== remaining) throw bad(`The schedule adds up to ${total} but ${remaining} is left after booking and advance`);
+    const saleDate = inp.sale_date || today();
+    const rows = [];
+    if (booking > 0) rows.push({ kind: 'booking', due_date: saleDate, amount: booking });
+    if (advance > 0) rows.push({ kind: 'advance', due_date: saleDate, amount: advance });
+    rows.push(...custom);
+    rows.sort((a, b) => a.due_date.localeCompare(b.due_date) || ((a.kind === 'balloon') - (b.kind === 'balloon')));
+    rows.forEach((r, i) => { r.seq = i + 1; });
+    const first = rows.find((r) => r.kind === 'installment');
+    return { net, rows, first_due: rows[0].due_date, final_due: rows[rows.length - 1].due_date, installment_amount: first ? first.amount : 0 };
+  }
   const n = int(inp.num_installments);
   const bc = int(inp.balloon_count), ba = int(inp.balloon_amount);
   const interval = int(inp.balloon_interval, 6) || 6;

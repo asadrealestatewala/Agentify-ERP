@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.121', date: '2026-11-25', title: 'Enter a payment schedule row by row',
+    items: [
+      { text: 'When you create a sale you can now give the payment schedule exactly as it appears on a statement: each due date and amount, including half-yearly or final payments of different sizes. The rows must add up to the balance after booking.', where: 'Sales API', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.120', date: '2026-11-24', title: 'Add a customer before you have their phone number',
     items: [
       { text: 'When you add a contact who is already a customer, you can now save it without a phone number, WhatsApp or e-mail and add the details later. New leads still need one way to be reached.', where: 'CRM > Contacts' },
