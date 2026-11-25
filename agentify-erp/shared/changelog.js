@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.122', date: '2026-11-25', title: 'Dashboard Total revenue card opens the right page',
+    items: [
+      { text: 'When the dashboard card reads "Total revenue" because a developer rebate is included, clicking it now opens Developers (where the rebate statements are) instead of Receipt Vouchers.', where: 'Dashboard' },
+    ],
+  },
+  {
     version: 'v1.121', date: '2026-11-25', title: 'Enter a payment schedule row by row',
     items: [
       { text: 'When you create a sale you can now give the payment schedule exactly as it appears on a statement: each due date and amount, including half-yearly or final payments of different sizes. The rows must add up to the balance after booking.', where: 'Sales API', audience: 'platform' },
