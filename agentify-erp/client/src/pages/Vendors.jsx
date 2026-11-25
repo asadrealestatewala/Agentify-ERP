@@ -281,7 +281,7 @@ export function ExpenseForm() {
 
 export function ExpenseDetail() {
   const { id } = useParams();
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const toast = useToast();
   const { treasury } = useLookups();
   const { meta } = useMeta();
