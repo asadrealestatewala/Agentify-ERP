@@ -14,6 +14,7 @@ const AcceptInvite = auth('AcceptInvite'), ForgotPassword = auth('ForgotPassword
 const MarketingSite = lazy(() => marketingChunk || import('./marketing/Marketing.jsx'));
 const PlatformConsole = lazy(() => import('./pages/PlatformConsole.jsx'));
 const MeetingRoom = lazy(() => import('./meet/MeetingRoom.jsx'));
+const VerifyAllotment = lazy(() => import('./pages/VerifyAllotment.jsx'));
 const SiteApp = lazy(() => import('./site/SiteApp.jsx'));
 const WorkspaceApp = lazy(() => import('./WorkspaceApp.jsx'));
 
@@ -48,6 +49,8 @@ export default function App() {
   useManifestStart(loc.pathname);
   if (loc.pathname.startsWith('/meet/')) return <Suspense fallback={<Loading />}><Routes><Route path="/meet/:code" element={<MeetingRoom />} /></Routes></Suspense>;
   if (loc.pathname === '/site' || loc.pathname.startsWith('/site/')) return <Suspense fallback={<Loading />}><Routes><Route path="/site/*" element={<SiteApp />} /></Routes></Suspense>;
+  // the QR code on an allotment letter: public, for anyone holding the letter, signed in or not
+  if (loc.pathname.startsWith('/verify/allotment/')) return <Suspense fallback={<Loading />}><Routes><Route path="/verify/allotment/:token" element={<VerifyAllotment />} /></Routes></Suspense>;
   if (loc.pathname.startsWith('/verify-email/')) return <Suspense fallback={<Loading />}><Routes><Route path="/verify-email/:token" element={<VerifyEmail />} /></Routes></Suspense>;
   if (loc.pathname === '/platform' || loc.pathname.startsWith('/platform/')) return <Suspense fallback={<Loading />}><Routes><Route path="/platform/*" element={<PlatformConsole />} /></Routes></Suspense>;
   if (user === undefined) return <FirstView />;

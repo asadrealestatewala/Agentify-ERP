@@ -6,6 +6,14 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.125', date: '2026-11-25', title: 'Allotment letters with QR verification',
+    items: [
+      { text: 'Issue an allotment letter for any sold plot. It is printed on your own letterhead with the customer name and residential address, plot and block number, plot location, dimensions and area, date, reference number and space for signature and stamp.', where: 'Sales & Bookings > the sale > Allotment letter', guide: 'allotment-letters' },
+      { text: 'Each letter carries a QR code. Scanning it opens a page on your own portal address that confirms the letter is genuine and shows the plot details. It never shows CNIC, phone numbers or payments, and shows "not valid" once the letter is cancelled or replaced.', where: 'Sales & Bookings > the sale > Allotment letter', guide: 'allotment-letters' },
+      { text: 'Plots now have a Dimensions field (for example 25x45), used on allotment letters.', where: 'Properties > Add or edit property > Price & area' },
+    ],
+  },
+  {
     version: 'v1.124', date: '2026-11-25', title: 'Expense vouchers open again',
     items: [
       { text: 'Opening an approved or paid expense voucher showed "This screen could not be shown". The voucher page opens normally again.', where: 'Expenses' },

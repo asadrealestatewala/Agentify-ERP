@@ -8,6 +8,32 @@ import { SCREENS } from '../screens.generated.js';
 import { SCREEN_NOTES } from '../screenNotes.js';
 
 export const GUIDES = {
+  'allotment-letters': {
+    title: 'Allotment letters with QR verification', since: 'v1.125', module: 'Sales',
+    who: 'Housing projects, societies and developers; staff whose role can edit Sales',
+    keywords: ['allotment', 'allotment letter', 'qr', 'qr code', 'verify', 'verification', 'plot', 'block', 'society', 'housing', 'noc', 'genuine', 'fake'],
+    steps: [
+      'Open Sales & Bookings and open the confirmed plot sale.',
+      'Open the Allotment letter tab and choose Issue allotment letter.',
+      'Check the details filled in from the customer, plot and project: name, S/O, residential address, plot no., block, plot location, dimensions and area. Correct anything as it should read on the letter.',
+      'If the customer has no address on file, type it and tick "Also save this address on the customer record".',
+      'Choose Issue letter, then PDF to download it. Print it, sign it and stamp it.',
+      'Anyone holding the letter can scan its QR code. It opens a page on your portal address that says whether the letter is genuine and shows its plot details.',
+      'To replace a lost letter, choose Issue new letter: the old one is cancelled automatically. To withdraw a letter, choose Cancel and give a reason.',
+    ],
+    limits: [
+      'Letters are for plot sales with a plot attached, not construction contracts or cancelled sales.',
+      'The verification page shows only the name, plot details, reference and date. It never shows CNIC, phone, e-mail, price or payments.',
+      'A letter keeps the details it was issued with. If they change, issue a new letter.',
+      'If the sale is cancelled, its letter shows "not valid" when scanned.',
+    ],
+    faq: [
+      { q: 'Where does the QR code open?', a: 'To a verification page on your own workspace address, the same address as your customer portal, with your company name and logo.' },
+      { q: 'Can someone guess other letters from the link?', a: 'No. Each link carries a long random code, not a number in sequence. A wrong code just shows "No matching letter".' },
+      { q: 'How do I get my logo on the letter?', a: 'Upload your logo and company details in Settings > Receipts & Branding. The letter uses the same letterhead as your receipts.' },
+    ],
+    internal: ['Letters live in the allotment_letters table of the workspace database; the QR link is <workspace address>/verify/allotment/<token>. Public API: GET /api/verify/allotment/:token (rate limited, no sign-in).'],
+  },
   'learn-the-system': {
     title: 'Training: learn the whole system', since: 'v1.99', module: 'Training videos',
     who: 'Everyone who works in the workspace, especially new staff',

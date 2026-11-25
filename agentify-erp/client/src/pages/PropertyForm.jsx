@@ -239,6 +239,7 @@ export default function PropertyForm() {
           <div className="form-grid">
             <Field label="Area size"><input className="input" type="number" min="0" step="any" value={f.area_size ?? ''} onChange={(e) => set('area_size', e.target.value)} /></Field>
             <Field label="Unit"><Select allowEmpty={false} value={f.unit} onChange={(v) => set('unit', v)} options={regionUnits()} /></Field>
+            <Field label="Dimensions" hint="Width x depth, e.g. 25x45 (shown on allotment letters)"><input className="input" value={f.dimensions ?? ''} onChange={(e) => set('dimensions', e.target.value)} placeholder="25x45" /></Field>
             <Field label="Total price" required error={err('total_price')}><CurrencyInput value={f.total_price} onChange={(v) => set('total_price', v)} disabled={locked} /></Field>
             <Field label="Price per unit" hint="Calculated"><CurrencyInput value={ppu ?? ''} onChange={() => {}} disabled /></Field>
             <Field label="Discount" error={err('discount')}><CurrencyInput value={f.discount} onChange={(v) => set('discount', v === '' ? 0 : v)} disabled={locked} /></Field>

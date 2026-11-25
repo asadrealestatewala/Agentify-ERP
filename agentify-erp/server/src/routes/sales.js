@@ -14,6 +14,7 @@ import { assertUserEmailFree } from '../services/uniqueEmail.js';
 import { createSale, cancelSale, planSchedule, saleSummary, ensurePortalUser } from '../services/sales.js';
 import { sendPdf } from '../services/pdf.js';
 import { scheduleFor } from '../services/schedule.js';
+import { letterDraft, lettersForSale, letterById, issueLetter, cancelLetter, sendLetterPdf, verifyUrl } from '../services/allotment.js';
 import { recordDeveloperPayment } from '../services/developerRebates.js';
 import { receivePayment, voidReceipt, customerLedger, ledgerTable, PAYMENT_TYPES, PAYMENT_METHODS } from '../services/payments.js';
 import { approveCommission, payCommission, cancelCommission } from '../services/commissions.js';
@@ -83,6 +84,39 @@ r.get('/sales/:id(\\d+)', can('sales', 'view'), asyncH((req, res) => {
   if (s.project_id && s.kind === 'construction') out.schedule = scheduleFor(s.project_id, { scope: s.id }).summary;
   out.commission = get(`SELECT commission_no,amount,status,paid_amount,rate_type,rate_value FROM commissions WHERE sale_id=? AND status<>'cancelled'`, s.id) || null;
   res.json(out);
+}));
+
+// ---------------- Allotment letters (plot sales): issue, print with a QR code that verifies on the workspace's own address
+r.get('/sales/:id(\\d+)/allotment', can('sales', 'view'), asyncH((req, res) => {
+  const s = saleSummary(Number(req.params.id));
+  assertSaleAccess(req, s);
+  const letters = lettersForSale(s.id).map(({ token, ...l }) => ({ ...l, verify_url: verifyUrl(req, token) }));
+  res.json({ draft: letterDraft(s.id), letters });
+}));
+r.post('/sales/:id(\\d+)/allotment', can('sales', 'edit'), asyncH((req, res) => {
+  const s = saleSummary(Number(req.params.id));
+  assertSaleAccess(req, s);
+  const out = issueLetter(s.id, req.body, req.user);
+  const l = letterById(out.id);
+  audit(req, 'Issued allotment letter', 'sale', s.id, `${l.letter_no}${out.replaced ? ' (replaced earlier letter)' : ''}`);
+  res.status(201).json({ id: out.id, letter_no: l.letter_no, replaced: out.replaced });
+}));
+const loadLetter = (req) => {
+  const l = letterById(Number(req.params.id));
+  if (!l) throw notFound('Letter not found');
+  assertSaleAccess(req, saleSummary(l.sale_id));
+  return l;
+};
+r.get('/allotment-letters/:id(\\d+)/pdf', can('sales', 'view'), asyncH(async (req, res) => {
+  const l = loadLetter(req);
+  audit(req, 'Downloaded allotment letter', 'sale', l.sale_id, l.letter_no);
+  await sendLetterPdf(res, l, verifyUrl(req, l.token));
+}));
+r.post('/allotment-letters/:id(\\d+)/cancel', can('sales', 'edit'), asyncH((req, res) => {
+  const l = loadLetter(req);
+  cancelLetter(l.id, req.body?.reason, req.user);
+  audit(req, 'Cancelled allotment letter', 'sale', l.sale_id, `${l.letter_no}: ${req.body?.reason || ''}`);
+  res.json({ ok: true });
 }));
 
 r.post('/sales/:id(\\d+)/cancel', can('sales', 'delete'), asyncH((req, res) => {

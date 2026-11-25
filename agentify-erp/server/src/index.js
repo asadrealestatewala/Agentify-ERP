@@ -93,6 +93,7 @@ import emailPublic from './routes/emailPublic.js';
 import { runEmailQueue, syncProviderUsage } from './services/tenantEmail.js';
 import { runActivation } from './services/activation.js';
 import pub from './routes/public.js';
+import verifyPublic from './routes/verifyPublic.js';
 import integrationApi from './routes/integrationApi.js';
 import websiteIntegrations from './routes/websiteIntegrations.js';
 import embed from './routes/embed.js';
@@ -168,6 +169,8 @@ export function createApp() {
 
   // the meeting room: guests join with a link and no account, so it sits before sign-in
   app.use('/api/meet', meetingRoom);
+  // document verification (allotment-letter QR codes): anyone holding the letter can check it, so it sits before sign-in
+  app.use('/api/verify', verifyPublic);
 
   app.use('/api', rateLimit({ windowMs: 60_000, limit: 900, standardHeaders: true, legacyHeaders: false, message: { error: 'Too many requests' } }));
   app.use('/api', authenticate, csrfGuard);
