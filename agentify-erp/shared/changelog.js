@@ -6,6 +6,17 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.125', date: '2026-11-25', title: 'Allotment letters with QR verification',
+    items: [
+      { text: 'Housing societies and developers can issue an allotment letter for any sold plot. It is printed on your own letterhead, inside a border with your logo faintly in the background, and shows the customer name and residential address, plot and block number, plot location, dimensions and area, date, reference number and space for signature and stamp.', where: 'Sales & Bookings > the sale > Allotment letter', guide: 'allotment-letters' },
+      { text: 'Each letter can also carry an Urdu page with the same details, the plot position (your project\'s Site Plan image, or the block layout with the plot marked) and a summary of the agreed payment plan. Switch each page on or off when you issue the letter.', where: 'Sales & Bookings > the sale > Allotment letter', guide: 'allotment-letters' },
+      { text: 'Each letter carries a QR code. Scanning it opens a page on your own portal address that confirms the letter is genuine and shows the plot details. It never shows CNIC, phone numbers, prices or payments, and shows "not valid" once the letter is cancelled or replaced. Every scan is logged so you can see when a letter was checked.', where: 'Sales & Bookings > the sale > Allotment letter', guide: 'allotment-letters' },
+      { text: 'New Allotment Letters screen: every letter issued with its scans, Issue for a block to give letters to every sold plot of a block at once, and Print block to download them as one PDF.', where: 'Customers > Allotment Letters', guide: 'allotment-letters' },
+      { text: 'Allotment letters show automatically once you have a development project with numbered plots. Turn them on or off in Settings > System Settings.', where: 'Settings > System Settings', guide: 'allotment-letters' },
+      { text: 'Plots now have a Dimensions field (for example 25x45), used on allotment letters.', where: 'Properties > Add or edit property > Price & area' },
+    ],
+  },
+  {
     version: 'v1.124', date: '2026-11-25', title: 'Expense vouchers open again',
     items: [
       { text: 'Opening an approved or paid expense voucher showed "This screen could not be shown". The voucher page opens normally again.', where: 'Expenses' },

@@ -61,6 +61,7 @@ export const SCREENS = [
   { "section": "Customers", "label": "Buyers", "path": "/customers/buyers" }, 
   { "section": "Customers", "label": "Installment Customers", "path": "/customers/installment" }, 
   { "section": "Customers", "label": "Sales & Bookings", "path": "/sales" }, 
+  { "section": "Customers", "label": "Allotment Letters", "path": "/sales/allotment-letters" }, 
   { "section": "Customers", "label": "Construction Contracts", "path": "/sales/construction" }, 
   { "section": "Customers", "label": "Customer Portal", "path": "/customers/portal" }, 
   { "section": "Customers", "label": "Portal Promotions", "path": "/customers/promos" }, 

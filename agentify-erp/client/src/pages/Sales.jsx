@@ -14,6 +14,7 @@ import { PaymentFields, emptyPayment } from './Receipts.jsx';
 import CustomerPicker from '../components/CustomerPicker.jsx';
 import PropertyPicker from '../components/PropertyPicker.jsx';
 import ChecklistCard from '../components/ChecklistCard.jsx';
+import AllotmentLetters from '../components/AllotmentLetters.jsx';
 
 export const KindBadge = ({ kind }) => (kind === 'construction' ? <span className="pill purple">Construction</span> : <span className="pill blue">Property</span>);
 
@@ -261,6 +262,7 @@ export function SaleDetail() {
   const { can, user } = useAuth();
   const toast = useToast();
   const { data, error, reload } = useFetch(`/api/sales/${id}`);
+  const allotOn = useFetch('/api/billing/status').data?.allotment_letters === true;
   const [cancel, setCancel] = useState(false);
   const tab = sp.get('tab') || 'plan';
   const setTab = (t) => setSp({ tab: t }, { replace: true });
@@ -306,6 +308,7 @@ export function SaleDetail() {
         <Tabs value={tab} onChange={setTab} tabs={[{ key: 'plan', label: 'Payment plan' }, ...(b ? [{ key: 'combined', label: 'Combined schedule' }] : []),
           ...(data.receipts ? [{ key: 'receipts', label: 'Receipts', count: data.receipts.length }, { key: 'ledger', label: b ? 'Ledger (this sale)' : 'Customer ledger' }, ...(b ? [{ key: 'bledger', label: 'Combined ledger' }] : [])] : []),
           ...(construction ? [{ key: 'schedule', label: 'Build schedule' }, { key: 'costs', label: 'Contract costs', count: data.costs?.length }] : []),
+          ...(!construction && s.property_id && allotOn ? [{ key: 'allotment', label: 'Allotment letter' }] : []),
           { key: 'info', label: 'Details' }, { key: 'docs', label: 'Agreement & documents', count: data.documents.length }]} />
         <div className="card-b flush" style={{ padding: ['plan', 'combined'].includes(tab) ? 0 : 16 }}>
           {tab === 'plan' && <InstallmentTable rows={s.installments} />}
@@ -325,6 +328,7 @@ export function SaleDetail() {
               {data.costs?.length ? <table className="t"><thead><tr><th>Voucher</th><th>Date</th><th>Account</th><th>Vendor</th><th>Description</th><th className="num">Amount</th><th>Status</th></tr></thead><tbody>{data.costs.map((c) => <tr key={c.id}><td><Link to={`/expenses/${c.id}`}>{c.voucher_no}</Link></td><td>{date(c.date)}</td><td>{c.account}</td><td>{c.vendor || '—'}</td><td>{c.description}</td><td className="num mono">{money(c.amount)}</td><td><StatusBadge status={c.status} /></td></tr>)}</tbody></table> : <div className="muted">No costs tagged to this contract yet. Expense vouchers can be tagged to a contract so you see its real margin.</div>}
             </div>
           )}
+          {tab === 'allotment' && !construction && allotOn && <AllotmentLetters sale={s} />}
           {tab === 'info' && (<div className="grid g2"><KV items={[['Type', construction ? 'Construction contract' : 'Property sale'], ['Sale date', date(s.sale_date)], ['Customer', <Link to={`/contacts/${s.contact_id}`}>{s.customer_name}</Link>], ['Phone', s.customer_phone], [construction ? 'Contract' : 'Property', s.property_title], ['Project', s.project_name], ['Plot / block', `${s.plot_no || '—'} / ${s.block || '—'}`], ['Sales agent', s.agent_name]]} />
             <KV items={[['First due', date(s.first_due)], ['Final due', date(s.final_due)], ['Late payments', s.late_payments], data.commission ? ['Commission', `${data.commission.commission_no} — ${money(data.commission.amount)} (${data.commission.status})`] : null, ['Notes', s.notes]]} /></div>)}
           {tab === 'docs' && <DocumentsPanel entityType="sale" entityId={s.id} canEdit={can('sales', 'edit')} categories={['Contract', 'Agreement', 'Architectural Drawing', 'Construction Drawing', 'Site Plan', 'Allotment Letter', 'Payment Proof', 'Other']} portalToggle />}

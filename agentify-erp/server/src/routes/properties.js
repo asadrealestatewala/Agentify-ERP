@@ -34,7 +34,7 @@ export const FILE_STATUS = ['Active', 'Inactive', 'Paused', 'Defaulted', 'Suspen
 export const PROPERTY_STATUS = ['draft', 'available', 'featured', 'reserved', 'sold', 'cancelled', 'on_hold'];
 const COLS = ['title', 'purpose', 'property_type', 'project_id', 'block', 'sector', 'plot_no', 'city', 'area_name', 'location', 'address', 'lat', 'lng',
   'area_size', 'unit', 'total_price', 'price_per_unit', 'discount', 'net_price', 'installment_available', 'ready_possession', 'features', 'amenities',
-  'short_desc', 'description', 'videos', 'agent_id', 'contact_email', 'contact_phone', 'contact_whatsapp', 'dev_status', 'file_no', 'registration_no', 'file_status', 'file_notes', 'inventory_source', 'developer_id', 'agreement_id', 'rebate_type', 'rebate_value', 'updated_at'];
+  'short_desc', 'description', 'videos', 'agent_id', 'contact_email', 'contact_phone', 'contact_whatsapp', 'dev_status', 'file_no', 'registration_no', 'file_status', 'file_notes', 'inventory_source', 'developer_id', 'agreement_id', 'rebate_type', 'rebate_value', 'dimensions', 'updated_at'];
 
 const BASE = `SELECT p.*, pr.name project_name, pr.code project_code, u.name agent_name,
   (SELECT path FROM media WHERE entity_type='property' AND entity_id=p.id AND kind='cover' ORDER BY sort_order LIMIT 1) cover,

@@ -260,6 +260,7 @@ export function SystemSettings() {
           <Field label="Currency" hint="Set by the workspace region"><input className="input" disabled value={f.currency || cur()} /></Field>
           <Field label="Date format"><input className="input" disabled value={`${getRegion().config.date_style} (${getRegion().config.timezone})`} /></Field>
           <Field label="Project types" hint="Choose which kinds of project show in menus, forms and contracts. Automatic follows your plan and keeps anything you already created visible."><select className="input" disabled={ro} value={f.project_types || 'auto'} onChange={(e) => set('project_types', e.target.value)}><option value="auto">Automatic</option><option value="both">Development and construction</option><option value="development">Development only (plots, housing schemes)</option><option value="construction">Construction only (house-building contracts)</option></select></Field>
+          <Field label="Allotment letters" hint="Letters with a QR verification code for sold plots. Automatic switches them on once you have a development project with numbered plots, as housing societies and developers do."><select className="input" disabled={ro} value={f.allotment_letters || 'auto'} onChange={(e) => set('allotment_letters', e.target.value)}><option value="auto">Automatic</option><option value="on">On</option><option value="off">Off</option></select></Field>
         </div></Card>
         <Card title="Ask assistant"><div className="stack">
           <ExtraAiNotice />

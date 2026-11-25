@@ -29,6 +29,7 @@ const ProjectWorkspace = lazy(() => import('./pages/Projects.jsx').then((m) => (
 const SaleDetail = lazy(() => import('./pages/Sales.jsx').then((m) => ({ default: m.SaleDetail })));
 const SaleForm = lazy(() => import('./pages/Sales.jsx').then((m) => ({ default: m.SaleForm })));
 const SaleList = lazy(() => import('./pages/Sales.jsx').then((m) => ({ default: m.SaleList })));
+const AllotmentRegister = lazy(() => import('./pages/AllotmentRegister.jsx'));
 const Branding = lazy(() => import('./pages/Branding.jsx'));
 const Goals = lazy(() => import('./pages/Goals.jsx'));
 const SiteApp = lazy(() => import('./site/SiteApp.jsx'));
@@ -337,6 +338,7 @@ export default function App() {
         <Route path="customers/:id/statement" element={G('customers', <CustomerStatement />)} />
         <Route path="sales" element={G('sales', <SaleList />)} />
         <Route path="sales/construction" element={G('sales', <SaleList kind="construction" />)} />
+        <Route path="sales/allotment-letters" element={G('sales', <AllotmentRegister />)} />
         <Route path="sales/new" element={G('sales', <SaleForm />, 'create')} />
         <Route path="sales/:id" element={G('sales', <SaleDetail />)} />
         {/* Accounting */}

@@ -66,6 +66,7 @@ export const SCREEN_NOTES = {
   '/customers/portal': 'Give customers a login to see their account and payments.',
   '/customers/promos': 'Offers and announcements shown to customers in their portal.',
   '/customers/support': 'Requests and complaints from residents and customers (website, portal or logged by your team): assign, reply, resolve.',
+  '/sales/allotment-letters': 'Allotment letters for sold plots in housing societies and developer projects: every letter issued, how often each QR code was scanned, issuing letters for a whole block at once and printing a block as one PDF.',
   '/customers/notices': 'Launch notices such as possession, allotment or new services. They pop up once on your website and show in the customer portal.',
   '/accounting': 'Accounting overview: cash, receivables, payables and recent entries.',
   '/accounting/coa': 'Chart of accounts: the list of accounts your books use.',
