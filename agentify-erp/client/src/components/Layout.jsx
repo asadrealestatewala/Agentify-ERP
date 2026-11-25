@@ -52,7 +52,7 @@ const NAV = [
     ['All Projects', '/projects'], ['Development Projects', '/projects/development'], ['Construction Projects', '/projects/construction'], ['Project Units', '/projects/units'], ['Development Updates', '/projects/updates'], ['Project Financials', '/projects/financials', 'accounting'], ['Plot Map', '/projects/map'] ] },
   { label: 'Customers', icon: 'badge', module: 'customers', children: [
     ['All Customers', '/customers'], ['Active Customers', '/customers/active'], ['Buyers', '/customers/buyers'], ['Installment Customers', '/customers/installment'],
-    ['Sales & Bookings', '/sales', 'sales'], ['Construction Contracts', '/sales/construction', 'sales'], ['Customer Portal', '/customers/portal', 'customers:edit'], ['Portal Promotions', '/customers/promos', 'customers:edit'], ['Support Center', '/customers/support'], ['Launch Notices', '/customers/notices', 'customers:edit'] ] },
+    ['Sales & Bookings', '/sales', 'sales'], ['Allotment Letters', '/sales/allotment-letters', 'sales'], ['Construction Contracts', '/sales/construction', 'sales'], ['Customer Portal', '/customers/portal', 'customers:edit'], ['Portal Promotions', '/customers/promos', 'customers:edit'], ['Support Center', '/customers/support'], ['Launch Notices', '/customers/notices', 'customers:edit'] ] },
   { label: 'Accounting', icon: 'wallet', module: 'accounting', children: [
     ['Dashboard', '/accounting'], ['Chart of Accounts', '/accounting/coa'], ['Receipt Vouchers', '/receipts', 'payments'], ['Expense Vouchers', '/expenses'], ['Asset Library', '/assets'],
     ['Income Statement', '/accounting/income-statement'], ['Balance Sheet', '/accounting/balance-sheet'], ['Account Statement', '/accounting/statement'], ['Cash / Till', '/accounting/treasury'], ['Bank Accounts', '/accounting/banks'], ['Journal / Transactions', '/accounting/journals'] ] },
@@ -128,7 +128,7 @@ function Sidebar({ collapsed, setCollapsed, mobileOpen, closeMobile }) {
     if (g.creative && !creativeSt) return null; // status unreachable (no Content access): hide; otherwise always show, the page explains why it is unavailable
     if (g.flag && !getRegion().config.flags?.[g.flag]) return null;
     if (!g.children) return g;
-    const kids = (g.always ? g.children.filter((c) => fieldOk(c[2])) : g.children.filter((c) => ok(c[2], g.module))).filter((c) => hasProduct(PRODUCT_PATHS[c[1]])).filter((c) => hasKind(KIND_PATHS[c[1]])).filter((c) => featOk(PATH_FEATURE[c[1]])).filter((c) => !siteOnly || SITE_ONLY_PATHS.has(c[1]));
+    const kids = (g.always ? g.children.filter((c) => fieldOk(c[2])) : g.children.filter((c) => ok(c[2], g.module))).filter((c) => hasProduct(PRODUCT_PATHS[c[1]])).filter((c) => hasKind(KIND_PATHS[c[1]])).filter((c) => featOk(PATH_FEATURE[c[1]])).filter((c) => c[1] !== '/sales/allotment-letters' || ent?.allotment_letters === true).filter((c) => !siteOnly || SITE_ONLY_PATHS.has(c[1]));
     return kids.length ? { ...g, children: kids } : null;
   }).filter(Boolean);
   // upgrade path: the product a workspace does not have yet, for people who manage billing

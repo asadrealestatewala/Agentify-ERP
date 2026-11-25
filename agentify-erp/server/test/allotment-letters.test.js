@@ -128,3 +128,61 @@ test('a letter needs a residential address and only verifies on its own workspac
   assert.equal((await call(b.host, 'GET', `/api/verify/allotment/${tokenOf(url)}`)).status, 404, 'another workspace does not know the letter');
   assert.equal((await call(b.host, 'GET', `/api/sales/${sale.id}/allotment`)).status, 401, 'staff routes need sign-in');
 });
+
+const pageCount = (buf) => (buf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length;
+
+test('only housing-society / developer workspaces get letters; the setting can switch them on or off', async () => {
+  const w = await workspace('agencyonly');
+  assert.equal(ok(await w.get('/api/billing/status')).allotment_letters, false, 'no plotted development project yet');
+  assert.equal((await w.get('/api/allotment-letters')).status, 403);
+  ok(await w.put('/api/settings/system', { allotment_letters: 'on' }));
+  assert.equal(ok(await w.get('/api/billing/status')).allotment_letters, true);
+  ok(await w.put('/api/settings/system', { allotment_letters: 'auto' }));
+  await soldPlot(w); // a development project with numbered plots: a housing scheme
+  assert.equal(ok(await w.get('/api/billing/status')).allotment_letters, true, 'auto switches on for a housing scheme');
+  ok(await w.put('/api/settings/system', { allotment_letters: 'off' }));
+  assert.equal((await w.get('/api/allotment-letters')).status, 403, 'off hides it again');
+});
+
+test('letter pages, bulk issue for a block, combined PDF and the verification log', async () => {
+  const w = await workspace('societyx');
+  const { sale, proj, cust } = await soldPlot(w);
+  // two more sold plots in block D, one customer without an address
+  const mk = async (no, name, address, phone) => {
+    const plot = ok(await w.post('/api/properties', { title: `Plot ${no} D`, property_type: 'Plot', project_id: proj.id, plot_no: String(no), block: 'D', area_size: 5, unit: 'Marla', total_price: 2_000_000 }), 201);
+    ok(await w.post(`/api/properties/${plot.id}/publish`));
+    const c = ok(await w.post('/api/contacts', { full_name: name, phone, address }), 201);
+    return ok(await w.post('/api/sales', { contact_id: c.id, property_id: plot.id, sale_price: 2_000_000, discount: 0, booking_amount: 400_000, num_installments: 8, first_due: month() }), 201);
+  };
+  await mk(202, 'Bilal Khan', 'Street 3, Karak', '+92 300 5550202');
+  await mk(203, 'No Address', '', '+92 300 5550203');
+
+  // full letter: English, Urdu and annexure (block layout + payment plan); a plain one has a single page
+  const full = ok(await w.post(`/api/sales/${sale.id}/allotment`, { dimensions: '25x45' }), 201);
+  const pdf = await w.get(`/api/allotment-letters/${full.id}/pdf`);
+  assert.equal(pdf.status, 200); assert.equal(pageCount(pdf.data), 3, 'English + Urdu + annexure');
+  const plain = ok(await w.post(`/api/sales/${sale.id}/allotment`, { include_urdu: false, include_map: false, include_plan: false }), 201);
+  assert.equal(pageCount((await w.get(`/api/allotment-letters/${plain.id}/pdf`)).data), 1);
+
+  const preview = ok(await w.get(`/api/allotment-letters/bulk?project_id=${proj.id}&block=D`)).rows;
+  assert.equal(preview.length, 3); assert.equal(preview.filter((r) => !r.letter_no).length, 2);
+  assert.ok(!JSON.stringify(preview).includes('Street 3'), 'the preview says whether an address exists, not what it is');
+  const bulk = ok(await w.post('/api/allotment-letters/bulk', { project_id: proj.id, block: 'D' }), 201);
+  assert.equal(bulk.issued.length, 1); assert.equal(bulk.skipped.length, 1);
+  assert.match(bulk.skipped[0].reason, /address/);
+  const combined = await w.get(`/api/allotment-letters/bulk.pdf?project_id=${proj.id}&block=D`);
+  assert.equal(combined.status, 200); assert.equal(pageCount(combined.data), 1 + 3, 'the plain letter (1 page) and the bulk letter (3 pages)');
+
+  // verification log: each public look is recorded with device and result, nothing about the person
+  const list = ok(await w.get(`/api/allotment-letters?project_id=${proj.id}`)).rows;
+  assert.equal(list.length, 3);
+  const live = list.find((l) => l.id === plain.id);
+  const token = tokenOf(live.verify_url);
+  await call(w.host, 'GET', `/api/verify/allotment/${token}`, null, { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile' });
+  await call(w.host, 'GET', `/api/verify/allotment/${token}`, null, { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0)' });
+  const scans = ok(await w.get(`/api/allotment-letters/${plain.id}/scans`)).rows;
+  assert.deepEqual(scans.map((s) => s.device).sort(), ['Computer', 'Phone']);
+  assert.ok(scans.every((s) => s.result === 'valid'));
+  assert.equal(ok(await w.get(`/api/allotment-letters?project_id=${proj.id}`)).rows.find((l) => l.id === plain.id).scans, 2);
+  void cust;
+});

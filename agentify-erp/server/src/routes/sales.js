@@ -14,7 +14,7 @@ import { assertUserEmailFree } from '../services/uniqueEmail.js';
 import { createSale, cancelSale, planSchedule, saleSummary, ensurePortalUser } from '../services/sales.js';
 import { sendPdf } from '../services/pdf.js';
 import { scheduleFor } from '../services/schedule.js';
-import { letterDraft, lettersForSale, letterById, issueLetter, cancelLetter, sendLetterPdf, verifyUrl } from '../services/allotment.js';
+import { letterDraft, lettersForSale, letterById, issueLetter, cancelLetter, sendLetterPdf, sendLettersPdf, verifyUrl, assertAllotmentEnabled, listLetters, bulkCandidates, bulkIssue, scansFor } from '../services/allotment.js';
 import { recordDeveloperPayment } from '../services/developerRebates.js';
 import { receivePayment, voidReceipt, customerLedger, ledgerTable, PAYMENT_TYPES, PAYMENT_METHODS } from '../services/payments.js';
 import { approveCommission, payCommission, cancelCommission } from '../services/commissions.js';
@@ -86,20 +86,41 @@ r.get('/sales/:id(\\d+)', can('sales', 'view'), asyncH((req, res) => {
   res.json(out);
 }));
 
-// ---------------- Allotment letters (plot sales): issue, print with a QR code that verifies on the workspace's own address
-r.get('/sales/:id(\\d+)/allotment', can('sales', 'view'), asyncH((req, res) => {
+// ---------------- Allotment letters (plot sales): issue, print with a QR code that verifies on the workspace's own address.
+// Only for housing-society / developer workspaces (services/allotment.js allotmentEnabled).
+const allot = (req, _res, next) => { try { assertAllotmentEnabled(); next(); } catch (e) { next(e); } };
+const withUrl = (req) => ({ token, ...l }) => ({ ...l, verify_url: verifyUrl(req, token) });
+r.get('/sales/:id(\\d+)/allotment', can('sales', 'view'), allot, asyncH((req, res) => {
   const s = saleSummary(Number(req.params.id));
   assertSaleAccess(req, s);
-  const letters = lettersForSale(s.id).map(({ token, ...l }) => ({ ...l, verify_url: verifyUrl(req, token) }));
-  res.json({ draft: letterDraft(s.id), letters });
+  res.json({ draft: letterDraft(s.id), letters: lettersForSale(s.id).map(withUrl(req)) });
 }));
-r.post('/sales/:id(\\d+)/allotment', can('sales', 'edit'), asyncH((req, res) => {
+r.post('/sales/:id(\\d+)/allotment', can('sales', 'edit'), allot, asyncH((req, res) => {
   const s = saleSummary(Number(req.params.id));
   assertSaleAccess(req, s);
   const out = issueLetter(s.id, req.body, req.user);
-  const l = letterById(out.id);
-  audit(req, 'Issued allotment letter', 'sale', s.id, `${l.letter_no}${out.replaced ? ' (replaced earlier letter)' : ''}`);
-  res.status(201).json({ id: out.id, letter_no: l.letter_no, replaced: out.replaced });
+  audit(req, 'Issued allotment letter', 'sale', s.id, `${out.letter_no}${out.replaced ? ' (replaced earlier letter)' : ''}`);
+  res.status(201).json(out);
+}));
+r.get('/allotment-letters', can('sales', 'view'), allot, asyncH((req, res) => {
+  res.json({ rows: listLetters(req.query, ownerId(req)).map(withUrl(req)), projects: all("SELECT id, name FROM projects WHERE kind='development' ORDER BY name"),
+    blocks: all("SELECT DISTINCT p.project_id, p.block FROM properties p WHERE COALESCE(p.block,'')<>'' AND p.project_id IS NOT NULL ORDER BY p.block") });
+}));
+r.get('/allotment-letters/bulk', can('sales', 'view'), allot, asyncH((req, res) => res.json({ rows: bulkCandidates(req.query.project_id, req.query.block, ownerId(req)) })));
+r.post('/allotment-letters/bulk', can('sales', 'edit'), allot, asyncH((req, res) => {
+  const out = bulkIssue(req.body || {}, req.user, ownerId(req));
+  audit(req, 'Issued allotment letters in bulk', 'project', Number(req.body?.project_id) || null, `${out.issued.length} issued, ${out.skipped.length} skipped${req.body?.block ? `, block ${req.body.block}` : ''}`);
+  res.status(201).json(out);
+}));
+/** All letters in force for a project / block as one PDF, ready to print in one go. */
+r.get('/allotment-letters/bulk.pdf', can('sales', 'view'), allot, asyncH(async (req, res) => {
+  const letters = listLetters({ project_id: req.query.project_id, block: req.query.block, status: 'issued' }, ownerId(req)).reverse();
+  if (!req.query.project_id) throw bad('Choose a project');
+  if (!letters.length) throw bad('No letters in force for this selection');
+  if (letters.length > 300) throw bad('Print at most 300 letters at a time; choose one block');
+  const full = letters.map((l) => get('SELECT * FROM allotment_letters WHERE id=?', l.id));
+  audit(req, 'Downloaded allotment letters in bulk', 'project', Number(req.query.project_id), `${full.length} letters${req.query.block ? `, block ${req.query.block}` : ''}`);
+  await sendLettersPdf(res, full, (l) => verifyUrl(req, l.token), `allotment-letters${req.query.block ? `-block-${req.query.block}` : ''}`);
 }));
 const loadLetter = (req) => {
   const l = letterById(Number(req.params.id));
@@ -107,12 +128,14 @@ const loadLetter = (req) => {
   assertSaleAccess(req, saleSummary(l.sale_id));
   return l;
 };
-r.get('/allotment-letters/:id(\\d+)/pdf', can('sales', 'view'), asyncH(async (req, res) => {
+r.get('/allotment-letters/:id(\\d+)/pdf', can('sales', 'view'), allot, asyncH(async (req, res) => {
   const l = loadLetter(req);
   audit(req, 'Downloaded allotment letter', 'sale', l.sale_id, l.letter_no);
   await sendLetterPdf(res, l, verifyUrl(req, l.token));
 }));
-r.post('/allotment-letters/:id(\\d+)/cancel', can('sales', 'edit'), asyncH((req, res) => {
+/** Verification log: each time the letter's QR page was opened (time, device, what it showed). */
+r.get('/allotment-letters/:id(\\d+)/scans', can('sales', 'view'), allot, asyncH((req, res) => res.json({ rows: scansFor(loadLetter(req).id) })));
+r.post('/allotment-letters/:id(\\d+)/cancel', can('sales', 'edit'), allot, asyncH((req, res) => {
   const l = loadLetter(req);
   cancelLetter(l.id, req.body?.reason, req.user);
   audit(req, 'Cancelled allotment letter', 'sale', l.sale_id, `${l.letter_no}: ${req.body?.reason || ''}`);

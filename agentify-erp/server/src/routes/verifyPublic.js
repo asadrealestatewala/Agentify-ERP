@@ -13,7 +13,7 @@ r.use(rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHead
 r.use((req, res, next) => { res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Robots-Tag', 'noindex'); next(); });
 
 r.get('/allotment/:token', asyncH((req, res) => {
-  const l = publicLetter(req.params.token);
+  const l = publicLetter(req.params.token, { log: { userAgent: req.get('user-agent') } });
   if (!l) throw notFound('No letter matches this code. It may have been mistyped or is not genuine.');
   res.json(l);
 }));
