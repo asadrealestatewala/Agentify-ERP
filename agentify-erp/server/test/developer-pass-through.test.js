@@ -93,3 +93,16 @@ test('customer pays the company, which passes it on: held for the developer, not
   assert.equal(tbAmount(tb, '2610'), 40_000); assert.equal(tbAmount(tb, '4500'), 5_000);
   assert.equal((await w.post(`/api/developers/${d.id}/transfers/${t2.id}/cancel`, { reason: 'again' })).status, 400);
 });
+
+test('a sale can carry a schedule given row by row', async () => {
+  const w = await workspace('devsched');
+  const { plot } = await setup(w, { name: 'Sched Dev' });
+  const p = await plot(1_000_000, 'SC1');
+  const c = ok(await w.post('/api/contacts', { full_name: 'Row By Row', is_customer: true }), 201);
+  const body = { contact_id: c.id, property_id: p.id, sale_price: 1_000_000, discount: 0, booking_amount: 300_000, num_installments: 3,
+    schedule: [{ kind: 'installment', due_date: '2027-01-05', amount: 25_000 }, { kind: 'installment', due_date: '2027-02-05', amount: 80_000 }, { kind: 'installment', due_date: '2027-03-05', amount: 595_000 }] };
+  assert.equal((await w.post('/api/sales', { ...body, schedule: body.schedule.slice(0, 2) })).status, 400, 'rows must add up');
+  const s = ok(await w.post('/api/sales', body), 201);
+  const d = ok(await w.get(`/api/sales/${s.id}`)).sale;
+  assert.deepEqual(d.installments.map((i) => i.amount), [300_000, 25_000, 80_000, 595_000]);
+});
