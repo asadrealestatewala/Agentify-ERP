@@ -17,7 +17,7 @@ export default function Reports() {
   const catalog = useFetch('/api/reports');
   const inGroup = (catalog.data || []).filter((r) => r.group === group);
   const key = sp.get('r') || inGroup[0]?.key;
-  const [range, setRange] = useState({ range: 'this_year' });
+  const [range, setRange] = useState(() => (sp.get('range') ? { range: sp.get('range'), ...(sp.get('from') ? { from: sp.get('from'), to: sp.get('to') } : {}) } : { range: 'this_year' }));
   const [flt, setFlt] = useState({});
   const { data, loading, error } = useFetch(key ? `/api/reports/${key}` : null, { ...range, ...flt });
 
@@ -49,6 +49,7 @@ export default function Reports() {
               </div>
             </Card>
             {error && <div className="alert err">{error}</div>}
+            {data?.summary && <div className="sum-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12, marginBottom: 14 }}>{data.summary.map((x) => <div key={x.label} className="sum-box"><div className="l">{x.label}</div><div className="v mono">{money(x.value)}</div>{x.n != null && <small className="muted">{x.n} {x.n === 1 ? 'entry' : 'entries'}</small>}</div>)}</div>}
             <Card title={data?.title || ' '} flush>
               {!data ? <Loading /> : data.note ? <Empty>{data.note}</Empty> : !data.rows.length ? <Empty>No data for this selection.</Empty> : (
                 <div className="table-wrap" style={{ opacity: loading ? 0.6 : 1 }}><table className="t"><thead><tr>{data.columns.map((c) => <th key={c.key} className={c.type === 'money' ? 'num' : ''}>{c.label}</th>)}</tr></thead>

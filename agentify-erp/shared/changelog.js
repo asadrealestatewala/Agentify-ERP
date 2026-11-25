@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.123', date: '2026-11-25', title: 'See where your revenue comes from',
+    items: [
+      { text: 'New report "Revenue by source" lists every customer payment you kept and every developer rebate, with a total for each stream and the overall total revenue. The dashboard Total revenue card now opens this report for the same period.', where: 'Reports > Financial > Revenue by source, Dashboard', guide: 'developer-partners' },
+    ],
+  },
+  {
     version: 'v1.122', date: '2026-11-25', title: 'Dashboard Total revenue card opens the right page',
     items: [
       { text: 'When the dashboard card reads "Total revenue" because a developer rebate is included, clicking it now opens Developers (where the rebate statements are) instead of Receipt Vouchers.', where: 'Dashboard' },

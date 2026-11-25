@@ -69,6 +69,29 @@ const REPORTS = [
   { key: 'project-profitability', group: 'Financial', title: 'Project profitability', module: 'accounting',
     run: () => { const rows = all('SELECT id,name FROM projects ORDER BY name').map((p) => { const x = projectFinancials(p.id); return { project: p.name, sales: x.total_sales, collections: x.collections, receivables: x.receivables, expenses: x.expenses, profit: x.gross_profit, cash: x.cash_position }; });
       return { columns: [C('project', 'Project'), C('sales', 'Sales', money), C('collections', 'Collections', money), C('receivables', 'Receivables', money), C('expenses', 'Expenses', money), C('profit', 'Gross profit', money), C('cash', 'Cash position', money)], rows }; } },
+  // Same streams as the dashboard "Total revenue" card: customer payments the company keeps + developer rebates (4500).
+  { key: 'revenue-by-source', group: 'Financial', title: 'Revenue by source', module: 'accounting',
+    run: (f) => {
+      const pj = f.project_id ? Number(f.project_id) : 0;
+      const pay = all(`SELECT r.date, r.receipt_no reference, c.full_name payer, pr.name project, r.method,
+        CASE WHEN r.payment_type='Refund' THEN -r.amount ELSE r.amount END amount, r.payment_type
+        FROM receipts r JOIN contacts c ON c.id=r.contact_id LEFT JOIN projects pr ON pr.id=r.project_id
+        WHERE r.status='valid' AND r.date BETWEEN ? AND ? AND r.account_id NOT IN (SELECT id FROM accounts WHERE code='2610') AND r.held_for_developer=0
+        ${pj ? 'AND r.project_id=' + pj : ''} ORDER BY r.date DESC, r.id DESC`, f.from, f.to)
+        .map((x) => ({ ...x, source: x.payment_type === 'Refund' ? 'Customer refund' : 'Customer payment' }));
+      const reb = all(`SELECT j.date, j.journal_no reference, COALESCE(d.name, '—') payer, COALESCE(pr.name, pj2.name) project,
+        COALESCE(c.full_name, j.memo) detail, l.credit-l.debit amount
+        FROM journal_lines l JOIN journals j ON j.id=l.journal_id JOIN accounts a ON a.id=l.account_id
+        LEFT JOIN sales s ON s.id=l.sale_id LEFT JOIN developers d ON d.id=s.developer_id LEFT JOIN contacts c ON c.id=s.contact_id
+        LEFT JOIN projects pr ON pr.id=s.project_id LEFT JOIN projects pj2 ON pj2.id=COALESCE(l.project_id, j.project_id)
+        WHERE a.code='4500' AND j.date BETWEEN ? AND ? AND l.credit-l.debit<>0 ${pj ? 'AND COALESCE(s.project_id, l.project_id, j.project_id)=' + pj : ''}
+        ORDER BY j.date DESC, j.id DESC`, f.from, f.to)
+        .map((x) => ({ ...x, source: 'Developer rebate', method: x.detail ? `File: ${x.detail}` : '' }));
+      const tp = pay.reduce((s, x) => s + x.amount, 0), tr = reb.reduce((s, x) => s + x.amount, 0);
+      const rows = [...[...pay, ...reb].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).map(({ date, source, reference, payer, project, method, amount }) => ({ date, source, reference, payer, project, method, amount }))];
+      const summary = [{ label: 'Customer payments', value: tp, n: pay.length }, { label: 'Developer rebates', value: tr, n: reb.length }, { label: 'Total revenue', value: tp + tr }];
+      return { summary, columns: [C('date', 'Date'), C('source', 'Source'), C('reference', 'Voucher'), C('payer', 'Received from'), C('project', 'Project'), C('method', 'Method / file'), C('amount', 'Amount', money)], rows };
+    } },
   { key: 'income-statement', group: 'Financial', title: 'Income statement', module: 'accounting',
     run: (f) => { const tb = trialBalance({ from: f.from, to: f.to, projectId: f.project_id }).filter((a) => ['income', 'expense'].includes(a.type) && a.balance);
       const rows = [...tb.filter((a) => a.type === 'income').map((a) => ({ section: 'Income', account: `${a.code} ${a.name}`, amount: a.balance })),
