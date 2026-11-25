@@ -187,6 +187,7 @@ export const GUIDES = {
     limits: ['A payment on a developer file never enters your cash, bank or income: it is shown on the developer account and only the rebate is your income.', 'The rebate is received from the developer in cash, cheque or online transfer under Developers > Rebate received.', 'The developer portal never shows customer CNIC, phone or e-mail.'],
     faq: [
       { q: 'Why is a developer plot sale not in my revenue?', a: 'The customer pays the developer, so the sale is held as a pass-through and kept out of your revenue.' },
+      { q: 'Where do I see all my revenue, including rebates?', a: 'Click the Total revenue card on the dashboard, or open Reports > Financial > Revenue by source. It lists every customer payment you kept and every developer rebate, with a total for each.' },
       { q: 'The Developers list is empty.', a: 'This was fixed in v1.57. Refresh the page; your developers now appear.' },
       { q: 'I cannot find Plot source on the property form.', a: 'It appears for Pakistan workspaces whose role has the Developers permission (added in v1.57).' },
     ],

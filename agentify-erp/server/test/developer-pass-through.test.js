@@ -87,6 +87,11 @@ test('customer pays the company, which passes it on: held for the developer, not
   ok(await w.post(`/api/developers/${d.id}/files/${sale.id}/rebate`, { amount: 5_000, account_id: wallet.id, date: '2026-11-20' }), 201);
   tb = ok(await w.get('/api/accounting/trial-balance'));
   assert.equal(tbAmount(tb, '4500'), 15_000); assert.equal(tbAmount(tb, '1230'), 15_000); assert.equal(tbAmount(tb, '1350'), 0);
+  // revenue by source: only the rebates, never the held client money
+  const rev = ok(await w.get('/api/reports/revenue-by-source?range=custom&from=2020-01-01&to=2099-12-31'));
+  assert.equal(rev.summary.find((x) => x.label === 'Developer rebates').value, 15_000);
+  assert.equal(rev.summary.find((x) => x.label === 'Customer payments').value, 0);
+  assert.equal(rev.totals.amount, 15_000);
   // cancel the transfer that kept a rebate: the 10,000 rebate goes away and the money is held again
   ok(await w.post(`/api/developers/${d.id}/transfers/${t2.id}/cancel`, { reason: 'entered twice' }));
   tb = ok(await w.get('/api/accounting/trial-balance'));
