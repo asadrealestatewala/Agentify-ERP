@@ -19,7 +19,7 @@ function Hero({ user, d, range, setRange, today }) {
   const stats = [];
   if (ag) stats.push(['My leads', ag.total_leads, `${ag.active_leads} active`, '/contacts'], ['Follow-ups due', ag.followups, 'call these first', '/tasks'], ['Sales', ag.sales_count, money(ag.sales_value), '/sales']);
   else {
-    if (f) stats.push([f.rebate_income ? 'Total revenue' : 'Collected', moneyShort(f.collected + (f.rebate_income || 0)), f.rebate_income ? `collected + ${money(f.rebate_income)} developer rebate` : 'this period', '/receipts'], ['Overdue', f.overdue_installments.n, money(f.overdue_installments.v), '/payments/installments?status=overdue']);
+    if (f) stats.push([f.rebate_income ? 'Total revenue' : 'Collected', moneyShort(f.collected + (f.rebate_income || 0)), f.rebate_income ? `collected + ${money(f.rebate_income)} developer rebate` : 'this period', f.rebate_income ? '/developers' : '/receipts'], ['Overdue', f.overdue_installments.n, money(f.overdue_installments.v), '/payments/installments?status=overdue']);
     if (crm) stats.push(['New leads', crm.new_leads, `${crm.total_leads} in total`, '/leads'], ['Follow-ups', crm.followups, `${crm.followups_today} today`, '/tasks'], ['Closed sales', crm.closed, 'this period', '/sales']);
     if (f) stats.push(['Cash & bank', moneyShort(f.cash_and_bank), 'available now', '/accounting/treasury']);
     if (pr) stats.push([getRegion().config.region === 'PK' ? 'Plots available' : 'Listings available', pr.available, `${pr.reserved} reserved`, '/projects/map'], ['Sold', pr.sold, `of ${pr.total}`, '/properties/sold']);
