@@ -129,6 +129,8 @@ export function ProjectWorkspace() {
   const { users } = useLookups();
   const kinds = useProjectKinds();
   const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const nav = useNavigate();
   if (error) return <div className="alert err">{error}</div>;
   if (!ws) return <Loading />;
   const p = ws.project, fin = ws.financials;
@@ -146,7 +148,10 @@ export function ProjectWorkspace() {
         {canEdit && <button className="btn" onClick={() => setEditing(true)}><Icon name="edit" size={14} />Edit</button>}
         {!isConstruction && can('properties', 'create') && <Link className="btn primary" to={`/properties/new?project=${p.id}`}>Add unit</Link>}
         {isConstruction && can('sales', 'create') && <Link className="btn primary" to="/sales/new?type=construction">New contract</Link>}
+        {can('projects', 'delete') && !(fin?.units_total > 0) && <button className="btn danger" onClick={() => setDeleting(true)}>Delete project</button>}
       </PageHead>
+      {deleting && <ConfirmDialog danger title="Delete project" message={`Delete ${p.name}? Only a project with no units or contracts can be deleted.`} confirmLabel="Delete" onCancel={() => setDeleting(false)}
+        onConfirm={async () => { try { await api.del(`/api/projects/${p.id}`); toast(`${p.name} deleted`, 'ok'); setDeleting(false); nav('/projects'); } catch (e) { toast(e.message, 'err'); setDeleting(false); } }} />}
       {fin && (
         <div className="grid g4" style={{ marginBottom: 14 }}>
           <Stat label="Project value" value={money(fin.project_value)} sub={`${fin.units_total} units`} />

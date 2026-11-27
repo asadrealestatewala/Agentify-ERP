@@ -98,10 +98,10 @@ export default function Properties({ preset }) {
             <Link to={`/properties/${r.id}`}>Open</Link>
             {can('properties', 'edit') && r.status !== 'sold' && <Link to={`/properties/${r.id}/edit`}>Edit</Link>}
             <PropertyActions p={r} compact reload={() => t.reload()} />
-            {can('properties', 'delete') && r.status === 'draft' && <button className="danger" onClick={() => setDel(r)}>Delete</button>}
+            {can('properties', 'delete') && ['draft', 'cancelled'].includes(r.status) && <button className="danger" onClick={() => setDel(r)}>Delete</button>}
           </>)} />
       </Card>
-      {del && <ConfirmDialog danger title="Delete draft property" message={`Delete “${del.title}”?`} confirmLabel="Delete" onCancel={() => setDel(null)}
+      {del && <ConfirmDialog danger title="Delete property" message={`Delete “${del.title}”?`} confirmLabel="Delete" onCancel={() => setDel(null)}
         onConfirm={async () => { const row = del; setDel(null); remove(row.id, `“${row.title}” deleted`, () => api.del(`/api/properties/${row.id}`)); }} />}
     </div>
   );

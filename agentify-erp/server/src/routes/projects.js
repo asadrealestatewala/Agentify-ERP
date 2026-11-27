@@ -42,7 +42,10 @@ crud(pc, {
     if (d.manager_id === '') d.manager_id = null;
   },
   after: (id) => publish('project', id),
-  canDelete: (p) => { if (get('SELECT 1 FROM properties WHERE project_id=?', p.id)) throw bad('Project has units and cannot be deleted'); },
+  canDelete: (p) => {
+    if (get('SELECT 1 FROM properties WHERE project_id=?', p.id)) throw bad('Project has units and cannot be deleted. Delete its units first (only draft or archived units can go).');
+    if (get('SELECT 1 FROM sales WHERE project_id=?', p.id)) throw bad('Project has sales or contracts and cannot be deleted');
+  },
 });
 r.use('/projects', pc);
 

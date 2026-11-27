@@ -208,6 +208,8 @@ r.delete('/contacts/:id(\\d+)', can('crm', 'delete'), asyncH((req, res) => {
   if (get('SELECT 1 FROM sales WHERE contact_id=?', c.id) || get('SELECT 1 FROM receipts WHERE contact_id=?', c.id)) throw bad('This contact has sales/receipts and cannot be deleted');
   tx(() => {
     for (const t of ['activities', 'notes', 'tasks']) run(`DELETE FROM ${t} WHERE ${t === 'activities' ? 'contact_id' : "entity_type='contact' AND entity_id"}=?`, c.id);
+    // the customer portal login made for this contact goes too: switched off, signed out and unlinked (the user row may be referenced by logs)
+    run('UPDATE users SET active=0, token_version=token_version+1, contact_id=NULL, email=NULL, phone=NULL WHERE contact_id=? AND role_id IN (SELECT id FROM roles WHERE portal=1)', c.id);
     run('DELETE FROM contacts WHERE id=?', c.id);
   });
   audit(req, 'Deleted contact', 'contact', c.id, c.full_name);

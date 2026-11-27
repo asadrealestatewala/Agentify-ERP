@@ -11,7 +11,7 @@ import { customerSearchClause, receiptRecord } from '../services/customers.js';
 import { sendTable } from './helpers.js';
 import { asyncH, bad, forbidden, notFound, int, now, today, moneyText, region } from '../util.js';
 import { assertUserEmailFree } from '../services/uniqueEmail.js';
-import { createSale, cancelSale, planSchedule, saleSummary, ensurePortalUser } from '../services/sales.js';
+import { createSale, cancelSale, purgeSale, planSchedule, saleSummary, ensurePortalUser } from '../services/sales.js';
 import { sendPdf } from '../services/pdf.js';
 import { scheduleFor } from '../services/schedule.js';
 import { letterDraft, lettersForSale, letterById, issueLetter, cancelLetter, sendLetterPdf, sendLettersPdf, verifyUrl, assertAllotmentEnabled, listLetters, bulkCandidates, bulkIssue, scansFor } from '../services/allotment.js';
@@ -146,6 +146,8 @@ r.post('/sales/:id(\\d+)/cancel', can('sales', 'delete'), asyncH((req, res) => {
   cancelSale(Number(req.params.id), req.body.reason, req);
   res.json({ ok: true });
 }));
+/** Super Admin only: remove a cancelled sale that never took money (test or wrong entries). See purgeSale. */
+r.delete('/sales/:id(\\d+)', can('sales', 'delete'), asyncH((req, res) => res.json(purgeSale(Number(req.params.id), req))));
 
 // ---------------- Customers
 const CUSTOMER_BASE = `SELECT c.id, c.customer_code, c.full_name, c.phone, c.email, c.city, c.customer_since, c.lead_type, c.agent_id, ag.name agent_name,
