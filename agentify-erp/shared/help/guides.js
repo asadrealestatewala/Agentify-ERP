@@ -8,6 +8,28 @@ import { SCREENS } from '../screens.generated.js';
 import { SCREEN_NOTES } from '../screenNotes.js';
 
 export const GUIDES = {
+  'delete-test-records': {
+    title: 'Delete test or wrongly entered sales, plots and projects', since: 'v1.126', module: 'Sales',
+    who: 'The workspace owner (deleting a sale); staff whose role can delete properties, projects or contacts (the rest)',
+    keywords: ['delete', 'remove', 'test', 'test data', 'wrong entry', 'mistake', 'delete sale', 'delete plot', 'delete project', 'delete customer', 'purge', 'cancelled sale'],
+    steps: [
+      'Open the sale in Sales & Bookings and choose Cancel sale, with a reason. If an allotment letter was issued, cancel it on the Allotment letter tab too.',
+      'As the workspace owner, open the cancelled sale again and choose Delete permanently. The sale, its payment plan, commission, allotment letters and its accounting entries are removed.',
+      'Open the plot, choose Archive, then Delete (in Properties, the Delete button shows for draft and archived units).',
+      'Open the project and choose Delete project once it has no units or contracts left.',
+      'Open the customer and choose Delete contact. Their customer portal login is switched off as well.',
+    ],
+    limits: [
+      'Only cancelled sales that never received money can be deleted. A sale with receipts, payment claims, developer payments, complaints or paid commission stays cancelled so your records keep the trail.',
+      'Deleting cannot be undone. Use it for test entries and mistakes, not to hide real deals.',
+      'Every deletion is written to Settings > Audit Log with who did it and when.',
+    ],
+    faq: [
+      { q: 'Why can I not delete a sale straight away?', a: 'Cancelling first reverses the receivable and commission and returns the plot to stock. Only then can the workspace owner delete it permanently.' },
+      { q: 'I cancelled a sale but the plot shows on my website again.', a: 'Cancelling makes the plot Available, which publishes it again. Archive it (or Unpublish) to hide it.' },
+    ],
+    internal: ['DELETE /api/sales/:id (purgeSale): Super Admin only; status cancelled, paid_amount 0, no rows in receipt_sales, receipts, payment_claims, developer_rebates, developer_transfers, expense_vouchers, complaints. Removes journals of the sale and its commissions (ref_type sale/commission and lines with sale_id), commissions, allotment letters + scans, file events, installments. Contact delete deactivates and unlinks the portal user.'],
+  },
   'allotment-letters': {
     title: 'Allotment letters with QR verification', since: 'v1.125', module: 'Sales',
     who: 'Housing societies and developers (workspaces with a development project and numbered plots); staff whose role can edit Sales',

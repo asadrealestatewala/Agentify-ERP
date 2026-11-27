@@ -228,6 +228,52 @@ export function cancelSale(id, reason, req) {
   if (s.kind === 'property' && s.property_id) fireWebhook(s.property_id, 'property.available');
 }
 
+/** Tables that, if they hold rows for a sale, mean real money or a customer request passed through it: such a sale is never purged. */
+const MONEY_TRAIL = ['receipt_sales', 'receipts', 'payment_claims', 'developer_rebates', 'developer_transfers', 'expense_vouchers', 'complaints'];
+const tableExists = (t) => !!get("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", t);
+
+/**
+ * Permanently remove a cancelled sale that never took money (test or wrongly entered sales). Workspace Super Admin only.
+ * Removes its schedule, commission, allotment letters (and their scan log), file events and every journal it produced
+ * (the sale, its reversal and the commission entries), so its plot, project and customer can then be deleted as usual.
+ * Anything with receipts, payment claims, developer payments or complaints stays: cancel-only keeps the trail.
+ */
+export function purgeSale(id, req) {
+  if (!req.user?.isSuper) throw bad('Only the Super Admin can permanently delete a sale');
+  const s = get('SELECT * FROM sales WHERE id=?', id);
+  if (!s) throw notFound('Sale not found');
+  if (s.status !== 'cancelled') throw bad('Cancel the sale first. Only cancelled sales can be deleted permanently.');
+  if (s.paid_amount > 0) throw bad('This sale received money and cannot be deleted. It stays cancelled.');
+  for (const t of MONEY_TRAIL) {
+    if (tableExists(t) && get(`SELECT 1 FROM ${t} WHERE sale_id=?`, id)) throw bad('This sale has receipts, payment claims or other records linked to it and cannot be deleted. It stays cancelled.');
+  }
+  if (get('SELECT 1 FROM sales WHERE linked_sale_id=? AND id<>?', id, id)) throw bad('Another sale is linked to this one. Delete that sale first.');
+  if (get("SELECT 1 FROM commissions WHERE sale_id=? AND paid_amount>0", id)) throw bad('Commission was paid on this sale, so it cannot be deleted.');
+  tx(() => {
+    const comms = all('SELECT id FROM commissions WHERE sale_id=?', id).map((c) => c.id);
+    const journals = new Set([
+      ...all("SELECT id FROM journals WHERE ref_type='sale' AND ref_id=?", id).map((j) => j.id),
+      ...all('SELECT DISTINCT journal_id id FROM journal_lines WHERE sale_id=?', id).map((j) => j.id),
+      ...comms.flatMap((c) => all("SELECT id FROM journals WHERE ref_type='commission' AND ref_id=?", c).map((j) => j.id)),
+    ]);
+    if (s.journal_id) journals.add(s.journal_id);
+    for (const j of journals) { run('DELETE FROM journal_lines WHERE journal_id=?', j); run('DELETE FROM journals WHERE id=?', j); }
+    for (const c of comms) run('DELETE FROM commissions WHERE id=?', c);
+    if (tableExists('allotment_letters')) {
+      run('DELETE FROM allotment_scans WHERE letter_id IN (SELECT id FROM allotment_letters WHERE sale_id=?)', id);
+      run('DELETE FROM allotment_letters WHERE sale_id=?', id);
+    }
+    if (tableExists('file_events')) run('DELETE FROM file_events WHERE sale_id=?', id);
+    if (tableExists('project_tasks')) run('UPDATE project_tasks SET sale_id=NULL WHERE sale_id=?', id);
+    run('UPDATE sales SET linked_sale_id=NULL WHERE linked_sale_id=?', id);
+    run('DELETE FROM installments WHERE sale_id=?', id);
+    run('DELETE FROM sales WHERE id=?', id);
+    activity(s.contact_id, req.user, 'Sale deleted permanently', { detail: s.sale_no });
+    audit(req, 'Deleted cancelled sale permanently', 'sale', id, s.sale_no);
+  });
+  return { ok: true, property_id: s.property_id, contact_id: s.contact_id, project_id: s.project_id };
+}
+
 /** Ledger summary for a sale — always derived from installments + receipts. */
 export function saleSummary(id, withBundle = true) {
   const s = get(`SELECT s.*, COALESCE(s.title, p.title) property_title, p.plot_no, p.block, p.property_type, pr.name project_name, pr.code project_code,

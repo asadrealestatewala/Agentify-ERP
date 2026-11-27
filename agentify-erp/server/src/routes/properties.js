@@ -188,9 +188,15 @@ r.delete('/:id(\\d+)', can('properties', 'delete'), asyncH((req, res) => {
   const p = get('SELECT * FROM properties WHERE id=?', req.params.id);
   if (!p) throw notFound();
   assertOwner(req, p);
-  if (p.status !== 'draft') throw bad('Only draft properties can be deleted — cancel it instead');
-  if (get('SELECT 1 FROM sales WHERE property_id=?', p.id)) throw bad('Property has sales records');
-  tx(() => { run("DELETE FROM media WHERE entity_type='property' AND entity_id=?", p.id); run('DELETE FROM properties WHERE id=?', p.id); });
+  // drafts, and archived units (status 'cancelled') once no sale of any kind points at them
+  if (!['draft', 'cancelled'].includes(p.status)) throw bad('Only draft or archived properties can be deleted. Archive it first.');
+  if (get('SELECT 1 FROM sales WHERE property_id=?', p.id)) throw bad('Property has sales records. A Super Admin can delete a cancelled sale that took no money first.');
+  try {
+    tx(() => { run("DELETE FROM media WHERE entity_type='property' AND entity_id=?", p.id); run('DELETE FROM properties WHERE id=?', p.id); });
+  } catch (e) {
+    if (/FOREIGN KEY/i.test(e.message)) throw bad('This property is still used by other records and cannot be deleted');
+    throw e;
+  }
   audit(req, 'Deleted property', 'property', p.id, p.title);
   res.json({ ok: true });
 }));

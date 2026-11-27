@@ -6,6 +6,15 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.126', date: '2026-11-27', title: 'Delete test and wrongly entered sales',
+    items: [
+      { text: 'The workspace owner can now delete a cancelled sale that never received money, for test entries and mistakes. Its payment plan, commission, allotment letters and accounting entries go with it. Sales that took money still stay cancelled with their full trail.', where: 'Sales & Bookings > open a cancelled sale > Delete permanently', guide: 'delete-test-records' },
+      { text: 'Archived plots can now be deleted, not only drafts, as long as no sale points at them.', where: 'Properties > Inventory > Delete', guide: 'delete-test-records' },
+      { text: 'A project with no units or contracts can be deleted from its page.', where: 'Projects > open a project > Delete project', guide: 'delete-test-records' },
+      { text: 'Deleting a customer now also switches off their customer portal login.', where: 'Contacts > open a contact > Delete contact', guide: 'delete-test-records' },
+    ],
+  },
+  {
     version: 'v1.125', date: '2026-11-25', title: 'Allotment letters with QR verification',
     items: [
       { text: 'Housing societies and developers can issue an allotment letter for any sold plot. It is printed on your own letterhead, inside a border with your logo faintly in the background, and shows the customer name and residential address, plot and block number, plot location, dimensions and area, date, reference number and space for signature and stamp.', where: 'Sales & Bookings > the sale > Allotment letter', guide: 'allotment-letters' },

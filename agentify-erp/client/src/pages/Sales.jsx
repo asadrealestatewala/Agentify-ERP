@@ -264,6 +264,8 @@ export function SaleDetail() {
   const { data, error, reload } = useFetch(`/api/sales/${id}`);
   const allotOn = useFetch('/api/billing/status').data?.allotment_letters === true;
   const [cancel, setCancel] = useState(false);
+  const [purge, setPurge] = useState(false);
+  const nav = useNavigate();
   const tab = sp.get('tab') || 'plan';
   const setTab = (t) => setSp({ tab: t }, { replace: true });
   if (error) return <div className="alert err">{error}</div>;
@@ -280,6 +282,7 @@ export function SaleDetail() {
         {s.status === 'confirmed' && (b ? b.outstanding : s.outstanding) > 0 && can('payments', 'create') && <Link className="btn primary" to={`/receipts/new?contact=${s.contact_id}&sale=${s.id}`}>{b ? 'Receive combined payment' : 'Record payment'}</Link>}
         {can('customers', 'view') && !user.own_scope && <Link className="btn" to={`/customers/${s.contact_id}/statement?sale=${s.id}`}><Icon name="print" size={14} />Statement</Link>}
         {s.status === 'confirmed' && can('sales', 'delete') && <button className="btn danger" onClick={() => setCancel(true)}>Cancel {construction ? 'contract' : 'sale'}</button>}
+        {s.status === 'cancelled' && user?.isSuper && !(s.paid_amount > 0) && <button className="btn danger" data-tour="sale-delete" onClick={() => setPurge(true)}>Delete permanently</button>}
       </PageHead>
 
       {b && (
@@ -336,6 +339,9 @@ export function SaleDetail() {
       </Card>
       {cancel && <ConfirmDialog danger reason title={`Cancel this ${construction ? 'contract' : 'sale'}`} confirmLabel="Cancel" message="Commission is cancelled and the receivable is reversed; a property returns to Available. Sales with valid receipts must have them voided or refunded first."
         onCancel={() => setCancel(false)} onConfirm={async (reason) => { try { await api.post(`/api/sales/${s.id}/cancel`, { reason }); toast('Cancelled', 'ok'); setCancel(false); reload(); } catch (e) { toast(e.message, 'err'); setCancel(false); } }} />}
+      {purge && <ConfirmDialog danger title={`Delete ${s.sale_no} permanently`} confirmLabel="Delete permanently"
+        message="For test or wrongly entered sales that never took money. The sale, its payment plan, commission, allotment letters and accounting entries are removed and cannot be brought back. The plot, project and customer stay; you can delete them afterwards."
+        onCancel={() => setPurge(false)} onConfirm={async () => { try { await api.del(`/api/sales/${s.id}`); toast(`${s.sale_no} deleted`, 'ok'); setPurge(false); nav(construction ? '/sales/construction' : '/sales'); } catch (e) { toast(e.message, 'err'); setPurge(false); } }} />}
     </div>
   );
 }
