@@ -6,6 +6,16 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.127', date: '2026-11-28', title: 'Edit your website with AI',
+    items: [
+      { text: 'Describe a change to your website in plain words and the AI suggests it: "make the hero darker", "add an FAQ before the contact form", "rewrite the home page headline", or a full redesign of the page. You preview the suggestion on the page, apply it to your draft, and nothing goes live until you press Publish. You can undo the last AI change.', where: 'Website > Design > Edit with AI', guide: 'edit-website-with-ai' },
+      { text: 'Upload your own logo, favicon and team photos, tick the ones you want the AI to use, and tell it what to do. It can set your logo and favicon, fit the site colours to your logo, and put team photos on the team block.', where: 'Website > Design > Edit with AI > Your pictures', guide: 'edit-website-with-ai' },
+      { text: 'The AI can also create new pictures for your website, such as a hero photo, and saves them in your image library. Each AI request uses your workspace AI credits where your plan includes them.', where: 'Website > Design > Edit with AI', guide: 'edit-website-with-ai' },
+      { text: 'New favicon setting: the small icon shown in the browser tab of your website.', where: 'Website > Design > Identity > Favicon', guide: 'edit-website-with-ai' },
+      { text: 'Claude (Anthropic) is now a platform AI provider for the website editor: add the key, pick the models, test it and switch it off from the AI page. Usage is counted in Cost & profit as "Website editor AI".', where: 'Console > AI > Claude (Anthropic) and the website editor', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.126', date: '2026-11-27', title: 'Delete test and wrongly entered sales',
     items: [
       { text: 'The workspace owner can now delete a cancelled sale that never received money, for test entries and mistakes. Its payment plan, commission, allotment letters and accounting entries go with it. Sales that took money still stay cancelled with their full trail.', where: 'Sales & Bookings > open a cancelled sale > Delete permanently', guide: 'delete-test-records' },

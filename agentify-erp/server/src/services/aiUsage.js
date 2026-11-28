@@ -159,7 +159,7 @@ export async function draftPost({ channel, topic, tone, language }, admin) {
 export const AI_FEATURES = {
   // features that use Agentify's own key (metered in services/aiGateway.js, checked in services/aiGate.js)
   ask_assistant: 'Ask assistant (chat, voice, pictures)', creative_post: 'Creative posts', creative_video: 'Creative videos', video_voice: 'Video voices', brand_story: 'Brand stories', website_analysis: 'Website analysis', translation: 'Translation', content_draft: 'Agentify post drafts', blog_agent: 'Blog agent articles',
-  workspace_assistant: 'Workspace data assistant', property_writer: 'Property writer', website_builder: 'Website builder AI', promo_video: 'Promo video scripts', workspace_ai: 'Other workspace AI',
+  workspace_assistant: 'Workspace data assistant', property_writer: 'Property writer', website_builder: 'Website builder AI', website_ai: 'Website editor AI (Edit with AI)', promo_video: 'Promo video scripts', workspace_ai: 'Other workspace AI',
 };
 export const num2 = num;
 export const monthStartOf = (now) => monthStart(now);

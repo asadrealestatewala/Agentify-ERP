@@ -8,6 +8,32 @@ import { SCREENS } from '../screens.generated.js';
 import { SCREEN_NOTES } from '../screenNotes.js';
 
 export const GUIDES = {
+  'edit-website-with-ai': {
+    title: 'Edit your website with AI', since: 'v1.127', module: 'Website',
+    who: 'Staff who can edit the website (owner, admins, website editors)',
+    keywords: ['website', 'ai', 'edit with ai', 'redesign', 'logo', 'favicon', 'team photos', 'colours', 'colors', 'hero', 'website ai', 'create picture', 'ai picture', 'website assistant'],
+    steps: [
+      'Open Website, then choose Edit with AI in the Design menu. Open the page you want to change first.',
+      'Optional: choose Your pictures, upload your logo, favicon or team photos, and tick the ones the AI should look at (up to 4 at a time).',
+      'Type what you want, for example "use my logo and its colours" or "put these team photos on the team block". Choose Quick edit for small changes or Full redesign to restructure the page and the look.',
+      'Tick Let it create new pictures only if you want the AI to make new pictures, such as a hero photo. They are saved in your image library.',
+      'Press Suggest changes. Read the list of changes, then press Preview to see them on the page.',
+      'Press Apply to my draft, check the page, press Save draft, then Publish when you are happy. Undo the last AI change at any time before you publish.',
+    ],
+    limits: [
+      'The AI changes only your own website, using the normal blocks and your own pictures. Your visitors see nothing until you publish.',
+      'It does not invent facts. Numbers, team names, phone numbers and partner names are used only if you typed them or they are already on the site, and it never writes testimonials.',
+      'A quick edit uses 1 AI credit, a full redesign 3, and each new picture 3 credits. Where your plan has no credits, or they are used up, the panel says so.',
+      'Pictures you tick are sent to the AI service for that request only. Do not tick pictures with private customer data.',
+      'It edits the page that is open plus the site look. To change another page, open it and ask again.',
+    ],
+    faq: [
+      { q: 'The AI kept my old colour.', a: 'Main and dark colours must stay readable under white text. If the suggested colour was too light, the AI keeps the old one and tells you.' },
+      { q: 'How do I set my favicon by hand?', a: 'Open Design > Identity and choose a picture under Favicon. A small square picture works best.' },
+      { q: 'I applied a change I do not like.', a: 'Press Undo the last AI change in the Edit with AI panel, or choose Discard unpublished changes in Publish and history.' },
+    ],
+    internal: ['POST /api/site-admin/ai-edit (services/siteAiEdit.js): Claude via services/anthropicGateway.js (platform key anthropic_api_key, models claude-sonnet-5-5 edit / claude-opus-5-5 redesign), gated by aiGate (feature website_ai), ledger provider anthropic. Output is cleaned: known blocks only, internal links, own-library pictures (asset:ID, gen:key), facts must appear in the owner message or site, contrast check on primary/dark. Pictures: POST /api/site-admin/ai-edit/picture (Gemini, feature creative_post, 3 credits, free backup via FreeLLMAPI). Favicon: config brand.favicon, applied in client/src/site/siteCore.jsx useTitle.'],
+  },
   'delete-test-records': {
     title: 'Delete test or wrongly entered sales, plots and projects', since: 'v1.126', module: 'Sales',
     who: 'The workspace owner (deleting a sale); staff whose role can delete properties, projects or contacts (the rest)',

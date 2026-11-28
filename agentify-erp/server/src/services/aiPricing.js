@@ -16,6 +16,7 @@ export const FEATURES = {
   website_analysis: { label: 'Website analysis', unit: 'call', per: 'one website analysis', usd: 0.01 },
   translation: { label: 'Translation', unit: 'call', per: 'one translation', usd: 0.003 },
   content_draft: { label: 'Agentify post drafts', unit: 'call', per: 'one draft', usd: 0.003 },
+  website_ai: { label: 'Website editor AI', unit: 'call', per: 'one Edit with AI request', usd: 0.03 },
   blog_agent: { label: 'Blog agent articles', unit: 'call', per: 'one AI step (topics or one article)', usd: 0.01 },
 };
 export const MIN_SAMPLE = 10;

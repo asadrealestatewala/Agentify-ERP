@@ -26,6 +26,7 @@ const FEATURE_LOOK = {
   website_analysis: { Icon: IconWorldSearch, bg: '#3b8ea5', one: 'website checked', many: 'websites checked' },
   translation: { Icon: IconLanguage, bg: '#8a5fc4', one: 'translation done', many: 'translations done' },
   content_draft: { Icon: IconPencil, bg: '#c9822b', one: 'post draft written', many: 'post drafts written' },
+  website_ai: { Icon: IconSparkles, bg: '#7a5af8', one: 'website edit made', many: 'website edits made' },
 };
 
 function CostSummary({ o, cur }) {
@@ -335,6 +336,29 @@ function Freellm({ can }) {
   );
 }
 
+/** Claude (Anthropic): the key behind the website editor's "Edit with AI". Workspaces never see it; their AI credits pay for each use. */
+function Anthropic({ t, can, reload }) {
+  const toast = useToast();
+  const a = t.anthropic;
+  const [f, setF] = useState({ key: '', edit_model: a.edit_model === a.defaults.edit ? '' : a.edit_model, redesign_model: a.redesign_model === a.defaults.redesign ? '' : a.redesign_model });
+  const [busy, setBusy] = useState(false);
+  const save = async () => { try { await api.put(`${A}/ai/anthropic`, { edit_model: f.edit_model, redesign_model: f.redesign_model, ...(f.key ? { key: f.key } : {}) }); toast('Claude settings saved'); setF({ ...f, key: '' }); reload(); } catch (e) { toast(e.message, 'err'); } };
+  const flip = async (enabled) => { try { await api.put(`${A}/ai/anthropic`, { enabled }); toast(enabled ? 'Website AI switched on' : 'Website AI switched off'); reload(); } catch (e) { toast(e.message, 'err'); } };
+  const test = async () => { setBusy(true); try { const r = await api.post(`${A}/ai/anthropic/test`, {}); toast(`Claude connected (${r.models} models available)`); } catch (e) { toast(e.message, 'err'); } finally { setBusy(false); } };
+  const remove = async () => { if (!window.confirm('Remove the Claude key? "Edit with AI" in every workspace stops until a key is added again.')) return; try { await api.del(`${A}/ai/anthropic/key`); toast('Claude key removed'); reload(); } catch (e) { toast(e.message, 'err'); } };
+  return (
+    <FoldCard title="Claude (Anthropic) and the website editor" summary={a.key_added ? <Dot tone={a.enabled ? 'ok' : 'warn'}>{a.enabled ? 'Claude connected' : 'Claude off'}</Dot> : <Dot tone="warn">Claude key not added</Dot>} tone={a.key_added && a.enabled ? 'ok' : 'warn'}>
+      <p className="muted" style={{ marginTop: 0 }}>Claude key: {a.key_added ? <span className="pill green">Added {a.key_hint}</span> : <span className="pill grey">Not added</span>}. Claude powers "Edit with AI" in the Website studio: a workspace describes a change, previews it, and publishes it. The key is stored encrypted and never shown to workspaces. Each use costs the workspace AI credits (1 for a quick edit, 3 for a full redesign, 3 per new picture), is counted in Cost &amp; profit under "Website editor AI", and follows the daily limits, monthly budget and switches above. Pictures sent to Claude are only the workspace's own logo and photos it chose. New pictures use Gemini.</p>
+      {can && <div style={grid}>
+        <Field label={a.key_added ? 'Replace Claude key (optional)' : 'Anthropic API key'} hint="Starts with sk-ant- . Stored encrypted."><TextInput type="password" value={f.key} onChange={(v) => setF({ ...f, key: v })} autoComplete="off" /></Field>
+        <Field label="Quick-edit model (optional)" hint={`Default ${a.defaults.edit}`}><TextInput value={f.edit_model} onChange={(v) => setF({ ...f, edit_model: v })} /></Field>
+        <Field label="Full-redesign model (optional)" hint={`Default ${a.defaults.redesign}`}><TextInput value={f.redesign_model} onChange={(v) => setF({ ...f, redesign_model: v })} /></Field>
+      </div>}
+      {can && <div className="row" style={{ gap: 8, marginTop: 12, flexWrap: 'wrap' }}><button className="btn primary" onClick={save}>Save Claude settings</button><button className="btn info" disabled={!a.key_added || busy} onClick={test}>{busy ? 'Testing…' : 'Test the connection'}</button>{a.key_added && <button className="btn" onClick={() => flip(!a.enabled)}>{a.enabled ? 'Switch off' : 'Switch on'}</button>}{a.key_added && <button className="btn danger" onClick={remove}>Remove key</button>}</div>}
+    </FoldCard>
+  );
+}
+
 const ENGINE_LABEL = { groq: 'Groq', horde: 'Stable Horde', gemini: 'Gemini', freellmapi: 'FreeLLMAPI' };
 /** Groq: fast chat, picture understanding and speech-to-text for Ask; plus the order Ask tries its engines in. */
 function Groq({ t, can, reload }) {
@@ -435,6 +459,7 @@ function Technical({ o, can, reload, voices, onTested }) {
       </div>
     </FoldCard>
     <Groq t={t} can={can} reload={reload} />
+    <Anthropic t={t} can={can} reload={reload} />
     <Horde t={t} can={can} reload={reload} />
     <Freellm can={can} />
     </>
