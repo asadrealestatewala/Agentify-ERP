@@ -14,6 +14,7 @@ import { buildKnowledge, reply } from '../services/bot.js';
 import rateLimit from 'express-rate-limit';
 import { generateSiteDraft, BUSINESS_TYPES, STYLES, TONES } from '../services/siteAi.js';
 import { isHtml, sanitizeHtml, wordCount } from '../services/richText.js';
+import { proposeEdit, createPicture, status as aiEditStatus, libraryAssets } from '../services/siteAiEdit.js';
 import { liveRelease, isOffline, draftDiffers, publishDraft, setOffline, releaseList, restoreRelease, discardDraft, createPreviewLink, revokePreviewLinks } from '../services/siteRelease.js';
 
 /** Website editor backend (permission module: website). */
@@ -99,6 +100,21 @@ r.post('/ai/generate', can('website', 'edit'), aiLimit, asyncH(async (req, res) 
   const draft = await generateSiteDraft(req.body || {});
   audit(req, 'Generated a website draft with AI', 'website', null, draft.brief.company);
   res.json(draft);
+}));
+
+// ---- "Edit with AI": describe a change, get a proposal to preview, apply it to the draft, then publish. Uses Agentify's own Claude key
+// (never shown to workspaces), costs the workspace's AI credits and is logged in the AI usage ledger. Nothing is saved here.
+const aiEditLimit = rateLimit({ windowMs: 60 * 60_000, limit: Number(process.env.SITE_AI_EDIT_LIMIT) || 40, standardHeaders: true, legacyHeaders: false, message: { error: 'You have used the AI website editor many times this hour. Please try again later.' } });
+r.get('/ai-edit/status', can('website', 'view'), (req, res) => res.json({ ...aiEditStatus(), assets: libraryAssets() }));
+r.post('/ai-edit', can('website', 'edit'), aiEditLimit, asyncH(async (req, res) => {
+  const out = await proposeEdit(req.body || {}, req.user);
+  audit(req, 'Asked the AI to edit the website', 'website', null, `${out.mode}: ${String(req.body?.message || '').slice(0, 120)}`);
+  res.json(out);
+}));
+r.post('/ai-edit/picture', can('website', 'edit'), aiEditLimit, asyncH(async (req, res) => {
+  const out = await createPicture(req.body || {}, req.user);
+  audit(req, 'Created a website picture with AI', 'website', null, String(req.body?.prompt || '').slice(0, 120));
+  res.status(201).json(out);
 }));
 
 // ---- customer reviews sent from the website: approve before they show

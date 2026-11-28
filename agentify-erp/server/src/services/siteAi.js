@@ -11,6 +11,8 @@ import { SITE_ICON_IDS } from '../../../shared/siteIcons.js';
 
 const clip = (v, n) => String(v ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n);
 const S = (n) => ['s', n], L = ['l'], B = ['b'], E = (...o) => ['e', o], N = (a, b) => ['n', a, b], LIST = (max, spec) => ['list', max, spec];
+export const SPEC = { S, L, B, E, N, LIST, IMG: ['img'], F: (n) => ['f', n] };
+export { clip, paragraphs };
 /** Blocks the AI may write, with the options it may set. Anything else it sends is dropped. */
 export const AI_BLOCKS = {
   hero: { headline: S(110), subheadline: S(260), cta_label: S(36), cta_href: L, show_search: B, height: E('tall', 'medium') },
@@ -30,7 +32,7 @@ export const AI_BLOCKS = {
   partners: { title: S(70) },
   livestats: {},
 };
-const DESCRIBE = {
+export const DESCRIBE = {
   hero: 'top banner: headline, subheadline, optional cta_label and cta_href, show_search (property search box, for property sellers), height',
   services: `cards: items [{icon (one of: ${SITE_ICON_IDS.filter((i) => i !== 'dot').join(', ')}), title, text, href}]`,
   listings: 'live property listings from the CRM: title, subtitle, source (featured|latest), limit, layout (grid|carousel)',
@@ -53,7 +55,7 @@ export const STYLES = { modern: 'modern and clean', classic: 'classic and trustw
 export const TONES = { professional: 'professional', friendly: 'friendly and approachable', confident: 'confident and direct', formal: 'formal' };
 
 const HEX = /^#[0-9a-fA-F]{6}$/;
-function cleanValue(spec, v) {
+function cleanValue(spec, v, ctx) {
   const [kind] = spec;
   if (kind === 's') return clip(v, spec[1]);
   if (kind === 'b') return v === true || v === 'true';
@@ -61,13 +63,18 @@ function cleanValue(spec, v) {
   if (kind === 'n') { const n = Math.round(Number(v)); return Number.isFinite(n) ? Math.min(spec[2], Math.max(spec[1], n)) : undefined; }
   // links written by the AI stay inside the site: internal paths or in-page anchors only
   if (kind === 'l') { const s = clip(v, 200); if (!s || !(/^\/(?!\/)/.test(s) || /^#/.test(s))) return ''; try { checkLink(s, 'link'); } catch { return ''; } return s; }
-  if (kind === 'list') return (Array.isArray(v) ? v : []).slice(0, spec[1]).map((it) => cleanProps(spec[2], it)).filter((it) => Object.values(it).some((x) => x !== '' && x !== undefined));
+  // 'img' (editor assistant only): a picture reference the caller resolves to one of the workspace's own images; anything else is dropped
+  if (kind === 'img') return ctx?.img ? ctx.img(clip(v, 300)) : undefined;
+  // 'f' (editor assistant only): a fact (name, number, phone...) that the owner must have written or that is already on the site
+  if (kind === 'f') return ctx?.fact ? ctx.fact(clip(v, spec[1])) : undefined;
+  // a list item whose fact (a name, a number...) is not allowed is dropped whole, so a made-up number never appears beside a real label
+  if (kind === 'list') return (Array.isArray(v) ? v : []).slice(0, spec[1]).map((it) => [it, cleanProps(spec[2], it, ctx)]).filter(([it, out]) => !Object.entries(spec[2]).some(([k, sp]) => sp[0] === 'f' && String(it?.[k] ?? '').trim() && out[k] === undefined)).map(([, out]) => out).filter((it) => Object.values(it).some((x) => x !== '' && x !== undefined));
   return undefined;
 }
-function cleanProps(spec, raw) {
+export function cleanProps(spec, raw, ctx) {
   const out = {};
   for (const [k, sp] of Object.entries(spec)) {
-    const v = cleanValue(sp, raw?.[k]);
+    const v = cleanValue(sp, raw?.[k], ctx);
     if (v !== undefined) out[k] = v;
   }
   return out;

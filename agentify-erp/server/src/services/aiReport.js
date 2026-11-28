@@ -6,6 +6,7 @@ import { listReports, openReportCount } from './aiReports.js';
 import { imageModel, videoModel, voiceFor, azureTest, azureSpeak, DEFAULT_VOICES, SAMPLE_TEXT } from './aiGateway.js';
 import { hordeStatus, hordeReady, geminiAskEnabled } from './hordeGateway.js';
 import { groqStatus, groqReady } from './groqGateway.js';
+import { anthropicStatus } from './anthropicGateway.js';
 import { askOrder, engineErrors } from './askOrder.js';
 import { freellmStatus, featureOn as freellmOn } from './freellmGateway.js';
 import { config, monthStartOf, ensureTable, featuresOff, flag, killSwitchLastChange } from './aiUsage.js';
@@ -100,6 +101,7 @@ export function overview(now = new Date()) {
       azure: azureStatus(),
       stablehorde: hordeStatus(),
       groq: groqStatus(),
+      anthropic: anthropicStatus(),
       freellm: freellmStatus(),
       ask_order: askOrder(),
       model_map: modelMap(),

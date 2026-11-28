@@ -14,6 +14,7 @@ import { SITE_THEMES, listingPhotos, themeConfig, themePages } from '../../site/
 import { BlogTab, FieldRow, ImagePicker, LINKS, PublishPanel, ReviewsTab, SITE_GROUPS, getPath, setPath } from './siteShared.jsx';
 import { toPuck, fromPuck } from '../../../../shared/puckAdapter.js';
 import IconPicker from './IconPicker.jsx';
+import AiEditPanel from './AiEditPanel.jsx';
 import LogoMark from '../../components/LogoMark.jsx';
 
 /**
@@ -111,6 +112,7 @@ function buildConfig(ctx) {
 
 // ---------------------------------------------------------------- sidebar panels
 const SIDE_MENU = [
+  ['ai', 'Edit with AI', '✨', 'Describe a change in plain words. Preview it, apply it to your draft, then publish.'],
   ['pages', 'Pages', '📄', 'Edit, add and arrange the pages of your website.'],
   ['themes', 'Themes', '🎨', 'Ready-made website designs. Preview one, then install it.'],
   ['identity', 'Identity', '🪪', 'Name, logo, contact details and social profiles.'],
@@ -333,6 +335,9 @@ export default function WebsiteStudio() {
   const [confirmDel, setConfirmDel] = useState(false);
   const [mobilePanel, setMobilePanel] = useState(true);
   const [epoch, setEpoch] = useState(0); // remounts the canvas after a theme install or discard
+  const [aiChat, setAiChat] = useState([]); // the Edit with AI conversation (kept here so it survives switching panels)
+  const [aiPreview, setAiPreview] = useState(null); // a proposal shown on the page before it is applied
+  const [aiUndo, setAiUndo] = useState(null); // the page, design and search text from before the last applied proposal
 
   const setCfg = useCallback((fn) => setCfgState((c) => { const n = typeof fn === 'function' ? fn(c) : fn; cfgStore.set(n); return n; }), []);
   const loadPub = useCallback(() => api.get('/api/site-admin/publish').then(setPub).catch(() => {}), []);
@@ -375,6 +380,28 @@ export default function WebsiteStudio() {
   const switchPage = (id) => { if (id === page?.id) { setView('edit'); return; } if (!confirmLeave()) return; openPage(id).then(() => setView('edit')); };
   const reloadAll = async () => { await loadCfg(); const l = await loadPages(); const keep = l.find((p) => p.id === page?.id) || l.find((p) => p.slug === 'home') || l[0]; if (keep) await openPage(keep.id); setEpoch((e) => e + 1); loadPub(); };
 
+  const currentSections = () => (latest.current ? fromPuck(latest.current) : page.sections);
+  const aiContext = () => ({ page: { title: meta.title, slug: meta.slug, seo_title: meta.seo_title, seo_desc: meta.seo_desc }, sections: currentSections(), config: cfg });
+  const withPatch = (c, patch) => (patch ? { ...c, theme: { ...c.theme, ...patch.theme }, brand: { ...c.brand, ...patch.brand } } : c);
+  const aiApply = (pr) => {
+    setAiUndo({ sections: currentSections(), cfg, meta });
+    if (pr.config_patch) setCfg((c) => withPatch(c, pr.config_patch));
+    if (pr.page_meta) setMeta((m) => ({ ...m, ...pr.page_meta }));
+    setPage((p) => ({ ...p, sections: pr.sections }));
+    latest.current = toPuck(pr.sections);
+    setPageDirty(JSON.stringify(pr.sections) !== savedSections.current);
+    setAiPreview(null); setEpoch((e) => e + 1);
+    toast('Applied to your draft. Save the draft, then Publish when you are happy.', 'ok');
+  };
+  const aiRevert = () => {
+    if (!aiUndo) return;
+    setCfg(aiUndo.cfg); setMeta(aiUndo.meta);
+    setPage((p) => ({ ...p, sections: aiUndo.sections }));
+    latest.current = toPuck(aiUndo.sections);
+    setPageDirty(JSON.stringify(aiUndo.sections) !== savedSections.current);
+    setAiUndo(null); setAiPreview(null); setEpoch((e) => e + 1);
+    toast('The last AI change was undone', 'ok');
+  };
   const previewTheme = async (t) => {
     const photos = await listingPhotos();
     const built = { pages: themePages(t, photos), config: themeConfig(cfg, t) };
@@ -393,13 +420,13 @@ export default function WebsiteStudio() {
         <Puck key={`${page.id}-${epoch}`} config={config} data={data} iframe={{ enabled: true, waitForStyles: true }} viewports={DEVICES.map(([, label, w]) => ({ width: w, height: 'auto', label }))}
           onChange={(d) => { latest.current = d; setPageDirty(JSON.stringify(fromPuck(d)) !== savedSections.current); }}>
           <TopBar title={view === 'edit' ? `Editing: ${meta.title}` : preview ? `Theme preview: ${preview.theme.name}` : 'Website studio'} device={device} setDevice={setDevice} dirty={dirty} busy={busy} pub={pub} editing={view === 'edit'} onSave={() => save().catch(() => {})} onPublish={() => setPubOpen(true)} />
-          <SelectionWatcher onSelect={() => { if (!preview && view !== 'edit') { setView('edit'); setTab('blocks'); } }} />
+          <SelectionWatcher onSelect={() => { if (!preview && view !== 'edit' && view !== 'ai') { setView('edit'); setTab('blocks'); } }} />
           <div className="st-body">
             <aside className="st-side" aria-label="Website design menu">
               {view === 'root' && (
                 <>
                   <div className="st-side-h"><h2>Design</h2><p>Customise your website: pages, theme, colours, fonts and menus. Changes are drafts until you publish.</p></div>
-                  <nav className="st-menu">{SIDE_MENU.map(([k, l, ic]) => <button key={k} type="button" onClick={() => { setView(k); setPreview(null); }}><span className="ic" aria-hidden="true">{ic}</span><span className="grow">{l}</span><span aria-hidden="true">›</span></button>)}</nav>
+                  <nav className="st-menu">{SIDE_MENU.map(([k, l, ic]) => <button key={k} type="button" onClick={() => { setView(k); setPreview(null); setAiPreview(null); }}><span className="ic" aria-hidden="true">{ic}</span><span className="grow">{l}</span><span aria-hidden="true">›</span></button>)}</nav>
                 </>
               )}
               {view === 'edit' && (
@@ -417,8 +444,9 @@ export default function WebsiteStudio() {
               )}
               {view !== 'root' && view !== 'edit' && (
                 <>
-                  <div className="st-side-h row"><button type="button" className="st-back" onClick={() => { setView('root'); setPreview(null); }} aria-label="Back">‹</button><div className="grow"><h2>{menuItem?.[1]}</h2><p>{menuItem?.[3]}</p></div></div>
+                  <div className="st-side-h row"><button type="button" className="st-back" onClick={() => { setView('root'); setPreview(null); setAiPreview(null); }} aria-label="Back">‹</button><div className="grow"><h2>{menuItem?.[1]}</h2><p>{menuItem?.[3]}</p></div></div>
                   <div className="st-scroll">
+                    {view === 'ai' && <AiEditPanel chat={aiChat} setChat={setAiChat} getContext={aiContext} previewing={aiPreview} onPreview={(pr) => { setAiPreview(pr); if (pr) setMobilePanel(false); }} onApply={(pr) => { aiApply(pr); setMobilePanel(false); }} onUndo={aiRevert} canUndo={!!aiUndo} />}
                     {view === 'pages' && <PagesPanel pages={pages} pageId={page.id} onOpen={switchPage} onNew={() => setNewPage({ title: '' })} canCreate={can('website', 'create')} />}
                     {view === 'themes' && <ThemesPanel active={cfg.active_theme} previewing={preview?.theme.id} onPreview={previewTheme} />}
                     {PANEL_FIELDS[view] && <ConfigFields fields={PANEL_FIELDS[view]} cfg={cfg} setCfg={setCfg} ctx={ctx} />}
@@ -437,7 +465,17 @@ export default function WebsiteStudio() {
               )}
             </aside>
             <section className="st-main" aria-label="Page preview">
-              {preview ? (
+              {aiPreview && !preview ? (
+                <>
+                  <div className="st-prevbar" role="status">
+                    <b>AI suggestion (preview only)</b>
+                    <span className="grow" />
+                    <button type="button" className="btn" onClick={() => setAiPreview(null)}>Close preview</button>
+                    <button type="button" className="btn primary" onClick={() => aiApply(aiPreview)}>Apply to my draft</button>
+                  </div>
+                  <div className="st-frame" style={{ maxWidth: width }}><BuilderCanvas config={withPatch(cfg, aiPreview.config_patch)} sections={aiPreview.sections} device={device} readonly actions={{}} /></div>
+                </>
+              ) : preview ? (
                 <>
                   <div className="st-prevbar" role="status">
                     <b>{preview.theme.name}</b>

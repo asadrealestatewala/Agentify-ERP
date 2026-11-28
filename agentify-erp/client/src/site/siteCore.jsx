@@ -140,6 +140,19 @@ export function useTitle(title, desc, image) {
     let link = document.head.querySelector('link[rel=canonical]'); if (!link) { link = document.createElement('link'); link.rel = 'canonical'; document.head.appendChild(link); }
     link.href = `${base}${window.location.pathname}`;
   }, [title, desc, image, config]); // eslint-disable-line
+  // the company's own favicon (Website studio > Identity) replaces the Agentify icon while its website is open, and is put back after
+  const fav = config?.brand?.favicon;
+  useEffect(() => {
+    if (site.preview || !fav) return undefined;
+    const url = /^(https?:|\/)/.test(fav) ? fav : `/uploads/${fav}`;
+    const found = [...document.head.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]')];
+    const made = found.length ? null : Object.assign(document.createElement('link'), { rel: 'icon' });
+    if (made) document.head.appendChild(made);
+    const links = made ? [made] : found;
+    const prev = links.map((l) => [l, l.getAttribute('href'), l.getAttribute('type')]);
+    links.forEach((l) => { l.setAttribute('href', url); l.removeAttribute('type'); });
+    return () => { if (made) made.remove(); else prev.forEach(([l, h, t]) => { if (h != null) l.setAttribute('href', h); if (t) l.setAttribute('type', t); }); };
+  }, [fav, site.preview]);
 }
 
 /** Organisation structured data (JSON-LD) so search engines show the company name, logo, phone and address. */

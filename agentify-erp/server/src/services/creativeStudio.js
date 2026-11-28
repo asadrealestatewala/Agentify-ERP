@@ -231,8 +231,8 @@ export async function storeBytes(buf, mime, ext) {
   const dir = path.join(uploadDir(), 'media'); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(path.join(dir, name), buf);
   return `media/${name}`;
 }
-const EXT = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
-function sniff(buf) { if (buf.length > 8 && buf.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))) return 'image/png'; if (buf[0] === 0xff && buf[1] === 0xd8) return 'image/jpeg'; if (buf.subarray(0, 4).toString() === 'RIFF' && buf.subarray(8, 12).toString() === 'WEBP') return 'image/webp'; return null; }
+export const EXT = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
+export function sniff(buf) { if (buf.length > 8 && buf.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]))) return 'image/png'; if (buf[0] === 0xff && buf[1] === 0xd8) return 'image/jpeg'; if (buf.subarray(0, 4).toString() === 'RIFF' && buf.subarray(8, 12).toString() === 'WEBP') return 'image/webp'; return null; }
 /** Save one chosen image to the workspace's storage. The bytes are checked to be a real image, never trusted from the client's label. */
 export async function saveImage({ data, title, prompt, size }, user) {
   const buf = Buffer.from(String(data || ''), 'base64');

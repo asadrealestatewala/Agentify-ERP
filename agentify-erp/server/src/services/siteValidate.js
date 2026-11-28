@@ -30,6 +30,7 @@ export function validateSiteConfig(c) {
   for (const k of ['font_heading', 'font_body']) if (t[k] !== undefined && t[k] !== '' && !SITE_FONTS.includes(t[k])) throw bad(`Font “${String(t[k]).slice(0, 30)}” is not one of the available fonts`);
   if (t.radius !== undefined && t.radius !== '') num(t.radius, 'Corner roundness', 0, 40);
   checkImage(c.brand?.logo, 'The logo');
+  checkImage(c.brand?.favicon, 'The favicon');
   checkImage(c.seo?.image, 'The share image');
   if (c.seo) {
     for (const [k, max] of [['title', 120], ['description', 320], ['keywords', 400]]) if (c.seo[k] !== undefined && String(c.seo[k] ?? '').length > max) throw bad(`The SEO ${k} is too long (max ${max} characters)`);

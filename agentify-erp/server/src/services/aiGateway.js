@@ -48,7 +48,7 @@ export const ASPECTS = { square: '1:1', portrait: '4:5', story: '9:16' };
  * One image from Gemini's image model (Nano Banana) with the platform key. Metered as one image at the feature's price.
  * Returns { mime, data (base64) }. A prompt or result Google blocks for safety gives a plain-words error (and still counts as a use).
  */
-export async function geminiImage({ feature = 'creative_post', prompt, aspect = 'square', tenantId = null, userId = null, credits = 0, timeout = 90_000 }) {
+export async function geminiImage({ feature = 'creative_post', prompt, aspect = 'square', aspectRatio = null, tenantId = null, userId = null, credits = 0, timeout = 90_000 }) {
   const c = config();
   if (!c.key) throw bad('Image creation is not available yet. Please try again later.');
   assertPlatformAllowed({ feature, tenantId, credits });
@@ -57,7 +57,7 @@ export async function geminiImage({ feature = 'creative_post', prompt, aspect = 
   let d;
   try {
     const res = await fetch(`${GEMINI}/models/${encodeURIComponent(m)}:generateContent`, { method: 'POST', headers: { 'x-goog-api-key': c.key, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(timeout),
-      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: String(prompt) }] }], generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: ASPECTS[aspect] || '1:1' } } }) });
+      body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: String(prompt) }] }], generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: aspectRatio || ASPECTS[aspect] || '1:1' } } }) });
     d = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(d?.error?.message || `Google answered ${res.status}`);
   } catch (e) {
