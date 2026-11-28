@@ -6,6 +6,12 @@
 // Write for customers: plain words, what changed and where to find it. See "Releases and versions" in CLAUDE.md.
 export const CHANGELOG = [
   {
+    version: 'v1.128', date: '2026-11-28', title: 'Free AI credits for trial workspaces',
+    items: [
+      { text: 'New setting "Free AI credits for trial workspaces": give every trial a monthly number of AI credits so they can try Edit with AI and Creative Studio. Empty or 0 keeps trials without credits; a number set on one workspace still wins.', where: 'Console > AI > Budget and limits', audience: 'platform' },
+    ],
+  },
+  {
     version: 'v1.127', date: '2026-11-28', title: 'Edit your website with AI',
     items: [
       { text: 'Describe a change to your website in plain words and the AI suggests it: "make the hero darker", "add an FAQ before the contact form", "rewrite the home page headline", or a full redesign of the page. You preview the suggestion on the page, apply it to your draft, and nothing goes live until you press Publish. You can undo the last AI change.', where: 'Website > Design > Edit with AI', guide: 'edit-website-with-ai' },

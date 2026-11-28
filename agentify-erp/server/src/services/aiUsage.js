@@ -230,6 +230,7 @@ export function saveControls(b, by) {
   if ('video_budget_usd_month' in b) set('ai_video_budget_usd_month', usd(b.video_budget_usd_month, 'The video budget'));
   if ('platform_daily_limit' in b) set('ai_platform_daily_limit', limitNum(b.platform_daily_limit, 'The daily limit', 100000));
   if ('default_monthly_credits' in b) set('ai_default_monthly_credits', limitNum(b.default_monthly_credits, 'The default monthly credits', 10_000_000));
+  if ('trial_monthly_credits' in b) set('ai_trial_monthly_credits', limitNum(b.trial_monthly_credits, 'The free credits for trials', 100_000));
   if (b.features && typeof b.features === 'object') {
     const off = new Set(featuresOff());
     for (const [k, on] of Object.entries(b.features)) { if (!AI_FEATURES[k]) throw bad('Unknown AI feature'); if (on) off.delete(k); else off.add(k); }

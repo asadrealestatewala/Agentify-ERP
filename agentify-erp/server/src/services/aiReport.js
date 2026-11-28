@@ -95,7 +95,7 @@ export function overview(now = new Date()) {
     rate, display_currency: displayCurrency(), master: { on: !flag('ai_kill_switch'), last_change: killSwitchLastChange() }, ffmpeg: ffmpegStatus(),
     month: { spent_usd: spent, spent_pkr: spentPkr, budget_usd: budgetUsd(), video_budget_usd: videoBudgetUsd(), video_spent_usd: byF.get('creative_video')?.usd || 0 },
     features, prices: priceList(now), text_price_source: tp.source, workspaces,
-    limits: { platform_daily_limit: numSetting('ai_platform_daily_limit'), platform_daily_limit_effective: platformDailyLimit(null), default_monthly_credits: defaultMonthlyCredits() },
+    limits: { platform_daily_limit: numSetting('ai_platform_daily_limit'), platform_daily_limit_effective: platformDailyLimit(null), default_monthly_credits: defaultMonthlyCredits(), trial_monthly_credits: numSetting('ai_trial_monthly_credits') },
     technical: {
       gemini: { added: !!c.key, key_hint: c.key ? `…${c.key.slice(-4)}` : null, text_model: c.model },
       azure: azureStatus(),
