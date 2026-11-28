@@ -82,7 +82,7 @@ function Rate({ o, can, reload }) {
 
 function Limits({ o, can, reload }) {
   const toast = useToast();
-  const [f, setF] = useState({ budget_usd_month: o.month.budget_usd ?? '', video_budget_usd_month: o.month.video_budget_usd ?? '', platform_daily_limit: o.limits.platform_daily_limit ?? '', default_monthly_credits: o.limits.default_monthly_credits ?? '' });
+  const [f, setF] = useState({ budget_usd_month: o.month.budget_usd ?? '', video_budget_usd_month: o.month.video_budget_usd ?? '', platform_daily_limit: o.limits.platform_daily_limit ?? '', default_monthly_credits: o.limits.default_monthly_credits ?? '', trial_monthly_credits: o.limits.trial_monthly_credits ?? '' });
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const save = async () => { try { await api.put(`${A}/ai/controls`, f); toast('Limits saved'); reload(); } catch (e) { toast(e.message, 'err'); } };
   const pct = o.month.budget_usd ? Math.min(100, Math.round((o.month.spent_usd / o.month.budget_usd) * 100)) : null;
@@ -95,6 +95,7 @@ function Limits({ o, can, reload }) {
           <Field label="Monthly video budget (USD)" hint={`${f.video_budget_usd_month !== '' && Number(f.video_budget_usd_month) >= 0 ? `About ${rs(Number(f.video_budget_usd_month) * o.rate.rate, o.display_currency)}. ` : ''}Video is the costly part. Empty means no separate video cap.`}><input className="input" type="number" min={0} step="any" value={f.video_budget_usd_month} onChange={set('video_budget_usd_month')} /></Field>
           <Field label="Daily uses per workspace" hint={`Empty uses the default (${o.limits.platform_daily_limit_effective}). One use = one AI call.`}><input className="input" type="number" min={0} value={f.platform_daily_limit} onChange={set('platform_daily_limit')} /></Field>
           <Field label="Default monthly credits per workspace" hint="Creative Studio credits. Empty means no limit yet."><input className="input" type="number" min={0} value={f.default_monthly_credits} onChange={set('default_monthly_credits')} /></Field>
+          <Field label="Free AI credits for trial workspaces (per month)" hint="Lets trials try Edit with AI and Creative Studio. Empty or 0 means trials get none. A number set on one workspace below wins."><input className="input" type="number" min={0} value={f.trial_monthly_credits} onChange={set('trial_monthly_credits')} /></Field>
           <div><button className="btn primary" onClick={save}>Save limits</button></div>
         </div>) : <p className="muted">Your role cannot change these.</p>}
     </FoldCard>

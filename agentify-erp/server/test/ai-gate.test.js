@@ -21,7 +21,7 @@ after(() => { globalThis.fetch = realFetch; });
 
 const code = (fn) => { try { fn(); return null; } catch (e) { return e.extra?.code ?? e.code ?? e.message; } };
 let T;
-const reset = () => { for (const k of ['ai_kill_switch', 'ai_features_off', 'ai_budget_usd_month', 'ai_budget_month', 'ai_video_budget_usd_month', 'ai_platform_daily_limit', 'ai_default_monthly_credits']) setSetting(k, null); platformDb().exec('DELETE FROM ai_usage; DELETE FROM workspace_ai_settings; DELETE FROM ai_tenant_credits'); };
+const reset = () => { for (const k of ['ai_kill_switch', 'ai_features_off', 'ai_budget_usd_month', 'ai_budget_month', 'ai_video_budget_usd_month', 'ai_platform_daily_limit', 'ai_default_monthly_credits', 'ai_trial_monthly_credits']) setSetting(k, null); platformDb().exec('DELETE FROM ai_usage; DELETE FROM workspace_ai_settings; DELETE FROM ai_tenant_credits'); };
 
 test('checks run in order: master, feature, workspace, daily, budget, video, credits', () => {
   aiu.ensureTable();
@@ -116,5 +116,21 @@ test('trial workspaces get no AI credits unless the console sets some', () => {
   assert.equal(gate.creditsAllowance(TR), 20, 'a number set by hand in the console wins');
   assert.equal(code(() => gate.assertPlatformAllowed({ feature: 'creative_post', tenantId: TR, credits: 5 })), null);
   assert.equal(gate.onTrial(T), false); assert.equal(gate.creditsAllowance(T), 100, 'paid workspaces still get the default');
+  reset();
+});
+
+test('the console can give every trial workspace some free AI credits', () => {
+  const db = platformDb();
+  reset();
+  db.prepare("INSERT OR IGNORE INTO tenants(slug, name, plan, db_file, upload_dir, subscription_status, owner_email) VALUES('trialco2','Trial 2','growth','y2.db','y2','trialing','o2@trial.test')").run();
+  const TR = db.prepare("SELECT id FROM tenants WHERE slug='trialco2'").get().id;
+  assert.equal(gate.creditsAllowance(TR), 0);
+  aiu.saveControls({ trial_monthly_credits: 15 }, 't');
+  assert.equal(gate.creditsAllowance(TR), 15, 'trials get the trial allowance');
+  assert.equal(code(() => gate.assertPlatformAllowed({ feature: 'website_ai', tenantId: TR, credits: 3 })), null);
+  assert.equal(gate.creditsAllowance(T), null, 'paid workspaces are not affected');
+  gate.setCredits(TR, { monthly_credits: 2 }, 't');
+  assert.equal(gate.creditsAllowance(TR), 2, 'a number set on the workspace still wins');
+  aiu.saveControls({ trial_monthly_credits: '' }, 't');
   reset();
 });

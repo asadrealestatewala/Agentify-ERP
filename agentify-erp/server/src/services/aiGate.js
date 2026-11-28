@@ -23,6 +23,8 @@ export const platformDailyLimit = (tenantId) => {
   return ws?.platform_daily_limit ?? numSetting('ai_platform_daily_limit') ?? DEFAULT_DAILY_LIMIT;
 };
 export const defaultMonthlyCredits = () => numSetting('ai_default_monthly_credits');
+/** Free monthly credits every trial workspace gets (console setting). Empty or 0 = trials get none, as before. */
+export const trialMonthlyCredits = () => numSetting('ai_trial_monthly_credits') || 0;
 
 export function spentUsd({ feature = null, now = new Date() } = {}) {
   const since = monthStartOf(now);
@@ -46,10 +48,10 @@ export function onTrial(tenantId) {
     return !!t && !t.is_legacy && billingState(t).status === 'trialing';
   } catch { return false; }
 }
-/** Credits a workspace may spend this month (allowance + any top-up made this month), or null for no limit. Trials: 0 unless the console set a number for that workspace. */
+/** Credits a workspace may spend this month (allowance + any top-up made this month), or null for no limit. Trials: the trial allowance (0 by default) unless the console set a number for that workspace. */
 export function creditsAllowance(tenantId, now = new Date()) {
   const r = db().prepare('SELECT monthly_credits, topup_credits, topup_month FROM ai_tenant_credits WHERE tenant_id=?').get(tenantId);
-  const base = r?.monthly_credits ?? (onTrial(tenantId) ? 0 : (planCredits(tenantId) ?? defaultMonthlyCredits()));
+  const base = r?.monthly_credits ?? (onTrial(tenantId) ? trialMonthlyCredits() : (planCredits(tenantId) ?? defaultMonthlyCredits()));
   if (base == null) return null;
   return base + (r && r.topup_month === now.toISOString().slice(0, 7) ? r.topup_credits : 0);
 }
